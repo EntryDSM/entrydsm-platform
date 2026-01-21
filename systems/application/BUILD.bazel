@@ -1,0 +1,6 @@
+load("//:kotlin.bzl", "setup_kotlin_compiler", "setup_spring_allopen_plugin")
+
+package(default_visibility = ["//visibility:public"])
+
+setup_kotlin_compiler()
+setup_spring_allopen_plugin()
