@@ -1,0 +1,87 @@
+name: BUG
+description: Internal bug report for developers
+title: ""
+labels: ["bug", "triage"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Provide a concise one-line summary of the issue.
+      placeholder: e.g. Login fails under specific conditions
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the observed behavior in detail.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: List the steps required to reproduce the issue.
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Result
+      description: Describe the expected correct behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Result
+      description: Describe what actually happened.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Select the environment where the issue occurred.
+      options:
+        - local
+        - staging
+        - production
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / Commit
+      description: Relevant version number or commit hash.
+      placeholder: e.g. v1.4.2 / a1b2c3d
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Stack Trace
+      description: Attach any relevant logs, error messages, or stack traces.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+      description: Suspected cause, related issues, temporary workarounds, etc.
+    validations:
+      required: false
