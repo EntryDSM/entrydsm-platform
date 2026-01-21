@@ -1,0 +1,27 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary", "kt_jvm_test")
+
+load("//module-a:deps.bzl", "MODULE_DEPS", "TEST_DEPS")
+
+package(default_visibility = ["//visibility:public"])
+
+setup_kotlin_compiler()
+
+kt_jvm_binary(
+    name = "main",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    main_class = "hs.kr.entrydsm.example.ExampleApplicationKt",
+    plugins = ["//:spring_allopen"],
+    deps = MODULE_DEPS,
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+)
+
+kt_jvm_test(
+    name = "test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    test_class = "hs.kr.entrydsm.example.ExampleApplicationTest",
+    plugins = ["//:spring_allopen"],
+    deps = MODULE_DEPS + TEST_DEPS,
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+)

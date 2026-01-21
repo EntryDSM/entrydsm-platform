@@ -16,6 +16,7 @@ gazelle(
 
 alias(name = "admission", actual = "//systems/admission/module-a:main")
 alias(name = "application", actual = "//systems/application/module-a:main")
+alias(name = "configuration" actual = "//systems/configuration/module-a:main")
 alias(name = "document", actual = "//systems/document/module-a:main")
 alias(name = "gateway", actual = "//systems/gateway/module-a:main")
 alias(name = "identity", actual = "//systems/identity/module-a:main")
