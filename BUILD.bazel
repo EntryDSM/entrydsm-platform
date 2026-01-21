@@ -13,3 +13,15 @@ gazelle(
     args = ["-from_file=go.mod", "-to_macro=deps.bzl%go_dependencies", "-prune"],
     command = "update-repos",
 )
+
+alias(name = "admission", actual = "//systems/admission/module-a:main")
+alias(name = "application", actual = "//systems/application/module-a:main")
+alias(name = "document", actual = "//systems/document/module-a:main")
+alias(name = "gateway", actual = "//systems/gateway/module-a:main")
+alias(name = "identity", actual = "//systems/identity/module-a:main")
+alias(name = "notification", actual = "//systems/notification/module-a:main")
+alias(name = "schedule", actual = "//systems/schedule/module-a:main")
+
+alias(name = "analytics", actual = "//systems/analytics/cmd/server:server")
+alias(name = "evaluation", actual = "//systems/evaluation/cmd/server:server")
+alias(name = "observability", actual = "//systems/observability/cmd/server:server")

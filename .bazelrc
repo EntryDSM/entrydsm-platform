@@ -1,2 +1,4 @@
+build --package_path=%workspace%:
+
 build --java_runtime_version=remotejdk_21
 build --tool_java_runtime_version=remotejdk_21
