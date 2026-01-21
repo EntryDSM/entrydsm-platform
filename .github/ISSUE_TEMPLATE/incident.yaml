@@ -1,6 +1,5 @@
 name: incident
 description: Production incident / service outage
-title: "[INCIDENT] "
 labels: ["incident"]
 body:
   - type: input

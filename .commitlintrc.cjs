@@ -1,6 +1,23 @@
 module.exports = {
   extends: ['@commitlint/config-conventional'],
+  plugins: [
+    {
+      rules: {
+        'issue-number-required': (parsed) => {
+          const { subject } = parsed;
+          const issuePattern = /#\d+/;
+
+          if (!subject || !issuePattern.test(subject)) {
+            return [false, 'commit message must include issue number (e.g., #123)'];
+          }
+
+          return [true];
+        }
+      }
+    }
+  ],
   rules: {
+    'issue-number-required': [2, 'always'],
     'type-enum': [
       2,
       'always',
@@ -31,13 +48,6 @@ module.exports = {
     ],
 
     'subject-empty': [2, 'never'],
-    'subject-max-length': [2, 'always', 72],
-
-    'subject-pattern': [2, 'always', '.*\\(#[0-9]+\\)$'],
-    'subject-pattern-error-message': [
-      2,
-      'always',
-      'Commit subject must end with an issue reference like "(#123)".'
-    ]
+    'subject-max-length': [2, 'always', 72]
   }
 };

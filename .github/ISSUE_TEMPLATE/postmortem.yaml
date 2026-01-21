@@ -1,6 +1,5 @@
 name: postmortem
 description: Incident postmortem / root cause analysis
-title: "[POSTMORTEM] "
 labels: ["postmortem"]
 body:
   - type: input
