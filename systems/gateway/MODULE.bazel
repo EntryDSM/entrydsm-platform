@@ -1,0 +1,65 @@
+module(
+    name = "entrydsm_example",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "rules_kotlin", version = "2.1.0")
+bazel_dep(name = "rules_jvm_external", version = "6.7")
+
+KOTLIN_VERSION = "2.1.0"
+SPRING_BOOT_VERSION = "4.0.1"
+JACKSON_VERSION = "2.18.2"
+JUNIT_VERSION = "4.13.2"
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+
+maven.install(
+    name = "maven",
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+)
+
+maven.artifact(
+    artifact = "spring-boot-starter-web",
+    group = "org.springframework.boot",
+    version = SPRING_BOOT_VERSION,
+)
+
+maven.artifact(
+    artifact = "spring-boot-starter-actuator",
+    group = "org.springframework.boot",
+    version = SPRING_BOOT_VERSION,
+)
+
+maven.artifact(
+    artifact = "spring-boot-starter-test",
+    group = "org.springframework.boot",
+    version = SPRING_BOOT_VERSION,
+)
+
+maven.artifact(
+    artifact = "junit",
+    group = "junit",
+    version = JUNIT_VERSION,
+)
+
+maven.artifact(
+    artifact = "kotlin-reflect",
+    group = "org.jetbrains.kotlin",
+    version = KOTLIN_VERSION,
+)
+
+maven.artifact(
+    artifact = "kotlin-allopen-compiler-plugin",
+    group = "org.jetbrains.kotlin",
+    version = KOTLIN_VERSION,
+)
+
+maven.artifact(
+    artifact = "jackson-module-kotlin",
+    group = "com.fasterxml.jackson.module",
+    version = JACKSON_VERSION,
+)
+
+use_repo(maven, "maven")
