@@ -1,0 +1,37 @@
+name: documentation
+description: Documentation update or request
+title: ""
+labels: ["documentation", "triage"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line summary of the documentation change.
+      placeholder: e.g. Update API authentication guide
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue Description
+      description: What is missing, outdated, or incorrect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Affected Docs / Location
+      description: File paths, pages, or sections.
+    validations:
+      required: false
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Update
+      description: What should be added or changed?
+    validations:
+      required: false

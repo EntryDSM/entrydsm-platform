@@ -1,0 +1,36 @@
+name: chore
+description: Maintenance or housekeeping task
+title: ""
+labels: ["chore", "triage"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line summary of the task.
+      placeholder: e.g. Upgrade Node.js version
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the maintenance task.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope / Impact
+      description: Affected components or services.
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+    validations:
+      required: false

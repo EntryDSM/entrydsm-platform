@@ -1,0 +1,37 @@
+name: question
+description: Internal technical question
+title: ""
+labels: ["question"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Question Summary
+      description: One-line summary of the question.
+      placeholder: e.g. Should we cache this endpoint?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Background and relevant context.
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Specific questions or points for discussion.
+    validations:
+      required: true
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Related issues, PRs, or documents.
+    validations:
+      required: false
