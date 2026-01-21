@@ -2,7 +2,14 @@ name: Commit Lint
 
 on:
   pull_request:
+    branches:
+      - main
+      - develop
     types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+      - develop
 
 jobs:
   commitlint:
