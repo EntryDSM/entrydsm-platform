@@ -1,0 +1,77 @@
+name: incident
+description: Production incident / service outage
+title: "[INCIDENT] "
+labels: ["incident"]
+body:
+  - type: input
+    id: start_time
+    attributes:
+      label: Incident Start Time
+      description: When did the incident start?
+      placeholder: e.g. 2026-01-20 14:32 KST
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Current Status
+      options:
+        - Investigating
+        - Mitigating
+        - Monitoring
+        - Resolved
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Brief description of the incident.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Affected services, users, or business impact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: timeline
+    attributes:
+      label: Timeline
+      description: Key events and actions in chronological order.
+      placeholder: |
+        - 14:32 Incident detected
+        - 14:35 On-call notified
+        - 14:50 Rollback applied
+    validations:
+      required: true
+
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Mitigation / Workaround
+      description: Temporary mitigation or rollback steps.
+    validations:
+      required: false
+
+  - type: textarea
+    id: root_cause
+    attributes:
+      label: Suspected Root Cause
+      description: Initial hypothesis (can be updated later).
+    validations:
+      required: false
+
+  - type: textarea
+    id: followups
+    attributes:
+      label: Follow-up Actions
+      description: Bugs, tasks, or prevention work to be created.
+    validations:
+      required: false

@@ -1,0 +1,77 @@
+name: postmortem
+description: Incident postmortem / root cause analysis
+title: "[POSTMORTEM] "
+labels: ["postmortem"]
+body:
+  - type: input
+    id: incident
+    attributes:
+      label: Related Incident
+      description: Link to the incident issue.
+      placeholder: e.g. #123
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: High-level summary of the incident.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: User / business impact.
+    validations:
+      required: true
+
+  - type: textarea
+    id: timeline
+    attributes:
+      label: Timeline
+      description: Key events from start to resolution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: root_cause
+    attributes:
+      label: Root Cause
+      description: What actually caused the incident?
+    validations:
+      required: true
+
+  - type: textarea
+    id: contributing_factors
+    attributes:
+      label: Contributing Factors
+      description: What conditions allowed this to happen?
+    validations:
+      required: false
+
+  - type: textarea
+    id: detection
+    attributes:
+      label: Detection
+      description: How was the incident detected?
+    validations:
+      required: false
+
+  - type: textarea
+    id: resolution
+    attributes:
+      label: Resolution
+      description: How was the incident resolved?
+    validations:
+      required: true
+
+  - type: textarea
+    id: prevention
+    attributes:
+      label: Prevention / Action Items
+      description: What will prevent this from happening again?
+    validations:
+      required: true
