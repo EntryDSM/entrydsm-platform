@@ -1,0 +1,44 @@
+name: enhancement
+description: Improvement to an existing feature
+title: ""
+labels: ["enhancement", "triage"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line summary of the enhancement.
+      placeholder: e.g. Improve search response time
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Behavior
+      description: Describe the current behavior or limitation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: improvement
+    attributes:
+      label: Proposed Improvement
+      description: Describe how it should be improved.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Expected Impact
+      description: Performance, UX, maintainability, etc.
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional Notes
+    validations:
+      required: false
