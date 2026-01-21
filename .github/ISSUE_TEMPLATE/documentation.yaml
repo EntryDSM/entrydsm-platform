@@ -1,6 +1,5 @@
 name: documentation
 description: Documentation update or request
-title: ""
 labels: ["documentation", "triage"]
 body:
   - type: input

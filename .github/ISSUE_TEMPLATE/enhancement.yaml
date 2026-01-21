@@ -1,6 +1,5 @@
 name: enhancement
 description: Improvement to an existing feature
-title: ""
 labels: ["enhancement", "triage"]
 body:
   - type: input

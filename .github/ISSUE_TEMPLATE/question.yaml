@@ -1,6 +1,5 @@
 name: question
 description: Internal technical question
-title: ""
 labels: ["question"]
 body:
   - type: input

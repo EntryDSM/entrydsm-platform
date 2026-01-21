@@ -1,6 +1,5 @@
 name: feature
 description: New feature request (internal)
-title: ""
 labels: ["feature", "triage"]
 body:
   - type: input

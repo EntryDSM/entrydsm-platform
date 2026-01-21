@@ -1,6 +1,5 @@
 name: BUG
 description: Internal bug report for developers
-title: ""
 labels: ["bug", "triage"]
 body:
   - type: input

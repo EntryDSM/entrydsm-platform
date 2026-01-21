@@ -1,6 +1,5 @@
 name: chore
 description: Maintenance or housekeeping task
-title: ""
 labels: ["chore", "triage"]
 body:
   - type: input
