@@ -1,4 +1,4 @@
-name: BUG
+name: Bug
 description: Internal bug report for developers
 labels: ["bug", "triage"]
 body:
