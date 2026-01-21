@@ -1,4 +1,4 @@
-module github.com/entrydsm/example/go/gin
+module github.com/entrydsm/platform/systems/evaluation
 
 go 1.25.5
 

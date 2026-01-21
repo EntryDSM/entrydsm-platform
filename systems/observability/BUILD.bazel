@@ -1,13 +1,6 @@
 load("@gazelle//:def.bzl", "gazelle")
 
+# Gazelle for this Go module
 gazelle(name = "gazelle")
 
-gazelle(
-    name = "gazelle-update-repos",
-    args = [
-        "-from_file=go.mod",
-        "-to_macro=deps.bzl%go_dependencies",
-        "-prune",
-    ],
-    command = "update-repos",
-)
+exports_files(["go.mod", "go.sum"])

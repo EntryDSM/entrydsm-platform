@@ -1,0 +1,12 @@
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(name = "maven", repositories = ["https://repo1.maven.org/maven2"])
+
+maven.artifact(artifact = "spring-boot-starter-web", group = "org.springframework.boot", version = "4.0.1")
+maven.artifact(artifact = "spring-boot-starter-actuator", group = "org.springframework.boot", version = "4.0.1")
+maven.artifact(artifact = "spring-boot-starter-test", group = "org.springframework.boot", version = "4.0.1")
+maven.artifact(artifact = "junit", group = "junit", version = "4.13.2")
+maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", version = "2.1.0")
+maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")
+maven.artifact(artifact = "jackson-module-kotlin", group = "com.fasterxml.jackson.module", version = "2.18.2")
+
+use_repo(maven, "maven")

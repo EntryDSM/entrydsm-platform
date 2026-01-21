@@ -1,11 +1,7 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary", "kt_jvm_test")
-load("//:kotlin.bzl", "setup_kotlin_compiler", "setup_spring_allopen_plugin")
-load("//module-a:deps.bzl", "MODULE_DEPS", "TEST_DEPS")
+load("//systems/admission/module-a:deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
 package(default_visibility = ["//visibility:public"])
-
-setup_kotlin_compiler()
-setup_spring_allopen_plugin()
 
 kt_jvm_binary(
     name = "main",
