@@ -1,0 +1,16 @@
+bazel-*
+.bazelbsp/
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.AppleDouble
+.LSOverride
+*.log
+*.tmp
+*.temp
+.claude/
+.idea
