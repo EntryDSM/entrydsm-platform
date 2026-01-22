@@ -72,9 +72,12 @@ prefix는 Issue Type과 같습니다.
 ---
 
 ## 4. Pull Request Process
+* 모든 pull request는 전부 template을 통하여 작성되어야합니다.
+
 * 다음과 같은 형식으로 작성합니다: `Type(Scope): Summary (이슈 번호)`
 
-* 멀티 템플릿의 경우, PR 생성했을 때의 URL 뒤에 &template={템플릿 파일 이름} 을 붙여줘야 합니다.
+* 멀티 템플릿의 경우, PR 생성했을 때의 URL 뒤에 `&template={템플릿 파일 이름}` 을 붙여줘야 합니다.
+  (ex. `https://github.com/EntryDSM/entrydsm-platform/compare/main...documentation/branch-name?expand=1&template=documentation.md`)
 
 * **PR 템플릿 사용:**
 `.github/PULL_REQUEST_TEMPLATE.md`하위 템플릿과 연계하여 작성해주세요.
@@ -89,5 +92,10 @@ prefix는 Issue Type과 같습니다.
 * **PR 시 주의사항**
   * 발생한 Conflict에 대해서는 PR 작성자가 해결합니다.
   * 가능 한 작은 크기의 PR을 제출하여 리뷰어가 쉽게 검토하도록 합니다.
-  * 너무 큰 PR은 여러개로 분리합니다.
+    * 권장 PR의 크기는 다음과 같습니다:
+    * 변경된 코드 라인 수: 200 ~ 300라인 이내
+    * 파일 개수: 10개 이내
+    * 리뷰 소요 시간: 리뷰어가 15 ~ 30분 이내에 전체 내용을 파악하고 피드백을 줄 수 있는 정도
+  * 하나의 PR에는 하나의 중심 내용만 넣어야 합니다.
+    * 기능 구현(feat), 리팩토링(refactor), 버그 수정(fix), 스타일 수정(chore) 등이 섞여있다면 무조건 분리합니다.
   * PR 작성 시 github 프로젝트를 선택하지 않습니다.
