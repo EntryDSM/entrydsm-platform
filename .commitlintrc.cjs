@@ -48,6 +48,6 @@ module.exports = {
     ],
 
     'subject-empty': [2, 'never'],
-    'subject-max-length': [2, 'always', 72]
+    'subject-max-length': [2, 'always', 300]
   }
 };
