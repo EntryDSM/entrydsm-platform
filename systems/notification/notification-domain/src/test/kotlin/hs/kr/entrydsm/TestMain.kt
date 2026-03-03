@@ -1,11 +1,11 @@
-package hs.kr.entrydsm.example
+package hs.kr.entrydsm.notification.domain
 
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ExampleApplicationTest {
+class NotificationDomainModuleTest {
     @Test
-    fun contextLoads() {
-        assertEquals(4, 2 + 2)
+    fun moduleLoads() {
+        assertTrue(true)
     }
 }

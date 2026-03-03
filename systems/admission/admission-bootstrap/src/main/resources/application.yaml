@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: admission
+  profiles:
+    default: local
+  main:
+    lazy-initialization: true
+server:
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+logging:
+  level:
+    root: INFO

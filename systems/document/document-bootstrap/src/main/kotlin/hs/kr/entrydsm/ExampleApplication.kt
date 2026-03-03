@@ -1,11 +1,11 @@
-package hs.kr.entrydsm.example
+package hs.kr.entrydsm.document
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class ExampleApplication
+class DocumentBootstrapApplication
 
 fun main(args: Array<String>) {
-    runApplication<ExampleApplication>(*args)
+    runApplication<DocumentBootstrapApplication>(*args)
 }

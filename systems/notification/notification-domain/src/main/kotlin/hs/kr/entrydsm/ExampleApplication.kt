@@ -1,11 +1,3 @@
-package hs.kr.entrydsm.example
+package hs.kr.entrydsm.notification.domain
 
-import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.boot.runApplication
-
-@SpringBootApplication
-class ExampleApplication
-
-fun main(args: Array<String>) {
-    runApplication<ExampleApplication>(*args)
-}
+class NotificationDomainModule
