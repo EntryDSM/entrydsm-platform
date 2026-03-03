@@ -1,11 +1,11 @@
-package hs.kr.entrydsm.example
+package hs.kr.entrydsm.application.application
 
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ExampleApplicationTest {
+class ApplicationApplicationModuleTest {
     @Test
-    fun contextLoads() {
-        assertEquals(4, 2 + 2)
+    fun moduleLoads() {
+        assertTrue(true)
     }
 }
