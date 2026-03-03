@@ -1,14 +1,20 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary", "kt_jvm_test")
-load("//systems/admission/module-a:deps.bzl", "MODULE_DEPS", "TEST_DEPS")
+load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
 package(default_visibility = ["//visibility:public"])
 
 kt_jvm_binary(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
-    main_class = "hs.kr.entrydsm.example.ExampleApplicationKt",
+    resources = glob(["src/main/resources/**"]),
+    main_class = "hs.kr.entrydsm.identity.IdentityBootstrapApplicationKt",
     plugins = ["//:spring_allopen"],
-    deps = MODULE_DEPS,
+    deps = MODULE_DEPS + [
+        "//systems/identity/identity-adapter-in:main",
+        "//systems/identity/identity-adapter-out:main",
+        "//systems/identity/identity-application:main",
+        "//systems/identity/identity-domain:main",
+    ],
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
 )
@@ -16,7 +22,7 @@ kt_jvm_binary(
 kt_jvm_test(
     name = "test",
     srcs = glob(["src/test/kotlin/**/*.kt"]),
-    test_class = "hs.kr.entrydsm.example.ExampleApplicationTest",
+    test_class = "hs.kr.entrydsm.identity.IdentityBootstrapApplicationTest",
     plugins = ["//:spring_allopen"],
     deps = MODULE_DEPS + TEST_DEPS,
     javac_opts = "//:javac_options",
