@@ -1,11 +1,11 @@
-package hs.kr.entrydsm.example
+package hs.kr.entrydsm.notification
 
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 
 @SpringBootApplication
-class ExampleApplication
+class NotificationBootstrapApplication
 
 fun main(args: Array<String>) {
-    runApplication<ExampleApplication>(*args)
+    runApplication<NotificationBootstrapApplication>(*args)
 }
