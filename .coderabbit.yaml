@@ -1,0 +1,554 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: ko-KR
+tone_instructions: "Respond in Korean for all review and chat outputs. Prioritize correctness, security, maintainability, architecture boundaries, and test quality. Provide concise evidence and concrete fix guidance."
+early_access: false
+enable_free_tier: true
+inheritance: false
+
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_instructions: |
+    Write the summary in Korean.
+    - Start with a short statement of end-user impact.
+    - Then list architecture changes, risk areas, and migration/compatibility concerns.
+    - End with a validation checklist and rollout notes.
+    Keep it factual and implementation-focused.
+  high_level_summary_placeholder: "@coderabbitai summary"
+  high_level_summary_in_walkthrough: true
+  auto_title_placeholder: "@coderabbitai"
+  auto_title_instructions: |
+    Generate the PR title in Korean using this format:
+    <type>(<scope>): <short outcome>
+    Examples:
+    - feat(admission): add score normalization for late submissions
+    - fix(gateway): prevent null principal in JWT filter
+  review_status: true
+  review_details: true
+  commit_status: true
+  fail_commit_status: true
+  collapse_walkthrough: true
+  changed_files_summary: true
+  sequence_diagrams: true
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  labeling_instructions:
+  - label: "bug"
+    instructions: "Suggest when the PR primarily fixes incorrect behavior, production defect paths, or regression conditions."
+  - label: "feature"
+    instructions: "Suggest when new user-visible behavior or product capabilities are introduced."
+  - label: "enhancement"
+    instructions: "Suggest for non-breaking improvements to performance, reliability, or developer experience."
+  - label: "refactor"
+    instructions: "Suggest when logic is reorganized without user-facing behavior change."
+  - label: "kotlin"
+    instructions: "Suggest when most changed files are Kotlin (*.kt) modules."
+  - label: "go"
+    instructions: "Suggest when most changed files are Go (*.go) services."
+  - label: "bazel"
+    instructions: "Suggest when BUILD.bazel, MODULE.bazel, or *.bzl files are changed."
+  - label: "docs"
+    instructions: "Suggest when the PR primarily changes Markdown docs, ADR/AOD templates, or guidance files."
+  - label: "security"
+    instructions: "Suggest when authn/authz, secret handling, dependency risk, or attack-surface changes are introduced."
+  - label: "test"
+    instructions: "Suggest when the PR mostly adds or changes tests and test utilities."
+  auto_apply_labels: false
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+
+  path_filters:
+  - "systems/**"
+  - "packages/**"
+  - "contracts/**"
+  - "documents/**"
+  - ".github/**"
+  - "BUILD.bazel"
+  - "MODULE.bazel"
+  - "**/BUILD.bazel"
+  - "**/*.bzl"
+  - "**/*.kt"
+  - "**/*.go"
+  - "**/*.md"
+  - "!**/go.sum"
+  - "!**/*.lock"
+  - "!**/dist/**"
+  - "!**/build/**"
+  - "!**/bazel-bin/**"
+  - "!**/bazel-out/**"
+  - "!**/bazel-testlogs/**"
+
+  path_instructions:
+  - path: "**/*.kt"
+    instructions: |
+      Apply Kotlin Official Coding Conventions.
+
+      Formatting and structure:
+      - Use 4 spaces for indentation; no tabs.
+      - Keep files focused and readable; avoid horizontal alignment for spacing.
+      - Place related declarations together and keep overloads adjacent.
+      - Keep implementation member order stable and logical for readability.
+
+      Naming:
+      - Package names are lowercase and do not use underscores.
+      - Class/object names use UpperCamelCase.
+      - Functions/properties/local variables use lowerCamelCase.
+      - Constants use UPPER_SNAKE_CASE only for true constants.
+
+      API and null-safety:
+      - Avoid platform type leakage in public APIs.
+      - Use explicit types in public APIs when inference obscures meaning.
+      - Prefer immutable values (`val`) over mutable values (`var`) unless mutation is required.
+      - Flag nullable flows that can be replaced with safer modeling.
+
+      Imports and idioms:
+      - Avoid wildcard imports unless justified by language/tooling conventions.
+      - Prefer expression bodies for short, clear functions.
+      - Prefer standard library idioms over custom utility wrappers when equivalent.
+
+      Architecture and tests:
+      - Respect module boundaries (domain/application/adapter/bootstrap layering).
+      - Highlight behavior-changing code that lacks corresponding unit/integration tests.
+      - Ask for deterministic tests and meaningful assertions, not only happy-path checks.
+
+  - path: "**/*.go"
+    instructions: |
+      Apply Uber Go Style Guide.
+
+      Interfaces and types:
+      - Do not use pointers to interfaces (*MyInterface).
+      - Prefer compile-time interface compliance checks for key public types.
+      - Pass ownership intentionally: copy maps/slices at boundaries when mutation could leak.
+
+      Errors and reliability:
+      - Handle each error once and add context when propagating.
+      - Prefer wrapped errors (%w) where callers need errors.Is/errors.As.
+      - Avoid panic in application flow; return errors instead.
+
+      Concurrency and lifecycle:
+      - Avoid fire-and-forget goroutines without cancellation/coordination.
+      - Use context propagation consistently for I/O and request-scoped operations.
+      - Channel buffer size should be justified; default to unbuffered or size 1.
+
+      Globals and initialization:
+      - Avoid mutable globals; favor dependency injection.
+      - Avoid init() for behaviorful setup, and never start goroutines in init().
+
+      Time and imports:
+      - Use time.Time and time.Duration rather than plain integers for time values.
+      - Keep import groups ordered (stdlib, third-party, internal).
+
+      Testing:
+      - Prefer table-driven tests where they simplify coverage.
+      - Keep test names behavior-focused and assertions explicit.
+
+  - path: "**/BUILD.bazel"
+    instructions: |
+      Apply Bazel BUILD style guidance.
+
+      Core rules:
+      - BUILD formatting must match buildifier output.
+      - Prefer DAMP BUILD files over over-abstracted DRY patterns.
+      - Keep top-level layout clear: load() first, then package/default visibility, then targets.
+
+      Target definitions:
+      - Keep deps explicit and close to each target's real direct dependencies.
+      - Avoid recursive globs unless there is a clear, documented reason.
+      - Avoid top-level list comprehensions for generating many targets.
+      - Prefer literal labels and stable naming for readability and tooling compatibility.
+      - Use boolean values (True/False), not numeric stand-ins.
+
+      Maintenance:
+      - Flag duplicated target logic that should be moved into a macro.
+      - Flag macro usage that hides important dependency or visibility decisions.
+
+  - path: "**/*.bzl"
+    instructions: |
+      Apply Bazel Starlark (.bzl) style guidance.
+
+      Readability and docs:
+      - Keep file/module docstrings and docstrings for public functions/macros.
+      - Use descriptive parameter names and document attribute intent.
+
+      API design:
+      - Macros should take a `name` argument and derive generated target names from it.
+      - Prefer keyword arguments when calling macros for clarity and stability.
+      - Keep macro side effects predictable and visible.
+
+      Encapsulation:
+      - Use private visibility for helper targets created by macros unless explicitly public.
+      - Avoid exposing internal implementation targets unintentionally.
+
+      Tooling:
+      - Enforce buildifier formatting and lint compliance.
+
+  - path: "documents/**/*.md"
+    instructions: |
+      For design and architecture docs:
+      - Check consistency between problem statement, decision, and consequences.
+      - Require explicit trade-offs and rollback/migration strategy when relevant.
+      - Ensure terminology is consistent across related docs.
+
+  - path: ".github/**/*.md"
+    instructions: |
+      For issue/PR templates:
+      - Ensure template fields are objective, testable, and easy to complete.
+      - Favor prompts that collect risk, rollout, and validation evidence.
+
+  - path: ".github/workflows/**/*.yml"
+    instructions: |
+      For workflow files:
+      - Verify least-privilege permissions.
+      - Flag unpinned actions or unsafe token usage.
+      - Ensure required checks align with branch protection and review policy.
+
+  abort_on_close: true
+  disable_cache: false
+
+  auto_review:
+    enabled: true
+    description_keyword: "@coderabbitai review"
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 10
+    ignore_title_keywords:
+    - "WIP"
+    - "DO NOT MERGE"
+    - "DRAFT"
+    - "RFC"
+    labels:
+    - "!wip"
+    - "!do-not-review"
+    - "ready-for-review"
+    drafts: false
+    base_branches:
+    - "main"
+    - "develop"
+    - "release/.*"
+    - "hotfix/.*"
+    ignore_usernames: []
+
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+    custom:
+    - enabled: true
+      name: "cleanup stale imports"
+      instructions: |
+        Remove stale or unused imports introduced in this PR.
+        Preserve behavior exactly and keep diffs minimal.
+    - enabled: true
+      name: "harden error messages"
+      instructions: |
+        Improve low-context error messages changed by this PR.
+        Keep message content actionable, include operation context, and preserve error wrapping semantics.
+    - enabled: true
+      name: "test clarity pass"
+      instructions: |
+        Improve changed test names and assertion messages for readability.
+        Do not rewrite test logic unless a correctness issue is found.
+
+  pre_merge_checks:
+    override_requested_reviewers_only: false
+    docstrings:
+      mode: warning
+      threshold: 85
+    title:
+      mode: error
+      requirements: "Use Conventional Commit style in the PR title: <type>(<scope>): <subject>. Include a linked issue when applicable."
+    description:
+      mode: error
+    issue_assessment:
+      mode: warning
+    custom_checks:
+    - mode: warning
+      name: "Kotlin Layer Boundary"
+      instructions: |
+        For files under *-domain modules, fail if imports reference adapter or bootstrap packages.
+        For files under *-application modules, flag direct dependency on infrastructure-specific framework classes unless justified.
+    - mode: warning
+      name: "Go Error Context"
+      instructions: |
+        In changed Go code, when an external call returns an error and the function adds business context,
+        require wrapped errors (%w) so callers can use errors.Is/errors.As.
+    - mode: warning
+      name: "Bazel Formatting"
+      instructions: |
+        If BUILD.bazel or .bzl files are changed, require buildifier-compatible formatting and stable target naming.
+    - mode: warning
+      name: "Behavior Change Needs Tests"
+      instructions: |
+        If production logic is changed in Kotlin or Go files, require corresponding test updates in the same subsystem
+        unless the PR description explicitly justifies why tests are unnecessary.
+    - mode: warning
+      name: "TODO Must Reference Issue"
+      instructions: |
+        Flag TODO/FIXME comments introduced by this PR that do not include an issue reference
+        in the form #123 or a full tracker key like PROJ-123.
+
+  tools:
+    ast-grep:
+      rule_dirs: []
+      util_dirs: []
+      essential_rules: true
+      packages: []
+
+    shellcheck:
+      enabled: true
+
+    ruff:
+      enabled: false
+
+    markdownlint:
+      enabled: true
+
+    github-checks:
+      enabled: true
+      timeout_ms: 180000
+
+    languagetool:
+      enabled: true
+      enabled_rules: []
+      disabled_rules: []
+      enabled_categories: []
+      disabled_categories: []
+      enabled_only: false
+      level: default
+
+    biome:
+      enabled: false
+
+    hadolint:
+      enabled: true
+
+    swiftlint:
+      enabled: false
+
+    phpstan:
+      enabled: false
+      level: default
+
+    phpmd:
+      enabled: false
+
+    phpcs:
+      enabled: false
+
+    golangci-lint:
+      enabled: true
+
+    yamllint:
+      enabled: true
+
+    gitleaks:
+      enabled: true
+
+    trufflehog:
+      enabled: true
+
+    checkov:
+      enabled: true
+
+    tflint:
+      enabled: true
+
+    detekt:
+      enabled: true
+
+    eslint:
+      enabled: false
+
+    flake8:
+      enabled: false
+
+    fortitudeLint:
+      enabled: false
+
+    rubocop:
+      enabled: false
+
+    buf:
+      enabled: false
+
+    regal:
+      enabled: false
+
+    actionlint:
+      enabled: true
+
+    pmd:
+      enabled: false
+
+    clang:
+      enabled: false
+
+    cppcheck:
+      enabled: false
+
+    opengrep:
+      enabled: true
+
+    semgrep:
+      enabled: true
+
+    circleci:
+      enabled: false
+
+    clippy:
+      enabled: false
+
+    sqlfluff:
+      enabled: false
+
+    trivy:
+      enabled: true
+
+    prismaLint:
+      enabled: false
+
+    pylint:
+      enabled: false
+
+    oxc:
+      enabled: false
+
+    shopifyThemeCheck:
+      enabled: false
+
+    luacheck:
+      enabled: false
+
+    brakeman:
+      enabled: false
+
+    dotenvLint:
+      enabled: true
+
+    htmlhint:
+      enabled: false
+
+    stylelint:
+      enabled: false
+
+    checkmake:
+      enabled: true
+
+    osvScanner:
+      enabled: true
+
+    blinter:
+      enabled: false
+
+    smartyLint:
+      enabled: false
+
+    psscriptanalyzer:
+      enabled: false
+
+chat:
+  art: false
+  auto_reply: true
+  integrations:
+    jira:
+      usage: disabled
+    linear:
+      usage: disabled
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+    - "**/AGENTS.md"
+    - "**/AGENT.md"
+    - "**/CLAUDE.md"
+    - "**/GEMINI.md"
+    - ".github/copilot-instructions.md"
+    - ".github/instructions/*.instructions.md"
+    - "documents/**/*.md"
+    - ".github/PULL_REQUEST_TEMPLATE/**/*.md"
+  learnings:
+    scope: local
+  issues:
+    scope: local
+  jira:
+    usage: disabled
+    project_keys: []
+  linear:
+    usage: disabled
+    team_keys: []
+  pull_requests:
+    scope: local
+  mcp:
+    usage: auto
+    disabled_servers: []
+  linked_repositories: []
+
+code_generation:
+  docstrings:
+    language: ko-KR
+    path_instructions:
+    - path: "**/*.kt"
+      instructions: |
+        Generate KDoc in English with concise summary, parameter docs, return semantics, thrown exceptions,
+        and side effects where relevant. Keep docs behavior-focused and avoid repeating obvious type information.
+    - path: "**/*.go"
+      instructions: |
+        Generate Go doc comments in English that start with the symbol name.
+        Document behavior, edge cases, error conditions, and concurrency expectations when relevant.
+    - path: "**/*.bzl"
+      instructions: |
+        Document macro/rule intent, attribute expectations, defaults, and generated targets.
+  unit_tests:
+    path_instructions:
+    - path: "**/*.kt"
+      instructions: |
+        Generate tests using deterministic setup, clear naming, and focused assertions.
+        Cover nullability boundaries, domain invariants, and failure paths for changed behavior.
+    - path: "**/*.go"
+      instructions: |
+        Prefer table-driven tests where it improves clarity.
+        Cover error wrapping behavior, context cancellation handling, and edge-case inputs.
+    - path: "**/BUILD.bazel"
+      instructions: |
+        When build target behavior changes, ensure affected test targets are updated and runnable.
+
+issue_enrichment:
+  auto_enrich:
+    enabled: true
+  planning:
+    enabled: true
+    auto_planning:
+      enabled: true
+      labels:
+      - "feature"
+      - "enhancement"
+      - "bug"
+      - "incident"
+      - "!wip"
+  labeling:
+    labeling_instructions:
+    - label: "bug"
+      instructions: "Behavior is incorrect, broken, or regressed compared with expected functionality."
+    - label: "feature"
+      instructions: "Introduces net-new product capability or API behavior."
+    - label: "enhancement"
+      instructions: "Improves existing behavior without introducing a new product surface area."
+    - label: "documentation"
+      instructions: "Primarily changes docs, templates, or explanatory text."
+    - label: "infra"
+      instructions: "Touches CI, build system, infrastructure code, deployment, or observability setup."
+    - label: "security"
+      instructions: "Addresses security findings, authentication/authorization, data exposure, or secret handling."
+    auto_apply_labels: false
