@@ -1,11 +1,11 @@
-package hs.kr.entrydsm.example
+package hs.kr.entrydsm.schedule
 
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class ExampleApplicationTest {
+class ScheduleBootstrapApplicationTest {
     @Test
     fun contextLoads() {
-        assertEquals(4, 2 + 2)
+        assertTrue(true)
     }
 }
