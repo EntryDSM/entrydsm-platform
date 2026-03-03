@@ -14,14 +14,14 @@ gazelle(
     command = "update-repos",
 )
 
-alias(name = "admission", actual = "//systems/admission/module-a:main")
-alias(name = "application", actual = "//systems/application/module-a:main")
-alias(name = "configuration", actual = "//systems/configuration/module-a:main")
-alias(name = "document", actual = "//systems/document/module-a:main")
-alias(name = "gateway", actual = "//systems/gateway/module-a:main")
-alias(name = "identity", actual = "//systems/identity/module-a:main")
-alias(name = "notification", actual = "//systems/notification/module-a:main")
-alias(name = "schedule", actual = "//systems/schedule/module-a:main")
+alias(name = "admission", actual = "//systems/admission/admission-bootstrap:main")
+alias(name = "application", actual = "//systems/application/application-bootstrap:main")
+alias(name = "configuration", actual = "//systems/configuration/configuration-bootstrap:main")
+alias(name = "document", actual = "//systems/document/document-bootstrap:main")
+alias(name = "gateway", actual = "//systems/gateway/gateway-bootstrap:main")
+alias(name = "identity", actual = "//systems/identity/identity-bootstrap:main")
+alias(name = "notification", actual = "//systems/notification/notification-bootstrap:main")
+alias(name = "schedule", actual = "//systems/schedule/schedule-bootstrap:main")
 
 alias(name = "analytics", actual = "//systems/analytics/cmd/server:server")
 alias(name = "evaluation", actual = "//systems/evaluation/cmd/server:server")
