@@ -9,4 +9,18 @@ maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", vers
 maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")
 maven.artifact(artifact = "jackson-module-kotlin", group = "com.fasterxml.jackson.module", version = "2.18.2")
 
+# JPA / DB
+maven.artifact(artifact = "spring-boot-starter-data-jpa", group = "org.springframework.boot", version = "4.0.1")
+maven.artifact(artifact = "spring-boot-starter", group = "org.springframework.boot", version = "4.0.1")
+maven.artifact(artifact = "mysql-connector-j", group = "com.mysql", version = "9.3.0")
+
+# gRPC
+maven.artifact(artifact = "grpc-netty-shaded", group = "io.grpc", version = "1.70.0")
+maven.artifact(artifact = "grpc-protobuf", group = "io.grpc", version = "1.70.0")
+maven.artifact(artifact = "grpc-stub", group = "io.grpc", version = "1.70.0")
+maven.artifact(artifact = "grpc-kotlin-stub", group = "io.grpc", version = "1.4.1")
+maven.artifact(artifact = "protobuf-java", group = "com.google.protobuf", version = "4.30.2")
+maven.artifact(artifact = "protobuf-kotlin", group = "com.google.protobuf", version = "4.30.2")
+maven.artifact(artifact = "javax.annotation-api", group = "javax.annotation", version = "1.3.2")
+
 use_repo(maven, "maven")
