@@ -1,0 +1,21 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@grpc-java//:java_grpc_library.bzl", "java_grpc_library")
+load("@rules_java//java:defs.bzl", "java_proto_library")
+
+package(default_visibility = ["//visibility:public"])
+
+proto_library(
+    name = "configuration_proto",
+    srcs = ["proto/configuration.proto"],
+)
+
+java_proto_library(
+    name = "configuration_java_proto",
+    deps = [":configuration_proto"],
+)
+
+java_grpc_library(
+    name = "configuration_grpc_java",
+    srcs = [":configuration_proto"],
+    deps = [":configuration_java_proto"],
+)

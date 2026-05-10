@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package entrydsm.configuration.v1;
+
+option java_package = "hs.kr.entrydsm.configuration.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "ConfigurationProto";
+
+service ConfigurationService {
+    rpc CreateEnvironmentVariable(CreateEnvironmentVariableRequest) returns (EnvironmentVariableResponse);
+    rpc GetEnvironmentVariable(GetEnvironmentVariableRequest) returns (EnvironmentVariableResponse);
+    rpc GetAllEnvironmentVariables(GetAllEnvironmentVariablesRequest) returns (GetAllEnvironmentVariablesResponse);
+    rpc UpdateEnvironmentVariable(UpdateEnvironmentVariableRequest) returns (EnvironmentVariableResponse);
+    rpc DeleteEnvironmentVariable(DeleteEnvironmentVariableRequest) returns (DeleteEnvironmentVariableResponse);
+}
+
+message CreateEnvironmentVariableRequest {
+    string key = 1;
+    string value = 2;
+    optional string description = 3;
+}
+
+message GetEnvironmentVariableRequest {
+    string key = 1;
+}
+
+message GetAllEnvironmentVariablesRequest {}
+
+message UpdateEnvironmentVariableRequest {
+    string key = 1;
+    string value = 2;
+    optional string description = 3;
+}
+
+message DeleteEnvironmentVariableRequest {
+    string key = 1;
+}
+
+message EnvironmentVariableResponse {
+    int64 id = 1;
+    string key = 2;
+    string value = 3;
+    optional string description = 4;
+}
+
+message GetAllEnvironmentVariablesResponse {
+    repeated EnvironmentVariableResponse items = 1;
+}
+
+message DeleteEnvironmentVariableResponse {
+    bool success = 1;
+}
