@@ -42,11 +42,15 @@ module.exports = {
         'notification',
         'observability',
         'schedule',
+        'configuration',
+        'monitor',
+        'admin',
         'infra',
         'ci'
       ]
     ],
 
+    'subject-case': [0],
     'subject-empty': [2, 'never'],
     'subject-max-length': [2, 'always', 300]
   }
