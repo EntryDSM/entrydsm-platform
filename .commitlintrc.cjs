@@ -43,8 +43,6 @@ module.exports = {
         'observability',
         'schedule',
         'configuration',
-        'monitor',
-        'admin',
         'infra',
         'ci'
       ]
