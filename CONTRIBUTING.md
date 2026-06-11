@@ -95,23 +95,23 @@ Type(Scope): Summary (Issue No)
 
 ### Scope
 
-| Scope           | About                        |
-| --------------- | ---------------------------- |
-| `contracts`     | 컨트랙트 관련 작업           |
-| `documents`     | 일반 문서 관련 작업          |
-| `packages`      | 패키지 및 모듈 관련 작업     |
-| `admission`     | 입학 서비스 관련 작업        |
-| `analytics`     | 분석 서비스 관련 작업        |
-| `application`   | 지원서 서비스 관련 작업      |
-| `document`      | 특정 문서 파일 관련 작업     |
-| `evaluation`    | 평가 서비스 관련 작업        |
-| `gateway`       | 게이트웨이 관련 작업         |
-| `identity`      | 인증 및 신원 관리 관련 작업  |
-| `notification`  | 알림 서비스 관련 작업        |
-| `observability` | 모니터링 및 관측성 관련 작업 |
-| `schedule`      | 스케줄 서비스 관련 작업      |
-| `infra`         | 인프라 관련 작업             |
-| `ci`            | CI/CD 파이프라인 관련 작업   |
+| Scope           | About             |
+| --------------- |-------------------|
+| `contracts`     | 컨트랙트 관련 작업        |
+| `documents`     | 일반 문서 관련 작업       |
+| `packages`      | 패키지 및 모듈 관련 작업    |
+| `admission`     | 관리자 서비스 관련 작업     |
+| `analytics`     | 통계 서비스 관련 작업      |
+| `application`   | 원서 서비스 관련 작업      |
+| `document`      | 파일 관련 작업          |
+| `evaluation`    | 성적 계산 관련 작업       |
+| `gateway`       | 게이트웨이 관련 작업       |
+| `identity`      | 인증 및 유저 관리 관련 작업  |
+| `notification`  | 공지 게시글 서비스 관련 작업  |
+| `observability` | 모니터링 관련 작업        |
+| `schedule`      | 일정 서비스 관련 작업      |
+| `infra`         | 인프라 관련 작업         |
+| `ci`            | CI/CD 파이프라인 관련 작업 |
 
 <br>
 
