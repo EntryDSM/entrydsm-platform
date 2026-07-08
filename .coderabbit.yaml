@@ -23,7 +23,7 @@ reviews:
     Generate the PR title in Korean using this format:
     <type>(<scope>): <short outcome>
     Examples:
-    - feat(admission): add score normalization for late submissions
+    - feat(admin): add score normalization for late submissions
     - fix(gateway): prevent null principal in JWT filter
   review_status: true
   review_details: true
@@ -48,8 +48,6 @@ reviews:
     instructions: "Suggest when logic is reorganized without user-facing behavior change."
   - label: "kotlin"
     instructions: "Suggest when most changed files are Kotlin (*.kt) modules."
-  - label: "go"
-    instructions: "Suggest when most changed files are Go (*.go) services."
   - label: "bazel"
     instructions: "Suggest when BUILD.bazel, MODULE.bazel, or *.bzl files are changed."
   - label: "docs"
@@ -76,9 +74,7 @@ reviews:
   - "**/BUILD.bazel"
   - "**/*.bzl"
   - "**/*.kt"
-  - "**/*.go"
   - "**/*.md"
-  - "!**/go.sum"
   - "!**/*.lock"
   - "!**/dist/**"
   - "!**/build/**"
@@ -118,37 +114,6 @@ reviews:
       - Respect module boundaries (domain/application/adapter/bootstrap layering).
       - Highlight behavior-changing code that lacks corresponding unit/integration tests.
       - Ask for deterministic tests and meaningful assertions, not only happy-path checks.
-
-  - path: "**/*.go"
-    instructions: |
-      Apply Uber Go Style Guide.
-
-      Interfaces and types:
-      - Do not use pointers to interfaces (*MyInterface).
-      - Prefer compile-time interface compliance checks for key public types.
-      - Pass ownership intentionally: copy maps/slices at boundaries when mutation could leak.
-
-      Errors and reliability:
-      - Handle each error once and add context when propagating.
-      - Prefer wrapped errors (%w) where callers need errors.Is/errors.As.
-      - Avoid panic in application flow; return errors instead.
-
-      Concurrency and lifecycle:
-      - Avoid fire-and-forget goroutines without cancellation/coordination.
-      - Use context propagation consistently for I/O and request-scoped operations.
-      - Channel buffer size should be justified; default to unbuffered or size 1.
-
-      Globals and initialization:
-      - Avoid mutable globals; favor dependency injection.
-      - Avoid init() for behaviorful setup, and never start goroutines in init().
-
-      Time and imports:
-      - Use time.Time and time.Duration rather than plain integers for time values.
-      - Keep import groups ordered (stdlib, third-party, internal).
-
-      Testing:
-      - Prefer table-driven tests where they simplify coverage.
-      - Keep test names behavior-focused and assertions explicit.
 
   - path: "**/BUILD.bazel"
     instructions: |
@@ -503,10 +468,6 @@ code_generation:
       instructions: |
         Generate KDoc in English with concise summary, parameter docs, return semantics, thrown exceptions,
         and side effects where relevant. Keep docs behavior-focused and avoid repeating obvious type information.
-    - path: "**/*.go"
-      instructions: |
-        Generate Go doc comments in English that start with the symbol name.
-        Document behavior, edge cases, error conditions, and concurrency expectations when relevant.
     - path: "**/*.bzl"
       instructions: |
         Document macro/rule intent, attribute expectations, defaults, and generated targets.
@@ -516,10 +477,6 @@ code_generation:
       instructions: |
         Generate tests using deterministic setup, clear naming, and focused assertions.
         Cover nullability boundaries, domain invariants, and failure paths for changed behavior.
-    - path: "**/*.go"
-      instructions: |
-        Prefer table-driven tests where it improves clarity.
-        Cover error wrapping behavior, context cancellation handling, and edge-case inputs.
     - path: "**/BUILD.bazel"
       instructions: |
         When build target behavior changes, ensure affected test targets are updated and runnable.

@@ -1,0 +1,30 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary", "kt_jvm_test")
+load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
+
+package(default_visibility = ["//visibility:public"])
+
+kt_jvm_binary(
+    name = "main",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    main_class = "hs.kr.entrydsm.observability.ObservabilityBootstrapApplicationKt",
+    plugins = ["//:spring_allopen"],
+    resources = glob(["src/main/resources/**"]),
+    deps = MODULE_DEPS + [
+        "//systems/observability/observability-adapter-in:main",
+        "//systems/observability/observability-adapter-out:main",
+        "//systems/observability/observability-application:main",
+        "//systems/observability/observability-domain:main",
+    ],
+)
+
+kt_jvm_test(
+    name = "test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    plugins = ["//:spring_allopen"],
+    test_class = "hs.kr.entrydsm.observability.ObservabilityBootstrapApplicationTest",
+    deps = MODULE_DEPS + TEST_DEPS,
+)

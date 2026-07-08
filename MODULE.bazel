@@ -17,4 +17,3 @@ single_version_override(
 )
 
 include("//:kotlin.MODULE.bazel")
-include("//:go.MODULE.bazel")

@@ -1,4 +1,3 @@
-load("@gazelle//:def.bzl", "gazelle")
 load("//:kotlin.bzl", "setup_kotlin_compiler", "setup_spring_allopen_plugin")
 
 package(default_visibility = ["//visibility:public"])
@@ -7,21 +6,9 @@ setup_kotlin_compiler()
 
 setup_spring_allopen_plugin()
 
-gazelle(name = "gazelle")
-
-gazelle(
-    name = "gazelle-update-repos",
-    args = [
-        "-from_file=go.mod",
-        "-to_macro=deps.bzl%go_dependencies",
-        "-prune",
-    ],
-    command = "update-repos",
-)
-
 alias(
-    name = "admission",
-    actual = "//systems/admission/admission-bootstrap:main",
+    name = "admin",
+    actual = "//systems/admin/admin-bootstrap:main",
 )
 
 alias(
@@ -32,11 +19,6 @@ alias(
 alias(
     name = "configuration",
     actual = "//systems/configuration/configuration-bootstrap:main",
-)
-
-alias(
-    name = "document",
-    actual = "//systems/document/document-bootstrap:main",
 )
 
 alias(
@@ -55,21 +37,6 @@ alias(
 )
 
 alias(
-    name = "schedule",
-    actual = "//systems/schedule/schedule-bootstrap:main",
-)
-
-alias(
-    name = "analytics",
-    actual = "//systems/analytics/cmd/server:server",
-)
-
-alias(
-    name = "evaluation",
-    actual = "//systems/evaluation/cmd/server:server",
-)
-
-alias(
     name = "observability",
-    actual = "//systems/observability/cmd/server:server",
+    actual = "//systems/observability/observability-bootstrap:main",
 )
