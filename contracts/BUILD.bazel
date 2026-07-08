@@ -1,12 +1,11 @@
-load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@grpc-java//:java_grpc_library.bzl", "java_grpc_library")
 load("@rules_java//java:defs.bzl", "java_proto_library")
 
 package(default_visibility = ["//visibility:public"])
 
-proto_library(
+alias(
     name = "configuration_proto",
-    srcs = ["proto/configuration.proto"],
+    actual = "//contracts/proto:entrydsm_configuration_v1_proto",
 )
 
 java_proto_library(

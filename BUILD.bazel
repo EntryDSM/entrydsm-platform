@@ -4,25 +4,72 @@ load("//:kotlin.bzl", "setup_kotlin_compiler", "setup_spring_allopen_plugin")
 package(default_visibility = ["//visibility:public"])
 
 setup_kotlin_compiler()
+
 setup_spring_allopen_plugin()
 
 gazelle(name = "gazelle")
 
 gazelle(
     name = "gazelle-update-repos",
-    args = ["-from_file=go.mod", "-to_macro=deps.bzl%go_dependencies", "-prune"],
+    args = [
+        "-from_file=go.mod",
+        "-to_macro=deps.bzl%go_dependencies",
+        "-prune",
+    ],
     command = "update-repos",
 )
 
-alias(name = "admission", actual = "//systems/admission/admission-bootstrap:main")
-alias(name = "application", actual = "//systems/application/application-bootstrap:main")
-alias(name = "configuration", actual = "//systems/configuration/configuration-bootstrap:main")
-alias(name = "document", actual = "//systems/document/document-bootstrap:main")
-alias(name = "gateway", actual = "//systems/gateway/gateway-bootstrap:main")
-alias(name = "identity", actual = "//systems/identity/identity-bootstrap:main")
-alias(name = "notification", actual = "//systems/notification/notification-bootstrap:main")
-alias(name = "schedule", actual = "//systems/schedule/schedule-bootstrap:main")
+alias(
+    name = "admission",
+    actual = "//systems/admission/admission-bootstrap:main",
+)
 
-alias(name = "analytics", actual = "//systems/analytics/cmd/server:server")
-alias(name = "evaluation", actual = "//systems/evaluation/cmd/server:server")
-alias(name = "observability", actual = "//systems/observability/cmd/server:server")
+alias(
+    name = "application",
+    actual = "//systems/application/application-bootstrap:main",
+)
+
+alias(
+    name = "configuration",
+    actual = "//systems/configuration/configuration-bootstrap:main",
+)
+
+alias(
+    name = "document",
+    actual = "//systems/document/document-bootstrap:main",
+)
+
+alias(
+    name = "gateway",
+    actual = "//systems/gateway/gateway-bootstrap:main",
+)
+
+alias(
+    name = "identity",
+    actual = "//systems/identity/identity-bootstrap:main",
+)
+
+alias(
+    name = "notification",
+    actual = "//systems/notification/notification-bootstrap:main",
+)
+
+alias(
+    name = "schedule",
+    actual = "//systems/schedule/schedule-bootstrap:main",
+)
+
+alias(
+    name = "analytics",
+    actual = "//systems/analytics/cmd/server:server",
+)
+
+alias(
+    name = "evaluation",
+    actual = "//systems/evaluation/cmd/server:server",
+)
+
+alias(
+    name = "observability",
+    actual = "//systems/observability/cmd/server:server",
+)

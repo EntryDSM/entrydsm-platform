@@ -1,3 +1,4 @@
+# Bazel outputs and local configuration
 bazel-*
 bazel-bin
 bazel-out
@@ -5,27 +6,41 @@ bazel-testlogs
 bazel-workspace
 .bazelrc.user
 
+# Node package manager dependencies and debug logs
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Environment variables
 .env
 .env.*
 !.env.example
 
+# Runtime logs
 logs/
 *.log
 
+# OS-generated files
 .DS_Store
 Thumbs.db
 
+# IDE/editor project files
 .idea/
 .vscode/
 *.iml
 
+# Build and temporary output directories
 dist/
 build/
 tmp/
 temp/
+
+# Agent
+.agents
+.codex
+.claude
+
+# Local Files
+*.local.*

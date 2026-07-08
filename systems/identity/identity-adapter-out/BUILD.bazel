@@ -6,16 +6,16 @@ package(default_visibility = ["//visibility:public"])
 kt_jvm_library(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
-    deps = MODULE_DEPS,
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
+    deps = MODULE_DEPS,
 )
 
 kt_jvm_test(
     name = "test",
     srcs = glob(["src/test/kotlin/**/*.kt"]),
-    test_class = "hs.kr.entrydsm.identity.adapterout.IdentityAdapterOutModuleTest",
-    deps = MODULE_DEPS + TEST_DEPS,
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.identity.adapterout.IdentityAdapterOutModuleTest",
+    deps = MODULE_DEPS + TEST_DEPS,
 )

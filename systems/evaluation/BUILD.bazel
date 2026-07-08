@@ -3,4 +3,7 @@ load("@gazelle//:def.bzl", "gazelle")
 # Gazelle for this Go module
 gazelle(name = "gazelle")
 
-exports_files(["go.mod", "go.sum"])
+exports_files([
+    "go.mod",
+    "go.sum",
+])

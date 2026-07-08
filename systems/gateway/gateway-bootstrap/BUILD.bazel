@@ -6,25 +6,25 @@ package(default_visibility = ["//visibility:public"])
 kt_jvm_binary(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
-    resources = glob(["src/main/resources/**"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
     main_class = "hs.kr.entrydsm.gateway.GatewayBootstrapApplicationKt",
     plugins = ["//:spring_allopen"],
+    resources = glob(["src/main/resources/**"]),
     deps = MODULE_DEPS + [
         "//systems/gateway/gateway-adapter-in:main",
         "//systems/gateway/gateway-adapter-out:main",
         "//systems/gateway/gateway-application:main",
         "//systems/gateway/gateway-domain:main",
     ],
-    javac_opts = "//:javac_options",
-    kotlinc_opts = "//:kotlinc_options",
 )
 
 kt_jvm_test(
     name = "test",
     srcs = glob(["src/test/kotlin/**/*.kt"]),
-    test_class = "hs.kr.entrydsm.gateway.GatewayBootstrapApplicationTest",
-    plugins = ["//:spring_allopen"],
-    deps = MODULE_DEPS + TEST_DEPS,
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
+    plugins = ["//:spring_allopen"],
+    test_class = "hs.kr.entrydsm.gateway.GatewayBootstrapApplicationTest",
+    deps = MODULE_DEPS + TEST_DEPS,
 )
