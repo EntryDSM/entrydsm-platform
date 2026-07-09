@@ -1,4 +1,4 @@
-build --package_path=%workspace%:
+build --package_path=%workspace%
 
 sync --enable_workspace
 
