@@ -1,4 +1,6 @@
-# Document Context
+# Configuration Context
+
+> 아래 기술한 내용은 Configuration 서비스 중 Document 도메인에 대한 내용입니다.
 
 ## Purpose
 > PDF, Excel, 이미지 파일을 저장하고, 다운로드 URL을 제공하기 위한 서비스입니다.

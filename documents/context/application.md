@@ -16,6 +16,8 @@
   * 출결, 봉사시간, 자격증 및 수상 경력(DSM 알고리즘 대회 입상여부, 정보처리기능사 자격증 취득 여부)
 * 자기소개서 및 학업 계획서 입력
 * 입학 원서 임시 저장
+* 입학 전형 별 성적 계산(evaluation)
+* 성적 수식 변경 ─ admin에 제공하는 API
 
 ### 외부 서비스 관련
 
@@ -31,8 +33,8 @@
 
 ## Dependencies
 * identity
-* admission
-* document
+* admin
+* configuration
 
 ## Out of Scope
-* 성적 산출
+* 
