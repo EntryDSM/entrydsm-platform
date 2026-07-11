@@ -11,5 +11,5 @@ def setup_spring_allopen_plugin():
         name = "spring_allopen",
         id = "org.jetbrains.kotlin.allopen",
         options = {"preset": "spring"},
-        deps = ["@maven//:org_jetbrains_kotlin_kotlin_allopen_compiler_plugin"],
+        deps = ["@rules_kotlin//kotlin/compiler:allopen-compiler-plugin"],
     )
