@@ -1,11 +1,15 @@
 package hs.kr.entrydsm.identity.adapterin
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import hs.kr.entrydsm.identity.adapterin.web.AccountControllerTest
+import hs.kr.entrydsm.identity.adapterin.web.ApplicationControllerTest
+import hs.kr.entrydsm.identity.adapterin.web.AuthControllerTest
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class IdentityAdapterInModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    AuthControllerTest::class,
+    AccountControllerTest::class,
+    ApplicationControllerTest::class,
+)
+class IdentityAdapterInModuleTest
