@@ -24,9 +24,7 @@ import hs.kr.entrydsm.identity.domain.PassStatus
 import hs.kr.entrydsm.identity.domain.SignupType
 import java.time.Instant
 import java.time.LocalDate
-import org.springframework.stereotype.Component
 
-@Component
 class MockIdentityPortAdapter : AuthPort, AccountPort, ApplicationPort {
     private val now = Instant.parse("2026-06-11T10:00:00Z")
 
