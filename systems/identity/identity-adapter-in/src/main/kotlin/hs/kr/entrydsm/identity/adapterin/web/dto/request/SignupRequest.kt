@@ -1,6 +1,6 @@
 package hs.kr.entrydsm.identity.adapterin.web.dto.request
 
-import hs.kr.entrydsm.identity.domain.SignupType
+import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.LocalDate
 
 data class SignupRequest(

@@ -1,6 +1,6 @@
 package hs.kr.entrydsm.identity.adapterin.web.dto.response
 
-import hs.kr.entrydsm.identity.domain.AccountStatus
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import java.time.Instant
 
 data class AccountResponse(

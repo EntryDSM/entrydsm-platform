@@ -2,7 +2,7 @@ package hs.kr.entrydsm.identity.adapterin.web.exception
 
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorResponse
-import hs.kr.entrydsm.identity.domain.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.exception.IdentityException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
