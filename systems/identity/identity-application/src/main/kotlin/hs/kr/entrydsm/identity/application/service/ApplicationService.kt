@@ -1,0 +1,47 @@
+package hs.kr.entrydsm.identity.application.service
+
+import hs.kr.entrydsm.identity.application.port.`in`.ApplicationPort
+import hs.kr.entrydsm.identity.application.port.`in`.command.CancelApplicationCommand
+import hs.kr.entrydsm.identity.application.port.`in`.command.ReadApplicationCommand
+import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationResultResult
+import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationStatusResult
+import hs.kr.entrydsm.identity.application.port.out.AccountRepository
+import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
+import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
+import java.time.Clock
+import java.time.Instant
+import org.springframework.stereotype.Service
+
+@Service
+class ApplicationService(
+    private val accountRepository: AccountRepository,
+    private val applicationDataPort: ApplicationDataPort,
+    private val clock: Clock = Clock.systemUTC(),
+) : ApplicationPort {
+    override fun getApplicationStatus(command: ReadApplicationCommand): ApplicationStatusResult {
+        val account = accountRepository.resolveAccount(command.authorization)
+        return applicationDataPort.findApplication(account).toStatusResult()
+    }
+
+    override fun getApplicationResult(command: ReadApplicationCommand): ApplicationResultResult {
+        val account = accountRepository.resolveAccount(command.authorization)
+        val application = applicationDataPort.findApplication(account)
+        if (application.passStatus == PassStatus.NOT_ANNOUNCED) {
+            throw IdentityDomainException(ErrorCode.APPLICATION_RESULT_NOT_AVAILABLE)
+        }
+        return ApplicationResultResult(application.passStatus, application.announcedAt)
+    }
+
+    override fun cancelApplication(command: CancelApplicationCommand): ApplicationStatusResult {
+        val account = accountRepository.resolveAccount(command.authorization)
+        val application = applicationDataPort.cancel(account.userId, command.reason, now())
+        account.profile.applicantStatus = application.applicantStatus
+        account.profile.updatedAt = application.updatedAt
+        accountRepository.save(account)
+        return application.toStatusResult()
+    }
+
+    private fun now(): Instant = Instant.now(clock)
+}
