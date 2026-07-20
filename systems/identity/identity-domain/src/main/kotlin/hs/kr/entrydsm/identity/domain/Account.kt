@@ -4,7 +4,7 @@ import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Instant
 
 class Account(
-    val userId: String,
+    val userId: Long,
     val loginId: String,
     private var password: String,
     val role: String,
@@ -38,7 +38,7 @@ class Account(
 
     companion object {
         fun create(
-            userId: String,
+            userId: Long,
             loginId: String,
             password: String,
             role: String,

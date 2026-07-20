@@ -26,7 +26,7 @@ class AccountTest {
     private fun account(applicantStatus: ApplicantStatus): Account {
         val now = Instant.parse("2026-06-11T10:00:00Z")
         return Account.create(
-            userId = "user_123",
+            userId = 123L,
             loginId = "01012345678",
             password = "Password1!",
             role = "USER",
