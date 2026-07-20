@@ -1,4 +1,4 @@
-package hs.kr.entrydsm.identity.domain
+package hs.kr.entrydsm.identity.domain.enum
 
 /**
  * Identity API에서 클라이언트에 노출하는 오류 코드입니다.
