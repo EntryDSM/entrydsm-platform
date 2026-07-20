@@ -13,19 +13,19 @@ import java.time.Instant
 import java.time.LocalDate
 
 internal class FakeAccountRepository : AccountRepository {
-    val accounts = mutableMapOf("user_123" to sampleAccount())
+    val accounts = mutableMapOf(123L to sampleAccount())
 
     override fun findByLoginId(loginId: String): Account? = accounts.values.firstOrNull { it.loginId == loginId }
 
-    override fun findByUserId(userId: String): Account? = accounts[userId]
+    override fun findByUserId(userId: Long): Account? = accounts[userId]
 
     override fun save(account: Account): Account = account.also { accounts[it.userId] = it }
 }
 
 internal class FakeApplicationDataPort : ApplicationDataPort {
-    val snapshots = mutableMapOf("user_123" to sampleSnapshot())
+    val snapshots = mutableMapOf(123L to sampleSnapshot())
 
-    override fun create(userId: String, updatedAt: Instant): ApplicationSnapshot =
+    override fun create(userId: Long, updatedAt: Instant): ApplicationSnapshot =
         sampleSnapshot().copy(
             userId = userId,
             applicantStatus = ApplicantStatus.NONE,
@@ -35,15 +35,15 @@ internal class FakeApplicationDataPort : ApplicationDataPort {
             updatedAt = updatedAt,
         ).also { snapshots[userId] = it }
 
-    override fun findByUserId(userId: String): ApplicationSnapshot? = snapshots[userId]
+    override fun findByUserId(userId: Long): ApplicationSnapshot? = snapshots[userId]
 
-    override fun cancel(userId: String, reason: String?, updatedAt: Instant): ApplicationSnapshot =
+    override fun cancel(userId: Long, reason: String?, updatedAt: Instant): ApplicationSnapshot =
         snapshots.getValue(userId).copy(applicantStatus = ApplicantStatus.CANCELED, updatedAt = updatedAt)
             .also { snapshots[userId] = it }
 }
 
 private fun sampleAccount(): Account = Account.create(
-    userId = "user_123",
+    userId = 123L,
     loginId = "01012345678",
     password = "Password1!",
     role = "USER",
@@ -61,7 +61,7 @@ private fun sampleAccount(): Account = Account.create(
 )
 
 private fun sampleSnapshot(): ApplicationSnapshot = ApplicationSnapshot(
-    userId = "user_123",
+    userId = 123L,
     applicantStatus = ApplicantStatus.SUBMITTED,
     submittedAt = Instant.parse("2026-06-11T10:00:00Z"),
     updatedAt = Instant.parse("2026-06-11T10:30:00Z"),

@@ -24,7 +24,7 @@ class IdentityServiceTest {
             SignupCommand("Password1!", "김학생", "01099999999", LocalDate.parse("2009-03-16"), SignupType.SELF)
         )
 
-        assertTrue(result.userId.startsWith("user_"))
+        assertTrue(result.userId > 123L)
         assertEquals("김학생", result.profile.name)
         assertEquals(result.userId, accounts.findByUserId(result.userId)?.userId)
         assertEquals(ApplicantStatus.NONE, applications.findByUserId(result.userId)?.applicantStatus)
@@ -57,7 +57,7 @@ class IdentityServiceTest {
             )
         )
 
-        assertEquals("user_123", service.login(LoginCommand("01012345678", "NewPassword1!")).userId)
+        assertEquals(123L, service.login(LoginCommand("01012345678", "NewPassword1!")).userId)
     }
 
     @Test
@@ -74,7 +74,7 @@ class IdentityServiceTest {
     @Test
     fun resultIsUnavailableBeforeAnnouncement() {
         val (service, _, applications) = service()
-        applications.snapshots["user_123"] = applications.snapshots.getValue("user_123").copy(
+        applications.snapshots[123L] = applications.snapshots.getValue(123L).copy(
             passStatus = PassStatus.NOT_ANNOUNCED,
             announcedAt = null,
         )

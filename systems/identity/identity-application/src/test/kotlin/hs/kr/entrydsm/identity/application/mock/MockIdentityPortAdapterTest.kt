@@ -30,7 +30,7 @@ class MockIdentityPortAdapterTest {
             )
         )
 
-        assertEquals("user_123", result.userId)
+        assertEquals(123L, result.userId)
         assertEquals(AccountStatus.ACTIVE, result.status)
         assertEquals("홍길동", result.profile.name)
         assertEquals("01012345678", result.profile.phone)
@@ -42,7 +42,7 @@ class MockIdentityPortAdapterTest {
     fun loginReturnsActiveStudentSummary() {
         val result = adapter.login(LoginCommand(loginId = "entry", password = "password123!"))
 
-        assertEquals("user_123", result.userId)
+        assertEquals(123L, result.userId)
         assertEquals("STUDENT", result.role)
         assertEquals(AccountStatus.ACTIVE, result.status)
     }
@@ -51,7 +51,7 @@ class MockIdentityPortAdapterTest {
     fun getBasicInfoReturnsSubmittedApplicant() {
         val result = adapter.getBasicInfo(ReadAccountCommand(authorization = "Bearer access-token"))
 
-        assertEquals("user_123", result.userId)
+        assertEquals(123L, result.userId)
         assertEquals("홍길동", result.name)
         assertEquals(ApplicantStatus.SUBMITTED, result.applicantStatus)
     }
