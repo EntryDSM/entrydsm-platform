@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.identity.config
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import hs.kr.entrydsm.identity.config.security.JwtAuthenticationEntryPoint
 import hs.kr.entrydsm.identity.config.security.JwtAuthorizationDeniedHandler
 import hs.kr.entrydsm.identity.config.security.JwtFilter
@@ -16,6 +17,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(JwtProperties::class)
 class SecurityConfig {
+    @Bean
+    fun objectMapper(): ObjectMapper = jacksonObjectMapper()
+
     @Bean
     fun authenticationEntryPoint(objectMapper: ObjectMapper): JwtAuthenticationEntryPoint =
         JwtAuthenticationEntryPoint(objectMapper)
