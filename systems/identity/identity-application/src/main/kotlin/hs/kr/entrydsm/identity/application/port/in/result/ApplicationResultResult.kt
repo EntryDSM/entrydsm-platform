@@ -1,6 +1,6 @@
 package hs.kr.entrydsm.identity.application.port.`in`.result
 
-import hs.kr.entrydsm.identity.domain.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import java.time.Instant
 
 data class ApplicationResultResult(

@@ -1,7 +1,7 @@
 package hs.kr.entrydsm.identity.application.port.out.data
 
-import hs.kr.entrydsm.identity.domain.ApplicantStatus
-import hs.kr.entrydsm.identity.domain.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import java.time.Instant
 
 data class ApplicationSnapshot(

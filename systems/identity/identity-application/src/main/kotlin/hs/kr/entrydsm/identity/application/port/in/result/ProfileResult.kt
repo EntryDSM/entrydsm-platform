@@ -1,7 +1,7 @@
 package hs.kr.entrydsm.identity.application.port.`in`.result
 
-import hs.kr.entrydsm.identity.domain.ApplicantStatus
-import hs.kr.entrydsm.identity.domain.SignupType
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.LocalDate
 
 data class ProfileResult(

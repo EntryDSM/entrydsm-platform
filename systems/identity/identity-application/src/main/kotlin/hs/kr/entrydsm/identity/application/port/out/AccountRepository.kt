@@ -1,6 +1,6 @@
 package hs.kr.entrydsm.identity.application.port.out
 
-import hs.kr.entrydsm.identity.domain.Account
+import hs.kr.entrydsm.identity.domain.model.Account
 
 interface AccountRepository {
     fun findByLoginId(loginId: String): Account?
