@@ -25,7 +25,7 @@ import hs.kr.entrydsm.identity.domain.ErrorCode
 import hs.kr.entrydsm.identity.domain.PassStatus
 import hs.kr.entrydsm.identity.domain.StudentProfile
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
-import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import org.springframework.stereotype.Service
 
 @Service
@@ -34,6 +34,7 @@ class IdentityService(
     private val applicationDataPort: ApplicationDataPort,
 ) : AuthPort, AccountPort, ApplicationPort {
     private val clock: java.time.Clock = java.time.Clock.systemUTC()
+    private val nextUserId = AtomicLong(123L)
 
     override fun signup(command: SignupCommand): AccountResult {
         requireValidSignup(command)
@@ -42,7 +43,7 @@ class IdentityService(
         }
         val now = now()
         val account = Account.create(
-            userId = "user_${UUID.randomUUID()}",
+            userId = nextUserId.incrementAndGet(),
             loginId = command.phone,
             password = command.password,
             role = "USER",

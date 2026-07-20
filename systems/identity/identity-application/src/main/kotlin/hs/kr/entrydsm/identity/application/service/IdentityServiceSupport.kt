@@ -14,7 +14,11 @@ internal fun AccountRepository.resolveAccount(authorization: String?): Account {
         ?.removePrefix("Bearer ")
         ?.takeIf { it.isNotBlank() }
         ?: throw IdentityDomainException(ErrorCode.AUTH_UNAUTHORIZED)
-    val userId = if (token == "mock-access-token" || token == "access-token") "user_123" else token
+    val userId = when (token) {
+        "mock-access-token", "access-token" -> 123L
+        else -> token.removePrefix("user_").toLongOrNull()
+            ?: throw IdentityDomainException(ErrorCode.AUTH_UNAUTHORIZED)
+    }
     return findByUserId(userId) ?: throw IdentityDomainException(ErrorCode.AUTH_UNAUTHORIZED)
 }
 
