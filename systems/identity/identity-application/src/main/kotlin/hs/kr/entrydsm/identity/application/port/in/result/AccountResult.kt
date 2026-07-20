@@ -4,7 +4,7 @@ import hs.kr.entrydsm.identity.domain.AccountStatus
 import java.time.Instant
 
 data class AccountResult(
-    val userId: String,
+    val userId: Long,
     val role: String,
     val status: AccountStatus,
     val profile: ProfileResult,

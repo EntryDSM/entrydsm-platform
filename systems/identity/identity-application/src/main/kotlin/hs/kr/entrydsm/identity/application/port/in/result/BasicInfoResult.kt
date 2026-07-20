@@ -7,7 +7,7 @@ import java.time.Instant
 import java.time.LocalDate
 
 data class BasicInfoResult(
-    val userId: String,
+    val userId: Long,
     val role: String,
     val status: AccountStatus,
     val name: String,

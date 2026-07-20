@@ -5,7 +5,7 @@ import hs.kr.entrydsm.identity.domain.Account
 interface AccountRepository {
     fun findByLoginId(loginId: String): Account?
 
-    fun findByUserId(userId: String): Account?
+    fun findByUserId(userId: Long): Account?
 
     fun save(account: Account): Account
 }

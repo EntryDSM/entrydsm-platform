@@ -5,7 +5,7 @@ import hs.kr.entrydsm.identity.domain.PassStatus
 import java.time.Instant
 
 data class ApplicationSnapshot(
-    val userId: String,
+    val userId: Long,
     val applicantStatus: ApplicantStatus,
     val submittedAt: Instant?,
     val updatedAt: Instant,
