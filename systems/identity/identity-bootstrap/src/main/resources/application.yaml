@@ -19,3 +19,8 @@ management:
 logging:
   level:
     root: INFO
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET:local-development-jwt-secret-change-me-32}
+    issuer: ${JWT_ISSUER:entrydsm-identity}
