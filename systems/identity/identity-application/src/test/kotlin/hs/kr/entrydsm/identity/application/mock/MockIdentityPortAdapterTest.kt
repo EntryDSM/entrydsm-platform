@@ -5,10 +5,10 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.LoginCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadApplicationCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
-import hs.kr.entrydsm.identity.domain.AccountStatus
-import hs.kr.entrydsm.identity.domain.ApplicantStatus
-import hs.kr.entrydsm.identity.domain.PassStatus
-import hs.kr.entrydsm.identity.domain.SignupType
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Test

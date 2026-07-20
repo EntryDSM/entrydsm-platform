@@ -2,9 +2,9 @@ package hs.kr.entrydsm.identity.application.mock
 
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
-import hs.kr.entrydsm.identity.domain.ApplicantStatus
-import hs.kr.entrydsm.identity.domain.ErrorCode
-import hs.kr.entrydsm.identity.domain.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap

@@ -3,12 +3,12 @@ package hs.kr.entrydsm.identity.application.service
 import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
-import hs.kr.entrydsm.identity.domain.Account
-import hs.kr.entrydsm.identity.domain.AccountStatus
-import hs.kr.entrydsm.identity.domain.ApplicantStatus
-import hs.kr.entrydsm.identity.domain.PassStatus
-import hs.kr.entrydsm.identity.domain.SignupType
-import hs.kr.entrydsm.identity.domain.StudentProfile
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.SignupType
+import hs.kr.entrydsm.identity.domain.model.Account
+import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
 import java.time.LocalDate
 
