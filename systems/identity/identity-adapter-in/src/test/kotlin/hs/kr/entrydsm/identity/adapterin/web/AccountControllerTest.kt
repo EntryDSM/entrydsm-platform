@@ -34,7 +34,7 @@ class AccountControllerTest {
         override fun getBasicInfo(command: ReadAccountCommand): BasicInfoResult {
             readAccountCommand = command
             return BasicInfoResult(
-                userId = "user_123",
+                userId = 123L,
                 role = "USER",
                 status = AccountStatus.ACTIVE,
                 name = "홍길동",

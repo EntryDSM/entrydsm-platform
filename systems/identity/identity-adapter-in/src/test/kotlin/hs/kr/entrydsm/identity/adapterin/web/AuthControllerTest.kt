@@ -91,7 +91,7 @@ class AuthControllerTest {
         override fun signup(command: SignupCommand): AccountResult {
             signupCommand = command
             return AccountResult(
-                userId = "user_123",
+                userId = 123L,
                 role = "USER",
                 status = AccountStatus.ACTIVE,
                 profile = ProfileResult(
@@ -108,7 +108,7 @@ class AuthControllerTest {
 
         override fun login(command: LoginCommand): UserSummaryResult {
             loginCommand = command
-            return UserSummaryResult(userId = "user_123", role = "STUDENT", status = AccountStatus.ACTIVE)
+            return UserSummaryResult(userId = 123L, role = "STUDENT", status = AccountStatus.ACTIVE)
         }
 
         override fun logout(command: LogoutCommand) {

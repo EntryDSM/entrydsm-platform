@@ -15,14 +15,14 @@ import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
 
 fun UserSummaryResult.toResponse(): UserSummaryResponse =
     UserSummaryResponse(
-        userId = userId,
+        userId = userId.toExternalUserId(),
         role = role,
         status = status,
     )
 
 fun AccountResult.toResponse(): AccountResponse =
     AccountResponse(
-        userId = userId,
+        userId = userId.toExternalUserId(),
         role = role,
         status = status,
         profile = profile.toResponse(),
@@ -41,7 +41,7 @@ fun ProfileResult.toResponse(): ProfileResponse =
 
 fun BasicInfoResult.toResponse(): BasicInfoResponse =
     BasicInfoResponse(
-        userId = userId,
+        userId = userId.toExternalUserId(),
         role = role,
         status = status,
         name = name,
@@ -65,3 +65,5 @@ fun ApplicationResultResult.toResponse(): ApplicationResultResponse =
         passStatus = passStatus,
         announcedAt = announcedAt,
     )
+
+private fun Long.toExternalUserId(): String = "user_$this"
