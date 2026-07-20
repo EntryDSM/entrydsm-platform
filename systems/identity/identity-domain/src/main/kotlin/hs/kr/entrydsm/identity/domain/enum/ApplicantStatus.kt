@@ -1,4 +1,4 @@
-package hs.kr.entrydsm.identity.domain
+package hs.kr.entrydsm.identity.domain.enum
 
 enum class ApplicantStatus {
     NONE,
