@@ -1,5 +1,9 @@
-package hs.kr.entrydsm.identity.domain
+package hs.kr.entrydsm.identity.domain.model
 
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.SignupType
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Instant
 import java.time.LocalDate

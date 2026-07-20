@@ -1,5 +1,8 @@
 package hs.kr.entrydsm.identity.domain
 
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.SignupType
+import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
