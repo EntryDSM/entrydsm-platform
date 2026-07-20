@@ -6,8 +6,8 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.CancelApplicationCo
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadApplicationCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationResultResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationStatusResult
-import hs.kr.entrydsm.identity.domain.ApplicantStatus
-import hs.kr.entrydsm.identity.domain.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Test

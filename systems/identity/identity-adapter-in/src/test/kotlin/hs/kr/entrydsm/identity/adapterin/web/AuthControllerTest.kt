@@ -11,9 +11,9 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AccountResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.ProfileResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
-import hs.kr.entrydsm.identity.domain.AccountStatus
-import hs.kr.entrydsm.identity.domain.ApplicantStatus
-import hs.kr.entrydsm.identity.domain.SignupType
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
