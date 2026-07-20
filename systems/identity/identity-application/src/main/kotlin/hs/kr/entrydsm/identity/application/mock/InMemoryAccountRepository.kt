@@ -14,12 +14,12 @@ import org.springframework.stereotype.Component
 
 @Component
 class InMemoryAccountRepository : AccountRepository {
-    private val accounts = ConcurrentHashMap<String, Account>()
+    private val accounts = ConcurrentHashMap<Long, Account>()
 
     init {
         val now = Instant.parse("2026-06-11T10:00:00Z")
-        accounts["user_123"] = Account(
-            userId = "user_123",
+        accounts[123L] = Account(
+            userId = 123L,
             loginId = "01012345678",
             password = "Password1!",
             role = "USER",
@@ -43,7 +43,7 @@ class InMemoryAccountRepository : AccountRepository {
     override fun findByLoginId(loginId: String): Account? =
         accounts.values.firstOrNull { it.loginId == loginId }
 
-    override fun findByUserId(userId: String): Account? = accounts[userId]
+    override fun findByUserId(userId: Long): Account? = accounts[userId]
 
     override fun save(account: Account): Account {
         accounts[account.userId] = account

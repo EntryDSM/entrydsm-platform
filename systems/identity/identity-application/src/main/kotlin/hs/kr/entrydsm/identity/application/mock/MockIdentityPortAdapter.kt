@@ -30,7 +30,7 @@ class MockIdentityPortAdapter : AuthPort, AccountPort, ApplicationPort {
 
     override fun signup(command: SignupCommand): AccountResult =
         AccountResult(
-            userId = "user_123",
+            userId = 123L,
             role = "USER",
             status = AccountStatus.ACTIVE,
             profile = ProfileResult(
@@ -46,7 +46,7 @@ class MockIdentityPortAdapter : AuthPort, AccountPort, ApplicationPort {
 
     override fun login(command: LoginCommand): UserSummaryResult =
         UserSummaryResult(
-            userId = "user_123",
+            userId = 123L,
             role = "STUDENT",
             status = AccountStatus.ACTIVE,
         )
@@ -61,7 +61,7 @@ class MockIdentityPortAdapter : AuthPort, AccountPort, ApplicationPort {
 
     override fun getBasicInfo(command: ReadAccountCommand): BasicInfoResult =
         BasicInfoResult(
-            userId = "user_123",
+            userId = 123L,
             role = "USER",
             status = AccountStatus.ACTIVE,
             name = "홍길동",

@@ -12,12 +12,12 @@ import org.springframework.stereotype.Component
 
 @Component
 class MockApplicationDataAdapter : ApplicationDataPort {
-    private val applications = ConcurrentHashMap<String, ApplicationSnapshot>()
+    private val applications = ConcurrentHashMap<Long, ApplicationSnapshot>()
 
     init {
         val now = Instant.parse("2026-06-11T10:00:00Z")
-        applications["user_123"] = ApplicationSnapshot(
-            userId = "user_123",
+        applications[123L] = ApplicationSnapshot(
+            userId = 123L,
             applicantStatus = ApplicantStatus.SUBMITTED,
             submittedAt = now,
             updatedAt = Instant.parse("2026-06-11T10:30:00Z"),
@@ -26,7 +26,7 @@ class MockApplicationDataAdapter : ApplicationDataPort {
         )
     }
 
-    override fun create(userId: String, updatedAt: Instant): ApplicationSnapshot =
+    override fun create(userId: Long, updatedAt: Instant): ApplicationSnapshot =
         ApplicationSnapshot(
             userId = userId,
             applicantStatus = ApplicantStatus.NONE,
@@ -36,10 +36,10 @@ class MockApplicationDataAdapter : ApplicationDataPort {
             announcedAt = null,
         ).also { applications[userId] = it }
 
-    override fun findByUserId(userId: String): ApplicationSnapshot? = applications[userId]
+    override fun findByUserId(userId: Long): ApplicationSnapshot? = applications[userId]
 
     override fun cancel(
-        userId: String,
+        userId: Long,
         reason: String?,
         updatedAt: Instant,
     ): ApplicationSnapshot {
