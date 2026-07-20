@@ -5,10 +5,10 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.LoginCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadApplicationCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
-import hs.kr.entrydsm.identity.domain.ApplicantStatus
-import hs.kr.entrydsm.identity.domain.ErrorCode
-import hs.kr.entrydsm.identity.domain.PassStatus
-import hs.kr.entrydsm.identity.domain.SignupType
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.SignupType
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
@@ -18,9 +18,9 @@ import org.junit.Test
 class IdentityServiceTest {
     @Test
     fun signupCreatesAccountAndApplicationSnapshot() {
-        val (service, accounts, applications) = service()
+        val (services, accounts, applications) = services()
 
-        val result = service.signup(
+        val result = services.auth.signup(
             SignupCommand("Password1!", "김학생", "01099999999", LocalDate.parse("2009-03-16"), SignupType.SELF)
         )
 
@@ -32,10 +32,10 @@ class IdentityServiceTest {
 
     @Test
     fun loginRejectsWrongPassword() {
-        val (service) = service()
+        val (serviceBundle, _, _) = services()
 
         val exception = try {
-            service.login(LoginCommand("01012345678", "wrong"))
+            serviceBundle.auth.login(LoginCommand("01012345678", "wrong"))
             null
         } catch (error: IdentityDomainException) {
             error
@@ -46,9 +46,9 @@ class IdentityServiceTest {
 
     @Test
     fun passwordResetChangesPasswordAfterIdentityCheck() {
-        val (service) = service()
+        val (serviceBundle, _, _) = services()
 
-        service.resetPassword(
+        serviceBundle.auth.resetPassword(
             PasswordResetCommand(
                 loginId = "01012345678",
                 name = "홍길동",
@@ -57,15 +57,15 @@ class IdentityServiceTest {
             )
         )
 
-        assertEquals(123L, service.login(LoginCommand("01012345678", "NewPassword1!")).userId)
+        assertEquals(123L, serviceBundle.auth.login(LoginCommand("01012345678", "NewPassword1!")).userId)
     }
 
     @Test
     fun applicationStatusAndCancellationUseMockApplicationPort() {
-        val (service) = service()
+        val (serviceBundle, _, _) = services()
 
-        val status = service.getApplicationStatus(ReadApplicationCommand("Bearer access-token"))
-        val canceled = service.cancelApplication(CancelApplicationCommand("Bearer access-token", "개인 사유"))
+        val status = serviceBundle.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token"))
+        val canceled = serviceBundle.application.cancelApplication(CancelApplicationCommand("Bearer access-token", "개인 사유"))
 
         assertEquals(ApplicantStatus.SUBMITTED, status.applicantStatus)
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
@@ -73,14 +73,14 @@ class IdentityServiceTest {
 
     @Test
     fun resultIsUnavailableBeforeAnnouncement() {
-        val (service, _, applications) = service()
+        val (services, _, applications) = services()
         applications.snapshots[123L] = applications.snapshots.getValue(123L).copy(
             passStatus = PassStatus.NOT_ANNOUNCED,
             announcedAt = null,
         )
 
         val exception = try {
-            service.getApplicationResult(ReadApplicationCommand("Bearer access-token"))
+            services.application.getApplicationResult(ReadApplicationCommand("Bearer access-token"))
             null
         } catch (error: IdentityDomainException) {
             error
@@ -89,10 +89,22 @@ class IdentityServiceTest {
         assertEquals(ErrorCode.APPLICATION_RESULT_NOT_AVAILABLE, exception?.errorCode)
     }
 
-    private fun service(): Triple<IdentityService, FakeAccountRepository, FakeApplicationDataPort> {
+    private fun services(): Triple<ServiceBundle, FakeAccountRepository, FakeApplicationDataPort> {
         val accounts = FakeAccountRepository()
         val applications = FakeApplicationDataPort()
-        return Triple(IdentityService(accounts, applications), accounts, applications)
+        return Triple(
+            ServiceBundle(
+                auth = AuthService(accounts, applications),
+                application = ApplicationService(accounts, applications),
+            ),
+            accounts,
+            applications,
+        )
     }
 
 }
+
+private data class ServiceBundle(
+    val auth: AuthService,
+    val application: ApplicationService,
+)
