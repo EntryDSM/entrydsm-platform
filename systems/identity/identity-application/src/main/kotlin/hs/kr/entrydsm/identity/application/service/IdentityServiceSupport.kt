@@ -4,8 +4,8 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
-import hs.kr.entrydsm.identity.domain.Account
-import hs.kr.entrydsm.identity.domain.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 
 internal fun AccountRepository.resolveAccount(authorization: String?): Account {
