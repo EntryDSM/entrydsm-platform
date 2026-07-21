@@ -1,6 +1,13 @@
 package hs.kr.entrydsm.identity.config
 
+import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.core.JsonParser
+import com.fasterxml.jackson.databind.DeserializationContext
+import com.fasterxml.jackson.databind.JsonDeserializer
+import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializerProvider
+import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import hs.kr.entrydsm.identity.config.security.JwtAuthenticationEntryPoint
 import hs.kr.entrydsm.identity.config.security.JwtAuthorizationDeniedHandler
@@ -13,12 +20,23 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import java.time.Instant
+import java.time.LocalDate
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(JwtProperties::class)
 class SecurityConfig {
     @Bean
-    fun objectMapper(): ObjectMapper = jacksonObjectMapper()
+    fun objectMapper(): ObjectMapper =
+        jacksonObjectMapper()
+            .registerModule(
+                SimpleModule().apply {
+                    addSerializer(Instant::class.java, InstantJsonSerializer())
+                    addDeserializer(Instant::class.java, InstantJsonDeserializer())
+                    addSerializer(LocalDate::class.java, LocalDateJsonSerializer())
+                    addDeserializer(LocalDate::class.java, LocalDateJsonDeserializer())
+                },
+            )
 
     @Bean
     fun authenticationEntryPoint(objectMapper: ObjectMapper): JwtAuthenticationEntryPoint =
@@ -61,4 +79,38 @@ class SecurityConfig {
             }
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
             .build()
+}
+
+private class InstantJsonSerializer : JsonSerializer<Instant>() {
+    override fun serialize(
+        value: Instant,
+        generator: JsonGenerator,
+        serializers: SerializerProvider,
+    ) {
+        generator.writeString(value.toString())
+    }
+}
+
+private class InstantJsonDeserializer : JsonDeserializer<Instant>() {
+    override fun deserialize(
+        parser: JsonParser,
+        context: DeserializationContext,
+    ): Instant = Instant.parse(parser.text)
+}
+
+private class LocalDateJsonSerializer : JsonSerializer<LocalDate>() {
+    override fun serialize(
+        value: LocalDate,
+        generator: JsonGenerator,
+        serializers: SerializerProvider,
+    ) {
+        generator.writeString(value.toString())
+    }
+}
+
+private class LocalDateJsonDeserializer : JsonDeserializer<LocalDate>() {
+    override fun deserialize(
+        parser: JsonParser,
+        context: DeserializationContext,
+    ): LocalDate = LocalDate.parse(parser.text)
 }

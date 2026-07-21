@@ -12,6 +12,7 @@ enum class ErrorCode(
 ) {
     INVALID_REQUEST_BODY(400, "요청 본문이 올바르지 않습니다."),
     AUTH_UNAUTHORIZED(401, "인증이 필요합니다."),
+    ACCESS_DENIED(403, "접근 권한이 없습니다."),
     INVALID_CREDENTIALS(401, "로그인 식별자 또는 비밀번호가 일치하지 않습니다."),
     INVALID_REFRESH_TOKEN(401, "유효하지 않은 리프레시 토큰입니다."),
     EXPIRED_REFRESH_TOKEN(401, "만료된 리프레시 토큰입니다."),

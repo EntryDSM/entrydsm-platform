@@ -26,5 +26,5 @@ kt_jvm_test(
     kotlinc_opts = "//:kotlinc_options",
     plugins = ["//:spring_allopen"],
     test_class = "hs.kr.entrydsm.identity.IdentityBootstrapApplicationTest",
-    deps = MODULE_DEPS + TEST_DEPS,
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
 )

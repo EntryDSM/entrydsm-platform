@@ -40,11 +40,7 @@ class GlobalExceptionHandler {
             .status(errorCode.status)
             .body(
                 ErrorResponse(
-                    error = ErrorDetail(
-                        code = errorCode.name,
-                        message = errorCode.message,
-                        status = errorCode.status,
-                    )
+                    error = ErrorDetail.from(errorCode)
                 ),
             )
 }

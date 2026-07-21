@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity.config.security
 import com.fasterxml.jackson.databind.ObjectMapper
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorResponse
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.MediaType
@@ -24,11 +25,7 @@ class JwtAuthenticationEntryPoint(
         response.writer.write(
             objectMapper.writeValueAsString(
                 ErrorResponse(
-                    error = ErrorDetail(
-                        code = "AUTH_UNAUTHORIZED",
-                        message = "인증이 필요합니다.",
-                        status = HttpServletResponse.SC_UNAUTHORIZED,
-                    )
+                    error = ErrorDetail.from(ErrorCode.AUTH_UNAUTHORIZED)
                 )
             )
         )
