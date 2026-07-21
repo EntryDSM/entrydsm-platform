@@ -19,7 +19,7 @@ import java.time.Instant
 
 @Entity
 @Table(name = "student_profiles")
-class StudentProfileJpaEntity(
+open class StudentProfileJpaEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -41,6 +41,9 @@ class StudentProfileJpaEntity(
 
     @Column(name = "birthdate", nullable = false, length = 255)
     val birthdate: String = "",
+
+    @Column(name = "submitted_at")
+    var submittedAt: Instant? = null,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "applicant_status", nullable = false, length = 20)

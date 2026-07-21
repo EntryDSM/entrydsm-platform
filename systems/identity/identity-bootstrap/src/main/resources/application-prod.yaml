@@ -10,6 +10,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+      open-in-view: false
     show-sql: false
     properties:
       hibernate:

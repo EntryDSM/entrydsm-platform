@@ -10,9 +10,7 @@ import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
-import org.springframework.stereotype.Component
 
-@Component
 class InMemoryAccountRepository : AccountRepository {
     private val accounts = ConcurrentHashMap<Long, Account>()
 

@@ -50,9 +50,9 @@ class AuthService(
             createdAt = now,
             updatedAt = now,
         )
-        accountRepository.save(account)
-        applicationDataPort.create(account.userId, now)
-        return account.toAccountResult()
+        val savedAccount = accountRepository.save(account)
+        applicationDataPort.create(savedAccount.userId, now)
+        return savedAccount.toAccountResult()
     }
 
     override fun login(command: LoginCommand): UserSummaryResult {

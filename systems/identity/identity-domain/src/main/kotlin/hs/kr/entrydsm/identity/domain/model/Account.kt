@@ -18,6 +18,8 @@ class Account(
 ) {
     fun matchesPassword(candidate: String): Boolean = password == candidate
 
+    fun passwordForPersistence(): String = password
+
     fun changePassword(newPassword: String, now: Instant) {
         if (password == newPassword) {
             throw IdentityDomainException(ErrorCode.PASSWORD_SAME_AS_OLD)

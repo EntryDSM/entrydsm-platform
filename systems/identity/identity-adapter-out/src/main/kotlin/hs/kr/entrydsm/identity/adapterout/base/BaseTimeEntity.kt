@@ -18,4 +18,8 @@ abstract class BaseTimeEntity {
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     protected var updatedAt: Instant? = null
+
+    fun createdAtValue(): Instant? = createdAt
+
+    fun updatedAtValue(): Instant? = updatedAt
 }
