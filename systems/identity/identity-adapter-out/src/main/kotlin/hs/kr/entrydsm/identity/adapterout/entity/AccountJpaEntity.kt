@@ -3,10 +3,11 @@ package hs.kr.entrydsm.identity.adapterout.entity
 import hs.kr.entrydsm.identity.adapterout.base.BaseTimeEntity
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import jakarta.persistence.Column
-import jakarta.persistence.Embedded
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 
@@ -14,22 +15,20 @@ import jakarta.persistence.Table
 @Table(name = "accounts")
 class AccountJpaEntity(
     @Id
-    @Column(name = "user_id")
-    val userId: Long = 0,
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    val id: Long? = null,
 
-    @Column(name = "login_id", unique = true, nullable = false, length = 100)
-    val loginId: String = "",
+    @Column(name = "login_id_hash", unique = true, nullable = false, length = 255)
+    val loginIdHash: String = "",
 
-    @Column(name = "password", nullable = false, length = 255)
-    var password: String = "",
+    @Column(name = "password_hash", nullable = false, length = 255)
+    var passwordHash: String = "",
 
-    @Column(name = "role", nullable = false, length = 30)
+    @Column(name = "role", nullable = false, length = 20)
     val role: String = "USER",
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 20)
+    @Column(name = "status", nullable = false, length = 10)
     var status: AccountStatus = AccountStatus.ACTIVE,
-
-    @Embedded
-    val profile: StudentProfileJpaEmbeddable = StudentProfileJpaEmbeddable(),
 ) : BaseTimeEntity()
