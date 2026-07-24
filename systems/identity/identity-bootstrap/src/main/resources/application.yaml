@@ -2,7 +2,7 @@ spring:
   application:
     name: identity
   profiles:
-    default: local
+    default: dev
   main:
     lazy-initialization: true
 server:
@@ -19,3 +19,7 @@ management:
 logging:
   level:
     root: INFO
+
+auth:
+  jwt:
+    issuer: ${JWT_ISSUER:entrydsm-identity}
