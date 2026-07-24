@@ -8,6 +8,7 @@ kt_jvm_library(
     srcs = glob(["src/main/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
+    plugins = ["//:spring_allopen"],
     deps = MODULE_DEPS,
 )
 

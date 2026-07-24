@@ -1,0 +1,34 @@
+package hs.kr.entrydsm.identity.adapterout.entity
+
+import hs.kr.entrydsm.identity.adapterout.base.BaseTimeEntity
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.Table
+
+@Entity
+@Table(name = "accounts")
+open class AccountJpaEntity(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    val id: Long? = null,
+
+    @Column(name = "login_id_hash", unique = true, nullable = false, length = 255)
+    val loginIdHash: String = "",
+
+    @Column(name = "password_hash", nullable = false, length = 255)
+    var passwordHash: String = "",
+
+    @Column(name = "role", nullable = false, length = 20)
+    val role: String = "USER",
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 10)
+    var status: AccountStatus = AccountStatus.ACTIVE,
+) : BaseTimeEntity()
