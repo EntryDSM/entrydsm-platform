@@ -13,7 +13,8 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.LogoutCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
-import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
+import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
+import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import java.net.URI
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
@@ -30,7 +31,6 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/identity/v11/auth")
 class AuthController(
     private val authPort: AuthPort,
-    private val jwtTokenGenerator: JwtTokenGenerator,
 ) {
     @PostMapping("/signup")
     fun signup(
@@ -62,18 +62,18 @@ class AuthController(
         )
         return ResponseEntity
             .ok()
-            .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result.userId).toString())
-            .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result.userId).toString())
-            .body(ApiResponse(data = result.toResponse()))
+            .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result).toString())
+            .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result).toString())
+            .body(ApiResponse(data = result.toUserSummaryResponse()))
     }
 
     @PostMapping("/logout")
     fun logout(
         authentication: Authentication,
     ): ResponseEntity<ApiResponse<Unit>> {
-        val userId = authentication.name.removePrefix(USER_PRINCIPAL_PREFIX).toLongOrNull()
-            ?: throw IllegalArgumentException("Authenticated principal must contain a numeric user id.")
-        authPort.logout(LogoutCommand(userId = userId))
+        val principal = authentication.principal as? AuthenticatedUser
+            ?: throw IllegalArgumentException("Authenticated principal is not validated.")
+        authPort.logout(LogoutCommand(userId = principal.userId))
         return ResponseEntity
             .ok()
             .header(HttpHeaders.SET_COOKIE, expiredCookie("access_token").toString())
@@ -88,9 +88,9 @@ class AuthController(
         val result = authPort.refreshToken(RefreshTokenCommand(refreshToken = refreshToken))
         return ResponseEntity
             .ok()
-            .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result.userId).toString())
-            .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result.userId).toString())
-            .body(ApiResponse(data = result.toResponse()))
+            .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result).toString())
+            .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result).toString())
+            .body(ApiResponse(data = result.toUserSummaryResponse()))
     }
 
     @PatchMapping("/password-reset")
@@ -108,16 +108,16 @@ class AuthController(
         return ApiResponse(data = null)
     }
 
-    private fun accessTokenCookie(userId: Long): ResponseCookie =
-        ResponseCookie.from("access_token", jwtTokenGenerator.generateAccessToken(principal(userId)).value)
+    private fun accessTokenCookie(result: AuthTokenResult): ResponseCookie =
+        ResponseCookie.from("access_token", result.accessToken.value)
             .httpOnly(true)
             .secure(true)
             .path("/")
             .maxAge(7200)
             .build()
 
-    private fun refreshTokenCookie(userId: Long): ResponseCookie =
-        ResponseCookie.from("refresh_token", jwtTokenGenerator.generateRefreshToken(principal(userId)).value)
+    private fun refreshTokenCookie(result: AuthTokenResult): ResponseCookie =
+        ResponseCookie.from("refresh_token", result.refreshToken.value)
             .httpOnly(true)
             .secure(true)
             .path("/")
@@ -132,9 +132,7 @@ class AuthController(
             .maxAge(0)
             .build()
 
-    private fun principal(userId: Long): String = "$USER_PRINCIPAL_PREFIX$userId"
+    private fun AuthTokenResult.toUserSummaryResponse(): UserSummaryResponse =
+        UserSummaryResponse(userId = userId.toString(), role = role, status = status)
 
-    companion object {
-        private const val USER_PRINCIPAL_PREFIX = "user_"
-    }
 }

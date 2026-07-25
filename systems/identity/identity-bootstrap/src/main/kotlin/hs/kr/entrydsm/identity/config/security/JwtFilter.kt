@@ -4,6 +4,7 @@ import com.nimbusds.jose.JOSEException
 import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.crypto.MACVerifier
 import com.nimbusds.jwt.SignedJWT
+import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -44,9 +45,9 @@ class JwtFilter(
         }
 
         try {
-            val subject = verify(token)
+            val principal = verify(token)
             SecurityContextHolder.getContext().authentication =
-                UsernamePasswordAuthenticationToken(subject, null, emptyList())
+                UsernamePasswordAuthenticationToken(principal, null, emptyList())
             filterChain.doFilter(request, response)
         } catch (exception: JwtValidationException) {
             SecurityContextHolder.clearContext()
@@ -74,7 +75,7 @@ class JwtFilter(
             ?.takeIf { it.isNotBlank() }
     }
 
-    private fun verify(token: String): String = try {
+    private fun verify(token: String): AuthenticatedUser = try {
         val signedJwt = SignedJWT.parse(token)
         if (signedJwt.header.algorithm != JWSAlgorithm.HS256) throw JwtValidationException()
         if (!signedJwt.verify(MACVerifier(secretBytes))) throw JwtValidationException()
@@ -86,9 +87,15 @@ class JwtFilter(
         }
 
         val subject = claims.subject?.takeIf { it.isNotBlank() } ?: throw JwtValidationException()
+        val userId = subject
+            .removePrefix(USER_PRINCIPAL_PREFIX)
+            .takeIf { subject.startsWith(USER_PRINCIPAL_PREFIX) }
+            ?.toLongOrNull()
+            ?.takeIf { it > 0 }
+            ?: throw JwtValidationException()
         val expiration = claims.expirationTime?.toInstant() ?: throw JwtValidationException()
         if (!expiration.isAfter(Instant.now(clock))) throw JwtValidationException()
-        subject
+        AuthenticatedUser(userId)
     } catch (exception: JwtValidationException) {
         throw exception
     } catch (exception: ParseException) {
@@ -105,6 +112,7 @@ class JwtFilter(
         private const val ACCESS_TOKEN_COOKIE = "access_token"
         private const val ACCESS_TOKEN_TYPE = "access"
         private const val BEARER_PREFIX = "Bearer "
+        private const val USER_PRINCIPAL_PREFIX = "user_"
         private val PUBLIC_AUTH_PATHS = setOf(
             "/api/identity/v11/auth/signup",
             "/api/identity/v11/auth/login",

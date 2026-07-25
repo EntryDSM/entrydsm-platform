@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.util.UUID
 
 class JwtTokenGenerator(
     private val secret: String,
@@ -43,6 +44,7 @@ class JwtTokenGenerator(
             .issuer(issuer)
             .subject(subject)
             .claim(TOKEN_TYPE_CLAIM, type.claimValue)
+            .jwtID(UUID.randomUUID().toString())
             .issueTime(java.util.Date.from(issuedAt))
             .expirationTime(java.util.Date.from(expiresAt))
             .build()
@@ -66,6 +68,7 @@ class JwtTokenGenerator(
         val ACCESS_TOKEN_TTL: Duration = Duration.ofHours(2)
         val REFRESH_TOKEN_TTL: Duration = Duration.ofDays(7)
         const val TOKEN_TYPE_CLAIM = "typ"
+        const val USER_PRINCIPAL_PREFIX = "user_"
         private const val MIN_SECRET_BYTES = 32
     }
 }

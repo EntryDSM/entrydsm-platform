@@ -7,12 +7,13 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetComman
 import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AccountResult
-import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
+import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.UserIdGenerator
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
@@ -27,6 +28,7 @@ class AuthService(
     private val accountRegistrationPort: AccountRegistrationPort,
     private val userIdGenerator: UserIdGenerator,
     private val passwordHasher: PasswordHasher,
+    private val jwtTokenGenerator: JwtTokenGenerator,
     private val clock: Clock,
 ) : AuthPort {
     override fun signup(command: SignupCommand): AccountResult {
@@ -55,7 +57,7 @@ class AuthService(
         return savedAccount.toAccountResult()
     }
 
-    override fun login(command: LoginCommand): UserSummaryResult {
+    override fun login(command: LoginCommand): AuthTokenResult {
         if (command.loginId.isBlank() || command.password.isBlank()) {
             throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
         }
@@ -67,7 +69,7 @@ class AuthService(
         if (!passwordHasher.matches(command.password, account.passwordHash)) {
             throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
         }
-        return UserSummaryResult(account.userId, account.role, account.status)
+        return issueTokens(account.userId, account.role, account.status)
     }
 
     override fun logout(command: LogoutCommand) {
@@ -75,7 +77,7 @@ class AuthService(
             ?: throw IdentityDomainException(ErrorCode.AUTH_UNAUTHORIZED)
     }
 
-    override fun refreshToken(command: RefreshTokenCommand): UserSummaryResult {
+    override fun refreshToken(command: RefreshTokenCommand): AuthTokenResult {
         val token = command.refreshToken?.takeIf { it.isNotBlank() }
             ?: throw IdentityDomainException(ErrorCode.INVALID_REFRESH_TOKEN)
         if (token.startsWith("expired-")) {
@@ -84,7 +86,7 @@ class AuthService(
         if (token != "mock-refresh-token") {
             throw IdentityDomainException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
-        return UserSummaryResult(userId = 123L, role = "STUDENT", status = AccountStatus.ACTIVE)
+        return issueTokens(userId = 123L, role = "STUDENT", status = AccountStatus.ACTIVE)
     }
 
     override fun resetPassword(command: PasswordResetCommand) {
@@ -101,4 +103,19 @@ class AuthService(
     }
 
     private fun now(): Instant = Instant.now(clock)
+
+    private fun issueTokens(
+        userId: Long,
+        role: String,
+        status: AccountStatus,
+    ): AuthTokenResult = AuthTokenResult(
+        userId = userId,
+        role = role,
+        status = status,
+        accessToken = jwtTokenGenerator.generateAccessToken(userSubject(userId)),
+        refreshToken = jwtTokenGenerator.generateRefreshToken(userSubject(userId)),
+    )
+
+    private fun userSubject(userId: Long): String =
+        "${JwtTokenGenerator.USER_PRINCIPAL_PREFIX}$userId"
 }

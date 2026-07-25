@@ -6,16 +6,16 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetComman
 import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AccountResult
-import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
+import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
 
 interface AuthPort {
     fun signup(command: SignupCommand): AccountResult
 
-    fun login(command: LoginCommand): UserSummaryResult
+    fun login(command: LoginCommand): AuthTokenResult
 
     fun logout(command: LogoutCommand)
 
-    fun refreshToken(command: RefreshTokenCommand): UserSummaryResult
+    fun refreshToken(command: RefreshTokenCommand): AuthTokenResult
 
     fun resetPassword(command: PasswordResetCommand)
 }

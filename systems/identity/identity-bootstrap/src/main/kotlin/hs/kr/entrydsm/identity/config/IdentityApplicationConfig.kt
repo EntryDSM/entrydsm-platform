@@ -5,6 +5,7 @@ import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.UserIdGenerator
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.service.AuthService
 import java.time.Clock
 import org.springframework.context.annotation.Bean
@@ -19,6 +20,7 @@ class IdentityApplicationConfig {
         accountRegistrationPort: AccountRegistrationPort,
         userIdGenerator: UserIdGenerator,
         passwordHasher: PasswordHasher,
+        jwtTokenGenerator: JwtTokenGenerator,
         clock: Clock,
     ): AuthService =
         AuthService(
@@ -27,6 +29,7 @@ class IdentityApplicationConfig {
             accountRegistrationPort,
             userIdGenerator,
             passwordHasher,
+            jwtTokenGenerator,
             clock,
         )
 }
