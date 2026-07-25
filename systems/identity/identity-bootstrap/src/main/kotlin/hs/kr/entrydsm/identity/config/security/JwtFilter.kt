@@ -1,16 +1,17 @@
 package hs.kr.entrydsm.identity.config.security
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.nimbusds.jose.JOSEException
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.crypto.MACVerifier
+import com.nimbusds.jwt.SignedJWT
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
+import java.text.ParseException
 import java.time.Clock
 import java.time.Instant
-import java.util.Base64
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
@@ -21,10 +22,11 @@ import org.springframework.web.filter.OncePerRequestFilter
 @Component
 class JwtFilter(
     private val jwtProperties: JwtProperties,
-    private val objectMapper: ObjectMapper,
     private val clock: Clock,
     private val authenticationEntryPoint: AuthenticationEntryPoint,
 ) : OncePerRequestFilter() {
+    private val secretBytes = jwtProperties.secret.toByteArray(StandardCharsets.UTF_8)
+
     override fun doFilterInternal(
         request: HttpServletRequest,
         response: HttpServletResponse,
@@ -73,49 +75,28 @@ class JwtFilter(
     }
 
     private fun verify(token: String): String = try {
-        val parts = token.split('.')
-        if (parts.size != JWT_PART_COUNT) throw JwtValidationException()
+        val signedJwt = SignedJWT.parse(token)
+        if (signedJwt.header.algorithm != JWSAlgorithm.HS256) throw JwtValidationException()
+        if (!signedJwt.verify(MACVerifier(secretBytes))) throw JwtValidationException()
 
-        val header = decodeJson(parts[0])
-        val payload = decodeJson(parts[1])
-        if (header["alg"]?.asText() != ALGORITHM) throw JwtValidationException()
-        if (payload["iss"]?.asText() != jwtProperties.issuer) throw JwtValidationException()
-        if (payload["typ"]?.asText() != ACCESS_TOKEN_TYPE) throw JwtValidationException()
+        val claims = signedJwt.jwtClaimsSet
+        if (claims.issuer != jwtProperties.issuer) throw JwtValidationException()
+        if (claims.getStringClaim(JwtTokenGenerator.TOKEN_TYPE_CLAIM) != ACCESS_TOKEN_TYPE) {
+            throw JwtValidationException()
+        }
 
-        val subject = payload["sub"]?.asText()?.takeIf { it.isNotBlank() }
-            ?: throw JwtValidationException()
-        val expiration = payload["exp"]?.asLong() ?: throw JwtValidationException()
-        if (expiration <= Instant.now(clock).epochSecond) throw JwtValidationException()
-
-        val signature = decode(parts[2])
-        val expectedSignature = sign("${parts[0]}.${parts[1]}")
-        if (!MessageDigest.isEqual(signature, expectedSignature)) throw JwtValidationException()
+        val subject = claims.subject?.takeIf { it.isNotBlank() } ?: throw JwtValidationException()
+        val expiration = claims.expirationTime?.toInstant() ?: throw JwtValidationException()
+        if (!expiration.isAfter(Instant.now(clock))) throw JwtValidationException()
         subject
     } catch (exception: JwtValidationException) {
         throw exception
-    } catch (exception: com.fasterxml.jackson.core.JsonProcessingException) {
+    } catch (exception: ParseException) {
         throw JwtValidationException(exception)
-    } catch (exception: java.security.GeneralSecurityException) {
+    } catch (exception: JOSEException) {
         throw JwtValidationException(exception)
     } catch (exception: IllegalArgumentException) {
         throw JwtValidationException(exception)
-    }
-
-    private fun decodeJson(value: String) =
-        objectMapper.readTree(String(decode(value), StandardCharsets.UTF_8))
-
-    private fun decode(value: String): ByteArray =
-        Base64.getUrlDecoder().decode(value)
-
-    private fun sign(value: String): ByteArray {
-        val mac = Mac.getInstance(ALGORITHM_NAME)
-        mac.init(
-            SecretKeySpec(
-                jwtProperties.secret.toByteArray(StandardCharsets.UTF_8),
-                ALGORITHM_NAME,
-            )
-        )
-        return mac.doFinal(value.toByteArray(StandardCharsets.UTF_8))
     }
 
     private class JwtValidationException(cause: Throwable? = null) : RuntimeException(cause)
@@ -123,10 +104,7 @@ class JwtFilter(
     companion object {
         private const val ACCESS_TOKEN_COOKIE = "access_token"
         private const val ACCESS_TOKEN_TYPE = "access"
-        private const val ALGORITHM = "HS256"
-        private const val ALGORITHM_NAME = "HmacSHA256"
         private const val BEARER_PREFIX = "Bearer "
-        private const val JWT_PART_COUNT = 3
         private val PUBLIC_AUTH_PATHS = setOf(
             "/api/identity/v11/auth/signup",
             "/api/identity/v11/auth/login",
