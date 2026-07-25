@@ -9,22 +9,27 @@ import java.time.Instant
 class Account(
     val userId: Long,
     val loginId: String,
-    private var password: String,
+    passwordHash: PasswordHash,
     val role: String,
-    var status: AccountStatus,
+    status: AccountStatus,
     val profile: StudentProfile,
     val createdAt: Instant,
-    var updatedAt: Instant,
+    updatedAt: Instant,
 ) {
-    fun matchesPassword(candidate: String): Boolean = password == candidate
+    var passwordHash: PasswordHash = passwordHash
+        private set
 
-    fun passwordForPersistence(): String = password
+    var status: AccountStatus = status
+        private set
 
-    fun changePassword(newPassword: String, now: Instant) {
-        if (password == newPassword) {
+    var updatedAt: Instant = updatedAt
+        private set
+
+    fun changePassword(newPasswordHash: PasswordHash, now: Instant) {
+        if (passwordHash == newPasswordHash) {
             throw IdentityDomainException(ErrorCode.PASSWORD_SAME_AS_OLD)
         }
-        password = newPassword
+        passwordHash = newPasswordHash
         updatedAt = now
     }
 
@@ -45,7 +50,7 @@ class Account(
         fun create(
             userId: Long,
             loginId: String,
-            password: String,
+            passwordHash: PasswordHash,
             role: String,
             status: AccountStatus,
             profile: StudentProfile,
@@ -54,7 +59,7 @@ class Account(
         ): Account = Account(
             userId = userId,
             loginId = loginId,
-            password = password,
+            passwordHash = passwordHash,
             role = role,
             status = status,
             profile = profile,
