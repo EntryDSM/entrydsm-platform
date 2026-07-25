@@ -16,18 +16,22 @@ import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.Instant
 import java.time.LocalDate
+import java.time.Clock
+import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 
 class AuthControllerTest {
     @Test
     fun signupMapsRequestToCommandAndReturnsCreatedAccount() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort)
+        val controller = AuthController(authPort, tokenGenerator())
         val birthdate = LocalDate.parse("2009-03-15")
 
         val response = controller.signup(
@@ -54,7 +58,7 @@ class AuthControllerTest {
     @Test
     fun loginMapsRequestAndSetsHttpOnlyTokenCookies() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort)
+        val controller = AuthController(authPort, tokenGenerator())
 
         val response = controller.login(LoginRequest(loginId = "entry", password = "password123!"))
 
@@ -64,29 +68,76 @@ class AuthControllerTest {
         assertEquals("password123!", command.password)
         assertEquals(HttpStatus.OK, response.statusCode)
         assertEquals("user_123", response.body?.data?.userId)
-        assertTrue(cookies.any { it.contains("access_token=mock-access-token") && it.contains("HttpOnly") })
-        assertTrue(cookies.any { it.contains("refresh_token=mock-refresh-token") && it.contains("HttpOnly") })
+        assertTrue(cookies.any { it.contains("access_token=ey") && it.contains("HttpOnly") })
+        assertTrue(cookies.any { it.contains("refresh_token=ey") && it.contains("HttpOnly") })
     }
 
     @Test
-    fun logoutPassesAuthorizationAndExpiresCookies() {
+    fun logoutUsesValidatedPrincipalAndExpiresCookies() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort)
+        val controller = AuthController(authPort, tokenGenerator())
 
-        val response = controller.logout("Bearer access-token")
+        val response = controller.logout(UsernamePasswordAuthenticationToken("user_123", null))
 
         val command = requireNotNull(authPort.logoutCommand)
         val cookies = response.headers[HttpHeaders.SET_COOKIE].orEmpty()
-        assertEquals("Bearer access-token", command.authorization)
+        assertEquals(123L, command.userId)
         assertEquals(HttpStatus.OK, response.statusCode)
         assertTrue(cookies.any { it.contains("access_token=") && it.contains("Max-Age=0") })
         assertTrue(cookies.any { it.contains("refresh_token=") && it.contains("Max-Age=0") })
+    }
+
+    @Test
+    fun refreshMapsCommandAndIssuesFreshCookies() {
+        val authPort = FakeAuthPort()
+        val controller = AuthController(authPort, tokenGenerator())
+
+        val response = controller.refreshToken("refresh-token")
+
+        assertEquals("refresh-token", authPort.refreshTokenCommand?.refreshToken)
+        assertEquals("user_123", response.body?.data?.userId)
+        assertEquals(2, response.headers[HttpHeaders.SET_COOKIE]?.size)
+    }
+
+    @Test
+    fun passwordResetMapsAllSensitiveFieldsToCommand() {
+        val authPort = FakeAuthPort()
+        val controller = AuthController(authPort, tokenGenerator())
+        val birthdate = LocalDate.parse("2009-03-15")
+
+        controller.resetPassword(
+            hs.kr.entrydsm.identity.adapterin.web.dto.request.PasswordResetRequest(
+                loginId = "entry",
+                name = "홍길동",
+                birthdate = birthdate,
+                newPassword = "new-password",
+            )
+        )
+
+        val command = requireNotNull(authPort.resetPasswordCommand)
+        assertEquals("entry", command.loginId)
+        assertEquals("홍길동", command.name)
+        assertEquals(birthdate, command.birthdate)
+        assertEquals("new-password", command.newPassword)
+    }
+
+    @Test
+    fun commandToStringsDoNotExposeCredentialsOrTokens() {
+        assertFalse(LoginCommand("entry", "secret").toString().contains("secret"))
+        assertFalse(RefreshTokenCommand("refresh-secret").toString().contains("refresh-secret"))
+        assertFalse(
+            PasswordResetCommand("entry", "홍길동", LocalDate.parse("2009-03-15"), "new-secret")
+                .toString()
+                .contains("new-secret")
+        )
     }
 
     private class FakeAuthPort : AuthPort {
         var signupCommand: SignupCommand? = null
         var loginCommand: LoginCommand? = null
         var logoutCommand: LogoutCommand? = null
+        var refreshTokenCommand: RefreshTokenCommand? = null
+        var resetPasswordCommand: PasswordResetCommand? = null
 
         override fun signup(command: SignupCommand): AccountResult {
             signupCommand = command
@@ -115,16 +166,23 @@ class AuthControllerTest {
             logoutCommand = command
         }
 
-        override fun refreshToken(command: RefreshTokenCommand) {
-            assertNotNull(command)
+        override fun refreshToken(command: RefreshTokenCommand): UserSummaryResult {
+            refreshTokenCommand = command
+            return UserSummaryResult(userId = 123L, role = "STUDENT", status = AccountStatus.ACTIVE)
         }
 
         override fun resetPassword(command: PasswordResetCommand) {
-            assertNotNull(command)
+            resetPasswordCommand = command
         }
     }
 
     private companion object {
         val NOW: Instant = Instant.parse("2026-06-11T10:00:00Z")
+
+        fun tokenGenerator(): JwtTokenGenerator = JwtTokenGenerator(
+            secret = "01234567890123456789012345678901",
+            issuer = "entrydsm-identity",
+            clock = Clock.fixed(NOW, ZoneOffset.UTC),
+        )
     }
 }
