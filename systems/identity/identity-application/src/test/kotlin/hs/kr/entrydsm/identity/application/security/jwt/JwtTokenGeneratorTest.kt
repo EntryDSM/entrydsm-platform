@@ -1,5 +1,7 @@
 package hs.kr.entrydsm.identity.application.security.jwt
 
+import com.nimbusds.jose.crypto.MACVerifier
+import com.nimbusds.jwt.SignedJWT
 import java.nio.charset.StandardCharsets
 import java.time.Clock
 import java.time.Instant
@@ -43,6 +45,25 @@ class JwtTokenGeneratorTest {
         assertEquals(fixedNow.plus(JwtTokenGenerator.REFRESH_TOKEN_TTL), token.expiresAt)
         assertTrue(payload.contains("\"typ\":\"refresh\""))
         assertTrue(payload.contains("\"exp\":1781776800"))
+    }
+
+    @Test
+    fun generatedTokenIsVerifiableByNimbus() {
+        val token = generator.generateAccessToken("user_123")
+        val signedJwt = SignedJWT.parse(token.value)
+
+        assertTrue(
+            signedJwt.verify(
+                MACVerifier("01234567890123456789012345678901".toByteArray(StandardCharsets.UTF_8))
+            )
+        )
+    }
+
+    @Test
+    fun tokenToStringDoesNotExposeRawJwt() {
+        val token = generator.generateAccessToken("user_123")
+
+        assertTrue(!token.toString().contains(token.value))
     }
 
     @Test(expected = IllegalArgumentException::class)
