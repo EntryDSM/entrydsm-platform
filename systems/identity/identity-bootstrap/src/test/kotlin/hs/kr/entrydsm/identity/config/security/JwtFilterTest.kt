@@ -1,12 +1,14 @@
 package hs.kr.entrydsm.identity.config.security
 
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
+import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import jakarta.servlet.FilterChain
 import jakarta.servlet.ServletRequest
 import jakarta.servlet.ServletResponse
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import jakarta.servlet.http.Cookie
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -26,7 +28,7 @@ class JwtFilterTest {
 
         assertEquals(200, result.status)
         assertTrue(result.chainInvoked)
-        assertEquals("user_123", result.authentication?.name)
+        assertEquals(AuthenticatedUser(123L), result.authentication?.principal)
     }
 
     @Test
@@ -56,6 +58,21 @@ class JwtFilterTest {
     }
 
     @Test
+    fun tokenWithInvalidPrincipalFormatReturnsUnauthorized() {
+        val invalidPrincipal = JwtTokenGenerator(
+            secret = SECRET,
+            issuer = ISSUER,
+            clock = Clock.fixed(FIXED_NOW, UTC),
+        ).generateAccessToken("admin").value
+
+        val result = runFilter(invalidPrincipal)
+
+        assertEquals(401, result.status)
+        assertFalse(result.chainInvoked)
+        assertNull(result.authentication)
+    }
+
+    @Test
     fun missingTokenContinuesChainWithoutAuthentication() {
         val result = runFilter(null)
 
@@ -76,14 +93,37 @@ class JwtFilterTest {
         assertNull(result.authentication)
     }
 
+    @Test
+    fun everyPublicAuthEndpointSkipsInvalidCookieValidation() {
+        val publicPaths = listOf(
+            "/api/identity/v11/auth/signup",
+            "/api/identity/v11/auth/login",
+            "/api/identity/v11/auth/token",
+            "/api/identity/v11/auth/password-reset",
+        )
+
+        publicPaths.forEach { path ->
+            val result = runFilter(token = "not-a-jwt", path = path, useCookie = true)
+
+            assertEquals(200, result.status)
+            assertTrue(result.chainInvoked)
+            assertNull(result.authentication)
+        }
+    }
+
     private fun runFilter(
         token: String?,
         path: String = "/api/identity/v11/accounts/me",
+        useCookie: Boolean = false,
     ): FilterResult {
         SecurityContextHolder.clearContext()
         val request = MockHttpServletRequest("GET", path)
         if (token != null) {
-            request.addHeader("Authorization", "Bearer $token")
+            if (useCookie) {
+                request.setCookies(Cookie("access_token", token))
+            } else {
+                request.addHeader("Authorization", "Bearer $token")
+            }
         }
         val response = MockHttpServletResponse()
         val chain = RecordingFilterChain()
