@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity.config
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
+import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.UserIdGenerator
 import hs.kr.entrydsm.identity.application.service.AuthService
 import java.time.Clock
@@ -17,7 +18,15 @@ class IdentityApplicationConfig {
         accountCommandPort: AccountCommandPort,
         accountRegistrationPort: AccountRegistrationPort,
         userIdGenerator: UserIdGenerator,
+        passwordHasher: PasswordHasher,
         clock: Clock,
     ): AuthService =
-        AuthService(accountQueryPort, accountCommandPort, accountRegistrationPort, userIdGenerator, clock)
+        AuthService(
+            accountQueryPort,
+            accountCommandPort,
+            accountRegistrationPort,
+            userIdGenerator,
+            passwordHasher,
+            clock,
+        )
 }

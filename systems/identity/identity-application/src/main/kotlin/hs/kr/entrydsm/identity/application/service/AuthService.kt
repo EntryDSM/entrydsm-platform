@@ -11,6 +11,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
+import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.UserIdGenerator
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
@@ -25,6 +26,7 @@ class AuthService(
     private val accountCommandPort: AccountCommandPort,
     private val accountRegistrationPort: AccountRegistrationPort,
     private val userIdGenerator: UserIdGenerator,
+    private val passwordHasher: PasswordHasher,
     private val clock: Clock,
 ) : AuthPort {
     override fun signup(command: SignupCommand): AccountResult {
@@ -36,7 +38,7 @@ class AuthService(
         val account = Account.create(
             userId = userIdGenerator.nextId(),
             loginId = command.phone,
-            password = command.password,
+            passwordHash = passwordHasher.hash(command.password),
             role = "USER",
             status = AccountStatus.ACTIVE,
             profile = StudentProfile(
@@ -62,7 +64,7 @@ class AuthService(
         if (account.status != AccountStatus.ACTIVE) {
             throw IdentityDomainException(ErrorCode.ACCOUNT_INACTIVE)
         }
-        if (!account.matchesPassword(command.password)) {
+        if (!passwordHasher.matches(command.password, account.passwordHash)) {
             throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
         }
         return UserSummaryResult(account.userId, account.role, account.status)
@@ -94,7 +96,7 @@ class AuthService(
         if (account.profile.name != command.name || account.profile.birthdate != command.birthdate) {
             throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
         }
-        account.changePassword(command.newPassword, now())
+        account.changePassword(passwordHasher.hash(command.newPassword), now())
         accountCommandPort.save(account)
     }
 

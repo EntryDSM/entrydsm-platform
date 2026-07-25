@@ -1,11 +1,13 @@
 SPRING_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
+    "@maven//:org_springframework_boot_spring_boot_starter_security",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
 ]
 
 KOTLIN_DEPS = [
     "@maven//:org_jetbrains_kotlin_kotlin_reflect",
     "@maven//:com_fasterxml_jackson_module_jackson_module_kotlin",
+    "@maven//:com_nimbusds_nimbus_jose_jwt",
 ]
 
 TEST_DEPS = [
