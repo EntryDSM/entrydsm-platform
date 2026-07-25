@@ -9,8 +9,9 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetComman
 import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AccountResult
+import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
+import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import hs.kr.entrydsm.identity.application.port.`in`.result.ProfileResult
-import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.SignupType
@@ -31,7 +32,7 @@ class AuthControllerTest {
     @Test
     fun signupMapsRequestToCommandAndReturnsCreatedAccount() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort, tokenGenerator())
+        val controller = AuthController(authPort)
         val birthdate = LocalDate.parse("2009-03-15")
 
         val response = controller.signup(
@@ -58,7 +59,7 @@ class AuthControllerTest {
     @Test
     fun loginMapsRequestAndSetsHttpOnlyTokenCookies() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort, tokenGenerator())
+        val controller = AuthController(authPort)
 
         val response = controller.login(LoginRequest(loginId = "entry", password = "password123!"))
 
@@ -75,9 +76,11 @@ class AuthControllerTest {
     @Test
     fun logoutUsesValidatedPrincipalAndExpiresCookies() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort, tokenGenerator())
+        val controller = AuthController(authPort)
 
-        val response = controller.logout(UsernamePasswordAuthenticationToken("user_123", null))
+        val response = controller.logout(
+            UsernamePasswordAuthenticationToken(AuthenticatedUser(123L), null)
+        )
 
         val command = requireNotNull(authPort.logoutCommand)
         val cookies = response.headers[HttpHeaders.SET_COOKIE].orEmpty()
@@ -87,10 +90,18 @@ class AuthControllerTest {
         assertTrue(cookies.any { it.contains("refresh_token=") && it.contains("Max-Age=0") })
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun logoutRejectsRawStringPrincipal() {
+        val authPort = FakeAuthPort()
+        val controller = AuthController(authPort)
+
+        controller.logout(UsernamePasswordAuthenticationToken("user_123", null))
+    }
+
     @Test
     fun refreshMapsCommandAndIssuesFreshCookies() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort, tokenGenerator())
+        val controller = AuthController(authPort)
 
         val response = controller.refreshToken("refresh-token")
 
@@ -102,7 +113,7 @@ class AuthControllerTest {
     @Test
     fun passwordResetMapsAllSensitiveFieldsToCommand() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort, tokenGenerator())
+        val controller = AuthController(authPort)
         val birthdate = LocalDate.parse("2009-03-15")
 
         controller.resetPassword(
@@ -157,22 +168,33 @@ class AuthControllerTest {
             )
         }
 
-        override fun login(command: LoginCommand): UserSummaryResult {
+        override fun login(command: LoginCommand): AuthTokenResult {
             loginCommand = command
-            return UserSummaryResult(userId = 123L, role = "STUDENT", status = AccountStatus.ACTIVE)
+            return tokenResult()
         }
 
         override fun logout(command: LogoutCommand) {
             logoutCommand = command
         }
 
-        override fun refreshToken(command: RefreshTokenCommand): UserSummaryResult {
+        override fun refreshToken(command: RefreshTokenCommand): AuthTokenResult {
             refreshTokenCommand = command
-            return UserSummaryResult(userId = 123L, role = "STUDENT", status = AccountStatus.ACTIVE)
+            return tokenResult()
         }
 
         override fun resetPassword(command: PasswordResetCommand) {
             resetPasswordCommand = command
+        }
+
+        private fun tokenResult(): AuthTokenResult {
+            val generator = tokenGenerator()
+            return AuthTokenResult(
+                userId = 123L,
+                role = "STUDENT",
+                status = AccountStatus.ACTIVE,
+                accessToken = generator.generateAccessToken("user_123"),
+                refreshToken = generator.generateRefreshToken("user_123"),
+            )
         }
     }
 
