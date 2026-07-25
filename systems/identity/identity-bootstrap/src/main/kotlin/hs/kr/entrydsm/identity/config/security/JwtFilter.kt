@@ -30,6 +30,11 @@ class JwtFilter(
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
+        if (isPublicAuthPath(request)) {
+            filterChain.doFilter(request, response)
+            return
+        }
+
         val token = resolveToken(request)
         if (token == null) {
             filterChain.doFilter(request, response)
@@ -49,6 +54,11 @@ class JwtFilter(
                 BadCredentialsException("Invalid JWT", exception),
             )
         }
+    }
+
+    private fun isPublicAuthPath(request: HttpServletRequest): Boolean {
+        val path = request.requestURI.removePrefix(request.contextPath.orEmpty())
+        return PUBLIC_AUTH_PATHS.contains(path)
     }
 
     private fun resolveToken(request: HttpServletRequest): String? {
@@ -83,7 +93,11 @@ class JwtFilter(
         subject
     } catch (exception: JwtValidationException) {
         throw exception
-    } catch (exception: Exception) {
+    } catch (exception: com.fasterxml.jackson.core.JsonProcessingException) {
+        throw JwtValidationException(exception)
+    } catch (exception: java.security.GeneralSecurityException) {
+        throw JwtValidationException(exception)
+    } catch (exception: IllegalArgumentException) {
         throw JwtValidationException(exception)
     }
 
@@ -113,5 +127,11 @@ class JwtFilter(
         private const val ALGORITHM_NAME = "HmacSHA256"
         private const val BEARER_PREFIX = "Bearer "
         private const val JWT_PART_COUNT = 3
+        private val PUBLIC_AUTH_PATHS = setOf(
+            "/api/identity/v11/auth/signup",
+            "/api/identity/v11/auth/login",
+            "/api/identity/v11/auth/token",
+            "/api/identity/v11/auth/password-reset",
+        )
     }
 }

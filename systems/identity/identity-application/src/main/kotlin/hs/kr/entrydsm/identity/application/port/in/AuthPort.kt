@@ -15,7 +15,7 @@ interface AuthPort {
 
     fun logout(command: LogoutCommand)
 
-    fun refreshToken(command: RefreshTokenCommand)
+    fun refreshToken(command: RefreshTokenCommand): UserSummaryResult
 
     fun resetPassword(command: PasswordResetCommand)
 }

@@ -36,7 +36,8 @@ class MockAuthPortAdapter : AuthPort {
 
     override fun logout(command: LogoutCommand) = Unit
 
-    override fun refreshToken(command: RefreshTokenCommand) = Unit
+    override fun refreshToken(command: RefreshTokenCommand): UserSummaryResult =
+        UserSummaryResult(userId = 123L, role = "STUDENT", status = AccountStatus.ACTIVE)
 
     override fun resetPassword(command: PasswordResetCommand) = Unit
 }

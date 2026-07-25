@@ -13,6 +13,8 @@ import hs.kr.entrydsm.identity.config.security.JwtAuthenticationEntryPoint
 import hs.kr.entrydsm.identity.config.security.JwtAuthorizationDeniedHandler
 import hs.kr.entrydsm.identity.config.security.JwtFilter
 import hs.kr.entrydsm.identity.config.security.JwtProperties
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
+import java.time.Clock
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -20,12 +22,17 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import java.time.Instant
 import java.time.LocalDate
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(JwtProperties::class)
 class SecurityConfig {
+    @Bean
+    fun jwtTokenGenerator(properties: JwtProperties, clock: Clock): JwtTokenGenerator =
+        JwtTokenGenerator(properties.secret, properties.issuer, clock)
+
     @Bean
     fun objectMapper(): ObjectMapper =
         jacksonObjectMapper()
@@ -54,7 +61,16 @@ class SecurityConfig {
         accessDeniedHandler: JwtAuthorizationDeniedHandler,
     ): SecurityFilterChain =
         http
-            .csrf { it.disable() }
+            .csrf {
+                it
+                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .ignoringRequestMatchers(
+                        "/api/identity/v11/auth/signup",
+                        "/api/identity/v11/auth/login",
+                        "/api/identity/v11/auth/token",
+                        "/api/identity/v11/auth/password-reset",
+                    )
+            }
             .cors { it.disable() }
             .formLogin { it.disable() }
             .httpBasic { it.disable() }

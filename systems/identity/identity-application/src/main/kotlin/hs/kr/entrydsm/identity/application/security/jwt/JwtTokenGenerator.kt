@@ -114,7 +114,10 @@ data class JwtToken(
     val type: TokenType,
     val issuedAt: Instant,
     val expiresAt: Instant,
-)
+) {
+    override fun toString(): String =
+        "JwtToken(type=$type, issuedAt=$issuedAt, expiresAt=$expiresAt, value=[REDACTED])"
+}
 
 enum class TokenType(
     val claimValue: String,

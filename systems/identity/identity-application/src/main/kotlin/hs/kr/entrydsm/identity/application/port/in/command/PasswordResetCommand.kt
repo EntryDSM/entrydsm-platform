@@ -7,4 +7,7 @@ data class PasswordResetCommand(
     val name: String,
     val birthdate: LocalDate,
     val newPassword: String,
-)
+) {
+    override fun toString(): String =
+        "PasswordResetCommand(loginId=$loginId, name=$name, birthdate=$birthdate, newPassword=[REDACTED])"
+}
