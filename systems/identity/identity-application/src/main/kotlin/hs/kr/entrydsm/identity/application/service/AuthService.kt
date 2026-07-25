@@ -8,8 +8,10 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AccountResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
-import hs.kr.entrydsm.identity.application.port.out.AccountRepository
-import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
+import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
+import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
+import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
+import hs.kr.entrydsm.identity.application.port.out.UserIdGenerator
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
@@ -17,25 +19,22 @@ import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Clock
 import java.time.Instant
-import java.util.concurrent.atomic.AtomicLong
-import org.springframework.stereotype.Service
 
-@Service
 class AuthService(
-    private val accountRepository: AccountRepository,
-    private val applicationDataPort: ApplicationDataPort,
-    private val clock: Clock = Clock.systemUTC(),
+    private val accountQueryPort: AccountQueryPort,
+    private val accountCommandPort: AccountCommandPort,
+    private val accountRegistrationPort: AccountRegistrationPort,
+    private val userIdGenerator: UserIdGenerator,
+    private val clock: Clock,
 ) : AuthPort {
-    private val nextUserId = AtomicLong(123L)
-
     override fun signup(command: SignupCommand): AccountResult {
         requireValidSignup(command)
-        if (accountRepository.findByLoginId(command.phone) != null) {
+        if (accountQueryPort.findByLoginId(command.phone) != null) {
             throw IdentityDomainException(ErrorCode.ACCOUNT_ALREADY_EXISTS)
         }
         val now = now()
         val account = Account.create(
-            userId = nextUserId.incrementAndGet(),
+            userId = userIdGenerator.nextId(),
             loginId = command.phone,
             password = command.password,
             role = "USER",
@@ -50,8 +49,7 @@ class AuthService(
             createdAt = now,
             updatedAt = now,
         )
-        val savedAccount = accountRepository.save(account)
-        applicationDataPort.create(savedAccount.userId, now)
+        val savedAccount = accountRegistrationPort.register(account, now)
         return savedAccount.toAccountResult()
     }
 
@@ -59,7 +57,7 @@ class AuthService(
         if (command.loginId.isBlank() || command.password.isBlank()) {
             throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
         }
-        val account = accountRepository.findByLoginId(command.loginId)
+        val account = accountQueryPort.findByLoginId(command.loginId)
             ?: throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
         if (account.status != AccountStatus.ACTIVE) {
             throw IdentityDomainException(ErrorCode.ACCOUNT_INACTIVE)
@@ -71,10 +69,11 @@ class AuthService(
     }
 
     override fun logout(command: LogoutCommand) {
-        accountRepository.resolveAccount(command.authorization)
+        accountQueryPort.findByUserId(command.userId)
+            ?: throw IdentityDomainException(ErrorCode.AUTH_UNAUTHORIZED)
     }
 
-    override fun refreshToken(command: RefreshTokenCommand) {
+    override fun refreshToken(command: RefreshTokenCommand): UserSummaryResult {
         val token = command.refreshToken?.takeIf { it.isNotBlank() }
             ?: throw IdentityDomainException(ErrorCode.INVALID_REFRESH_TOKEN)
         if (token.startsWith("expired-")) {
@@ -83,19 +82,20 @@ class AuthService(
         if (token != "mock-refresh-token") {
             throw IdentityDomainException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
+        return UserSummaryResult(userId = 123L, role = "STUDENT", status = AccountStatus.ACTIVE)
     }
 
     override fun resetPassword(command: PasswordResetCommand) {
         if (command.loginId.isBlank() || command.name.isBlank() || command.newPassword.isBlank()) {
             throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
         }
-        val account = accountRepository.findByLoginId(command.loginId)
+        val account = accountQueryPort.findByLoginId(command.loginId)
             ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
         if (account.profile.name != command.name || account.profile.birthdate != command.birthdate) {
             throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
         }
         account.changePassword(command.newPassword, now())
-        accountRepository.save(account)
+        accountCommandPort.save(account)
     }
 
     private fun now(): Instant = Instant.now(clock)
