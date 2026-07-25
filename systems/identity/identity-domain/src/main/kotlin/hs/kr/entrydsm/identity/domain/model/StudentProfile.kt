@@ -13,17 +13,47 @@ class StudentProfile(
     val phone: String,
     val birthdate: LocalDate,
     val signupType: SignupType,
-    var applicantStatus: ApplicantStatus = ApplicantStatus.NONE,
-    var passStatus: PassStatus = PassStatus.NOT_ANNOUNCED,
-    var submittedAt: Instant? = null,
-    var announcedAt: Instant? = null,
-    var updatedAt: Instant,
+    applicantStatus: ApplicantStatus = ApplicantStatus.NONE,
+    passStatus: PassStatus = PassStatus.NOT_ANNOUNCED,
+    submittedAt: Instant? = null,
+    announcedAt: Instant? = null,
+    updatedAt: Instant,
 ) {
+    var applicantStatus: ApplicantStatus = applicantStatus
+        private set
+
+    var passStatus: PassStatus = passStatus
+        private set
+
+    var submittedAt: Instant? = submittedAt
+        private set
+
+    var announcedAt: Instant? = announcedAt
+        private set
+
+    var updatedAt: Instant = updatedAt
+        private set
+
+    fun submit(now: Instant) {
+        applicantStatus = ApplicantStatus.SUBMITTED
+        submittedAt = now
+        updatedAt = now
+    }
+
     fun cancel(now: Instant) {
         if (applicantStatus != ApplicantStatus.SUBMITTED) {
             throw IdentityDomainException(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED)
         }
         applicantStatus = ApplicantStatus.CANCELED
+        updatedAt = now
+    }
+
+    fun announceResult(result: PassStatus, now: Instant) {
+        check(result != PassStatus.NOT_ANNOUNCED) {
+            "An announced result must be PASSED or FAILED"
+        }
+        passStatus = result
+        announcedAt = now
         updatedAt = now
     }
 

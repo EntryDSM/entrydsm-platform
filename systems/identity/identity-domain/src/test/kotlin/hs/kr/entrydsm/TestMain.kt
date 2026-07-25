@@ -6,5 +6,6 @@ import org.junit.runners.Suite
 @RunWith(Suite::class)
 @Suite.SuiteClasses(
     AccountTest::class,
+    StudentProfileTest::class,
 )
 class IdentityDomainModuleTest
