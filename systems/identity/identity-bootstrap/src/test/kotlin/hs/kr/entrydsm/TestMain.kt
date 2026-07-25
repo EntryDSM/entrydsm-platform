@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.identity.config.SecurityConfig
+import hs.kr.entrydsm.identity.config.security.JwtFilterTest
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import java.time.Instant
 import java.time.LocalDate
@@ -15,8 +16,9 @@ import org.junit.runners.Suite
 @Suite.SuiteClasses(
     IdentityBootstrapConfigurationTest::class,
     ObjectMapperConfigurationTest::class,
+    JwtFilterTest::class,
 )
-class IdentityBootstrapApplicationTest
+class IdentityBootstrapModuleTest
 
 class ObjectMapperConfigurationTest {
     @Test
