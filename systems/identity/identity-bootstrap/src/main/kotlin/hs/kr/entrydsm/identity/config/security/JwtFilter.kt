@@ -85,7 +85,7 @@ class JwtFilter(
 
         val claims = signedJwt.payload
         if (claims.issuer != jwtProperties.issuer) throw JwtValidationException()
-        if (claims.getStringClaim(JwtTokenGenerator.TOKEN_TYPE_CLAIM) != ACCESS_TOKEN_TYPE) {
+        if (claims[JwtTokenGenerator.TOKEN_TYPE_CLAIM] as? String != ACCESS_TOKEN_TYPE) {
             throw JwtValidationException()
         }
 
@@ -96,7 +96,7 @@ class JwtFilter(
             ?.toLongOrNull()
             ?.takeIf { it > 0 }
             ?: throw JwtValidationException()
-        val expiration = claims.expirationTime?.toInstant() ?: throw JwtValidationException()
+        val expiration = claims.expiration?.toInstant() ?: throw JwtValidationException()
         if (!expiration.isAfter(Instant.now(clock))) throw JwtValidationException()
         AuthenticatedUser(userId)
     } catch (exception: JwtValidationException) {

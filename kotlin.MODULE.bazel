@@ -16,6 +16,7 @@ maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "
 
 # JPA / DB
 maven.artifact(artifact = "spring-boot-starter-data-jpa", group = "org.springframework.boot", version = "4.0.1")
+maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springframework.boot", version = "4.0.1")
 maven.artifact(artifact = "spring-boot-starter", group = "org.springframework.boot", version = "4.0.1")
 maven.artifact(artifact = "mysql-connector-j", group = "com.mysql", version = "9.3.0")
 

@@ -3,12 +3,15 @@ package hs.kr.entrydsm.identity.application.service
 import hs.kr.entrydsm.identity.application.port.`in`.command.LoginCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.LogoutCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetCommand
+import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
+import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
-import hs.kr.entrydsm.identity.application.port.out.UserIdGenerator
+import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
+import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.SignupType
@@ -16,8 +19,9 @@ import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.PasswordHash
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
-import hs.kr.entrydsm.identity.application.security.jwt.TokenType
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenVerifier
+import hs.kr.entrydsm.identity.application.security.jwt.TokenType
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -33,19 +37,20 @@ class AuthServiceTest {
     private val queryPort = mock(AccountQueryPort::class.java)
     private val commandPort = mock(AccountCommandPort::class.java)
     private val passwordHasher = mock(PasswordHasher::class.java)
-    private val userIdGenerator = UserIdGenerator { 124L }
+    private val consumedRefreshTokenIds = mutableSetOf<String>()
+    private val refreshTokenVersions = mutableMapOf<Long, Long>()
     private val clock = Clock.fixed(NOW, UTC)
     private val jwtTokenGenerator = JwtTokenGenerator(SECRET, ISSUER, clock)
 
     @Test
     fun signupCreatesAccountThroughRegistrationPort() {
         val savedAccount = account()
-        var registeredAccount: Account? = null
+        var registration: AccountRegistration? = null
         `when`(queryPort.findByLoginId("01012345678")).thenReturn(null)
         `when`(passwordHasher.hash("password123!")).thenReturn(PASSWORD_HASH)
         val service = service(
-            AccountRegistrationPort { account, _ ->
-                registeredAccount = account
+            AccountRegistrationPort { accountRegistration, _ ->
+                registration = accountRegistration
                 savedAccount
             }
         )
@@ -62,7 +67,8 @@ class AuthServiceTest {
 
         assertEquals(123L, result.userId)
         assertEquals("USER", result.role)
-        assertEquals(124L, registeredAccount?.userId)
+        assertEquals("01012345678", registration?.loginId)
+        assertEquals(PASSWORD_HASH, registration?.passwordHash)
     }
 
     @Test(expected = IdentityDomainException::class)
@@ -139,7 +145,10 @@ class AuthServiceTest {
 
     @Test
     fun refreshTokenIssuesNewAccessAndRefreshTokens() {
-        val result = service().refreshToken(RefreshTokenCommand("mock-refresh-token"))
+        `when`(queryPort.findByUserId(123L)).thenReturn(account())
+        val refreshToken = jwtTokenGenerator.generateRefreshToken("user_123").value
+
+        val result = service().refreshToken(RefreshTokenCommand(refreshToken))
 
         assertEquals(TokenType.ACCESS, result.accessToken.type)
         assertEquals(TokenType.REFRESH, result.refreshToken.type)
@@ -151,6 +160,37 @@ class AuthServiceTest {
         service().refreshToken(RefreshTokenCommand("invalid-refresh-token"))
     }
 
+    @Test(expected = IdentityDomainException::class)
+    fun refreshTokenCannotBeUsedTwice() {
+        `when`(queryPort.findByUserId(123L)).thenReturn(account())
+        val refreshToken = jwtTokenGenerator.generateRefreshToken("user_123").value
+        val service = service()
+
+        service.refreshToken(RefreshTokenCommand(refreshToken))
+        service.refreshToken(RefreshTokenCommand(refreshToken))
+    }
+
+    @Test(expected = IdentityDomainException::class)
+    fun refreshTokenIssuedBeforeLogoutIsRejected() {
+        `when`(queryPort.findByUserId(123L)).thenReturn(account())
+        val refreshToken = jwtTokenGenerator.generateRefreshToken("user_123").value
+        val service = service()
+
+        service.logout(LogoutCommand(123L))
+        service.refreshToken(RefreshTokenCommand(refreshToken))
+    }
+
+    @Test(expected = IdentityDomainException::class)
+    fun expiredRefreshTokenIsRejected() {
+        val expiredToken = JwtTokenGenerator(
+            SECRET,
+            ISSUER,
+            Clock.fixed(NOW.minus(JwtTokenGenerator.REFRESH_TOKEN_TTL).minusSeconds(1), UTC),
+        ).generateRefreshToken("user_123").value
+
+        service().refreshToken(RefreshTokenCommand(expiredToken))
+    }
+
     @Test
     fun logoutChecksTheValidatedUserId() {
         `when`(queryPort.findByUserId(123L)).thenReturn(account())
@@ -158,6 +198,7 @@ class AuthServiceTest {
         service().logout(LogoutCommand(123L))
 
         org.mockito.Mockito.verify(queryPort).findByUserId(123L)
+        assertEquals(1L, refreshTokenVersions[123L])
     }
 
     @Test
@@ -180,14 +221,24 @@ class AuthServiceTest {
     }
 
     private fun service(
-        registration: AccountRegistrationPort = AccountRegistrationPort { account -> account },
+        registration: AccountRegistrationPort = AccountRegistrationPort { _, _ -> account() },
     ): AuthService = AuthService(
         accountQueryPort = queryPort,
         accountCommandPort = commandPort,
         accountRegistrationPort = registration,
-        userIdGenerator = userIdGenerator,
         passwordHasher = passwordHasher,
         jwtTokenGenerator = jwtTokenGenerator,
+        jwtTokenVerifier = JwtTokenVerifier(SECRET, ISSUER, clock),
+        refreshTokenRotationStore = RefreshTokenRotationStore { tokenId, _ ->
+            consumedRefreshTokenIds.add(tokenId)
+        },
+        refreshTokenRevocationStore = object : RefreshTokenRevocationStore {
+            override fun currentVersion(userId: Long): Long = refreshTokenVersions[userId] ?: 0L
+
+            override fun revokeAll(userId: Long) {
+                refreshTokenVersions[userId] = currentVersion(userId) + 1
+            }
+        },
         clock = clock,
     )
 

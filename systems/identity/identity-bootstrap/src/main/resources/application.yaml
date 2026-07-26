@@ -1,10 +1,23 @@
 spring:
   application:
     name: identity
+  data:
+    redis:
+      url: ${REDIS_URL}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:2s}
+      client-name: ${REDIS_CLIENT_NAME:identity}
   profiles:
     default: dev
   main:
     lazy-initialization: true
+identity:
+  redis:
+    namespace: ${REDIS_KEY_NAMESPACE}
+auth:
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER}
 server:
   shutdown: graceful
 management:

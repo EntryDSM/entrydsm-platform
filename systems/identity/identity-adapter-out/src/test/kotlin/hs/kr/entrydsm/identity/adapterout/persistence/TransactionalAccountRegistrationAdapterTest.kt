@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.identity.adapterout.persistence
 
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
+import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.domain.model.Account
 import java.time.Instant
@@ -17,27 +18,26 @@ class TransactionalAccountRegistrationAdapterTest {
     fun registrationBoundaryIsTransactional() {
         assertNotNull(
             TransactionalAccountRegistrationAdapter::class.java
-                .getDeclaredMethod("register", Account::class.java, Instant::class.java)
+                .getDeclaredMethod("register", AccountRegistration::class.java, Instant::class.java)
                 .getAnnotation(Transactional::class.java)
         )
     }
 
     @Test
     fun applicationCreationFailureIsPropagatedForTransactionRollback() {
-        val account = mock(Account::class.java)
+        val registration = mock(AccountRegistration::class.java)
         val savedAccount = mock(Account::class.java)
         val accountCommandPort = mock(AccountCommandPort::class.java)
         val applicationDataPort = mock(ApplicationDataPort::class.java)
         val failure = IllegalStateException("application creation failed")
 
-        `when`(account.userId).thenReturn(123L)
         `when`(savedAccount.userId).thenReturn(123L)
-        `when`(accountCommandPort.save(account)).thenReturn(savedAccount)
+        `when`(accountCommandPort.register(registration, CREATED_AT)).thenReturn(savedAccount)
         doThrow(failure).`when`(applicationDataPort).create(123L, CREATED_AT)
 
         val thrown = try {
             TransactionalAccountRegistrationAdapter(accountCommandPort, applicationDataPort)
-                .register(account, CREATED_AT)
+                .register(registration, CREATED_AT)
             null
         } catch (exception: IllegalStateException) {
             exception

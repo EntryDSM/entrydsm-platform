@@ -141,6 +141,15 @@ class AuthControllerTest {
                 .toString()
                 .contains("new-secret")
         )
+        assertFalse(
+            SignupCommand(
+                password = "secret",
+                name = "홍길동",
+                phone = "01012345678",
+                birthdate = LocalDate.parse("2009-03-15"),
+                signupType = SignupType.SELF,
+            ).toString().contains("홍길동")
+        )
     }
 
     private class FakeAuthPort : AuthPort {

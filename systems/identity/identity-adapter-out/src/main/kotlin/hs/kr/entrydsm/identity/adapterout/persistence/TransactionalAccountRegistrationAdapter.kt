@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.identity.adapterout.persistence
 
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
+import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.domain.model.Account
@@ -14,8 +15,8 @@ class TransactionalAccountRegistrationAdapter(
     private val applicationDataPort: ApplicationDataPort,
 ) : AccountRegistrationPort {
     @Transactional
-    override fun register(account: Account, createdAt: Instant): Account {
-        val savedAccount = accountCommandPort.save(account)
+    override fun register(registration: AccountRegistration, createdAt: Instant): Account {
+        val savedAccount = accountCommandPort.register(registration, createdAt)
         applicationDataPort.create(savedAccount.userId, createdAt)
         return savedAccount
     }

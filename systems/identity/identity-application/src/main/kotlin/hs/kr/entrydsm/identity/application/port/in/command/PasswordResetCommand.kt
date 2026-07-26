@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.identity.application.port.`in`.command
 
+import hs.kr.entrydsm.identity.application.security.SensitiveValueMasker.REDACTED
 import java.time.LocalDate
 
 data class PasswordResetCommand(
@@ -9,5 +10,5 @@ data class PasswordResetCommand(
     val newPassword: String,
 ) {
     override fun toString(): String =
-        "PasswordResetCommand(loginId=$loginId, name=$name, birthdate=$birthdate, newPassword=[REDACTED])"
+        "PasswordResetCommand(loginId=$REDACTED, name=$REDACTED, birthdate=$REDACTED, newPassword=$REDACTED)"
 }

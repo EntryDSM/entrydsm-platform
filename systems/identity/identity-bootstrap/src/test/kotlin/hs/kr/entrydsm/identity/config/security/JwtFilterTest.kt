@@ -48,7 +48,12 @@ class JwtFilterTest {
 
     @Test
     fun tamperedAndMalformedTokensReturnUnauthorized() {
-        val tamperedResult = runFilter(accessToken().dropLast(1) + "x")
+        val tamperedToken = JwtTokenGenerator(
+            secret = "abcdefghijklmnopqrstuvwxyz123456",
+            issuer = ISSUER,
+            clock = Clock.fixed(FIXED_NOW, UTC),
+        ).generateAccessToken("user_123").value
+        val tamperedResult = runFilter(tamperedToken)
         val malformedResult = runFilter("not-a-jwt")
 
         assertEquals(401, tamperedResult.status)

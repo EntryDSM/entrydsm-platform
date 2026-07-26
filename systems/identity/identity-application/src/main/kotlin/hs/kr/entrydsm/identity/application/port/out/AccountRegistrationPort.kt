@@ -5,5 +5,6 @@ import java.time.Instant
 
 /** Persists an account and its required application data as one atomic operation. */
 fun interface AccountRegistrationPort {
-    fun register(account: Account, createdAt: Instant): Account
+    /** Returns the account after the persistence adapter has assigned its database ID. */
+    fun register(registration: AccountRegistration, createdAt: Instant): Account
 }

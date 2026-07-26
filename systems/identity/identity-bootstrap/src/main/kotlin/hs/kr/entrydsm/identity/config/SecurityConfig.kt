@@ -14,6 +14,7 @@ import hs.kr.entrydsm.identity.config.security.JwtAuthorizationDeniedHandler
 import hs.kr.entrydsm.identity.config.security.JwtFilter
 import hs.kr.entrydsm.identity.config.security.JwtProperties
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenVerifier
 import java.time.Clock
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -23,6 +24,7 @@ import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler
 import java.time.Instant
 import java.time.LocalDate
 
@@ -32,6 +34,10 @@ class SecurityConfig {
     @Bean
     fun jwtTokenGenerator(properties: JwtProperties, clock: Clock): JwtTokenGenerator =
         JwtTokenGenerator(properties.secret, properties.issuer, clock)
+
+    @Bean
+    fun jwtTokenVerifier(properties: JwtProperties, clock: Clock): JwtTokenVerifier =
+        JwtTokenVerifier(properties.secret, properties.issuer, clock)
 
     @Bean
     fun objectMapper(): ObjectMapper =
@@ -64,6 +70,7 @@ class SecurityConfig {
             .csrf {
                 it
                     .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRequestHandler(XorCsrfTokenRequestAttributeHandler())
                     .ignoringRequestMatchers(
                         "/api/identity/v11/auth/signup",
                         "/api/identity/v11/auth/login",
