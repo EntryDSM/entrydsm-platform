@@ -10,7 +10,9 @@ maven.artifact(artifact = "junit", group = "junit", version = "4.13.2")
 maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", version = "2.1.0")
 maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")
 maven.artifact(artifact = "jackson-module-kotlin", group = "com.fasterxml.jackson.module", version = "2.18.2")
-maven.artifact(artifact = "nimbus-jose-jwt", group = "com.nimbusds", version = "9.40")
+maven.artifact(artifact = "jjwt-api", group = "io.jsonwebtoken", version = "0.13.0")
+maven.artifact(artifact = "jjwt-impl", group = "io.jsonwebtoken", version = "0.13.0")
+maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "0.13.0")
 
 # JPA / DB
 maven.artifact(artifact = "spring-boot-starter-data-jpa", group = "org.springframework.boot", version = "4.0.1")

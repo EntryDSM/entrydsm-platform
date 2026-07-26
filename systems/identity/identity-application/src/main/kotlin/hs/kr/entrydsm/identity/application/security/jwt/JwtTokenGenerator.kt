@@ -1,15 +1,12 @@
 package hs.kr.entrydsm.identity.application.security.jwt
 
-import com.nimbusds.jose.JOSEObjectType
-import com.nimbusds.jose.JWSAlgorithm
-import com.nimbusds.jose.JWSHeader
-import com.nimbusds.jose.crypto.MACSigner
-import com.nimbusds.jwt.JWTClaimsSet
-import com.nimbusds.jwt.SignedJWT
+import io.jsonwebtoken.Jwts
+import io.jsonwebtoken.security.Keys
 import java.nio.charset.StandardCharsets
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+import java.util.Date
 import java.util.UUID
 
 class JwtTokenGenerator(
@@ -24,6 +21,8 @@ class JwtTokenGenerator(
             "JWT secret must be at least $MIN_SECRET_BYTES bytes."
         }
     }
+
+    private val signingKey = Keys.hmacShaKeyFor(secretBytes)
 
     fun generateAccessToken(subject: String): JwtToken =
         generateToken(subject = subject, type = TokenType.ACCESS, expiresIn = ACCESS_TOKEN_TTL)
@@ -40,24 +39,18 @@ class JwtTokenGenerator(
 
         val issuedAt = Instant.now(clock)
         val expiresAt = issuedAt.plus(expiresIn)
-        val claims = JWTClaimsSet.Builder()
+        val value = Jwts.builder()
             .issuer(issuer)
             .subject(subject)
             .claim(TOKEN_TYPE_CLAIM, type.claimValue)
-            .jwtID(UUID.randomUUID().toString())
-            .issueTime(java.util.Date.from(issuedAt))
-            .expirationTime(java.util.Date.from(expiresAt))
-            .build()
-        val signedJwt = SignedJWT(
-            JWSHeader.Builder(JWSAlgorithm.HS256)
-                .type(JOSEObjectType.JWT)
-                .build(),
-            claims,
-        )
-        signedJwt.sign(MACSigner(secretBytes))
+            .id(UUID.randomUUID().toString())
+            .issuedAt(Date.from(issuedAt))
+            .expiration(Date.from(expiresAt))
+            .signWith(signingKey, Jwts.SIG.HS256)
+            .compact()
 
         return JwtToken(
-            value = signedJwt.serialize(),
+            value = value,
             type = type,
             issuedAt = issuedAt,
             expiresAt = expiresAt,

@@ -1,18 +1,17 @@
 package hs.kr.entrydsm.identity.config.security
 
-import com.nimbusds.jose.JOSEException
-import com.nimbusds.jose.JWSAlgorithm
-import com.nimbusds.jose.crypto.MACVerifier
-import com.nimbusds.jwt.SignedJWT
+import io.jsonwebtoken.JwtException
+import io.jsonwebtoken.Jwts
+import io.jsonwebtoken.security.Keys
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import java.nio.charset.StandardCharsets
-import java.text.ParseException
 import java.time.Clock
 import java.time.Instant
+import java.util.Date
 import org.springframework.security.authentication.BadCredentialsException
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder
@@ -27,6 +26,11 @@ class JwtFilter(
     private val authenticationEntryPoint: AuthenticationEntryPoint,
 ) : OncePerRequestFilter() {
     private val secretBytes = jwtProperties.secret.toByteArray(StandardCharsets.UTF_8)
+    private val signingKey = Keys.hmacShaKeyFor(secretBytes)
+    private val jwtParser = Jwts.parser()
+        .verifyWith(signingKey)
+        .clock(io.jsonwebtoken.Clock { Date.from(Instant.now(clock)) })
+        .build()
 
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -76,11 +80,10 @@ class JwtFilter(
     }
 
     private fun verify(token: String): AuthenticatedUser = try {
-        val signedJwt = SignedJWT.parse(token)
-        if (signedJwt.header.algorithm != JWSAlgorithm.HS256) throw JwtValidationException()
-        if (!signedJwt.verify(MACVerifier(secretBytes))) throw JwtValidationException()
+        val signedJwt = jwtParser.parseSignedClaims(token)
+        if (signedJwt.header.algorithm != Jwts.SIG.HS256.id) throw JwtValidationException()
 
-        val claims = signedJwt.jwtClaimsSet
+        val claims = signedJwt.payload
         if (claims.issuer != jwtProperties.issuer) throw JwtValidationException()
         if (claims.getStringClaim(JwtTokenGenerator.TOKEN_TYPE_CLAIM) != ACCESS_TOKEN_TYPE) {
             throw JwtValidationException()
@@ -98,9 +101,7 @@ class JwtFilter(
         AuthenticatedUser(userId)
     } catch (exception: JwtValidationException) {
         throw exception
-    } catch (exception: ParseException) {
-        throw JwtValidationException(exception)
-    } catch (exception: JOSEException) {
+    } catch (exception: JwtException) {
         throw JwtValidationException(exception)
     } catch (exception: IllegalArgumentException) {
         throw JwtValidationException(exception)

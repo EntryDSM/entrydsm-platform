@@ -1,12 +1,11 @@
 package hs.kr.entrydsm.identity.application.security.jwt
 
-import com.nimbusds.jose.crypto.MACVerifier
-import com.nimbusds.jwt.SignedJWT
-import java.nio.charset.StandardCharsets
+import io.jsonwebtoken.Jwts
+import io.jsonwebtoken.security.Keys
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
-import java.util.Base64
+import java.util.Date
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -22,41 +21,35 @@ class JwtTokenGeneratorTest {
     @Test
     fun generateAccessTokenUsesTwoHourExpiration() {
         val token = generator.generateAccessToken("user_123")
-        val payload = decodePayload(token.value)
+        val payload = parse(token.value)
 
         assertEquals(TokenType.ACCESS, token.type)
         assertEquals(fixedNow, token.issuedAt)
         assertEquals(fixedNow.plus(JwtTokenGenerator.ACCESS_TOKEN_TTL), token.expiresAt)
         assertTrue(token.value.split(".").size == 3)
-        assertTrue(payload.contains("\"iss\":\"entrydsm-identity\""))
-        assertTrue(payload.contains("\"sub\":\"user_123\""))
-        assertTrue(payload.contains("\"typ\":\"access\""))
-        assertTrue(payload.contains("\"iat\":1781172000"))
-        assertTrue(payload.contains("\"exp\":1781179200"))
+        assertEquals("entrydsm-identity", payload.issuer)
+        assertEquals("user_123", payload.subject)
+        assertEquals("access", payload[JwtTokenGenerator.TOKEN_TYPE_CLAIM])
+        assertEquals(fixedNow, payload.issuedAt.toInstant())
+        assertEquals(fixedNow.plus(JwtTokenGenerator.ACCESS_TOKEN_TTL), payload.expiration.toInstant())
     }
 
     @Test
     fun generateRefreshTokenUsesSevenDayExpiration() {
         val token = generator.generateRefreshToken("user_123")
-        val payload = decodePayload(token.value)
+        val payload = parse(token.value)
 
         assertEquals(TokenType.REFRESH, token.type)
         assertEquals(fixedNow, token.issuedAt)
         assertEquals(fixedNow.plus(JwtTokenGenerator.REFRESH_TOKEN_TTL), token.expiresAt)
-        assertTrue(payload.contains("\"typ\":\"refresh\""))
-        assertTrue(payload.contains("\"exp\":1781776800"))
+        assertEquals("refresh", payload[JwtTokenGenerator.TOKEN_TYPE_CLAIM])
+        assertEquals(fixedNow.plus(JwtTokenGenerator.REFRESH_TOKEN_TTL), payload.expiration.toInstant())
     }
 
     @Test
-    fun generatedTokenIsVerifiableByNimbus() {
+    fun generatedTokenIsVerifiableByJjwt() {
         val token = generator.generateAccessToken("user_123")
-        val signedJwt = SignedJWT.parse(token.value)
-
-        assertTrue(
-            signedJwt.verify(
-                MACVerifier("01234567890123456789012345678901".toByteArray(StandardCharsets.UTF_8))
-            )
-        )
+        assertEquals("user_123", parse(token.value).subject)
     }
 
     @Test
@@ -80,9 +73,14 @@ class JwtTokenGeneratorTest {
         )
     }
 
-    private fun decodePayload(token: String): String {
-        val payload = token.split(".")[1]
-        val decoded = Base64.getUrlDecoder().decode(payload)
-        return String(decoded, StandardCharsets.UTF_8)
+    private fun parse(token: String) = Jwts.parser()
+        .verifyWith(Keys.hmacShaKeyFor(SECRET.toByteArray()))
+        .clock(io.jsonwebtoken.Clock { Date.from(fixedNow) })
+        .build()
+        .parseSignedClaims(token)
+        .payload
+
+    private companion object {
+        const val SECRET = "01234567890123456789012345678901"
     }
 }

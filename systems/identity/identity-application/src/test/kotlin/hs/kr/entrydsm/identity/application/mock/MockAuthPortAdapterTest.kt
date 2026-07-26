@@ -1,14 +1,15 @@
 package hs.kr.entrydsm.identity.application.mock
 
-import com.nimbusds.jose.crypto.MACVerifier
-import com.nimbusds.jwt.SignedJWT
+import io.jsonwebtoken.Jwts
+import io.jsonwebtoken.security.Keys
 import hs.kr.entrydsm.identity.application.port.`in`.command.LoginCommand
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.Date
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MockAuthPortAdapterTest {
@@ -25,8 +26,8 @@ class MockAuthPortAdapterTest {
         val first = adapter.login(LoginCommand("entry", "password123!"))
         val second = adapter.login(LoginCommand("entry", "password123!"))
 
-        assertTrue(SignedJWT.parse(first.accessToken.value).verify(MACVerifier(SECRET.toByteArray())))
-        assertTrue(SignedJWT.parse(first.refreshToken.value).verify(MACVerifier(SECRET.toByteArray())))
+        assertEquals("user_123", parse(first.accessToken.value).subject)
+        assertEquals("user_123", parse(first.refreshToken.value).subject)
         assertNotEquals(first.accessToken.value, second.accessToken.value)
         assertNotEquals(first.refreshToken.value, second.refreshToken.value)
     }
@@ -36,5 +37,12 @@ class MockAuthPortAdapterTest {
         const val ISSUER = "entrydsm-identity"
         val NOW: Instant = Instant.parse("2026-06-11T10:00:00Z")
         val UTC = ZoneOffset.UTC
+
+        fun parse(token: String) = Jwts.parser()
+            .verifyWith(Keys.hmacShaKeyFor(SECRET.toByteArray()))
+            .clock(io.jsonwebtoken.Clock { Date.from(NOW) })
+            .build()
+            .parseSignedClaims(token)
+            .payload
     }
 }
