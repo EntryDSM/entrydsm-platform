@@ -23,4 +23,10 @@ maven.artifact(artifact = "protobuf-java", group = "com.google.protobuf", versio
 maven.artifact(artifact = "protobuf-kotlin", group = "com.google.protobuf", version = "4.30.2")
 maven.artifact(artifact = "javax.annotation-api", group = "javax.annotation", version = "1.3.2")
 
+# Validation
+maven.artifact(artifact = "spring-boot-starter-validation", group = "org.springframework.boot", version = "4.0.1")
+
+# AWS S3
+maven.artifact(artifact = "s3", group = "software.amazon.awssdk", version = "2.31.0")
+
 use_repo(maven, "maven")
