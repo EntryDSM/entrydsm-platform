@@ -7,7 +7,8 @@ import hs.kr.entrydsm.gateway.adapterin.filter.GatewayAccessGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.filter.GatewayCorsGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.filter.RequestSizeGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayCircuitBreakerGlobalFilter
-import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayCircuitBreakerMetrics
+import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayResilienceConfiguration
+import hs.kr.entrydsm.gateway.adapterin.resilience.InMemoryGatewayCircuitStateStore
 import hs.kr.entrydsm.gateway.adapterin.route.GatewayRouteConfiguration
 import hs.kr.entrydsm.gateway.adapterin.trace.TraceIdGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.trace.TraceMdcConfiguration
@@ -37,6 +38,7 @@ import java.time.Duration
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = [
         "gateway.request.max-body-bytes=10",
+        "gateway.resilience.state-store=memory",
         "spring.cloud.gateway.server.webflux.globalcors.enabled=false",
         "spring.cloud.gateway.server.webflux.httpclient.response-timeout=500ms",
     ],
@@ -172,7 +174,8 @@ class GatewayProxyIntegrationTest {
         GatewayCorsGlobalFilter::class,
         TraceMdcConfiguration::class,
         TraceIdGlobalFilter::class,
-        GatewayCircuitBreakerMetrics::class,
+        GatewayResilienceConfiguration::class,
+        InMemoryGatewayCircuitStateStore::class,
         GatewayAccessGlobalFilter::class,
         RequestSizeGlobalFilter::class,
         GatewayGlobalExceptionHandler::class,
