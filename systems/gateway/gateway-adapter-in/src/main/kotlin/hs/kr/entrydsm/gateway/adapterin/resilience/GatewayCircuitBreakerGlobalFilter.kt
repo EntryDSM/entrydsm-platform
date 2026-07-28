@@ -3,6 +3,7 @@ package hs.kr.entrydsm.gateway.adapterin.resilience
 import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
 
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
 import org.springframework.cloud.gateway.filter.GatewayFilterChain
 import org.springframework.cloud.gateway.filter.GlobalFilter
 import org.springframework.cloud.gateway.route.Route
@@ -12,72 +13,71 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.server.ServerWebExchange
 import reactor.core.publisher.Mono
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.TimeUnit
 
 @Component
 class GatewayCircuitBreakerGlobalFilter(
     properties: GatewayRuntimeProperties,
-    private val metrics: GatewayCircuitBreakerMetrics,
+    private val circuitBreakerRegistry: CircuitBreakerRegistry,
+    private val stateStore: GatewayCircuitStateStore,
 ) : GlobalFilter, Ordered {
-    private val failureThreshold = properties.resilience.failureThreshold
-    private val openDurationMillis = properties.resilience.openDurationSeconds * 1_000
-    private val openDurationSeconds = properties.resilience.openDurationSeconds
-    private val states = ConcurrentHashMap<String, CircuitState>()
+    private val policy = properties.resilience
+    private val openDurationSeconds = policy.waitDurationSeconds
 
     override fun filter(exchange: ServerWebExchange, chain: GatewayFilterChain): Mono<Void> {
-        val routeId = exchange.getAttribute<Route>(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR)?.id ?: return chain.filter(exchange)
-        val state = states.computeIfAbsent(routeId) { CircuitState() }
-        if (!state.tryAcquire(openDurationMillis)) {
-            metrics.recordRejected(routeId)
-            exchange.response.headers.add("Retry-After", openDurationSeconds.toString())
-            return GatewayErrorResponseWriter.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, "CIRCUIT_OPEN")
-        }
-        return chain.filter(exchange)
-            .doOnSuccess {
-                val failed = exchange.response.statusCode?.is5xxServerError == true
-                state.record(failed, failureThreshold, metrics, routeId)
-            }
-            .doOnError {
-                state.record(true, failureThreshold, metrics, routeId)
+        val routeId = exchange.getAttribute<Route>(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR)?.id
+            ?: return chain.filter(exchange)
+        val circuitBreaker = circuitBreakerRegistry.circuitBreaker(routeId)
+        val startedAt = System.nanoTime()
+
+        return stateStore.tryAcquire(routeId, policy)
+            .onErrorReturn(GatewayCircuitPermit(allowed = true, halfOpen = false))
+            .flatMap { sharedPermit ->
+                if (!sharedPermit.allowed) {
+                    return@flatMap reject(exchange)
+                }
+                if (!circuitBreaker.tryAcquirePermission()) {
+                    return@flatMap releaseProbe(sharedPermit, routeId)
+                        .then(reject(exchange))
+                }
+
+                chain.filter(exchange)
+                    .then(Mono.defer {
+                        val failed = exchange.response.statusCode?.is5xxServerError == true
+                        val duration = System.nanoTime() - startedAt
+                        if (failed) {
+                            circuitBreaker.onError(
+                                duration,
+                                TimeUnit.NANOSECONDS,
+                                DownstreamResponseFailure(routeId),
+                            )
+                        } else {
+                            circuitBreaker.onSuccess(duration, TimeUnit.NANOSECONDS)
+                        }
+                        stateStore.record(routeId, failed, sharedPermit.halfOpen, policy)
+                    })
+                    .onErrorResume { error ->
+                        circuitBreaker.onError(
+                            System.nanoTime() - startedAt,
+                            TimeUnit.NANOSECONDS,
+                            error,
+                        )
+                        stateStore.record(routeId, failed = true, sharedPermit.halfOpen, policy)
+                            .then(Mono.error(error))
+                    }
             }
     }
 
     override fun getOrder(): Int = Ordered.LOWEST_PRECEDENCE - 100
 
-    private class CircuitState {
-        private val failures = AtomicInteger()
-        private val openedAt = AtomicLong(0)
+    private fun releaseProbe(permit: GatewayCircuitPermit, routeId: String): Mono<Void> =
+        if (permit.halfOpen) stateStore.releaseHalfOpen(routeId) else Mono.empty()
 
-        fun tryAcquire(openDurationMillis: Long): Boolean {
-            val opened = openedAt.get()
-            if (opened == 0L) {
-                return true
-            }
-            if (System.currentTimeMillis() - opened < openDurationMillis) {
-                return false
-            }
-            failures.set(0)
-            return openedAt.compareAndSet(opened, 0L)
-        }
-
-        fun record(
-            failed: Boolean,
-            failureThreshold: Int,
-            metrics: GatewayCircuitBreakerMetrics,
-            routeId: String,
-        ) {
-            if (failed && failures.incrementAndGet() >= failureThreshold) {
-                metrics.recordFailure(routeId)
-                if (openedAt.compareAndSet(0L, System.currentTimeMillis())) {
-                    metrics.recordOpened(routeId)
-                }
-            } else if (!failed) {
-                metrics.recordSuccess(routeId)
-                failures.set(0)
-                openedAt.set(0)
-            }
-        }
+    private fun reject(exchange: ServerWebExchange): Mono<Void> {
+        exchange.response.headers.add("Retry-After", openDurationSeconds.toString())
+        return GatewayErrorResponseWriter.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, "CIRCUIT_OPEN")
     }
+
+    private class DownstreamResponseFailure(routeId: String) :
+        RuntimeException("Downstream service returned a 5xx response for route $routeId")
 }
