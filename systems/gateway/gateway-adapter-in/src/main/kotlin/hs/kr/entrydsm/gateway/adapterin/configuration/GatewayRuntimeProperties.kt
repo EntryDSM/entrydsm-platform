@@ -12,11 +12,27 @@ data class GatewayRuntimeProperties(
         require(request.maxBodyBytes > 0) {
             "gateway.request.max-body-bytes must be greater than zero: ${request.maxBodyBytes}"
         }
-        require(resilience.failureThreshold > 0) {
-            "gateway.resilience.failure-threshold must be greater than zero: ${resilience.failureThreshold}"
+        require(resilience.failureRateThreshold in 0.0..100.0) {
+            "gateway.resilience.failure-rate-threshold must be between zero and one hundred: ${resilience.failureRateThreshold}"
         }
-        require(resilience.openDurationSeconds > 0) {
-            "gateway.resilience.open-duration-seconds must be greater than zero: ${resilience.openDurationSeconds}"
+        require(resilience.slidingWindowSize > 0) {
+            "gateway.resilience.sliding-window-size must be greater than zero: ${resilience.slidingWindowSize}"
+        }
+        require(resilience.minimumNumberOfCalls > 0) {
+            "gateway.resilience.minimum-number-of-calls must be greater than zero: ${resilience.minimumNumberOfCalls}"
+        }
+        require(resilience.minimumNumberOfCalls <= resilience.slidingWindowSize) {
+            "gateway.resilience.minimum-number-of-calls must not exceed sliding-window-size: " +
+                "${resilience.minimumNumberOfCalls} > ${resilience.slidingWindowSize}"
+        }
+        require(resilience.waitDurationSeconds > 0) {
+            "gateway.resilience.wait-duration-seconds must be greater than zero: ${resilience.waitDurationSeconds}"
+        }
+        require(resilience.permittedNumberOfCallsInHalfOpenState > 0) {
+            "gateway.resilience.permitted-number-of-calls-in-half-open-state must be greater than zero: ${resilience.permittedNumberOfCallsInHalfOpenState}"
+        }
+        require(resilience.stateStore in setOf("redis", "memory")) {
+            "gateway.resilience.state-store must be redis or memory: ${resilience.stateStore}"
         }
     }
 
@@ -25,11 +41,27 @@ data class GatewayRuntimeProperties(
         require(request.maxBodyBytes > 0) {
             "gateway.request.max-body-bytes must be greater than zero: ${request.maxBodyBytes}"
         }
-        require(resilience.failureThreshold > 0) {
-            "gateway.resilience.failure-threshold must be greater than zero: ${resilience.failureThreshold}"
+        require(resilience.failureRateThreshold in 0.0..100.0) {
+            "gateway.resilience.failure-rate-threshold must be between zero and one hundred: ${resilience.failureRateThreshold}"
         }
-        require(resilience.openDurationSeconds > 0) {
-            "gateway.resilience.open-duration-seconds must be greater than zero: ${resilience.openDurationSeconds}"
+        require(resilience.slidingWindowSize > 0) {
+            "gateway.resilience.sliding-window-size must be greater than zero: ${resilience.slidingWindowSize}"
+        }
+        require(resilience.minimumNumberOfCalls > 0) {
+            "gateway.resilience.minimum-number-of-calls must be greater than zero: ${resilience.minimumNumberOfCalls}"
+        }
+        require(resilience.minimumNumberOfCalls <= resilience.slidingWindowSize) {
+            "gateway.resilience.minimum-number-of-calls must not exceed sliding-window-size: " +
+                "${resilience.minimumNumberOfCalls} > ${resilience.slidingWindowSize}"
+        }
+        require(resilience.waitDurationSeconds > 0) {
+            "gateway.resilience.wait-duration-seconds must be greater than zero: ${resilience.waitDurationSeconds}"
+        }
+        require(resilience.permittedNumberOfCallsInHalfOpenState > 0) {
+            "gateway.resilience.permitted-number-of-calls-in-half-open-state must be greater than zero: ${resilience.permittedNumberOfCallsInHalfOpenState}"
+        }
+        require(resilience.stateStore in setOf("redis", "memory")) {
+            "gateway.resilience.state-store must be redis or memory: ${resilience.stateStore}"
         }
     }
     data class Cors(
@@ -44,7 +76,11 @@ data class GatewayRuntimeProperties(
     )
 
     data class Resilience(
-        var failureThreshold: Int = 5,
-        var openDurationSeconds: Long = 30,
+        var failureRateThreshold: Double = 50.0,
+        var slidingWindowSize: Int = 10,
+        var minimumNumberOfCalls: Int = 5,
+        var waitDurationSeconds: Long = 30,
+        var permittedNumberOfCallsInHalfOpenState: Int = 1,
+        var stateStore: String = "redis",
     )
 }

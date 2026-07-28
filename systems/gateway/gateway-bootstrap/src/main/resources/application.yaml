@@ -6,6 +6,9 @@ spring:
     lazy-initialization: false
   profiles:
     default: local
+  data:
+    redis:
+      url: ${GATEWAY_CIRCUIT_STATE_REDIS_URI:redis://localhost:6379}
   cloud:
     gateway:
       server:
@@ -57,8 +60,12 @@ gateway:
   request:
     max-body-bytes: ${GATEWAY_MAX_BODY_BYTES:10485760}
   resilience:
-    failure-threshold: ${GATEWAY_CIRCUIT_FAILURE_THRESHOLD:5}
-    open-duration-seconds: ${GATEWAY_CIRCUIT_OPEN_DURATION_SECONDS:30}
+    failure-rate-threshold: ${GATEWAY_CIRCUIT_FAILURE_RATE_THRESHOLD:50}
+    sliding-window-size: ${GATEWAY_CIRCUIT_SLIDING_WINDOW_SIZE:10}
+    minimum-number-of-calls: ${GATEWAY_CIRCUIT_MINIMUM_NUMBER_OF_CALLS:5}
+    wait-duration-seconds: ${GATEWAY_CIRCUIT_WAIT_DURATION_SECONDS:30}
+    permitted-number-of-calls-in-half-open-state: ${GATEWAY_CIRCUIT_PERMITTED_NUMBER_OF_CALLS_IN_HALF_OPEN_STATE:1}
+    state-store: ${GATEWAY_CIRCUIT_STATE_STORE:redis}
 management:
   endpoints:
     web:
