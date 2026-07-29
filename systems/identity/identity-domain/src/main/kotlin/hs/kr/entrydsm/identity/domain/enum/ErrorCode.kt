@@ -22,6 +22,8 @@ enum class ErrorCode(
     PASSWORD_SAME_AS_OLD(409, "기존 비밀번호와 동일한 비밀번호는 사용할 수 없습니다."),
     ACCOUNT_DELETE_NOT_ALLOWED(409, "제출된 원서가 있어 회원탈퇴를 할 수 없습니다."),
     APPLICATION_RESULT_NOT_AVAILABLE(409, "아직 합격 여부를 조회할 수 없습니다."),
+    APPLICATION_SUBMIT_NOT_ALLOWED(409, "현재 상태에서는 원서 제출을 할 수 없습니다."),
+    APPLICATION_RESULT_ANNOUNCE_NOT_ALLOWED(409, "현재 상태에서는 합격 결과를 발표할 수 없습니다."),
     APPLICATION_CANCEL_NOT_ALLOWED(409, "현재 상태에서는 원서 제출을 취소할 수 없습니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다."),
 }

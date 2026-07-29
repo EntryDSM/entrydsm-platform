@@ -67,6 +67,48 @@ class StudentProfileTest {
         assertEquals(transitionTime, profile.updatedAt)
     }
 
+    @Test
+    fun rejectsSubmitFromTerminalOrInProgressStatuses() {
+        listOf(
+            ApplicantStatus.SUBMITTED,
+            ApplicantStatus.REVIEWING,
+            ApplicantStatus.COMPLETED,
+            ApplicantStatus.CANCELED,
+        ).forEach { applicantStatus ->
+            try {
+                profile(applicantStatus).submit(transitionTime)
+                fail("Expected submission to be rejected for $applicantStatus")
+            } catch (exception: IdentityDomainException) {
+                assertEquals(ErrorCode.APPLICATION_SUBMIT_NOT_ALLOWED, exception.errorCode)
+            }
+        }
+    }
+
+    @Test
+    fun rejectsResultAnnouncementBeforeSubmissionOrAfterAnnouncement() {
+        listOf(
+            ApplicantStatus.NONE,
+            ApplicantStatus.DRAFT,
+            ApplicantStatus.CANCELED,
+        ).forEach { applicantStatus ->
+            try {
+                profile(applicantStatus).announceResult(PassStatus.PASSED, transitionTime)
+                fail("Expected result announcement to be rejected for $applicantStatus")
+            } catch (exception: IdentityDomainException) {
+                assertEquals(ErrorCode.APPLICATION_RESULT_ANNOUNCE_NOT_ALLOWED, exception.errorCode)
+            }
+        }
+
+        val profile = profile(ApplicantStatus.SUBMITTED)
+        profile.announceResult(PassStatus.PASSED, transitionTime)
+        try {
+            profile.announceResult(PassStatus.FAILED, transitionTime)
+            fail("Expected an announced result to be immutable")
+        } catch (exception: IdentityDomainException) {
+            assertEquals(ErrorCode.APPLICATION_RESULT_ANNOUNCE_NOT_ALLOWED, exception.errorCode)
+        }
+    }
+
     private fun profile(
         applicantStatus: ApplicantStatus = ApplicantStatus.NONE,
         passStatus: PassStatus = PassStatus.NOT_ANNOUNCED,

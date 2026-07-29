@@ -35,6 +35,9 @@ class StudentProfile(
         private set
 
     fun submit(now: Instant) {
+        if (applicantStatus !in setOf(ApplicantStatus.NONE, ApplicantStatus.DRAFT)) {
+            throw IdentityDomainException(ErrorCode.APPLICATION_SUBMIT_NOT_ALLOWED)
+        }
         applicantStatus = ApplicantStatus.SUBMITTED
         submittedAt = now
         updatedAt = now
@@ -49,8 +52,13 @@ class StudentProfile(
     }
 
     fun announceResult(result: PassStatus, now: Instant) {
-        check(result != PassStatus.NOT_ANNOUNCED) {
-            "An announced result must be PASSED or FAILED"
+        if (applicantStatus !in setOf(
+                ApplicantStatus.SUBMITTED,
+                ApplicantStatus.REVIEWING,
+                ApplicantStatus.COMPLETED,
+            ) || passStatus != PassStatus.NOT_ANNOUNCED || result == PassStatus.NOT_ANNOUNCED
+        ) {
+            throw IdentityDomainException(ErrorCode.APPLICATION_RESULT_ANNOUNCE_NOT_ALLOWED)
         }
         passStatus = result
         announcedAt = now
