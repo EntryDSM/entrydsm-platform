@@ -2,11 +2,16 @@ spring:
   application:
     name: application
   profiles:
-    default: local
+    default: dev
   main:
     lazy-initialization: true
+
 server:
   shutdown: graceful
+
+grpc:
+  port: ${GRPC_PORT:9090}
+
 management:
   endpoints:
     web:
@@ -16,6 +21,14 @@ management:
     health:
       probes:
         enabled: true
+
 logging:
   level:
     root: INFO
+
+entrydsm:
+  application:
+    schedule:
+      application-start-at: "${APPLICATION_START_AT:2026-04-01T09:00:00}"
+      application-end-at: "${APPLICATION_END_AT:2026-04-30T17:00:00}"
+      result-announced-at: "${RESULT_ANNOUNCED_AT:2026-05-15T10:00:00}"
