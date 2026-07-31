@@ -30,6 +30,7 @@ class JwtTokenGeneratorTest {
         assertEquals("entrydsm-identity", payload.issuer)
         assertEquals("user_123", payload.subject)
         assertEquals("access", payload[JwtTokenGenerator.TOKEN_TYPE_CLAIM])
+        assertEquals(0L, (payload[JwtTokenGenerator.TOKEN_VERSION_CLAIM] as Number).toLong())
         assertEquals(fixedNow, payload.issuedAt.toInstant())
         assertEquals(fixedNow.plus(JwtTokenGenerator.ACCESS_TOKEN_TTL), payload.expiration.toInstant())
     }

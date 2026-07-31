@@ -107,7 +107,12 @@ class AuthService(
         if (!consumed) {
             throw IdentityDomainException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
-        return issueTokens(account.userId, account.role, account.status)
+        return issueTokens(
+            userId = account.userId,
+            role = account.role,
+            status = account.status,
+            tokenVersion = verifiedToken.tokenVersion,
+        )
     }
 
     override fun resetPassword(command: PasswordResetCommand) {
@@ -130,16 +135,18 @@ class AuthService(
         userId: Long,
         role: String,
         status: AccountStatus,
-    ): AuthTokenResult = AuthTokenResult(
-        userId = userId,
-        role = role,
-        status = status,
-        accessToken = jwtTokenGenerator.generateAccessToken(userSubject(userId)),
-        refreshToken = jwtTokenGenerator.generateRefreshToken(
-            userSubject(userId),
-            refreshTokenState { refreshTokenRevocationStore.currentVersion(userId) },
-        ),
-    )
+        tokenVersion: Long? = null,
+    ): AuthTokenResult {
+        val currentTokenVersion = tokenVersion
+            ?: refreshTokenState { refreshTokenRevocationStore.currentVersion(userId) }
+        return AuthTokenResult(
+            userId = userId,
+            role = role,
+            status = status,
+            accessToken = jwtTokenGenerator.generateAccessToken(userSubject(userId), currentTokenVersion),
+            refreshToken = jwtTokenGenerator.generateRefreshToken(userSubject(userId), currentTokenVersion),
+        )
+    }
 
     private fun revokeRefreshTokens(userId: Long) {
         refreshTokenState { refreshTokenRevocationStore.revokeAll(userId) }

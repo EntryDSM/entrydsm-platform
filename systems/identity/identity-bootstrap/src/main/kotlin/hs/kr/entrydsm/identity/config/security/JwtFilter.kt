@@ -4,6 +4,8 @@ import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
+import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
+import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -24,6 +26,7 @@ class JwtFilter(
     private val jwtProperties: JwtProperties,
     private val clock: Clock,
     private val authenticationEntryPoint: AuthenticationEntryPoint,
+    private val refreshTokenRevocationStore: RefreshTokenRevocationStore,
 ) : OncePerRequestFilter() {
     private val secretBytes = jwtProperties.secret.toByteArray(StandardCharsets.UTF_8)
     private val signingKey = Keys.hmacShaKeyFor(secretBytes)
@@ -59,6 +62,13 @@ class JwtFilter(
                 request,
                 response,
                 BadCredentialsException("Invalid JWT", exception),
+            )
+        } catch (exception: RefreshTokenStoreUnavailableException) {
+            SecurityContextHolder.clearContext()
+            authenticationEntryPoint.commence(
+                request,
+                response,
+                BadCredentialsException("Authentication state is unavailable", exception),
             )
         }
     }
@@ -98,6 +108,13 @@ class JwtFilter(
             ?: throw JwtValidationException()
         val expiration = claims.expiration?.toInstant() ?: throw JwtValidationException()
         if (!expiration.isAfter(Instant.now(clock))) throw JwtValidationException()
+        val tokenVersion = (claims[JwtTokenGenerator.TOKEN_VERSION_CLAIM] as? Number)
+            ?.toLong()
+            ?.takeIf { it >= JwtTokenGenerator.INITIAL_TOKEN_VERSION }
+            ?: throw JwtValidationException()
+        if (refreshTokenRevocationStore.currentVersion(userId) != tokenVersion) {
+            throw JwtValidationException()
+        }
         AuthenticatedUser(userId)
     } catch (exception: JwtValidationException) {
         throw exception

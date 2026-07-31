@@ -25,8 +25,18 @@ class JwtTokenGenerator(
 
     private val signingKey = Keys.hmacShaKeyFor(secretBytes)
 
-    fun generateAccessToken(subject: String): JwtToken =
-        generateToken(subject = subject, type = TokenType.ACCESS, expiresIn = ACCESS_TOKEN_TTL)
+    fun generateAccessToken(
+        subject: String,
+        tokenVersion: Long = INITIAL_TOKEN_VERSION,
+    ): JwtToken {
+        require(tokenVersion >= INITIAL_TOKEN_VERSION) { "JWT token version must not be negative." }
+        return generateToken(
+            subject = subject,
+            type = TokenType.ACCESS,
+            expiresIn = ACCESS_TOKEN_TTL,
+            tokenVersion = tokenVersion,
+        )
+    }
 
     fun generateRefreshToken(subject: String, tokenVersion: Long = INITIAL_TOKEN_VERSION): JwtToken {
         require(tokenVersion >= INITIAL_TOKEN_VERSION) { "JWT token version must not be negative." }

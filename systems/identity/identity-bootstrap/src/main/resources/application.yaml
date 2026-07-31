@@ -17,7 +17,7 @@ identity:
 auth:
   jwt:
     secret: ${JWT_SECRET}
-    issuer: ${JWT_ISSUER}
+    issuer: ${JWT_ISSUER:entrydsm-identity}
 server:
   shutdown: graceful
 management:
@@ -32,7 +32,3 @@ management:
 logging:
   level:
     root: INFO
-
-auth:
-  jwt:
-    issuer: ${JWT_ISSUER:entrydsm-identity}

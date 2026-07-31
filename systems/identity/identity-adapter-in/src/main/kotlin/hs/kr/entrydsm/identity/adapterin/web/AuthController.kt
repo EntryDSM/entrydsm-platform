@@ -15,7 +15,9 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import java.net.URI
+import jakarta.validation.Valid
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
@@ -34,7 +36,7 @@ class AuthController(
 ) {
     @PostMapping("/signup")
     fun signup(
-        @RequestBody request: SignupRequest,
+        @Valid @RequestBody request: SignupRequest,
     ): ResponseEntity<ApiResponse<AccountResponse>> {
         val result = authPort.signup(
             SignupCommand(
@@ -52,7 +54,7 @@ class AuthController(
 
     @PostMapping("/login")
     fun login(
-        @RequestBody request: LoginRequest,
+        @Valid @RequestBody request: LoginRequest,
     ): ResponseEntity<ApiResponse<UserSummaryResponse>> {
         val result = authPort.login(
             LoginCommand(
@@ -95,7 +97,7 @@ class AuthController(
 
     @PatchMapping("/password-reset")
     fun resetPassword(
-        @RequestBody request: PasswordResetRequest,
+        @Valid @RequestBody request: PasswordResetRequest,
     ): ApiResponse<Unit> {
         authPort.resetPassword(
             PasswordResetCommand(
@@ -133,6 +135,10 @@ class AuthController(
             .build()
 
     private fun AuthTokenResult.toUserSummaryResponse(): UserSummaryResponse =
-        UserSummaryResponse(userId = userId.toString(), role = role, status = status)
+        UserSummaryResponse(
+            userId = "${JwtTokenGenerator.USER_PRINCIPAL_PREFIX}$userId",
+            role = role,
+            status = status,
+        )
 
 }

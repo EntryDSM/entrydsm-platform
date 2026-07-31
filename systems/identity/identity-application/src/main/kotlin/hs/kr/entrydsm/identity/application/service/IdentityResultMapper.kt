@@ -6,7 +6,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.result.ProfileResult
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
 import hs.kr.entrydsm.identity.domain.model.Account
 
-internal fun Account.toAccountResult(): AccountResult =
+fun Account.toAccountResult(): AccountResult =
     AccountResult(
         userId = userId,
         role = role,
@@ -22,5 +22,5 @@ internal fun Account.toAccountResult(): AccountResult =
         updatedAt = updatedAt,
     )
 
-internal fun ApplicationSnapshot.toStatusResult(): ApplicationStatusResult =
+fun ApplicationSnapshot.toStatusResult(): ApplicationStatusResult =
     ApplicationStatusResult(applicantStatus, submittedAt, updatedAt)

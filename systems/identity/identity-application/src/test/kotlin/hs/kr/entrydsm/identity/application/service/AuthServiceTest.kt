@@ -205,7 +205,7 @@ class AuthServiceTest {
     fun passwordResetPropagatesAccountSaveFailure() {
         val account = account()
         `when`(queryPort.findByLoginId("entry")).thenReturn(account)
-        `when`(passwordHasher.hash("new-password")).thenReturn(PASSWORD_HASH)
+        `when`(passwordHasher.hash("new-password")).thenReturn(NEW_PASSWORD_HASH)
         val failure = IllegalStateException("save failed")
         doThrow(failure).`when`(commandPort).save(account)
 
@@ -243,21 +243,23 @@ class AuthServiceTest {
     )
 
     private fun account(status: AccountStatus = AccountStatus.ACTIVE): Account {
-        val account = mock(Account::class.java)
-        val profile = mock(StudentProfile::class.java)
-        `when`(account.userId).thenReturn(123L)
-        `when`(account.role).thenReturn("USER")
-        `when`(account.status).thenReturn(status)
-        `when`(account.profile).thenReturn(profile)
-        `when`(account.passwordHash).thenReturn(PASSWORD_HASH)
-        `when`(account.createdAt).thenReturn(NOW)
-        `when`(account.updatedAt).thenReturn(NOW)
-        `when`(profile.name).thenReturn("홍길동")
-        `when`(profile.phone).thenReturn("01012345678")
-        `when`(profile.birthdate).thenReturn(BIRTHDATE)
-        `when`(profile.signupType).thenReturn(SignupType.SELF)
-        `when`(profile.applicantStatus).thenReturn(ApplicantStatus.NONE)
-        return account
+        return Account.create(
+            userId = 123L,
+            loginId = "entry",
+            passwordHash = PASSWORD_HASH,
+            role = "USER",
+            status = status,
+            profile = StudentProfile(
+                name = "홍길동",
+                phone = "01012345678",
+                birthdate = BIRTHDATE,
+                signupType = SignupType.SELF,
+                applicantStatus = ApplicantStatus.NONE,
+                updatedAt = NOW,
+            ),
+            createdAt = NOW,
+            updatedAt = NOW,
+        )
     }
 
     private companion object {
@@ -267,5 +269,6 @@ class AuthServiceTest {
         val PASSWORD_HASH: PasswordHash = PasswordHash.fromEncoded("\$2a\$10\$test")
         const val SECRET = "01234567890123456789012345678901"
         const val ISSUER = "entrydsm-identity"
+        val NEW_PASSWORD_HASH: PasswordHash = PasswordHash.fromEncoded("\$2a\$10\$new-password-hash")
     }
 }

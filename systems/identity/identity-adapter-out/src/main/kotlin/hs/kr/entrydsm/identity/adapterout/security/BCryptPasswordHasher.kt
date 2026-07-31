@@ -10,7 +10,7 @@ class BCryptPasswordHasher : PasswordHasher {
     private val encoder = BCryptPasswordEncoder()
 
     override fun hash(rawPassword: String): PasswordHash =
-        PasswordHash.fromEncoded(encoder.encode(rawPassword))
+        PasswordHash.fromEncoded(requireNotNull(encoder.encode(rawPassword)))
 
     override fun matches(rawPassword: String, passwordHash: PasswordHash): Boolean =
         encoder.matches(rawPassword, passwordHash.value)

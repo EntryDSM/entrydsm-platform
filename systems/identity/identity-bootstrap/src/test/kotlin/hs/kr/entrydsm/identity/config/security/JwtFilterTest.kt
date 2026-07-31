@@ -2,6 +2,7 @@ package hs.kr.entrydsm.identity.config.security
 
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
+import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import jakarta.servlet.FilterChain
 import jakarta.servlet.ServletRequest
 import jakarta.servlet.ServletResponse
@@ -22,6 +23,8 @@ import org.springframework.security.core.AuthenticationException
 import org.springframework.security.web.AuthenticationEntryPoint
 
 class JwtFilterTest {
+    private val tokenVersions = mutableMapOf<Long, Long>()
+
     @Test
     fun validAccessTokenSetsSecurityContextAndContinuesChain() {
         val result = runFilter(accessToken())
@@ -40,6 +43,17 @@ class JwtFilterTest {
         ).generateAccessToken("user_123").value
 
         val result = runFilter(expired)
+
+        assertEquals(401, result.status)
+        assertFalse(result.chainInvoked)
+        assertNull(result.authentication)
+    }
+
+    @Test
+    fun accessTokenIssuedBeforeRevocationReturnsUnauthorized() {
+        tokenVersions[123L] = 1L
+
+        val result = runFilter(accessToken())
 
         assertEquals(401, result.status)
         assertFalse(result.chainInvoked)
@@ -144,6 +158,13 @@ class JwtFilterTest {
         jwtProperties = JwtProperties(secret = SECRET, issuer = ISSUER),
         clock = Clock.fixed(FIXED_NOW, UTC),
         authenticationEntryPoint = unauthorizedEntryPoint,
+        refreshTokenRevocationStore = object : RefreshTokenRevocationStore {
+            override fun currentVersion(userId: Long): Long = tokenVersions[userId] ?: 0L
+
+            override fun revokeAll(userId: Long) {
+                tokenVersions[userId] = currentVersion(userId) + 1
+            }
+        },
     )
 
     private fun accessToken(): String = JwtTokenGenerator(

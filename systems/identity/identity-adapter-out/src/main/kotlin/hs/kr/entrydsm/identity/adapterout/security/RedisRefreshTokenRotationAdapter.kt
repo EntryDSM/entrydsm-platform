@@ -50,9 +50,9 @@ class RedisRefreshTokenRotationAdapter(
         }
     }
 
-    private fun consumedKey(tokenId: String): String = "$keyPrefixconsumed:$tokenId"
+    private fun consumedKey(tokenId: String): String = "${keyPrefix}consumed:$tokenId"
 
-    private fun versionKey(userId: Long): String = "$keyPrefixversion:$userId"
+    private fun versionKey(userId: Long): String = "${keyPrefix}version:$userId"
 
     private val keyPrefix: String
         get() = "$namespace:$issuer:$SERVICE_NAME:auth:refresh:"
