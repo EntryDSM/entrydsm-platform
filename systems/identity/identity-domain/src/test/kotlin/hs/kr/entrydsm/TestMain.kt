@@ -1,11 +1,11 @@
 package hs.kr.entrydsm.identity.domain
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class IdentityDomainModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    AccountTest::class,
+    StudentProfileTest::class,
+)
+class IdentityDomainModuleTest

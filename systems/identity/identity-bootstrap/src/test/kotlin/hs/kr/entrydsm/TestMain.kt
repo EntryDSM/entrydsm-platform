@@ -1,11 +1,10 @@
 package hs.kr.entrydsm.identity
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class IdentityBootstrapApplicationTest {
-    @Test
-    fun contextLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    IdentityBootstrapConfigurationTest::class,
+)
+class IdentityBootstrapApplicationTest
