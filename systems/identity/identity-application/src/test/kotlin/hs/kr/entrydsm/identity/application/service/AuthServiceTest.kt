@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetComman
 import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
+import hs.kr.entrydsm.identity.application.port.out.AccountAlreadyExistsException
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
@@ -14,6 +15,7 @@ import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.domain.model.Account
@@ -283,6 +285,36 @@ class AuthServiceTest {
             createdAt = NOW,
             updatedAt = NOW,
         )
+    }
+
+    @Test
+    fun signupMapsDatabaseDuplicateToAccountAlreadyExists() {
+        `when`(queryPort.findByLoginId("01012345678")).thenReturn(null)
+        `when`(passwordHasher.hash("password123!")).thenReturn(PASSWORD_HASH)
+        val service = service(
+            registration = AccountRegistrationPort { _, _ ->
+                throw AccountAlreadyExistsException(
+                    IllegalStateException("duplicate login id"),
+                )
+            },
+        )
+
+        val thrown = try {
+            service.signup(
+                SignupCommand(
+                    password = "password123!",
+                    name = "홍길동",
+                    phone = "01012345678",
+                    birthdate = BIRTHDATE,
+                    signupType = SignupType.SELF,
+                )
+            )
+            null
+        } catch (exception: IdentityDomainException) {
+            exception
+        }
+
+        assertEquals(ErrorCode.ACCOUNT_ALREADY_EXISTS, thrown?.errorCode)
     }
 
     private companion object {

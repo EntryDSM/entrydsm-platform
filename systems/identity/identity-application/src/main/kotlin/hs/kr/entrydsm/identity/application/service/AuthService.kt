@@ -9,6 +9,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AccountResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
+import hs.kr.entrydsm.identity.application.port.out.AccountAlreadyExistsException
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
@@ -55,7 +56,11 @@ class AuthService(
                 updatedAt = now,
             ),
         )
-        val savedAccount = accountRegistrationPort.register(registration, now)
+        val savedAccount = try {
+            accountRegistrationPort.register(registration, now)
+        } catch (exception: AccountAlreadyExistsException) {
+            throw IdentityDomainException(ErrorCode.ACCOUNT_ALREADY_EXISTS)
+        }
         return savedAccount.toAccountResult()
     }
 

@@ -3,6 +3,8 @@ package hs.kr.entrydsm.identity.adapterout
 import hs.kr.entrydsm.identity.adapterout.security.BCryptPasswordHasher
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterIntegrationTest
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterTest
+import hs.kr.entrydsm.identity.adapterout.persistence.AccountCommandPersistenceAdapterTest
+import hs.kr.entrydsm.identity.adapterout.persistence.TransactionalAccountRegistrationAdapterTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -13,6 +15,8 @@ import org.junit.runners.Suite
 @RunWith(Suite::class)
 @Suite.SuiteClasses(
     IdentityAdapterOutSmokeTest::class,
+    AccountCommandPersistenceAdapterTest::class,
+    TransactionalAccountRegistrationAdapterTest::class,
     RedisRefreshTokenRotationAdapterTest::class,
     RedisRefreshTokenRotationAdapterIntegrationTest::class,
 )
