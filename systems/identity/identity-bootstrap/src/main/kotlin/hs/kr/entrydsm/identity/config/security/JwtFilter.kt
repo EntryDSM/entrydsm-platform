@@ -65,11 +65,7 @@ class JwtFilter(
             )
         } catch (exception: RefreshTokenStoreUnavailableException) {
             SecurityContextHolder.clearContext()
-            authenticationEntryPoint.commence(
-                request,
-                response,
-                BadCredentialsException("Authentication state is unavailable", exception),
-            )
+            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
         }
     }
 
