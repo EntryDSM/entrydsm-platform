@@ -1,12 +1,24 @@
 package hs.kr.entrydsm.identity.adapterout
 
 import hs.kr.entrydsm.identity.adapterout.security.BCryptPasswordHasher
+import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterIntegrationTest
+import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class IdentityAdapterOutModuleTest {
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    IdentityAdapterOutSmokeTest::class,
+    RedisRefreshTokenRotationAdapterTest::class,
+    RedisRefreshTokenRotationAdapterIntegrationTest::class,
+)
+class IdentityAdapterOutModuleTest
+
+class IdentityAdapterOutSmokeTest {
     @Test
     fun moduleLoads() {
         assertTrue(true)

@@ -7,6 +7,7 @@ maven.artifact(artifact = "spring-boot-starter-security", group = "org.springfra
 maven.artifact(artifact = "spring-boot-starter-actuator", group = "org.springframework.boot", version = "4.0.1")
 maven.artifact(artifact = "spring-boot-starter-test", group = "org.springframework.boot", version = "4.0.1")
 maven.artifact(artifact = "junit", group = "junit", version = "4.13.2")
+maven.artifact(artifact = "testcontainers", group = "org.testcontainers", version = "1.20.4")
 maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", version = "2.1.0")
 maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")
 maven.artifact(artifact = "jackson-module-kotlin", group = "com.fasterxml.jackson.module", version = "2.18.2")
