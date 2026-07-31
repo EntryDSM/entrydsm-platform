@@ -220,8 +220,37 @@ class AuthServiceTest {
         throw AssertionError("account save failure must be propagated")
     }
 
+    @Test
+    fun passwordResetDoesNotSaveWhenRefreshTokenRevocationFails() {
+        val account = account()
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account)
+        `when`(passwordHasher.hash("new-password")).thenReturn(NEW_PASSWORD_HASH)
+        val failure = IllegalStateException("redis unavailable")
+        val revocationStore = mock(RefreshTokenRevocationStore::class.java)
+        doThrow(failure).`when`(revocationStore).revokeAll(123L)
+
+        try {
+            service(revocationStore = revocationStore).resetPassword(
+                PasswordResetCommand("entry", "홍길동", BIRTHDATE, "new-password")
+            )
+        } catch (exception: IllegalStateException) {
+            assertSame(failure, exception)
+            assertEquals(PASSWORD_HASH, account.passwordHash)
+            org.mockito.Mockito.verifyNoInteractions(commandPort)
+            return
+        }
+        throw AssertionError("refresh-token revocation failure must prevent account save")
+    }
+
     private fun service(
         registration: AccountRegistrationPort = AccountRegistrationPort { _, _ -> account() },
+        revocationStore: RefreshTokenRevocationStore = object : RefreshTokenRevocationStore {
+            override fun currentVersion(userId: Long): Long = refreshTokenVersions[userId] ?: 0L
+
+            override fun revokeAll(userId: Long) {
+                refreshTokenVersions[userId] = currentVersion(userId) + 1
+            }
+        },
     ): AuthService = AuthService(
         accountQueryPort = queryPort,
         accountCommandPort = commandPort,
@@ -232,13 +261,7 @@ class AuthServiceTest {
         refreshTokenRotationStore = RefreshTokenRotationStore { tokenId, _ ->
             consumedRefreshTokenIds.add(tokenId)
         },
-        refreshTokenRevocationStore = object : RefreshTokenRevocationStore {
-            override fun currentVersion(userId: Long): Long = refreshTokenVersions[userId] ?: 0L
-
-            override fun revokeAll(userId: Long) {
-                refreshTokenVersions[userId] = currentVersion(userId) + 1
-            }
-        },
+        refreshTokenRevocationStore = revocationStore,
         clock = clock,
     )
 

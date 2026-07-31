@@ -124,9 +124,10 @@ class AuthService(
         if (account.profile.name != command.name || account.profile.birthdate != command.birthdate) {
             throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
         }
-        account.changePassword(passwordHasher.hash(command.newPassword), now())
-        accountCommandPort.save(account)
+        val passwordHash = passwordHasher.hash(command.newPassword)
         revokeRefreshTokens(account.userId)
+        account.changePassword(passwordHash, now())
+        accountCommandPort.save(account)
     }
 
     private fun now(): Instant = Instant.now(clock)
