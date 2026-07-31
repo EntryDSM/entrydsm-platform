@@ -4,9 +4,11 @@ import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
+import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -26,6 +28,7 @@ class JwtFilter(
     private val jwtProperties: JwtProperties,
     private val clock: Clock,
     private val authenticationEntryPoint: AuthenticationEntryPoint,
+    private val accountQueryPort: AccountQueryPort,
     private val refreshTokenRevocationStore: RefreshTokenRevocationStore,
 ) : OncePerRequestFilter() {
     private val secretBytes = jwtProperties.secret.toByteArray(StandardCharsets.UTF_8)
@@ -111,6 +114,8 @@ class JwtFilter(
         if (refreshTokenRevocationStore.currentVersion(userId) != tokenVersion) {
             throw JwtValidationException()
         }
+        val account = accountQueryPort.findByUserId(userId) ?: throw JwtValidationException()
+        if (account.status != AccountStatus.ACTIVE) throw JwtValidationException()
         AuthenticatedUser(userId)
     } catch (exception: JwtValidationException) {
         throw exception

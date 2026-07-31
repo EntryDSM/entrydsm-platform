@@ -2,8 +2,11 @@ package hs.kr.entrydsm.identity.config.security
 
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
+import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.model.Account
 import jakarta.servlet.FilterChain
 import jakarta.servlet.ServletRequest
 import jakarta.servlet.ServletResponse
@@ -22,6 +25,8 @@ import org.springframework.security.core.Authentication
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.core.AuthenticationException
 import org.springframework.security.web.AuthenticationEntryPoint
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 
 class JwtFilterTest {
     private val tokenVersions = mutableMapOf<Long, Long>()
@@ -55,6 +60,30 @@ class JwtFilterTest {
         tokenVersions[123L] = 1L
 
         val result = runFilter(accessToken())
+
+        assertEquals(401, result.status)
+        assertFalse(result.chainInvoked)
+        assertNull(result.authentication)
+    }
+
+    @Test
+    fun inactiveAccountAccessTokenReturnsUnauthorized() {
+        val result = runFilter(
+            token = accessToken(),
+            account = account(AccountStatus.INACTIVE),
+        )
+
+        assertEquals(401, result.status)
+        assertFalse(result.chainInvoked)
+        assertNull(result.authentication)
+    }
+
+    @Test
+    fun deletedAccountAccessTokenReturnsUnauthorized() {
+        val result = runFilter(
+            token = accessToken(),
+            account = account(AccountStatus.DELETED),
+        )
 
         assertEquals(401, result.status)
         assertFalse(result.chainInvoked)
@@ -153,6 +182,7 @@ class JwtFilterTest {
         path: String = "/api/identity/v11/accounts/me",
         useCookie: Boolean = false,
         revocationStore: RefreshTokenRevocationStore = defaultRevocationStore(),
+        account: Account? = account(AccountStatus.ACTIVE),
     ): FilterResult {
         SecurityContextHolder.clearContext()
         val request = MockHttpServletRequest("GET", path)
@@ -165,7 +195,7 @@ class JwtFilterTest {
         }
         val response = MockHttpServletResponse()
         val chain = RecordingFilterChain()
-        jwtFilter(revocationStore).doFilter(request, response, chain)
+        jwtFilter(revocationStore, account).doFilter(request, response, chain)
         return FilterResult(
             status = response.status,
             chainInvoked = chain.invoked,
@@ -173,12 +203,24 @@ class JwtFilterTest {
         )
     }
 
-    private fun jwtFilter(revocationStore: RefreshTokenRevocationStore): JwtFilter = JwtFilter(
+    private fun jwtFilter(
+        revocationStore: RefreshTokenRevocationStore,
+        account: Account?,
+    ): JwtFilter = JwtFilter(
         jwtProperties = JwtProperties(secret = SECRET, issuer = ISSUER),
         clock = Clock.fixed(FIXED_NOW, UTC),
         authenticationEntryPoint = unauthorizedEntryPoint,
+        accountQueryPort = object : AccountQueryPort {
+            override fun findByLoginId(loginId: String): Account? = account
+
+            override fun findByUserId(userId: Long): Account? = account
+        },
         refreshTokenRevocationStore = revocationStore,
     )
+
+    private fun account(status: AccountStatus): Account = mock(Account::class.java).also {
+        `when`(it.status).thenReturn(status)
+    }
 
     private fun defaultRevocationStore(): RefreshTokenRevocationStore = object : RefreshTokenRevocationStore {
         override fun currentVersion(userId: Long): Long = tokenVersions[userId] ?: 0L
