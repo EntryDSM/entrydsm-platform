@@ -3,7 +3,7 @@ spring:
     name: identity
   data:
     redis:
-      url: ${REDIS_URL}
+      url: ${REDIS_URL:redis://localhost:6379}
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       timeout: ${REDIS_COMMAND_TIMEOUT:2s}
       client-name: ${REDIS_CLIENT_NAME:identity}
@@ -13,7 +13,7 @@ spring:
     lazy-initialization: true
 identity:
   redis:
-    namespace: ${REDIS_KEY_NAMESPACE}
+    namespace: ${REDIS_KEY_NAMESPACE:identity}
 auth:
   jwt:
     secret: ${JWT_SECRET}
