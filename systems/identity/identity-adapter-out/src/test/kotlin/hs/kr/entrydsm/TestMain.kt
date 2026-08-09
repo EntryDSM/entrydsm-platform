@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity.adapterout
 import hs.kr.entrydsm.identity.adapterout.security.BCryptPasswordHasher
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterIntegrationTest
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterTest
+import hs.kr.entrydsm.identity.adapterout.security.RedisDurabilityGuardTest
 import hs.kr.entrydsm.identity.adapterout.persistence.AccountCommandPersistenceAdapterTest
 import hs.kr.entrydsm.identity.adapterout.persistence.TransactionalAccountRegistrationAdapterTest
 import org.junit.Assert.assertFalse
@@ -18,6 +19,7 @@ import org.junit.runners.Suite
     AccountCommandPersistenceAdapterTest::class,
     TransactionalAccountRegistrationAdapterTest::class,
     RedisRefreshTokenRotationAdapterTest::class,
+    RedisDurabilityGuardTest::class,
     RedisRefreshTokenRotationAdapterIntegrationTest::class,
 )
 class IdentityAdapterOutModuleTest
@@ -30,7 +32,7 @@ class IdentityAdapterOutSmokeTest {
 
     @Test
     fun bcryptHasherStoresOnlyAHashAndVerifiesPasswords() {
-        val hasher = BCryptPasswordHasher()
+        val hasher = BCryptPasswordHasher(10)
         val passwordHash = hasher.hash("Password1!")
 
         assertNotEquals("Password1!", passwordHash.value)

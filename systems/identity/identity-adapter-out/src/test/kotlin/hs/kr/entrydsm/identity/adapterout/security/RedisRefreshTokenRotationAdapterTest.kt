@@ -89,6 +89,36 @@ class RedisRefreshTokenRotationAdapterTest {
         assertSame(failure, thrown?.cause)
     }
 
+    @Test
+    fun currentVersionRedisFailureIsMappedToStoreUnavailable() {
+        val failure = DataAccessResourceFailureException("redis unavailable")
+        `when`(valueOperations.get(anyString())).thenThrow(failure)
+
+        val thrown = try {
+            adapter.currentVersion(USER_ID)
+            null
+        } catch (exception: RefreshTokenStoreUnavailableException) {
+            exception
+        }
+
+        assertSame(failure, thrown?.cause)
+    }
+
+    @Test
+    fun revokeAllRedisFailureIsMappedToStoreUnavailable() {
+        val failure = DataAccessResourceFailureException("redis unavailable")
+        `when`(valueOperations.increment(anyString())).thenThrow(failure)
+
+        val thrown = try {
+            adapter.revokeAll(USER_ID)
+            null
+        } catch (exception: RefreshTokenStoreUnavailableException) {
+            exception
+        }
+
+        assertSame(failure, thrown?.cause)
+    }
+
     private companion object {
         const val NAMESPACE = "test"
         const val TOKEN_ID = "token-id"
