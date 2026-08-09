@@ -2,6 +2,7 @@ package hs.kr.entrydsm.observability.adapterin.web.dto.common
 
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ApiStatsResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.BusinessStatsResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.ClientLogAcceptResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ClientLogCountResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ConcurrentResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.DashboardSnapshotResponse
@@ -21,6 +22,7 @@ import hs.kr.entrydsm.observability.adapterin.web.dto.response.SessionEventRespo
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.TrafficResponse
 import hs.kr.entrydsm.observability.application.port.`in`.result.ApiStatsResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.BusinessStatsResult
+import hs.kr.entrydsm.observability.application.port.`in`.result.ClientLogAcceptResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ClientLogCountResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ConcurrentResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.DashboardSnapshotResult
@@ -120,3 +122,5 @@ fun MetricSeriesResult.toResponse(): MetricSeriesResponse =
     MetricSeriesResponse(metric = metric, points = points.map { it.toResponse() })
 
 fun MetricPointResult.toResponse(): MetricPointResponse = MetricPointResponse(t = t, v = v)
+
+fun ClientLogAcceptResult.toResponse(): ClientLogAcceptResponse = ClientLogAcceptResponse(accepted = accepted, rejected = rejected)
