@@ -8,6 +8,7 @@ import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
+import hs.kr.entrydsm.identity.application.web.AuthEndpointPaths
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
@@ -22,6 +23,7 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import org.slf4j.LoggerFactory
 
 @Component
 class JwtFilter(
@@ -31,6 +33,7 @@ class JwtFilter(
     private val accountQueryPort: AccountQueryPort,
     private val refreshTokenRevocationStore: RefreshTokenRevocationStore,
 ) : OncePerRequestFilter() {
+    private val logger = LoggerFactory.getLogger(javaClass)
     private val secretBytes = jwtProperties.secret.toByteArray(StandardCharsets.UTF_8)
     private val signingKey = Keys.hmacShaKeyFor(secretBytes)
     private val jwtParser = Jwts.parser()
@@ -68,6 +71,7 @@ class JwtFilter(
             )
         } catch (exception: RefreshTokenStoreUnavailableException) {
             SecurityContextHolder.clearContext()
+            logger.warn("Redis unavailable while validating access token", exception)
             response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
         }
     }
@@ -132,11 +136,6 @@ class JwtFilter(
         private const val ACCESS_TOKEN_TYPE = "access"
         private const val BEARER_PREFIX = "Bearer "
         private const val USER_PRINCIPAL_PREFIX = "user_"
-        private val PUBLIC_AUTH_PATHS = setOf(
-            "/api/identity/v11/auth/signup",
-            "/api/identity/v11/auth/login",
-            "/api/identity/v11/auth/token",
-            "/api/identity/v11/auth/password-reset",
-        )
+        private val PUBLIC_AUTH_PATHS = AuthEndpointPaths.PUBLIC
     }
 }

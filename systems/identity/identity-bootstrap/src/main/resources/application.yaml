@@ -14,7 +14,12 @@ spring:
 identity:
   redis:
     namespace: ${REDIS_KEY_NAMESPACE:identity}
+    durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED:false}
 auth:
+  password:
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
+  password-reset:
+    enabled: ${AUTH_PASSWORD_RESET_ENABLED:false}
   jwt:
     secret: ${JWT_SECRET}
     issuer: ${JWT_ISSUER:entrydsm-identity}

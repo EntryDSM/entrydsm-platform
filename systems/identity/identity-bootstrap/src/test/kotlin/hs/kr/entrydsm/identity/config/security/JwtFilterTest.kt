@@ -165,7 +165,6 @@ class JwtFilterTest {
             "/api/identity/v11/auth/signup",
             "/api/identity/v11/auth/login",
             "/api/identity/v11/auth/token",
-            "/api/identity/v11/auth/password-reset",
         )
 
         publicPaths.forEach { path ->

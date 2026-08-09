@@ -15,6 +15,7 @@ import hs.kr.entrydsm.identity.config.security.JwtFilter
 import hs.kr.entrydsm.identity.config.security.JwtProperties
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenVerifier
+import hs.kr.entrydsm.identity.application.web.AuthEndpointPaths
 import java.time.Clock
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -23,14 +24,22 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.security.web.csrf.CsrfFilter
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
-import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler
+import org.springframework.security.web.csrf.CsrfToken
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 import java.time.Instant
 import java.time.LocalDate
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(JwtProperties::class)
 class SecurityConfig {
+    private val publicRequestMatchers = arrayOf(
+        "/actuator/health",
+        "/actuator/info",
+        *AuthEndpointPaths.PUBLIC.toTypedArray(),
+    )
+
     @Bean
     fun jwtTokenGenerator(properties: JwtProperties, clock: Clock): JwtTokenGenerator =
         JwtTokenGenerator(properties.secret, properties.issuer, clock)
@@ -70,13 +79,10 @@ class SecurityConfig {
             .csrf {
                 it
                     .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
-                    .csrfTokenRequestHandler(XorCsrfTokenRequestAttributeHandler())
-                    .ignoringRequestMatchers(
-                        "/api/identity/v11/auth/signup",
-                        "/api/identity/v11/auth/login",
-                        "/api/identity/v11/auth/token",
-                        "/api/identity/v11/auth/password-reset",
-                    )
+                    // This service exposes the token through a non-HttpOnly cookie for SPA clients.
+                    // The request header must therefore contain the same token value as the cookie.
+                    .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
+                    .ignoringRequestMatchers(*AuthEndpointPaths.PUBLIC.toTypedArray())
             }
             .cors { it.disable() }
             .formLogin { it.disable() }
@@ -91,17 +97,24 @@ class SecurityConfig {
             .authorizeHttpRequests {
                 it
                     .requestMatchers(
-                        "/actuator/health",
-                        "/actuator/info",
-                        "/api/identity/v11/auth/signup",
-                        "/api/identity/v11/auth/login",
-                        "/api/identity/v11/auth/token",
-                        "/api/identity/v11/auth/password-reset",
+                        *publicRequestMatchers,
                     ).permitAll()
                     .anyRequest().authenticated()
             }
+            .addFilterAfter(CsrfCookieResponseFilter(), CsrfFilter::class.java)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
             .build()
+}
+
+private class CsrfCookieResponseFilter : org.springframework.web.filter.OncePerRequestFilter() {
+    override fun doFilterInternal(
+        request: jakarta.servlet.http.HttpServletRequest,
+        response: jakarta.servlet.http.HttpServletResponse,
+        filterChain: jakarta.servlet.FilterChain,
+    ) {
+        (request.getAttribute(CsrfToken::class.java.name) as? CsrfToken)?.token
+        filterChain.doFilter(request, response)
+    }
 }
 
 private class InstantJsonSerializer : JsonSerializer<Instant>() {
