@@ -6,6 +6,7 @@ import hs.kr.entrydsm.observability.application.port.out.ClientLogInput
 import hs.kr.entrydsm.observability.application.port.out.ClientLogPage
 import hs.kr.entrydsm.observability.application.port.out.ClientLogStorePort
 import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
+import hs.kr.entrydsm.observability.application.port.out.LiveLogPublisherPort
 import hs.kr.entrydsm.observability.domain.enum.LogLevel
 import hs.kr.entrydsm.observability.domain.enum.LogSource
 import hs.kr.entrydsm.observability.domain.exception.MonitorDomainException
@@ -29,7 +30,7 @@ class ClientLogCollectionServiceTest {
 
     @Test
     fun truncatesOverlongMessageAndRecordsEachItem() {
-        val service = ClientLogCollectionService(store, FakeRateLimitPort(true))
+        val service = ClientLogCollectionService(store, FakeRateLimitPort(true), LiveLogPublisherPort {})
 
         val result = service.record("sess_1", listOf(item()), "Mozilla/5.0 (Windows NT 10.0) Chrome/138.0.0.0", "127.0.0.1")
 
@@ -41,7 +42,7 @@ class ClientLogCollectionServiceTest {
 
     @Test
     fun rejectsEmptyOrOversizedBatch() {
-        val service = ClientLogCollectionService(store, FakeRateLimitPort(true))
+        val service = ClientLogCollectionService(store, FakeRateLimitPort(true), LiveLogPublisherPort {})
 
         assertThrows(MonitorDomainException::class.java) { service.record("sess_1", emptyList(), null, "127.0.0.1") }
         assertThrows(MonitorDomainException::class.java) {
@@ -51,7 +52,7 @@ class ClientLogCollectionServiceTest {
 
     @Test
     fun rateLimitExceededThrowsTooManyRequests() {
-        val service = ClientLogCollectionService(store, FakeRateLimitPort(false))
+        val service = ClientLogCollectionService(store, FakeRateLimitPort(false), LiveLogPublisherPort {})
 
         assertThrows(MonitorDomainException::class.java) {
             service.record("sess_1", listOf(item()), null, "127.0.0.1")
