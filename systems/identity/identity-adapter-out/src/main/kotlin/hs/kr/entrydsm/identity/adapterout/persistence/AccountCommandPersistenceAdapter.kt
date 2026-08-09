@@ -7,9 +7,11 @@ import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.domain.model.Account
 import java.time.Instant
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Component
 
 @Component
+@Primary
 class AccountCommandPersistenceAdapter(
     private val accountRepository: AccountRepository,
 ) : AccountCommandPort {
