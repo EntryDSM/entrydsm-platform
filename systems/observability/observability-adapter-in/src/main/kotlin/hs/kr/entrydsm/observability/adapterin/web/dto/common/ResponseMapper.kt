@@ -16,6 +16,8 @@ import hs.kr.entrydsm.observability.adapterin.web.dto.response.MetricsSeriesResp
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.OutcomeCountResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.PeriodResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ResourceUsageBriefResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServerLogItemResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServerLogPageResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceActivityItemResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceActivityResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceHealthItemResponse
@@ -28,6 +30,8 @@ import hs.kr.entrydsm.observability.application.port.`in`.result.ClientLogAccept
 import hs.kr.entrydsm.observability.application.port.`in`.result.ClientLogCountResult
 import hs.kr.entrydsm.observability.application.port.out.ClientLogEntry
 import hs.kr.entrydsm.observability.application.port.out.ClientLogPage
+import hs.kr.entrydsm.observability.application.port.out.ServerLogEntry
+import hs.kr.entrydsm.observability.application.port.out.ServerLogPage
 import hs.kr.entrydsm.observability.application.port.`in`.result.ConcurrentResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.DashboardSnapshotResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.DependencyStatusResult
@@ -148,6 +152,29 @@ fun ClientLogEntry.toResponse(): ClientLogItemResponse =
         pageUrl = pageUrl,
         browser = browser,
         os = os,
+        count = count,
+        firstOccurredAt = firstOccurredAt,
+        lastOccurredAt = lastOccurredAt,
+    )
+
+fun ServerLogPage.toResponse(): ServerLogPageResponse =
+    ServerLogPageResponse(
+        totalCount = totalCount,
+        items = items.map { it.toResponse() },
+        nextCursor = nextCursor?.encode(),
+        hasNext = hasNext,
+    )
+
+fun ServerLogEntry.toResponse(): ServerLogItemResponse =
+    ServerLogItemResponse(
+        fingerprint = fingerprint,
+        service = service,
+        method = method,
+        path = path,
+        status = status,
+        code = code,
+        grpcStatus = grpcStatus,
+        message = message,
         count = count,
         firstOccurredAt = firstOccurredAt,
         lastOccurredAt = lastOccurredAt,
