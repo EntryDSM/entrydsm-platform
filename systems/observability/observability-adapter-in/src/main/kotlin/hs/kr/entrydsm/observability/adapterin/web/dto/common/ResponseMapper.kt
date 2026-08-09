@@ -4,6 +4,8 @@ import hs.kr.entrydsm.observability.adapterin.web.dto.response.ApiStatsResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.BusinessStatsResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ClientLogAcceptResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ClientLogCountResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.ClientLogItemResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.ClientLogPageResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ConcurrentResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.DashboardSnapshotResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.DependencyStatusResponse
@@ -24,6 +26,8 @@ import hs.kr.entrydsm.observability.application.port.`in`.result.ApiStatsResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.BusinessStatsResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ClientLogAcceptResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ClientLogCountResult
+import hs.kr.entrydsm.observability.application.port.out.ClientLogEntry
+import hs.kr.entrydsm.observability.application.port.out.ClientLogPage
 import hs.kr.entrydsm.observability.application.port.`in`.result.ConcurrentResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.DashboardSnapshotResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.DependencyStatusResult
@@ -124,3 +128,27 @@ fun MetricSeriesResult.toResponse(): MetricSeriesResponse =
 fun MetricPointResult.toResponse(): MetricPointResponse = MetricPointResponse(t = t, v = v)
 
 fun ClientLogAcceptResult.toResponse(): ClientLogAcceptResponse = ClientLogAcceptResponse(accepted = accepted, rejected = rejected)
+
+fun ClientLogPage.toResponse(): ClientLogPageResponse =
+    ClientLogPageResponse(
+        totalCount = totalCount,
+        errorCount = errorCount,
+        warnCount = warnCount,
+        items = items.map { it.toResponse() },
+        nextCursor = nextCursor?.encode(),
+        hasNext = hasNext,
+    )
+
+fun ClientLogEntry.toResponse(): ClientLogItemResponse =
+    ClientLogItemResponse(
+        fingerprint = fingerprint,
+        level = level,
+        message = message,
+        source = source,
+        pageUrl = pageUrl,
+        browser = browser,
+        os = os,
+        count = count,
+        firstOccurredAt = firstOccurredAt,
+        lastOccurredAt = lastOccurredAt,
+    )
