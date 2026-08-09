@@ -23,6 +23,9 @@ import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceActivityRe
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceHealthItemResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceHealthResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.SessionEventResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.BucketUsageResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.DatabaseUsageResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.StorageUsageResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.TrafficResponse
 import hs.kr.entrydsm.observability.application.port.`in`.result.ApiStatsResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.BusinessStatsResult
@@ -48,6 +51,9 @@ import hs.kr.entrydsm.observability.application.port.`in`.result.ServiceHealthIt
 import hs.kr.entrydsm.observability.application.port.`in`.result.ServiceHealthResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.SessionEventResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.TrafficResult
+import hs.kr.entrydsm.observability.application.port.`in`.result.BucketUsageResult
+import hs.kr.entrydsm.observability.application.port.`in`.result.DatabaseUsageResult
+import hs.kr.entrydsm.observability.application.port.`in`.result.StorageUsageResult
 
 fun SessionEventResult.toResponse(): SessionEventResponse =
     SessionEventResponse(sessionId = sessionId, heartbeatIntervalSeconds = heartbeatIntervalSeconds)
@@ -179,3 +185,12 @@ fun ServerLogEntry.toResponse(): ServerLogItemResponse =
         firstOccurredAt = firstOccurredAt,
         lastOccurredAt = lastOccurredAt,
     )
+
+fun StorageUsageResult.toResponse(): StorageUsageResponse =
+    StorageUsageResponse(database = database.toResponse(), bucket = bucket.toResponse(), cacheTtlSeconds = cacheTtlSeconds)
+
+fun DatabaseUsageResult.toResponse(): DatabaseUsageResponse =
+    DatabaseUsageResponse(usedBytes = usedBytes, totalBytes = totalBytes, usageRatio = usageRatio, measuredAt = measuredAt)
+
+fun BucketUsageResult.toResponse(): BucketUsageResponse =
+    BucketUsageResponse(usedBytes = usedBytes, objectCount = objectCount, measuredAt = measuredAt)
