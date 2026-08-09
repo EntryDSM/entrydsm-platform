@@ -4,8 +4,6 @@ KOTLIN_DEPS = [
     "@maven//:io_jsonwebtoken_jjwt_api",
     "@maven//:io_jsonwebtoken_jjwt_impl",
     "@maven//:io_jsonwebtoken_jjwt_jackson",
-    "@maven//:org_apache_poi_poi",
-    "@maven//:org_apache_poi_poi_ooxml",
     "//systems/observability/observability-application:main",
     "//systems/observability/observability-domain:main",
 ]
