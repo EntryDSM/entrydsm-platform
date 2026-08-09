@@ -3,14 +3,13 @@ package hs.kr.entrydsm.identity.adapterin.web
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ApiResponse
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.identity.adapterin.web.dto.request.LoginRequest
-import hs.kr.entrydsm.identity.adapterin.web.dto.request.PasswordResetRequest
 import hs.kr.entrydsm.identity.adapterin.web.dto.request.SignupRequest
 import hs.kr.entrydsm.identity.adapterin.web.dto.response.AccountResponse
 import hs.kr.entrydsm.identity.adapterin.web.dto.response.UserSummaryResponse
 import hs.kr.entrydsm.identity.application.port.`in`.AuthPort
+import hs.kr.entrydsm.identity.application.web.AuthEndpointPaths
 import hs.kr.entrydsm.identity.application.port.`in`.command.LoginCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.LogoutCommand
-import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
@@ -23,18 +22,17 @@ import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.CookieValue
-import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/api/identity/v11/auth")
+@RequestMapping(AuthEndpointPaths.BASE)
 class AuthController(
     private val authPort: AuthPort,
 ) {
-    @PostMapping("/signup")
+    @PostMapping(AuthEndpointPaths.SIGNUP_PATH)
     fun signup(
         @Valid @RequestBody request: SignupRequest,
     ): ResponseEntity<ApiResponse<AccountResponse>> {
@@ -52,7 +50,7 @@ class AuthController(
             .body(ApiResponse(data = result.toResponse()))
     }
 
-    @PostMapping("/login")
+    @PostMapping(AuthEndpointPaths.LOGIN_PATH)
     fun login(
         @Valid @RequestBody request: LoginRequest,
     ): ResponseEntity<ApiResponse<UserSummaryResponse>> {
@@ -69,7 +67,7 @@ class AuthController(
             .body(ApiResponse(data = result.toUserSummaryResponse()))
     }
 
-    @PostMapping("/logout")
+    @PostMapping(AuthEndpointPaths.LOGOUT_PATH)
     fun logout(
         authentication: Authentication,
     ): ResponseEntity<ApiResponse<Unit>> {
@@ -83,7 +81,7 @@ class AuthController(
             .body(ApiResponse(data = null))
     }
 
-    @PostMapping("/token")
+    @PostMapping(AuthEndpointPaths.TOKEN_PATH)
     fun refreshToken(
         @CookieValue("refresh_token", required = false) refreshToken: String?,
     ): ResponseEntity<ApiResponse<UserSummaryResponse>> {
@@ -93,21 +91,6 @@ class AuthController(
             .header(HttpHeaders.SET_COOKIE, accessTokenCookie(result).toString())
             .header(HttpHeaders.SET_COOKIE, refreshTokenCookie(result).toString())
             .body(ApiResponse(data = result.toUserSummaryResponse()))
-    }
-
-    @PatchMapping("/password-reset")
-    fun resetPassword(
-        @Valid @RequestBody request: PasswordResetRequest,
-    ): ApiResponse<Unit> {
-        authPort.resetPassword(
-            PasswordResetCommand(
-                loginId = request.loginId,
-                name = request.name,
-                birthdate = request.birthdate,
-                newPassword = request.newPassword,
-            )
-        )
-        return ApiResponse(data = null)
     }
 
     private fun accessTokenCookie(result: AuthTokenResult): ResponseCookie =
