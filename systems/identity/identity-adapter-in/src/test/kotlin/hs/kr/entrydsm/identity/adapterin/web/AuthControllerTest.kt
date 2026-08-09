@@ -11,6 +11,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AccountResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
+import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
 import hs.kr.entrydsm.identity.application.port.`in`.result.ProfileResult
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
@@ -113,7 +114,7 @@ class AuthControllerTest {
     @Test
     fun passwordResetMapsAllSensitiveFieldsToCommand() {
         val authPort = FakeAuthPort()
-        val controller = AuthController(authPort)
+        val controller = PasswordResetController(authPort, PasswordResetOwnershipVerifier { true })
         val birthdate = LocalDate.parse("2009-03-15")
 
         controller.resetPassword(
@@ -130,6 +131,23 @@ class AuthControllerTest {
         assertEquals("홍길동", command.name)
         assertEquals(birthdate, command.birthdate)
         assertEquals("new-password", command.newPassword)
+    }
+
+    @Test(expected = hs.kr.entrydsm.identity.domain.exception.IdentityDomainException::class)
+    fun passwordResetRejectsRequestWithoutOwnershipProof() {
+        val controller = PasswordResetController(
+            FakeAuthPort(),
+            PasswordResetOwnershipVerifier { false },
+        )
+
+        controller.resetPassword(
+            hs.kr.entrydsm.identity.adapterin.web.dto.request.PasswordResetRequest(
+                loginId = "entry",
+                name = "홍길동",
+                birthdate = LocalDate.parse("2009-03-15"),
+                newPassword = "new-password",
+            )
+        )
     }
 
     @Test
