@@ -33,6 +33,24 @@ class JwtTokenVerifierTest {
         JwtTokenVerifier(SECRET, ISSUER, Clock.fixed(NOW, UTC)).verifyRefreshToken(token)
     }
 
+    @Test
+    fun rejectsExpiredRefreshTokenWithExpiredReason() {
+        val token = JwtTokenGenerator(
+            SECRET,
+            ISSUER,
+            Clock.fixed(NOW.minus(JwtTokenGenerator.REFRESH_TOKEN_TTL).minusSeconds(1), UTC),
+        ).generateRefreshToken("user_123").value
+
+        val thrown = try {
+            JwtTokenVerifier(SECRET, ISSUER, Clock.fixed(NOW, UTC)).verifyRefreshToken(token)
+            null
+        } catch (exception: JwtTokenVerificationException) {
+            exception
+        }
+
+        assertEquals(JwtTokenVerificationException.Reason.EXPIRED, thrown?.reason)
+    }
+
     private fun generator(secret: String = SECRET): JwtTokenGenerator = JwtTokenGenerator(
         secret = secret,
         issuer = ISSUER,

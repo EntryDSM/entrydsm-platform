@@ -1,6 +1,8 @@
 package hs.kr.entrydsm.identity.application
 
 import hs.kr.entrydsm.identity.application.mock.MockAuthPortAdapterTest
+import hs.kr.entrydsm.identity.application.mock.MockAuthAccountRepositoryAdapterTest
+import hs.kr.entrydsm.identity.application.mock.MockAuthApplicationDataAdapterTest
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGeneratorTest
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenVerifierTest
 import hs.kr.entrydsm.identity.application.service.AuthServiceTest
@@ -13,6 +15,8 @@ import org.junit.runners.Suite
 @Suite.SuiteClasses(
     ApplicationResultTest::class,
     MockAuthPortAdapterTest::class,
+    MockAuthAccountRepositoryAdapterTest::class,
+    MockAuthApplicationDataAdapterTest::class,
     JwtTokenGeneratorTest::class,
     JwtTokenVerifierTest::class,
     AuthServiceTest::class,
