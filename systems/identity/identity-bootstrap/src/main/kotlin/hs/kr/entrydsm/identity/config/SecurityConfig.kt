@@ -20,6 +20,7 @@ import java.time.Clock
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
@@ -34,6 +35,9 @@ import java.time.LocalDate
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(JwtProperties::class)
 class SecurityConfig {
+    @Value("\${security.cookies.secure:true}")
+    private var secureCookies: Boolean = true
+
     private val publicRequestMatchers = arrayOf(
         "/actuator/health",
         "/actuator/info",
@@ -75,14 +79,21 @@ class SecurityConfig {
         authenticationEntryPoint: JwtAuthenticationEntryPoint,
         accessDeniedHandler: JwtAuthorizationDeniedHandler,
     ): SecurityFilterChain =
+        CookieCsrfTokenRepository.withHttpOnlyFalse().also {
+            it.setCookieCustomizer { cookie ->
+                cookie
+                    .secure(secureCookies)
+                    .sameSite("Lax")
+                    .path("/")
+            }
+        }.let { csrfTokenRepository ->
         http
             .csrf {
                 it
-                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRepository(csrfTokenRepository)
                     // This service exposes the token through a non-HttpOnly cookie for SPA clients.
                     // The request header must therefore contain the same token value as the cookie.
                     .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
-                    .ignoringRequestMatchers(*AuthEndpointPaths.PUBLIC.toTypedArray())
             }
             .cors { it.disable() }
             .formLogin { it.disable() }
@@ -104,6 +115,7 @@ class SecurityConfig {
             .addFilterAfter(CsrfCookieResponseFilter(), CsrfFilter::class.java)
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
             .build()
+        }
 }
 
 private class CsrfCookieResponseFilter : org.springframework.web.filter.OncePerRequestFilter() {

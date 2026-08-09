@@ -15,6 +15,9 @@ identity:
   redis:
     namespace: ${REDIS_KEY_NAMESPACE:identity}
     durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED:false}
+security:
+  cookies:
+    secure: ${COOKIE_SECURE:true}
 auth:
   password:
     bcrypt-strength: ${BCRYPT_STRENGTH:12}

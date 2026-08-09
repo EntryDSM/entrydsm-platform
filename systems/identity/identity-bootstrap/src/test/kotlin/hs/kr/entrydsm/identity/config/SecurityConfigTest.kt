@@ -77,13 +77,33 @@ class SecurityConfigTest {
     }
 
     @Test
-    fun publicAuthRequestDoesNotRequireCsrfHeader() {
+    fun publicAuthRequestWithoutCsrfHeaderIsRejected() {
         val response = mockMvc.perform(
             post("/api/identity/v11/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"),
         ).andReturn().response
 
+        assertEquals(403, response.status)
+    }
+
+    @Test
+    fun publicAuthRequestRemainsPublicAfterCsrfValidation() {
+        val csrfResponse = mockMvc.perform(
+            get("/actuator/health"),
+        ).andReturn().response
+        val csrfCookie = requireNotNull(csrfResponse.getCookie("XSRF-TOKEN"))
+        val csrfToken = java.net.URLDecoder.decode(csrfCookie.value, StandardCharsets.UTF_8)
+
+        val response = mockMvc.perform(
+            post("/api/identity/v11/auth/login")
+                .cookie(MockCookie("XSRF-TOKEN", csrfToken))
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"),
+        ).andReturn().response
+
+        assertTrue(response.status != 401)
         assertTrue(response.status != 403)
     }
 }

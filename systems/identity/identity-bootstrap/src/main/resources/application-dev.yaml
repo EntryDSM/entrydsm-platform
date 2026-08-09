@@ -19,3 +19,7 @@ spring:
 auth:
   jwt:
     secret: ${JWT_SECRET:dev-development-jwt-secret-change-me-32}
+
+security:
+  cookies:
+    secure: ${COOKIE_SECURE:false}
