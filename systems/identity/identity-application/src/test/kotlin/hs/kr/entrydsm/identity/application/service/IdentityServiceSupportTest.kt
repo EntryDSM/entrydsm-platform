@@ -10,6 +10,16 @@ import org.junit.Test
 
 class IdentityServiceSupportTest {
     @Test
+    fun passwordAtExactly72Utf8BytesIsAccepted() {
+        requireValidPassword("가".repeat(24))
+    }
+
+    @Test(expected = IdentityDomainException::class)
+    fun passwordOver72Utf8BytesIsRejected() {
+        requireValidPassword("가".repeat(25))
+    }
+
+    @Test
     fun signupValidationRejectsBlankRequiredFields() {
         val exception = try {
             requireValidSignup(

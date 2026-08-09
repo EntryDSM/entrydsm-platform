@@ -88,11 +88,19 @@ class AuthServiceTest {
         )
     }
 
-    @Test(expected = IdentityDomainException::class)
+    @Test
     fun inactiveAccountCannotLogin() {
         `when`(queryPort.findByLoginId("entry")).thenReturn(account(AccountStatus.INACTIVE))
+        `when`(passwordHasher.matches("password123!", PASSWORD_HASH)).thenReturn(true)
 
-        service().login(LoginCommand("entry", "password123!"))
+        val thrown = try {
+            service().login(LoginCommand("entry", "password123!"))
+            null
+        } catch (exception: IdentityDomainException) {
+            exception
+        }
+
+        assertEquals(ErrorCode.ACCOUNT_INACTIVE, thrown?.errorCode)
     }
 
     @Test

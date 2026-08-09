@@ -59,22 +59,21 @@ class AuthService(
         val savedAccount = try {
             accountRegistrationPort.register(registration, now)
         } catch (exception: AccountAlreadyExistsException) {
-            throw IdentityDomainException(ErrorCode.ACCOUNT_ALREADY_EXISTS)
+            throw IdentityDomainException(ErrorCode.ACCOUNT_ALREADY_EXISTS, exception)
         }
         return savedAccount.toAccountResult()
     }
 
     override fun login(command: LoginCommand): AuthTokenResult {
-        if (command.loginId.isBlank() || command.password.isBlank()) {
-            throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
-        }
+        requireValidPassword(command.password)
+        if (command.loginId.isBlank()) throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
         val account = accountQueryPort.findByLoginId(command.loginId)
             ?: throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
-        if (account.status != AccountStatus.ACTIVE) {
-            throw IdentityDomainException(ErrorCode.ACCOUNT_INACTIVE)
-        }
         if (!passwordHasher.matches(command.password, account.passwordHash)) {
             throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
+        }
+        if (account.status != AccountStatus.ACTIVE) {
+            throw IdentityDomainException(ErrorCode.ACCOUNT_INACTIVE)
         }
         return issueTokens(account.userId, account.role, account.status)
     }
@@ -121,9 +120,10 @@ class AuthService(
     }
 
     override fun resetPassword(command: PasswordResetCommand) {
-        if (command.loginId.isBlank() || command.name.isBlank() || command.newPassword.isBlank()) {
+        if (command.loginId.isBlank() || command.name.isBlank()) {
             throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
         }
+        requireValidPassword(command.newPassword)
         val account = accountQueryPort.findByLoginId(command.loginId)
             ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
         if (account.profile.name != command.name || account.profile.birthdate != command.birthdate) {

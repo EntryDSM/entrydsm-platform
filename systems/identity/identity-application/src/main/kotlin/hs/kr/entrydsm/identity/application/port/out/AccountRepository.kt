@@ -10,12 +10,7 @@ import java.time.Instant
  * [register]. A pre-registration lookup is only an optimization and must not be used as
  * the uniqueness guarantee.
  */
-interface AccountRepository {
-    fun findByLoginId(loginId: String): Account?
+interface AccountRepository : AccountQueryPort, AccountCommandPort {
 
-    fun findByUserId(userId: Long): Account?
-
-    fun save(account: Account): Account
-
-    fun register(registration: AccountRegistration, createdAt: Instant): Account
+    override fun register(registration: AccountRegistration, createdAt: Instant): Account
 }

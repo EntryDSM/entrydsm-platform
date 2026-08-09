@@ -14,26 +14,21 @@ import org.springframework.context.annotation.Configuration
 /** Fallback account store that keeps the authentication service runnable without the account API. */
 class MockAuthAccountRepositoryAdapter : AccountRepository {
     private val accountsById = ConcurrentHashMap<Long, Account>()
+    private val accountsByLoginId = ConcurrentHashMap<String, Account>()
     private val userIdSequence = AtomicLong(0)
 
-    override fun findByLoginId(loginId: String): Account? =
-        accountsById.values.firstOrNull { it.loginId == loginId }
+    override fun findByLoginId(loginId: String): Account? = accountsByLoginId[loginId]
 
     override fun findByUserId(userId: Long): Account? = accountsById[userId]
 
     override fun save(account: Account): Account {
         accountsById[account.userId] = account
+        accountsByLoginId[account.loginId] = account
         userIdSequence.updateAndGet { current -> maxOf(current, account.userId) }
         return account
     }
 
     override fun register(registration: AccountRegistration, createdAt: Instant): Account {
-        if (findByLoginId(registration.loginId) != null) {
-            throw AccountAlreadyExistsException(
-                IllegalStateException("Account login id is already registered."),
-            )
-        }
-
         val account = Account.create(
             userId = userIdSequence.incrementAndGet(),
             loginId = registration.loginId,
@@ -44,6 +39,11 @@ class MockAuthAccountRepositoryAdapter : AccountRepository {
             createdAt = createdAt,
             updatedAt = createdAt,
         )
+        if (accountsByLoginId.putIfAbsent(registration.loginId, account) != null) {
+            throw AccountAlreadyExistsException(
+                IllegalStateException("Account login id is already registered."),
+            )
+        }
         accountsById[account.userId] = account
         return account
     }
