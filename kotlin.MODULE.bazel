@@ -24,4 +24,16 @@ maven.artifact(artifact = "protobuf-java", group = "com.google.protobuf", versio
 maven.artifact(artifact = "protobuf-kotlin", group = "com.google.protobuf", version = "4.30.2")
 maven.artifact(artifact = "javax.annotation-api", group = "javax.annotation", version = "1.3.2")
 
+# Redis
+maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springframework.boot", version = "4.0.1")
+
+# JWT
+maven.artifact(artifact = "jjwt-api", group = "io.jsonwebtoken", version = "0.13.0")
+maven.artifact(artifact = "jjwt-impl", group = "io.jsonwebtoken", version = "0.13.0")
+maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "0.13.0")
+
+# 리포트 생성 (xlsx)
+maven.artifact(artifact = "poi", group = "org.apache.poi", version = "5.4.0")
+maven.artifact(artifact = "poi-ooxml", group = "org.apache.poi", version = "5.4.0")
+
 use_repo(maven, "maven")

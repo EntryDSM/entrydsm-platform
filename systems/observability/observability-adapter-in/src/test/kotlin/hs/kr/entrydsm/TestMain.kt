@@ -1,11 +1,11 @@
 package hs.kr.entrydsm.observability.adapterin
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import hs.kr.entrydsm.observability.adapterin.web.exception.GlobalExceptionHandlerTest
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class ObservabilityAdapterInModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    GlobalExceptionHandlerTest::class,
+)
+class ObservabilityAdapterInModuleTest

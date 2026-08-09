@@ -1,11 +1,11 @@
 package hs.kr.entrydsm.observability.domain
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class ObservabilityDomainModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    CursorTest::class,
+    HealthStatusClassifierTest::class,
+)
+class ObservabilityDomainModuleTest
