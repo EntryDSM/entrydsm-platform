@@ -7,5 +7,6 @@ import org.junit.runners.Suite
 @Suite.SuiteClasses(
     CursorTest::class,
     HealthStatusClassifierTest::class,
+    DeviceTypeParserTest::class,
 )
 class ObservabilityDomainModuleTest
