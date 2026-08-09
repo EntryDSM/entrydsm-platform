@@ -11,5 +11,6 @@ import org.junit.runners.Suite
     MetricsSeriesServiceTest::class,
     ClientLogCollectionServiceTest::class,
     ClientLogQueryServiceTest::class,
+    ServerLogQueryServiceTest::class,
 )
 class ObservabilityApplicationModuleTest
