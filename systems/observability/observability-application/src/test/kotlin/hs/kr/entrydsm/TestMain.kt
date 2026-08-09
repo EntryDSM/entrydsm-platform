@@ -7,5 +7,6 @@ import org.junit.runners.Suite
 @Suite.SuiteClasses(
     SessionCollectionServiceTest::class,
     MonitorHealthServiceTest::class,
+    MonitorDashboardServiceTest::class,
 )
 class ObservabilityApplicationModuleTest

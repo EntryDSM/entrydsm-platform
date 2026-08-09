@@ -8,5 +8,6 @@ import org.junit.runners.Suite
     CursorTest::class,
     HealthStatusClassifierTest::class,
     DeviceTypeParserTest::class,
+    FingerprintTest::class,
 )
 class ObservabilityDomainModuleTest

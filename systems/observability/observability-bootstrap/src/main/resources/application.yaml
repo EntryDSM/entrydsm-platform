@@ -45,3 +45,7 @@ monitor:
       base-url: ${SCHEDULE_BASE_URL:http://localhost:8086}
   report:
     storage-dir: ${MONITOR_REPORT_DIR:/tmp/entrydsm-monitor-reports}
+  round:
+    name: ${MONITOR_ROUND_NAME:current}
+    from: ${MONITOR_ROUND_FROM:2026-01-01T00:00:00+09:00}
+    to: ${MONITOR_ROUND_TO:2026-12-31T23:59:59+09:00}
