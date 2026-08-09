@@ -5,6 +5,10 @@ spring:
     default: local
   main:
     lazy-initialization: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 server:
   shutdown: graceful
 management:
@@ -19,3 +23,25 @@ management:
 logging:
   level:
     root: INFO
+auth:
+  jwt:
+    secret: ${JWT_SECRET:local-development-secret-key-change-me-0123456789}
+    issuer: ${JWT_ISSUER:entrydsm}
+monitor:
+  services:
+    identity:
+      base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
+    auth:
+      base-url: ${AUTH_BASE_URL:http://localhost:8081}
+    application:
+      base-url: ${APPLICATION_BASE_URL:http://localhost:8082}
+    evaluation:
+      base-url: ${EVALUATION_BASE_URL:http://localhost:8083}
+    document:
+      base-url: ${DOCUMENT_BASE_URL:http://localhost:8084}
+    notification:
+      base-url: ${NOTIFICATION_BASE_URL:http://localhost:8085}
+    schedule:
+      base-url: ${SCHEDULE_BASE_URL:http://localhost:8086}
+  report:
+    storage-dir: ${MONITOR_REPORT_DIR:/tmp/entrydsm-monitor-reports}
