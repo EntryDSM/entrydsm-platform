@@ -13,5 +13,6 @@ import org.junit.runners.Suite
     ClientLogQueryServiceTest::class,
     ServerLogQueryServiceTest::class,
     StorageUsageQueryServiceTest::class,
+    ReportServiceTest::class,
 )
 class ObservabilityApplicationModuleTest
