@@ -7,6 +7,9 @@ import hs.kr.entrydsm.observability.adapterin.web.dto.response.ConcurrentRespons
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.DashboardSnapshotResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.DependencyStatusResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.DeviceStatResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.MetricPointResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.MetricSeriesResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.MetricsSeriesResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.OutcomeCountResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.PeriodResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ResourceUsageBriefResponse
@@ -23,6 +26,9 @@ import hs.kr.entrydsm.observability.application.port.`in`.result.ConcurrentResul
 import hs.kr.entrydsm.observability.application.port.`in`.result.DashboardSnapshotResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.DependencyStatusResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.DeviceStatResult
+import hs.kr.entrydsm.observability.application.port.`in`.result.MetricPointResult
+import hs.kr.entrydsm.observability.application.port.`in`.result.MetricSeriesResult
+import hs.kr.entrydsm.observability.application.port.`in`.result.MetricsSeriesResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.OutcomeCountResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.PeriodResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ResourceUsageBriefResult
@@ -106,3 +112,11 @@ fun ClientLogCountResult.toResponse(): ClientLogCountResponse =
 
 fun ResourceUsageBriefResult.toResponse(): ResourceUsageBriefResponse =
     ResourceUsageBriefResponse(dbUsedBytes = dbUsedBytes, bucketUsedBytes = bucketUsedBytes, measuredAt = measuredAt)
+
+fun MetricsSeriesResult.toResponse(): MetricsSeriesResponse =
+    MetricsSeriesResponse(from = from, to = to, interval = interval, series = series.map { it.toResponse() })
+
+fun MetricSeriesResult.toResponse(): MetricSeriesResponse =
+    MetricSeriesResponse(metric = metric, points = points.map { it.toResponse() })
+
+fun MetricPointResult.toResponse(): MetricPointResponse = MetricPointResponse(t = t, v = v)

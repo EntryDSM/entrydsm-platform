@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.observability.application
 
+import hs.kr.entrydsm.observability.application.port.out.MetricsStorePort
 import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
 import hs.kr.entrydsm.observability.application.port.out.SessionStorePort
 import hs.kr.entrydsm.observability.domain.enum.DeviceType
@@ -19,7 +20,7 @@ class SessionCollectionServiceTest {
 
     @Test
     fun enterIssuesNewSessionId() {
-        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), clock)
+        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), FakeMetricsStorePort(), clock)
 
         val result = service.record(SessionEventType.ENTER, null, ServiceName.APPLICATION, "iPhone", "127.0.0.1")
 
@@ -29,7 +30,7 @@ class SessionCollectionServiceTest {
 
     @Test
     fun heartbeatOnUnknownSessionThrowsSessionNotFound() {
-        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), clock)
+        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), FakeMetricsStorePort(), clock)
 
         assertThrows(MonitorDomainException::class.java) {
             service.record(SessionEventType.HEARTBEAT, "sess_unknown", ServiceName.APPLICATION, null, "127.0.0.1")
@@ -38,7 +39,7 @@ class SessionCollectionServiceTest {
 
     @Test
     fun rateLimitExceededThrowsTooManyRequests() {
-        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(false), clock)
+        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(false), FakeMetricsStorePort(), clock)
 
         assertThrows(MonitorDomainException::class.java) {
             service.record(SessionEventType.ENTER, null, ServiceName.APPLICATION, null, "127.0.0.1")
@@ -73,5 +74,10 @@ class SessionCollectionServiceTest {
 
     private class FakeRateLimitPort(private val allow: Boolean) : RateLimitPort {
         override fun tryAcquire(key: String, limit: Long, windowSeconds: Long) = allow
+    }
+
+    private class FakeMetricsStorePort : MetricsStorePort {
+        override fun recordVisitor(sessionId: String, at: Instant) = Unit
+        override fun visitorCount(from: Instant, to: Instant) = 0L
     }
 }

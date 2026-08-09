@@ -9,5 +9,6 @@ import org.junit.runners.Suite
     HealthStatusClassifierTest::class,
     DeviceTypeParserTest::class,
     FingerprintTest::class,
+    TimeBucketerTest::class,
 )
 class ObservabilityDomainModuleTest
