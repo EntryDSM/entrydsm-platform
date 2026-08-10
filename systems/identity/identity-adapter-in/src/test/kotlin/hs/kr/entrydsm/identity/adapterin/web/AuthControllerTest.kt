@@ -15,6 +15,7 @@ import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifi
 import hs.kr.entrydsm.identity.application.port.`in`.result.ProfileResult
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.Instant
 import java.time.LocalDate
@@ -181,7 +182,7 @@ class AuthControllerTest {
             signupCommand = command
             return AccountResult(
                 userId = 123L,
-                role = "USER",
+                role = Role.USER,
                 status = AccountStatus.ACTIVE,
                 profile = ProfileResult(
                     name = command.name,
@@ -217,7 +218,7 @@ class AuthControllerTest {
             val generator = tokenGenerator()
             return AuthTokenResult(
                 userId = 123L,
-                role = "STUDENT",
+                role = Role.STUDENT,
                 status = AccountStatus.ACTIVE,
                 accessToken = generator.generateAccessToken("user_123"),
                 refreshToken = generator.generateRefreshToken("user_123"),

@@ -123,7 +123,7 @@ class AuthController(
     private fun AuthTokenResult.toUserSummaryResponse(): UserSummaryResponse =
         UserSummaryResponse(
             userId = "${JwtTokenGenerator.USER_PRINCIPAL_PREFIX}$userId",
-            role = role,
+            role = role.name,
             status = status,
         )
 

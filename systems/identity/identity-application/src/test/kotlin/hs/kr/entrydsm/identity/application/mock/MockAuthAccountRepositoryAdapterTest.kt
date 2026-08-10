@@ -4,6 +4,7 @@ import hs.kr.entrydsm.identity.application.port.out.AccountAlreadyExistsExceptio
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import hs.kr.entrydsm.identity.domain.model.PasswordHash
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
@@ -37,7 +38,7 @@ class MockAuthAccountRepositoryAdapterTest {
             userId = 42L,
             loginId = "saved",
             passwordHash = PasswordHash.fromEncoded("hash"),
-            role = "USER",
+            role = Role.USER,
             status = AccountStatus.ACTIVE,
             profile = profile("saved"),
             createdAt = NOW,
@@ -52,7 +53,7 @@ class MockAuthAccountRepositoryAdapterTest {
     private fun registration(loginId: String): AccountRegistration = AccountRegistration(
         loginId = loginId,
         passwordHash = PasswordHash.fromEncoded("hash"),
-        role = "USER",
+        role = Role.USER,
         status = AccountStatus.ACTIVE,
         profile = profile(loginId),
     )

@@ -4,6 +4,7 @@ import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
@@ -20,7 +21,7 @@ class IdentityResultMapperTest {
         val account = mock(Account::class.java)
         val profile = mock(StudentProfile::class.java)
         `when`(account.userId).thenReturn(123L)
-        `when`(account.role).thenReturn("USER")
+        `when`(account.role).thenReturn(Role.USER)
         `when`(account.status).thenReturn(AccountStatus.ACTIVE)
         `when`(account.profile).thenReturn(profile)
         `when`(account.createdAt).thenReturn(NOW)

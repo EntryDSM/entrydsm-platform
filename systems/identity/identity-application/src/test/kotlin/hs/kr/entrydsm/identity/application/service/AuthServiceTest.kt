@@ -16,6 +16,7 @@ import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.domain.model.Account
@@ -280,7 +281,7 @@ class AuthServiceTest {
             userId = 123L,
             loginId = "entry",
             passwordHash = PASSWORD_HASH,
-            role = "USER",
+            role = Role.USER,
             status = status,
             profile = StudentProfile(
                 name = "홍길동",
