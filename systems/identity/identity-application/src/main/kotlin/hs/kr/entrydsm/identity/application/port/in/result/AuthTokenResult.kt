@@ -3,10 +3,11 @@ package hs.kr.entrydsm.identity.application.port.`in`.result
 import hs.kr.entrydsm.identity.application.security.jwt.JwtToken
 import hs.kr.entrydsm.identity.application.security.SensitiveValueMasker.REDACTED
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 
 data class AuthTokenResult(
     val userId: Long,
-    val role: String,
+    val role: Role,
     val status: AccountStatus,
     val accessToken: JwtToken,
     val refreshToken: JwtToken,

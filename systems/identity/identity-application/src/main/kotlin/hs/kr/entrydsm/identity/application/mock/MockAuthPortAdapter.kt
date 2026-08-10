@@ -11,6 +11,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.ProfileResult
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 import java.time.Instant
 
 class MockAuthPortAdapter(
@@ -21,7 +22,7 @@ class MockAuthPortAdapter(
     override fun signup(command: SignupCommand): AccountResult =
         AccountResult(
             userId = 123L,
-            role = "USER",
+            role = Role.USER,
             status = AccountStatus.ACTIVE,
             profile = ProfileResult(
                 name = command.name,
@@ -44,7 +45,7 @@ class MockAuthPortAdapter(
 
     private fun issueTokens(): AuthTokenResult = AuthTokenResult(
         userId = 123L,
-        role = "STUDENT",
+        role = Role.STUDENT,
         status = AccountStatus.ACTIVE,
         accessToken = jwtTokenGenerator.generateAccessToken("user_123"),
         refreshToken = jwtTokenGenerator.generateRefreshToken("user_123"),

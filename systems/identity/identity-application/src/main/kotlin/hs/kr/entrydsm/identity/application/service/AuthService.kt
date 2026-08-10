@@ -21,6 +21,7 @@ import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenVerifier
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Clock
@@ -46,7 +47,7 @@ class AuthService(
         val registration = AccountRegistration(
             loginId = command.phone,
             passwordHash = passwordHasher.hash(command.password),
-            role = "USER",
+            role = Role.USER,
             status = AccountStatus.ACTIVE,
             profile = StudentProfile(
                 name = command.name,
@@ -139,7 +140,7 @@ class AuthService(
 
     private fun issueTokens(
         userId: Long,
-        role: String,
+        role: Role,
         status: AccountStatus,
         tokenVersion: Long? = null,
     ): AuthTokenResult {
