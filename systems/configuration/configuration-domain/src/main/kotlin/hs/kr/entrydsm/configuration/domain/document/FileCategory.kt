@@ -21,5 +21,6 @@ enum class FileCategory(
 
     fun exceedsMaxSize(sizeBytes: Long): Boolean = sizeBytes > maxSizeBytes
 
-    fun objectKeyOf(fileName: String): String = "$prefix/$fileName"
+    fun objectKeyOf(fileName: String): String =
+        "$prefix/${FileNaming.requireSafeFileName(fileName)}"
 }
