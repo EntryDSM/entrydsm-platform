@@ -8,7 +8,6 @@ import java.util.UUID
 private val SAFE_IDENTIFIER = Regex("[A-Za-z0-9_-]+")
 private val UNSAFE_CHARACTERS = Regex("[^A-Za-z0-9._-]")
 private val APPLICANT_LIST_DATE = DateTimeFormatter.ofPattern("yyyyMMdd")
-private const val TOKEN_LENGTH = 8
 
 object FileNaming {
 
@@ -48,5 +47,5 @@ object FileNaming {
     }
 
     private fun randomToken(): String =
-        UUID.randomUUID().toString().replace("-", "").take(TOKEN_LENGTH)
+        UUID.randomUUID().toString().replace("-", "")
 }
