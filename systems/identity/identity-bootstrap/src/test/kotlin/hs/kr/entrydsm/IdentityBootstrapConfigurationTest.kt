@@ -1,7 +1,10 @@
 package hs.kr.entrydsm.identity
 
 import java.nio.charset.StandardCharsets
+import java.time.Clock
+import hs.kr.entrydsm.identity.config.ClockConfig
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class IdentityBootstrapConfigurationTest {
@@ -14,5 +17,10 @@ class IdentityBootstrapConfigurationTest {
         assertTrue(configuration.contains("on-profile: prod"))
         assertTrue(configuration.contains("ddl-auto: validate"))
         assertTrue(configuration.contains("\${DB_URL}"))
+    }
+
+    @Test
+    fun exposesUtcClockBeanForApplicationComponents() {
+        assertEquals(Clock.systemUTC().zone, ClockConfig().clock().zone)
     }
 }

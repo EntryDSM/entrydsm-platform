@@ -1,10 +1,31 @@
 spring:
   application:
     name: identity
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:2s}
+      client-name: ${REDIS_CLIENT_NAME:identity}
   profiles:
     default: dev
   main:
     lazy-initialization: true
+identity:
+  redis:
+    namespace: ${REDIS_KEY_NAMESPACE:identity}
+    durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED:false}
+security:
+  cookies:
+    secure: ${COOKIE_SECURE:true}
+auth:
+  password:
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
+  password-reset:
+    enabled: ${AUTH_PASSWORD_RESET_ENABLED:false}
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER:entrydsm-identity}
 server:
   shutdown: graceful
 management:
@@ -19,7 +40,3 @@ management:
 logging:
   level:
     root: INFO
-
-auth:
-  jwt:
-    issuer: ${JWT_ISSUER:entrydsm-identity}

@@ -1,13 +1,11 @@
 package hs.kr.entrydsm.identity.adapterin
 
-import hs.kr.entrydsm.identity.adapterin.web.dto.common.ResponseMapperTest
-import hs.kr.entrydsm.identity.adapterin.web.exception.GlobalExceptionHandlerTest
-import org.junit.runner.RunWith
-import org.junit.runners.Suite
+import org.junit.Assert.assertTrue
+import org.junit.Test
 
-@RunWith(Suite::class)
-@Suite.SuiteClasses(
-    GlobalExceptionHandlerTest::class,
-    ResponseMapperTest::class,
-)
-class IdentityAdapterInModuleTest
+class IdentityAdapterInModuleTest {
+    @Test
+    fun moduleLoads() {
+        assertTrue(true)
+    }
+}

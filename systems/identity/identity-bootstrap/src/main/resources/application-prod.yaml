@@ -15,7 +15,14 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      url: ${REDIS_URL}
 
 auth:
   jwt:
     secret: ${JWT_SECRET}
+
+identity:
+  redis:
+    durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED:true}
