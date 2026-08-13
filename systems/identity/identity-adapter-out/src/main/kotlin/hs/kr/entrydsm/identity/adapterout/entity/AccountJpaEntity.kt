@@ -2,6 +2,7 @@ package hs.kr.entrydsm.identity.adapterout.entity
 
 import hs.kr.entrydsm.identity.adapterout.base.BaseTimeEntity
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -25,8 +26,9 @@ open class AccountJpaEntity(
     @Column(name = "password_hash", nullable = false, length = 255)
     var passwordHash: String = "",
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 20)
-    val role: String = "USER",
+    val role: Role = Role.USER,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)

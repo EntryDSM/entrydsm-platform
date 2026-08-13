@@ -16,6 +16,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.OneToOne
 import jakarta.persistence.Table
 import java.time.Instant
+import java.time.LocalDate
 
 @Entity
 @Table(name = "student_profiles")
@@ -39,8 +40,8 @@ open class StudentProfileJpaEntity(
     @Column(name = "phone_encrypted", nullable = false, length = 255)
     val phoneEncrypted: String = "",
 
-    @Column(name = "birthdate", nullable = false, length = 255)
-    val birthdate: String = "",
+    @Column(name = "birthdate", nullable = false, columnDefinition = "DATE")
+    val birthdate: LocalDate = LocalDate.of(1970, 1, 1),
 
     @Column(name = "submitted_at")
     var submittedAt: Instant? = null,

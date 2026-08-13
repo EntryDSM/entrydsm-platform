@@ -2,11 +2,11 @@ package hs.kr.entrydsm.identity.adapterout.repository
 
 import hs.kr.entrydsm.identity.adapterout.entity.AccountJpaEntity
 import hs.kr.entrydsm.identity.adapterout.entity.StudentProfileJpaEntity
+import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
-import java.time.LocalDate
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 
@@ -30,13 +30,13 @@ class JpaAccountRepositoryAdapter(
         val entity = if (existing == null) {
             AccountJpaEntity(
                 loginIdHash = account.loginId,
-                passwordHash = account.passwordForPersistence(),
+                passwordHash = account.passwordHash.value,
                 role = account.role,
                 status = account.status,
             )
         } else {
             existing.apply {
-                passwordHash = account.passwordForPersistence()
+                passwordHash = account.passwordHash.value
                 status = account.status
             }
         }
@@ -48,13 +48,38 @@ class JpaAccountRepositoryAdapter(
                 signupType = account.profile.signupType,
                 nameEncrypted = account.profile.name,
                 phoneEncrypted = account.profile.phone,
-                birthdate = account.profile.birthdate.toString(),
+                birthdate = account.profile.birthdate,
             )
         profile.applicantStatus = account.profile.applicantStatus
         profile.passStatus = account.profile.passStatus
         profile.submittedAt = account.profile.submittedAt
         profile.announcedAt = account.profile.announcedAt
         val savedProfile = studentProfileJpaRepository.saveAndFlush(profile)
+        return savedAccount.toDomain(savedProfile)
+    }
+
+    override fun register(registration: AccountRegistration, createdAt: Instant): Account {
+        val savedAccount = accountJpaRepository.saveAndFlush(
+            AccountJpaEntity(
+                loginIdHash = registration.loginId,
+                passwordHash = registration.passwordHash.value,
+                role = registration.role,
+                status = registration.status,
+            ),
+        )
+        val savedProfile = studentProfileJpaRepository.saveAndFlush(
+            StudentProfileJpaEntity(
+                account = savedAccount,
+                signupType = registration.profile.signupType,
+                nameEncrypted = registration.profile.name,
+                phoneEncrypted = registration.profile.phone,
+                birthdate = registration.profile.birthdate,
+                submittedAt = registration.profile.submittedAt,
+                applicantStatus = registration.profile.applicantStatus,
+                passStatus = registration.profile.passStatus,
+                announcedAt = registration.profile.announcedAt,
+            ),
+        )
         return savedAccount.toDomain(savedProfile)
     }
 
@@ -67,7 +92,7 @@ class JpaAccountRepositoryAdapter(
         return Account.create(
             userId = requireNotNull(id),
             loginId = loginIdHash,
-            password = passwordHash,
+            passwordHash = hs.kr.entrydsm.identity.domain.model.PasswordHash.fromEncoded(passwordHash),
             role = role,
             status = status,
             profile = resolvedProfile.toDomain(updatedAt),
@@ -80,7 +105,7 @@ class JpaAccountRepositoryAdapter(
         StudentProfile(
             name = nameEncrypted,
             phone = phoneEncrypted,
-            birthdate = LocalDate.parse(birthdate),
+            birthdate = birthdate,
             signupType = signupType,
             applicantStatus = applicantStatus,
             passStatus = passStatus,
