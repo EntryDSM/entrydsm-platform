@@ -6,7 +6,9 @@ import hs.kr.entrydsm.identity.adapterin.web.dto.response.BasicInfoResponse
 import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
 import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
+import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import org.springframework.http.HttpHeaders
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestHeader
@@ -21,16 +23,22 @@ class AccountController(
     @DeleteMapping("/me")
     fun deleteMe(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal authenticatedUser: AuthenticatedUser? = null,
     ): ApiResponse<Unit> {
-        accountPort.deleteAccount(DeleteAccountCommand(authorization = authorization))
+        accountPort.deleteAccount(
+            DeleteAccountCommand(authorization = authorization, userId = authenticatedUser?.userId),
+        )
         return ApiResponse(data = null)
     }
 
     @GetMapping("/me")
     fun getMe(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal authenticatedUser: AuthenticatedUser? = null,
     ): ApiResponse<BasicInfoResponse> {
-        val result = accountPort.getBasicInfo(ReadAccountCommand(authorization = authorization))
+        val result = accountPort.getBasicInfo(
+            ReadAccountCommand(authorization = authorization, userId = authenticatedUser?.userId),
+        )
         return ApiResponse(data = result.toResponse())
     }
 }

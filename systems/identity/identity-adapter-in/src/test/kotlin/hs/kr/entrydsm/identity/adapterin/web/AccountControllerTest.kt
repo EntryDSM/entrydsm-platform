@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.Instant
 import java.time.LocalDate
@@ -26,16 +27,29 @@ class AccountControllerTest {
         assertEquals(ApplicantStatus.SUBMITTED, response.data?.applicantStatus)
     }
 
+    @Test
+    fun deleteMePassesAuthorizationToAccountPort() {
+        val accountPort = FakeAccountPort()
+        val controller = AccountController(accountPort)
+
+        controller.deleteMe("Bearer access-token")
+
+        assertEquals("Bearer access-token", requireNotNull(accountPort.deleteAccountCommand).authorization)
+    }
+
     private class FakeAccountPort : AccountPort {
         var readAccountCommand: ReadAccountCommand? = null
+        var deleteAccountCommand: DeleteAccountCommand? = null
 
-        override fun deleteAccount(command: DeleteAccountCommand) = Unit
+        override fun deleteAccount(command: DeleteAccountCommand) {
+            deleteAccountCommand = command
+        }
 
         override fun getBasicInfo(command: ReadAccountCommand): BasicInfoResult {
             readAccountCommand = command
             return BasicInfoResult(
                 userId = 123L,
-                role = "USER",
+                role = Role.USER,
                 status = AccountStatus.ACTIVE,
                 name = "홍길동",
                 phone = "01012345678",

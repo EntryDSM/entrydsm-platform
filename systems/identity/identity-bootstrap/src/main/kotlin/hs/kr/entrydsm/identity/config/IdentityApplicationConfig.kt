@@ -1,20 +1,36 @@
 package hs.kr.entrydsm.identity.config
 
+import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
+import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenVerifier
 import hs.kr.entrydsm.identity.application.service.AuthService
+import hs.kr.entrydsm.identity.application.service.AccountService
 import java.time.Clock
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration(proxyBeanMethods = false)
 class IdentityApplicationConfig {
+    @Bean
+    fun accountService(
+        accountQueryPort: AccountQueryPort,
+        accountCommandPort: AccountCommandPort,
+        applicationDataPort: ApplicationDataPort,
+        clock: Clock,
+    ): AccountPort = AccountService(
+        accountQueryPort,
+        accountCommandPort,
+        applicationDataPort,
+        clock,
+    )
+
     @Bean
     fun authService(
         accountQueryPort: AccountQueryPort,

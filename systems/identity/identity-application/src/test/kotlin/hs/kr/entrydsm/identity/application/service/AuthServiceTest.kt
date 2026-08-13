@@ -69,7 +69,7 @@ class AuthServiceTest {
         )
 
         assertEquals(123L, result.userId)
-        assertEquals("USER", result.role)
+        assertEquals(Role.USER, result.role)
         assertEquals("01012345678", registration?.loginId)
         assertEquals(PASSWORD_HASH, registration?.passwordHash)
     }

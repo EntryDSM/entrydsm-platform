@@ -4,26 +4,28 @@ import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
 import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
-import hs.kr.entrydsm.identity.application.port.out.AccountRepository
+import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
+import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Clock
 import java.time.Instant
-import org.springframework.stereotype.Service
 
-@Service
 class AccountService(
-    private val accountRepository: AccountRepository,
+    private val accountQueryPort: AccountQueryPort,
+    private val accountCommandPort: AccountCommandPort,
     private val applicationDataPort: ApplicationDataPort,
     private val clock: Clock = Clock.systemUTC(),
 ) : AccountPort {
     override fun deleteAccount(command: DeleteAccountCommand) {
-        val account = accountRepository.resolveAccount(command.authorization)
+        val account = resolveAccount(command.userId)
         account.delete(now())
-        accountRepository.save(account)
+        accountCommandPort.save(account)
     }
 
     override fun getBasicInfo(command: ReadAccountCommand): BasicInfoResult {
-        val account = accountRepository.resolveAccount(command.authorization)
+        val account = resolveAccount(command.userId)
         val application = applicationDataPort.findApplication(account)
         return BasicInfoResult(
             userId = account.userId,
@@ -38,6 +40,10 @@ class AccountService(
             updatedAt = application.updatedAt,
         )
     }
+
+    private fun resolveAccount(userId: Long?) =
+        userId?.let(accountQueryPort::findByUserId)
+            ?: throw IdentityDomainException(ErrorCode.AUTH_UNAUTHORIZED)
 
     private fun now(): Instant = Instant.now(clock)
 }
