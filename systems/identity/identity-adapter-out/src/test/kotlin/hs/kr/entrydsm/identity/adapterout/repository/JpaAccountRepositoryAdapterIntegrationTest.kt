@@ -14,6 +14,7 @@ import java.time.LocalDate
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNotEquals
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.BeforeClass
@@ -67,8 +68,12 @@ class JpaAccountRepositoryAdapterIntegrationTest {
     fun updatesExistingProfileAndPreservesCreatedAt() {
         val saved = adapter.save(account())
         val accountCreatedAt = requireNotNull(accountJpaRepository.findById(saved.userId).orElse(null)?.createdAtValue())
+        val accountUpdatedAt = requireNotNull(accountJpaRepository.findById(saved.userId).orElse(null)?.updatedAtValue())
         val profileCreatedAt = requireNotNull(
             studentProfileJpaRepository.findByAccount_Id(saved.userId)?.createdAtValue(),
+        )
+        val profileUpdatedAt = requireNotNull(
+            studentProfileJpaRepository.findByAccount_Id(saved.userId)?.updatedAtValue(),
         )
 
         saved.profile.cancel(TRANSITION_TIME)
@@ -80,8 +85,8 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         assertEquals(ApplicantStatus.CANCELED, profileEntity.applicantStatus)
         assertEquals(accountCreatedAt, accountEntity.createdAtValue())
         assertEquals(profileCreatedAt, profileEntity.createdAtValue())
-        assertNotNull(accountEntity.updatedAtValue())
-        assertNotNull(profileEntity.updatedAtValue())
+        assertNotEquals(accountUpdatedAt, accountEntity.updatedAtValue())
+        assertNotEquals(profileUpdatedAt, profileEntity.updatedAtValue())
     }
 
     @SpringBootConfiguration

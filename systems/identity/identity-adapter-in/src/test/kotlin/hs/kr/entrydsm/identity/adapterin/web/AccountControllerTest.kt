@@ -11,6 +11,7 @@ import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.Instant
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class AccountControllerTest {
@@ -32,8 +33,9 @@ class AccountControllerTest {
         val accountPort = FakeAccountPort()
         val controller = AccountController(accountPort)
 
-        controller.deleteMe("Bearer access-token")
+        val response = controller.deleteMe("Bearer access-token")
 
+        assertNull(response.data)
         assertEquals("Bearer access-token", requireNotNull(accountPort.deleteAccountCommand).authorization)
     }
 
