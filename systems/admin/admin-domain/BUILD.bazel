@@ -17,5 +17,23 @@ kt_jvm_test(
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     test_class = "hs.kr.entrydsm.admin.domain.AdminDomainModuleTest",
-    deps = MODULE_DEPS + TEST_DEPS,
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
+
+kt_jvm_test(
+    name = "admission_ticket_html_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.admin.domain.AdmissionTicketHtmlTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
+
+kt_jvm_test(
+    name = "admin_policy_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.admin.domain.AdminPolicyTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
 )
