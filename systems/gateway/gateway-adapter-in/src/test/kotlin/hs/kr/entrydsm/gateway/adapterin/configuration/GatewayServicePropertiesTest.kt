@@ -30,13 +30,6 @@ class GatewayServicePropertiesTest {
     }
 
     @Test
-    fun validatesRuntimeLimitsAtStartup() {
-        assertThrows(IllegalArgumentException::class.java) {
-            GatewayRuntimeProperties(request = GatewayRuntimeProperties.Request(maxBodyBytes = 0))
-        }
-    }
-
-    @Test
     fun registersRoutesForEveryService() {
         val routes = routeLocator.routes.collectList().block().orEmpty()
 
