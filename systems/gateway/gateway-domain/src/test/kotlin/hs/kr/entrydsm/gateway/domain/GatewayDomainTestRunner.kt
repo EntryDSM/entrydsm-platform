@@ -1,6 +1,6 @@
 package hs.kr.entrydsm.gateway.domain
 
-import org.junit.platform.engine.discovery.DiscoverySelectors.selectClass
+import org.junit.platform.engine.discovery.DiscoverySelectors.selectPackage
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder
 import org.junit.platform.launcher.core.LauncherFactory
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener
@@ -9,7 +9,7 @@ import kotlin.system.exitProcess
 
 fun main() {
     val request = LauncherDiscoveryRequestBuilder.request()
-        .selectors(selectClass(GatewayDomainRulesTest::class.java))
+        .selectors(selectPackage("hs.kr.entrydsm.gateway.domain"))
         .build()
     val listener = SummaryGeneratingListener()
     val launcher = LauncherFactory.create()
