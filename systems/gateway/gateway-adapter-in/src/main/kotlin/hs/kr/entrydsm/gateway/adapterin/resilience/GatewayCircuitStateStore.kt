@@ -6,6 +6,7 @@ import reactor.core.publisher.Mono
 data class GatewayCircuitPermit(
     val allowed: Boolean,
     val halfOpen: Boolean,
+    val permitId: String? = null,
 )
 
 interface GatewayCircuitStateStore {
@@ -14,12 +15,17 @@ interface GatewayCircuitStateStore {
         policy: GatewayRuntimeProperties.Resilience,
     ): Mono<GatewayCircuitPermit>
 
-    fun releaseHalfOpen(routeId: String): Mono<Void>
+    fun releaseHalfOpen(routeId: String, permitId: String? = null): Mono<Void>
 
     fun record(
         routeId: String,
         failed: Boolean,
         halfOpen: Boolean,
         policy: GatewayRuntimeProperties.Resilience,
+        permitId: String? = null,
     ): Mono<Void>
+
+    companion object {
+        const val PROBE_TIMEOUT_SECONDS = 30L
+    }
 }

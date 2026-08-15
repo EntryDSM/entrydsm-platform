@@ -4,6 +4,7 @@ import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.stereotype.Component
+import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.time.Duration
 
@@ -17,6 +18,8 @@ import java.time.Duration
 class RedisGatewayCircuitStateStore(
     private val redis: ReactiveStringRedisTemplate,
 ) : GatewayCircuitStateStore {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     override fun tryAcquire(
         routeId: String,
         policy: GatewayRuntimeProperties.Resilience,
@@ -32,7 +35,10 @@ class RedisGatewayCircuitStateStore(
                         .increment(probeKey)
                         .flatMap { permits ->
                             if (permits <= policy.permittedNumberOfCallsInHalfOpenState) {
-                                redis.expire(probeKey, Duration.ofSeconds(PROBE_TTL_SECONDS))
+                                redis.expire(
+                                    probeKey,
+                                    Duration.ofSeconds(GatewayCircuitStateStore.PROBE_TIMEOUT_SECONDS),
+                                )
                                     .thenReturn(GatewayCircuitPermit(true, true))
                             } else {
                                 redis.opsForValue().decrement(probeKey)
@@ -41,10 +47,11 @@ class RedisGatewayCircuitStateStore(
                         }
                 }
             }
+            .doOnError { error -> logger.warn("Redis circuit acquire failed for route {}", routeId, error) }
             .onErrorReturn(GatewayCircuitPermit(true, false))
     }
 
-    override fun releaseHalfOpen(routeId: String): Mono<Void> =
+    override fun releaseHalfOpen(routeId: String, permitId: String? = null): Mono<Void> =
         redis.opsForValue().decrement(key(routeId, "probe")).then()
 
     override fun record(
@@ -52,6 +59,7 @@ class RedisGatewayCircuitStateStore(
         failed: Boolean,
         halfOpen: Boolean,
         policy: GatewayRuntimeProperties.Resilience,
+        permitId: String? = null,
     ): Mono<Void> {
         if (halfOpen) {
             return if (failed) {
@@ -81,6 +89,7 @@ class RedisGatewayCircuitStateStore(
                 }
             }
             .then(redis.expire(eventsKey, Duration.ofSeconds(policy.waitDurationSeconds * 2)))
+            .doOnError { error -> logger.warn("Redis circuit record failed for route {}", routeId, error) }
             .onErrorResume { Mono.empty() }
             .then()
     }
@@ -89,6 +98,5 @@ class RedisGatewayCircuitStateStore(
 
     private companion object {
         const val KEY_PREFIX = "gateway:circuit"
-        const val PROBE_TTL_SECONDS = 30L
     }
 }

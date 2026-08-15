@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.server.ServerWebExchange
 import reactor.core.publisher.Mono
+import org.slf4j.LoggerFactory
 import java.util.concurrent.TimeUnit
 
 @Component
@@ -20,7 +21,9 @@ class GatewayCircuitBreakerGlobalFilter(
     properties: GatewayRuntimeProperties,
     private val circuitBreakerRegistry: CircuitBreakerRegistry,
     private val stateStore: GatewayCircuitStateStore,
+    private val responseWriter: GatewayErrorResponseWriter,
 ) : GlobalFilter, Ordered {
+    private val logger = LoggerFactory.getLogger(javaClass)
     private val policy = properties.resilience
     private val openDurationSeconds = policy.waitDurationSeconds
 
@@ -31,16 +34,12 @@ class GatewayCircuitBreakerGlobalFilter(
         val startedAt = System.nanoTime()
 
         return stateStore.tryAcquire(routeId, policy)
+            .doOnError { error -> logger.warn("Circuit state acquire failed for route {}", routeId, error) }
             .onErrorReturn(GatewayCircuitPermit(allowed = true, halfOpen = false))
             .flatMap { sharedPermit ->
                 if (!sharedPermit.allowed) {
                     return@flatMap reject(exchange)
                 }
-                if (!circuitBreaker.tryAcquirePermission()) {
-                    return@flatMap releaseProbe(sharedPermit, routeId)
-                        .then(reject(exchange))
-                }
-
                 chain.filter(exchange)
                     .then(Mono.defer {
                         val failed = exchange.response.statusCode?.is5xxServerError == true
@@ -54,7 +53,13 @@ class GatewayCircuitBreakerGlobalFilter(
                         } else {
                             circuitBreaker.onSuccess(duration, TimeUnit.NANOSECONDS)
                         }
-                        stateStore.record(routeId, failed, sharedPermit.halfOpen, policy)
+                        stateStore.record(
+                            routeId,
+                            failed,
+                            sharedPermit.halfOpen,
+                            policy,
+                            sharedPermit.permitId,
+                        )
                     })
                     .onErrorResume { error ->
                         circuitBreaker.onError(
@@ -62,7 +67,13 @@ class GatewayCircuitBreakerGlobalFilter(
                             TimeUnit.NANOSECONDS,
                             error,
                         )
-                        stateStore.record(routeId, failed = true, sharedPermit.halfOpen, policy)
+                        stateStore.record(
+                            routeId,
+                            failed = true,
+                            sharedPermit.halfOpen,
+                            policy,
+                            sharedPermit.permitId,
+                        )
                             .then(Mono.error(error))
                     }
             }
@@ -70,14 +81,16 @@ class GatewayCircuitBreakerGlobalFilter(
 
     override fun getOrder(): Int = Ordered.LOWEST_PRECEDENCE - 100
 
-    private fun releaseProbe(permit: GatewayCircuitPermit, routeId: String): Mono<Void> =
-        if (permit.halfOpen) stateStore.releaseHalfOpen(routeId) else Mono.empty()
-
     private fun reject(exchange: ServerWebExchange): Mono<Void> {
         exchange.response.headers.add("Retry-After", openDurationSeconds.toString())
-        return GatewayErrorResponseWriter.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, "CIRCUIT_OPEN")
+        return responseWriter.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, "CIRCUIT_OPEN")
     }
 
     private class DownstreamResponseFailure(routeId: String) :
-        RuntimeException("Downstream service returned a 5xx response for route $routeId")
+        RuntimeException(
+            "Downstream service returned a 5xx response for route $routeId",
+            null,
+            false,
+            false,
+        )
 }

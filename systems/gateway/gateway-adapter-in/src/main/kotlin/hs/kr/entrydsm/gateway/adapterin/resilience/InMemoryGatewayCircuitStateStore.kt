@@ -4,11 +4,15 @@ import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
 @ConditionalOnProperty(prefix = "gateway.resilience", name = ["state-store"], havingValue = "memory")
-class InMemoryGatewayCircuitStateStore : GatewayCircuitStateStore {
+class InMemoryGatewayCircuitStateStore(
+    private val nowMillis: () -> Long = System::currentTimeMillis,
+    private val probeTimeoutMillis: Long = GatewayCircuitStateStore.PROBE_TIMEOUT_SECONDS * 1_000,
+) : GatewayCircuitStateStore {
     private val states = ConcurrentHashMap<String, State>()
 
     override fun tryAcquire(
@@ -17,24 +21,28 @@ class InMemoryGatewayCircuitStateStore : GatewayCircuitStateStore {
     ): Mono<GatewayCircuitPermit> = Mono.fromSupplier {
         synchronized(states.computeIfAbsent(routeId) { State() }) {
             val state = states[routeId]!!
-            val now = System.currentTimeMillis()
+            val now = nowMillis()
             when {
                 state.openedUntilMillis == 0L -> GatewayCircuitPermit(true, false)
                 state.openedUntilMillis > now -> GatewayCircuitPermit(false, false)
-                state.halfOpenPermits >= policy.permittedNumberOfCallsInHalfOpenState ->
-                    GatewayCircuitPermit(false, false)
                 else -> {
-                    state.halfOpenPermits++
-                    GatewayCircuitPermit(true, true)
+                    state.halfOpenPermits.entries.removeIf { (_, expiresAtMillis) -> expiresAtMillis <= now }
+                    if (state.halfOpenPermits.size >= policy.permittedNumberOfCallsInHalfOpenState) {
+                        GatewayCircuitPermit(false, false)
+                    } else {
+                        val permitId = UUID.randomUUID().toString()
+                        state.halfOpenPermits[permitId] = now + probeTimeoutMillis
+                        GatewayCircuitPermit(true, true, permitId)
+                    }
                 }
             }
         }
     }
 
-    override fun releaseHalfOpen(routeId: String): Mono<Void> = Mono.fromRunnable {
+    override fun releaseHalfOpen(routeId: String, permitId: String?): Mono<Void> = Mono.fromRunnable {
         states[routeId]?.let { state ->
             synchronized(state) {
-                state.halfOpenPermits = (state.halfOpenPermits - 1).coerceAtLeast(0)
+                permitId?.let { state.halfOpenPermits.remove(it) }
             }
         }
     }
@@ -44,13 +52,16 @@ class InMemoryGatewayCircuitStateStore : GatewayCircuitStateStore {
         failed: Boolean,
         halfOpen: Boolean,
         policy: GatewayRuntimeProperties.Resilience,
+        permitId: String? = null,
     ): Mono<Void> = Mono.fromRunnable {
         val state = states.computeIfAbsent(routeId) { State() }
         synchronized(state) {
             if (halfOpen) {
-                state.halfOpenPermits = (state.halfOpenPermits - 1).coerceAtLeast(0)
+                if (permitId == null || state.halfOpenPermits.remove(permitId) == null) {
+                    return@fromRunnable
+                }
                 if (failed) {
-                    state.openedUntilMillis = System.currentTimeMillis() + policy.waitDurationSeconds * 1_000
+                    state.openedUntilMillis = nowMillis() + policy.waitDurationSeconds * 1_000
                 } else {
                     state.openedUntilMillis = 0L
                     state.events.clear()
@@ -64,7 +75,7 @@ class InMemoryGatewayCircuitStateStore : GatewayCircuitStateStore {
             val calls = state.events.size
             val failures = state.events.count { it }
             if (calls >= policy.minimumNumberOfCalls && failures * 100.0 / calls >= policy.failureRateThreshold) {
-                state.openedUntilMillis = System.currentTimeMillis() + policy.waitDurationSeconds * 1_000
+                state.openedUntilMillis = nowMillis() + policy.waitDurationSeconds * 1_000
             }
         }
     }
@@ -72,6 +83,6 @@ class InMemoryGatewayCircuitStateStore : GatewayCircuitStateStore {
     private class State {
         val events = ArrayDeque<Boolean>()
         var openedUntilMillis: Long = 0L
-        var halfOpenPermits: Int = 0
+        val halfOpenPermits = mutableMapOf<String, Long>()
     }
 }
