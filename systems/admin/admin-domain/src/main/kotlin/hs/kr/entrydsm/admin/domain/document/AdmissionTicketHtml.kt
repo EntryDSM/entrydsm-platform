@@ -35,9 +35,9 @@ object AdmissionTicketHtml {
                 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
                 td { border: 1px solid #000000; padding: 6pt 8pt; }
                 .title, .principal { text-align: center; font-weight: bold; font-size: 14pt; padding: 10pt 8pt; }
-                .photo { width: 30%; background-color: #d9d9d9; vertical-align: bottom; text-align: left; }
+                .photo { width: 42%; background-color: #d9d9d9; vertical-align: bottom; text-align: left; }
                 .photo img { display: block; width: 100%; }
-                .label { width: 30%; text-align: center; }
+                .label { width: 29%; height: 15mm; text-align: center; }
                 .value { text-align: center; }
               </style>
             </head>
