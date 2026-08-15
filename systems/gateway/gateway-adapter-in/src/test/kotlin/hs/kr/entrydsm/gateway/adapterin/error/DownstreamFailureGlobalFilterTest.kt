@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.gateway.adapterin.error
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.cloud.gateway.filter.GatewayFilterChain
@@ -13,7 +14,7 @@ class DownstreamFailureGlobalFilterTest {
     fun mapsConnectionFailureTo502WithTraceId() {
         val exchange = exchange("failure-trace")
 
-        DownstreamFailureGlobalFilter(GatewayGlobalExceptionHandler()).filter(exchange, GatewayFilterChain {
+        DownstreamFailureGlobalFilter(handler()).filter(exchange, GatewayFilterChain {
             Mono.error(ConnectException("downstream unavailable"))
         }).block()
 
@@ -25,7 +26,7 @@ class DownstreamFailureGlobalFilterTest {
     fun mapsReactorNettyTimeoutFailureTo504() {
         val exchange = exchange("timeout-trace")
 
-        DownstreamFailureGlobalFilter(GatewayGlobalExceptionHandler()).filter(exchange, GatewayFilterChain {
+        DownstreamFailureGlobalFilter(handler()).filter(exchange, GatewayFilterChain {
             Mono.error(ReadTimeoutException())
         }).block()
 
@@ -37,7 +38,9 @@ class DownstreamFailureGlobalFilterTest {
         MockServerHttpRequest.get("/identity/me")
             .header("X-Trace-Id", traceId)
             .build(),
-    )
+    ).also { it.response.headers.set("X-Trace-Id", traceId) }
+
+    private fun handler() = GatewayGlobalExceptionHandler(GatewayErrorResponseWriter(ObjectMapper()))
 
     private class ReadTimeoutException : RuntimeException()
 }

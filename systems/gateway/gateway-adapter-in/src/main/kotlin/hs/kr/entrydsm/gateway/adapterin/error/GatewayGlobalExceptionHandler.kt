@@ -15,14 +15,16 @@ import reactor.core.publisher.Mono
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
-class GatewayGlobalExceptionHandler : WebExceptionHandler, Ordered {
+class GatewayGlobalExceptionHandler(
+    private val responseWriter: GatewayErrorResponseWriter,
+) : WebExceptionHandler, Ordered {
     override fun handle(exchange: ServerWebExchange, ex: Throwable): Mono<Void> {
         if (exchange.response.isCommitted) {
             return Mono.error(ex)
         }
 
         val response = classify(ex)
-        return GatewayErrorResponseWriter.write(exchange, response.status, response.error)
+        return responseWriter.write(exchange, response.status, response.error)
     }
 
     override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE

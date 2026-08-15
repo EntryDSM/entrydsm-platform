@@ -7,6 +7,7 @@ TEST_DEPS = [
 ]
 
 MODULE_DEPS = KOTLIN_DEPS + [
+    "@maven//:com_fasterxml_jackson_core_jackson_databind",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
     "@maven//:org_springframework_boot_spring_boot_starter_data_redis",
     "@maven//:org_springframework_cloud_spring_cloud_starter_gateway_server_webflux",
