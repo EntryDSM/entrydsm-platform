@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdap
 import hs.kr.entrydsm.identity.adapterout.security.RedisDurabilityGuardTest
 import hs.kr.entrydsm.identity.adapterout.persistence.AccountCommandPersistenceAdapterTest
 import hs.kr.entrydsm.identity.adapterout.persistence.TransactionalAccountRegistrationAdapterTest
+import hs.kr.entrydsm.identity.adapterout.repository.JpaAccountRepositoryAdapterIntegrationTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -18,6 +19,7 @@ import org.junit.runners.Suite
     IdentityAdapterOutSmokeTest::class,
     AccountCommandPersistenceAdapterTest::class,
     TransactionalAccountRegistrationAdapterTest::class,
+    JpaAccountRepositoryAdapterIntegrationTest::class,
     RedisRefreshTokenRotationAdapterTest::class,
     RedisDurabilityGuardTest::class,
     RedisRefreshTokenRotationAdapterIntegrationTest::class,

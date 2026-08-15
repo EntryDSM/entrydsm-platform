@@ -15,6 +15,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+  # V023__student_profiles_birthdate_date.sql must be applied by the deployment migration runner.
   data:
     redis:
       url: ${REDIS_URL}

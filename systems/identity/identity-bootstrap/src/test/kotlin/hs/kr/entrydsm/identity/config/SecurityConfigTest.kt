@@ -5,8 +5,8 @@ import java.nio.charset.StandardCharsets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Test
 import org.junit.Before
+import org.junit.Test
 import org.junit.runner.RunWith
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -14,6 +14,7 @@ import org.springframework.http.MediaType
 import org.springframework.mock.web.MockCookie
 import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.web.context.WebApplicationContext
@@ -105,5 +106,23 @@ class SecurityConfigTest {
 
         assertTrue(response.status != 401)
         assertTrue(response.status != 403)
+    }
+
+    @Test
+    fun deleteAccountWithoutAuthorizationReturnsUnauthorizedError() {
+        val csrfResponse = mockMvc.perform(
+            get("/actuator/health"),
+        ).andReturn().response
+        val csrfCookie = requireNotNull(csrfResponse.getCookie("XSRF-TOKEN"))
+        val csrfToken = java.net.URLDecoder.decode(csrfCookie.value, StandardCharsets.UTF_8)
+
+        val response = mockMvc.perform(
+            delete("/api/identity/v11/accounts/me")
+                .cookie(MockCookie("XSRF-TOKEN", csrfToken))
+                .header("X-XSRF-TOKEN", csrfToken),
+        ).andReturn().response
+
+        assertEquals(401, response.status)
+        assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
     }
 }
