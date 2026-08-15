@@ -71,6 +71,10 @@ class ScorePolicyJpaEntity(
     }
 }
 
+/**
+ * ponytail: 필터 조건은 저장하지 않는다. 작업 객체를 그대로 처리기에 넘기므로 지금은 필요 없다.
+ * 재시작 후 재처리가 필요해지면 그때 컬럼을 추가한다.
+ */
 @Entity
 @Table(name = "export_job")
 class ExportJobJpaEntity(

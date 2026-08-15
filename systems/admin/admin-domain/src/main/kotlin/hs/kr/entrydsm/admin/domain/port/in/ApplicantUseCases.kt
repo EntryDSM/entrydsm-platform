@@ -26,9 +26,9 @@ interface IssueExamineeNumberUseCase {
 }
 
 interface IssueAdmissionTicketUseCase {
-    fun issue(applicantId: Long): DownloadLink
+    fun issueAdmissionTicket(applicantId: Long): DownloadLink
 }
 
 interface IssueApplicationDocumentUseCase {
-    fun issue(applicantId: Long): DownloadLink
+    fun issueApplicationDocument(applicantId: Long): DownloadLink
 }

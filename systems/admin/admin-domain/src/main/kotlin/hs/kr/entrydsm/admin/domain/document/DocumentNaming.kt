@@ -13,8 +13,11 @@ object DocumentNaming {
     fun admissionTicketObjectKey(receiptNumber: Int): String =
         "admission-ticket/admission_ticket_$receiptNumber.pdf"
 
+    fun applicationDocumentObjectKey(receiptNumber: Int): String =
+        "application/application_$receiptNumber.pdf"
+
     fun applicantListObjectKey(exportJobId: String): String =
-        "applicant-list/applicants_$exportJobId.xlsx"
+        "applicant-list/applicants_$exportJobId.csv"
 
     fun admissionTicketBundleObjectKey(exportJobId: String): String =
         "admission-ticket/admission_tickets_$exportJobId.zip"
