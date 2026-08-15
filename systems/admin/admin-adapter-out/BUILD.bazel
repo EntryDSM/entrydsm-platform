@@ -8,6 +8,8 @@ kt_jvm_library(
     srcs = glob(["src/main/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
+    # JPA 엔티티에 인자 없는 생성자를 만들어 준다.
+    plugins = ["//:jpa_noarg"],
     resources = glob(["src/main/resources/**"]),
     deps = MODULE_DEPS,
 )
