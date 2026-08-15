@@ -9,6 +9,7 @@ SPRING_DEPS = [
 KOTLIN_DEPS = [
     "@maven//:org_jetbrains_kotlin_kotlin_reflect",
     "@maven//:com_fasterxml_jackson_module_jackson_module_kotlin",
+    "@maven//:software_amazon_awssdk_s3",
 ]
 
 TEST_DEPS = [
