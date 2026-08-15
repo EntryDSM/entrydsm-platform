@@ -9,35 +9,16 @@ data class GatewayRuntimeProperties(
     var resilience: Resilience = Resilience(),
 ) {
     init {
-        require(request.maxBodyBytes > 0) {
-            "gateway.request.max-body-bytes must be greater than zero: ${request.maxBodyBytes}"
-        }
-        require(resilience.failureRateThreshold in 0.0..100.0) {
-            "gateway.resilience.failure-rate-threshold must be between zero and one hundred: ${resilience.failureRateThreshold}"
-        }
-        require(resilience.slidingWindowSize > 0) {
-            "gateway.resilience.sliding-window-size must be greater than zero: ${resilience.slidingWindowSize}"
-        }
-        require(resilience.minimumNumberOfCalls > 0) {
-            "gateway.resilience.minimum-number-of-calls must be greater than zero: ${resilience.minimumNumberOfCalls}"
-        }
-        require(resilience.minimumNumberOfCalls <= resilience.slidingWindowSize) {
-            "gateway.resilience.minimum-number-of-calls must not exceed sliding-window-size: " +
-                "${resilience.minimumNumberOfCalls} > ${resilience.slidingWindowSize}"
-        }
-        require(resilience.waitDurationSeconds > 0) {
-            "gateway.resilience.wait-duration-seconds must be greater than zero: ${resilience.waitDurationSeconds}"
-        }
-        require(resilience.permittedNumberOfCallsInHalfOpenState > 0) {
-            "gateway.resilience.permitted-number-of-calls-in-half-open-state must be greater than zero: ${resilience.permittedNumberOfCallsInHalfOpenState}"
-        }
-        require(resilience.stateStore in setOf("redis", "memory")) {
-            "gateway.resilience.state-store must be redis or memory: ${resilience.stateStore}"
-        }
+        validate()
     }
 
     @jakarta.annotation.PostConstruct
-    fun validateAfterBinding() {
+    fun validateAfterBinding() = validate()
+
+    private fun validate() {
+        require(cors.maxAgeSeconds >= 0) {
+            "gateway.cors.max-age-seconds must not be negative: ${cors.maxAgeSeconds}"
+        }
         require(request.maxBodyBytes > 0) {
             "gateway.request.max-body-bytes must be greater than zero: ${request.maxBodyBytes}"
         }
