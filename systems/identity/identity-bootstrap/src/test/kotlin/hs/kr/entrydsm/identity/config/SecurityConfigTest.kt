@@ -16,6 +16,7 @@ import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.web.context.WebApplicationContext
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -110,11 +111,7 @@ class SecurityConfigTest {
 
     @Test
     fun deleteAccountWithoutAuthorizationReturnsUnauthorizedError() {
-        val csrfResponse = mockMvc.perform(
-            get("/actuator/health"),
-        ).andReturn().response
-        val csrfCookie = requireNotNull(csrfResponse.getCookie("XSRF-TOKEN"))
-        val csrfToken = java.net.URLDecoder.decode(csrfCookie.value, StandardCharsets.UTF_8)
+        val csrfToken = csrfToken()
 
         val response = mockMvc.perform(
             delete("/api/identity/v11/accounts/me")
@@ -124,5 +121,49 @@ class SecurityConfigTest {
 
         assertEquals(401, response.status)
         assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
+    }
+
+    @Test
+    fun applicationStatusWithoutAuthorizationReturnsUnauthorizedError() {
+        val response = mockMvc.perform(
+            get("/api/identity/v11/applications/status"),
+        ).andReturn().response
+
+        assertEquals(401, response.status)
+        assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
+    }
+
+    @Test
+    fun applicationResultWithoutAuthorizationReturnsUnauthorizedError() {
+        val response = mockMvc.perform(
+            get("/api/identity/v11/applications/result"),
+        ).andReturn().response
+
+        assertEquals(401, response.status)
+        assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
+    }
+
+    @Test
+    fun applicationCancellationWithoutAuthorizationReturnsUnauthorizedError() {
+        val csrfToken = csrfToken()
+
+        val response = mockMvc.perform(
+            patch("/api/identity/v11/applications/cancellation")
+                .cookie(MockCookie("XSRF-TOKEN", csrfToken))
+                .header("X-XSRF-TOKEN", csrfToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"),
+        ).andReturn().response
+
+        assertEquals(401, response.status)
+        assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
+    }
+
+    private fun csrfToken(): String {
+        val csrfResponse = mockMvc.perform(
+            get("/actuator/health"),
+        ).andReturn().response
+        val csrfCookie = requireNotNull(csrfResponse.getCookie("XSRF-TOKEN"))
+        return java.net.URLDecoder.decode(csrfCookie.value, StandardCharsets.UTF_8)
     }
 }

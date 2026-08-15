@@ -1,74 +1,70 @@
 package hs.kr.entrydsm.identity.application.service
 
 import hs.kr.entrydsm.identity.application.port.`in`.command.CancelApplicationCommand
-import hs.kr.entrydsm.identity.application.port.`in`.command.LoginCommand
-import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadApplicationCommand
-import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
-import hs.kr.entrydsm.identity.domain.enum.SignupType
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
-import java.time.LocalDate
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class IdentityServiceTest {
     @Test
-    fun signupCreatesAccountAndApplicationSnapshot() {
-        val (services, accounts, applications) = services()
+    fun applicationStatusAndCancellationPersistState() {
+        val (serviceBundle, accounts, applications) = services()
 
-        val result = services.auth.signup(
-            SignupCommand("Password1!", "김학생", "01099999999", LocalDate.parse("2009-03-16"), SignupType.SELF)
+        val status = serviceBundle.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token", 123L))
+        val canceled = serviceBundle.application.cancelApplication(
+            CancelApplicationCommand("Bearer access-token", "개인 사유", 123L),
         )
-
-        assertTrue(result.userId > 123L)
-        assertEquals("김학생", result.profile.name)
-        assertEquals(result.userId, accounts.findByUserId(result.userId)?.userId)
-        assertEquals(ApplicantStatus.NONE, applications.findByUserId(result.userId)?.applicantStatus)
-    }
-
-    @Test
-    fun loginRejectsWrongPassword() {
-        val (serviceBundle, _, _) = services()
-
-        val exception = try {
-            serviceBundle.auth.login(LoginCommand("01012345678", "wrong"))
-            null
-        } catch (error: IdentityDomainException) {
-            error
-        }
-
-        assertEquals(ErrorCode.INVALID_CREDENTIALS, exception?.errorCode)
-    }
-
-    @Test
-    fun passwordResetChangesPasswordAfterIdentityCheck() {
-        val (serviceBundle, _, _) = services()
-
-        serviceBundle.auth.resetPassword(
-            PasswordResetCommand(
-                loginId = "01012345678",
-                name = "홍길동",
-                birthdate = LocalDate.parse("2009-03-15"),
-                newPassword = "NewPassword1!",
-            )
-        )
-
-        assertEquals(123L, serviceBundle.auth.login(LoginCommand("01012345678", "NewPassword1!")).userId)
-    }
-
-    @Test
-    fun applicationStatusAndCancellationUseMockApplicationPort() {
-        val (serviceBundle, _, _) = services()
-
-        val status = serviceBundle.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token"))
-        val canceled = serviceBundle.application.cancelApplication(CancelApplicationCommand("Bearer access-token", "개인 사유"))
 
         assertEquals(ApplicantStatus.SUBMITTED, status.applicantStatus)
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
+        assertEquals(CANCELLATION_TIME, canceled.updatedAt)
+        assertEquals(CANCELLATION_TIME, applications.snapshots.getValue(123L).updatedAt)
+        assertEquals(ApplicantStatus.CANCELED, accounts.findByUserId(123L)?.profile?.applicantStatus)
+        assertEquals(CANCELLATION_TIME, accounts.findByUserId(123L)?.profile?.updatedAt)
+    }
+
+    @Test
+    fun cancellationRejectsMissingApplication() {
+        val (serviceBundle, _, applications) = services()
+        applications.snapshots.remove(123L)
+
+        val exception = captureIdentityException {
+            serviceBundle.application.cancelApplication(CancelApplicationCommand("Bearer access-token", null, 123L))
+        }
+
+        assertEquals(ErrorCode.USER_NOT_FOUND, exception.errorCode)
+    }
+
+    @Test
+    fun cancellationRejectsApplicationThatIsNotSubmitted() {
+        val (serviceBundle, _, applications) = services()
+        applications.snapshots[123L] = applications.snapshots.getValue(123L).copy(
+            applicantStatus = ApplicantStatus.CANCELED,
+        )
+
+        val exception = captureIdentityException {
+            serviceBundle.application.cancelApplication(CancelApplicationCommand("Bearer access-token", null, 123L))
+        }
+
+        assertEquals(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED, exception.errorCode)
+    }
+
+    @Test
+    fun applicationServiceRejectsAuthorizationHeaderWithoutAuthenticatedUser() {
+        val (serviceBundle, _, _) = services()
+
+        val exception = captureIdentityException {
+            serviceBundle.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token"))
+        }
+
+        assertEquals(ErrorCode.AUTH_UNAUTHORIZED, exception.errorCode)
     }
 
     @Test
@@ -80,7 +76,7 @@ class IdentityServiceTest {
         )
 
         val exception = try {
-            services.application.getApplicationResult(ReadApplicationCommand("Bearer access-token"))
+            services.application.getApplicationResult(ReadApplicationCommand("Bearer access-token", 123L))
             null
         } catch (error: IdentityDomainException) {
             error
@@ -93,18 +89,25 @@ class IdentityServiceTest {
         val accounts = FakeAccountRepository()
         val applications = FakeApplicationDataPort()
         return Triple(
-            ServiceBundle(
-                auth = AuthService(accounts, applications),
-                application = ApplicationService(accounts, applications),
-            ),
+            ServiceBundle(application = ApplicationService(accounts, applications, FIXED_CLOCK)),
             accounts,
             applications,
         )
     }
 
+    private fun captureIdentityException(block: () -> Unit): IdentityDomainException = try {
+        block()
+        error("Expected IdentityDomainException")
+    } catch (exception: IdentityDomainException) {
+        exception
+    }
+
+    private companion object {
+        val CANCELLATION_TIME: Instant = Instant.parse("2026-06-11T11:00:00Z")
+        val FIXED_CLOCK: Clock = Clock.fixed(CANCELLATION_TIME, ZoneOffset.UTC)
+    }
 }
 
 private data class ServiceBundle(
-    val auth: AuthService,
     val application: ApplicationService,
 )

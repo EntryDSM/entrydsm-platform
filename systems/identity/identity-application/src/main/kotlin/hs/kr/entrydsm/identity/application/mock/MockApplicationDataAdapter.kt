@@ -8,9 +8,10 @@ import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import org.springframework.stereotype.Component
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
 
-@Component
 class MockApplicationDataAdapter : ApplicationDataPort {
     private val applications = ConcurrentHashMap<Long, ApplicationSnapshot>()
 
@@ -53,4 +54,11 @@ class MockApplicationDataAdapter : ApplicationDataPort {
             updatedAt = updatedAt,
         ).also { applications[userId] = it }
     }
+}
+
+@Configuration(proxyBeanMethods = false)
+@Profile("dev", "test")
+class MockApplicationDataAdapterConfiguration {
+    @Bean
+    fun mockApplicationDataAdapter(): ApplicationDataPort = MockApplicationDataAdapter()
 }
