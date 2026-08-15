@@ -12,6 +12,9 @@ maven.artifact(artifact = "testcontainers", group = "org.testcontainers", versio
 maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", version = "2.1.0")
 maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")
 maven.artifact(artifact = "jackson-module-kotlin", group = "com.fasterxml.jackson.module", version = "2.18.2")
+
+# Spring Boot 4는 Jackson 3(tools.jackson)을 쓴다. Kotlin 기본값 파라미터를 읽으려면 3.x 모듈이 필요하다.
+maven.artifact(artifact = "jackson-module-kotlin", group = "tools.jackson.module", version = "3.0.3")
 maven.artifact(artifact = "jjwt-api", group = "io.jsonwebtoken", version = "0.13.0")
 maven.artifact(artifact = "jjwt-impl", group = "io.jsonwebtoken", version = "0.13.0")
 maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "0.13.0")

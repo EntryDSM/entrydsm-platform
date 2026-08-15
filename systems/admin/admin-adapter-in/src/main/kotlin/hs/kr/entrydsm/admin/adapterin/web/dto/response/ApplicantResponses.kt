@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.adapterin.web.dto.response
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
@@ -7,6 +8,10 @@ import hs.kr.entrydsm.admin.domain.enum.Region
 import java.time.Instant
 import java.time.LocalDate
 
+/**
+ * `is` 접두사가 붙은 불리언은 Jackson이 기본적으로 접두사를 떼고 직렬화하므로
+ * 명세의 필드명을 유지하려면 이름을 명시해야 합니다.
+ */
 data class ApplicantSummaryResponse(
     val applicantId: Long?,
     val receiptNumber: Int,
@@ -15,6 +20,7 @@ data class ApplicantSummaryResponse(
     val admissionType: AdmissionType,
     val graduationStatus: GraduationStatus,
     val examineeNumber: String?,
+    @get:JsonProperty("isSubmitted")
     val isSubmitted: Boolean,
     val status: ApplicantStatus,
 )
@@ -30,6 +36,7 @@ data class ApplicantDetailResponse(
     val graduationStatus: GraduationStatus,
     val schoolName: String,
     val examineeNumber: String?,
+    @get:JsonProperty("isSubmitted")
     val isSubmitted: Boolean,
     val status: ApplicantStatus,
     val score: ScoreResponse?,

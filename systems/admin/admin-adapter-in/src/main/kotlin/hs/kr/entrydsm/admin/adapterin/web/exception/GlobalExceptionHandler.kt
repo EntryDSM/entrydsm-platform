@@ -18,13 +18,23 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
+private const val SERVER_ERROR_STATUS = 500
+
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /**
+     * 클라이언트 잘못이 아닌 5xx는 원인을 남깁니다. 저장소 장애처럼 서버가 고쳐야 할 문제가
+     * 코드만 남고 사라지면 추적할 수 없기 때문입니다.
+     */
     @ExceptionHandler(AdminException::class)
     fun handleAdminException(exception: AdminException): ResponseEntity<ErrorResponse> =
-        response(exception.errorCode)
+        response(exception.errorCode).also {
+            if (exception.errorCode.status >= SERVER_ERROR_STATUS) {
+                logger.error("Admin failure [code={}]", exception.errorCode.name, exception)
+            }
+        }
 
     @ExceptionHandler(
         HttpMessageNotReadableException::class,

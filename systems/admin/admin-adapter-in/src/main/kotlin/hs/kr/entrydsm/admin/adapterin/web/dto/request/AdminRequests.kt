@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.adapterin.web.dto.request
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
@@ -51,6 +52,8 @@ data class CreateNoticeRequest(
     val title: String,
     @field:NotBlank
     val content: String,
+    @param:JsonProperty("isPinned")
+    @get:JsonProperty("isPinned")
     val isPinned: Boolean = false,
     val attachmentIds: List<String> = emptyList(),
 )

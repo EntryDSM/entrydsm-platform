@@ -15,6 +15,7 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -27,7 +28,7 @@ private const val EXPORT_JOB_ID_PREFIX = "exp_"
 @Transactional(readOnly = true)
 class ExportService(
     private val exportJobRepository: ExportJobRepository,
-    private val exportJobProcessor: ExportJobProcessor,
+    private val applicationEventPublisher: ApplicationEventPublisher,
     private val storagePort: StoragePort,
     private val clock: Clock,
     @Value("\${admin.storage.download-url-expires-seconds:900}")
@@ -47,7 +48,7 @@ class ExportService(
             ),
         )
 
-        exportJobProcessor.process(job)
+        applicationEventPublisher.publishEvent(ExportJobCreatedEvent(job))
         return job
     }
 

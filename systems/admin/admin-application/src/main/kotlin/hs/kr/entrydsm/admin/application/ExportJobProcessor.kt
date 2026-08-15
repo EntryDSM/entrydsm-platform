@@ -19,7 +19,10 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.event.TransactionPhase
+import org.springframework.transaction.event.TransactionalEventListener
 
 private const val ZIP_CONTENT_TYPE = "application/zip"
 private const val CSV_CONTENT_TYPE = "text/csv"
@@ -44,9 +47,18 @@ class ExportJobProcessor(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    /**
+     * 작업 생성 트랜잭션이 커밋된 뒤에 실행합니다. 커밋 전에 다른 스레드가 같은 행을 건드리면
+     * 아직 보이지 않는 행을 갱신하려다 실패합니다.
+     */
     @Async
-    @Transactional
-    fun process(job: ExportJob) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    fun onExportJobCreated(event: ExportJobCreatedEvent) {
+        process(event.job)
+    }
+
+    private fun process(job: ExportJob) {
         exportJobRepository.save(job.started())
 
         runCatching {

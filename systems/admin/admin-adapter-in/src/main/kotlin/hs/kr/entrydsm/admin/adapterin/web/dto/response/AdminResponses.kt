@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.adapterin.web.dto.response
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
 import java.time.Instant
@@ -49,6 +50,7 @@ data class ExportJobResponse(
 data class NoticeResponse(
     val noticeId: Long?,
     val title: String,
+    @get:JsonProperty("isPinned")
     val isPinned: Boolean,
     val createdAt: Instant?,
 )
