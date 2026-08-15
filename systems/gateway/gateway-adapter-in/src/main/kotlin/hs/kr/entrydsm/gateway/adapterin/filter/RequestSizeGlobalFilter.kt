@@ -19,13 +19,14 @@ import java.util.concurrent.atomic.AtomicLong
 @Component
 class RequestSizeGlobalFilter(
     properties: GatewayRuntimeProperties,
+    private val responseWriter: GatewayErrorResponseWriter,
 ) : GlobalFilter, Ordered {
     private val maxBodyBytes = properties.request.maxBodyBytes
 
     override fun filter(exchange: ServerWebExchange, chain: GatewayFilterChain): Mono<Void> {
         val contentLength = exchange.request.headers.contentLength
         if (contentLength > maxBodyBytes) {
-            return GatewayErrorResponseWriter.write(exchange, HttpStatusCode.valueOf(413), "REQUEST_TOO_LARGE")
+            return responseWriter.write(exchange, HttpStatusCode.valueOf(413), "REQUEST_TOO_LARGE")
         }
 
         val bytesRead = AtomicLong(0)
