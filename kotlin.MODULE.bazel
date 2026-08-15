@@ -22,6 +22,13 @@ maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springf
 maven.artifact(artifact = "spring-boot-starter", group = "org.springframework.boot", version = "4.0.1")
 maven.artifact(artifact = "mysql-connector-j", group = "com.mysql", version = "9.3.0")
 
+# PDF
+maven.artifact(artifact = "openhtmltopdf-core", group = "io.github.openhtmltopdf", version = "1.1.73")
+maven.artifact(artifact = "openhtmltopdf-pdfbox", group = "io.github.openhtmltopdf", version = "1.1.73")
+
+# Object Storage
+maven.artifact(artifact = "s3", group = "software.amazon.awssdk", version = "2.53.1")
+
 # gRPC
 maven.artifact(artifact = "grpc-netty-shaded", group = "io.grpc", version = "1.70.0")
 maven.artifact(artifact = "grpc-protobuf", group = "io.grpc", version = "1.70.0")
