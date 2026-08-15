@@ -29,7 +29,7 @@ class TraceMdcConfiguration {
         override fun currentContext(): Context = delegate.currentContext()
 
         override fun onSubscribe(subscription: Subscription) {
-            delegate.onSubscribe(subscription)
+            withTraceId { delegate.onSubscribe(subscription) }
         }
 
         override fun onNext(value: T) {

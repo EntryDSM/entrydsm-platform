@@ -68,4 +68,24 @@ class TraceIdGlobalFilterTest {
             configuration.unregister()
         }
     }
+
+    @Test
+    fun keepsTraceIdInMdcDuringSubscription() {
+        val exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.get("/identity/me")
+                .header(TraceId.HEADER_NAME, "subscribe-trace")
+                .build(),
+        )
+        val configuration = TraceMdcConfiguration()
+        configuration.register()
+        try {
+            TraceIdGlobalFilter().filter(exchange, GatewayFilterChain {
+                Mono.just(Unit).doOnSubscribe {
+                    assertEquals("subscribe-trace", MDC.get(TraceId.HEADER_NAME))
+                }.then()
+            }).block()
+        } finally {
+            configuration.unregister()
+        }
+    }
 }
