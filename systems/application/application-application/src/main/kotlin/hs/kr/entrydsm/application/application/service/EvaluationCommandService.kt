@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.application.application.service
 
+import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CalculateEvaluationCommand
@@ -10,6 +11,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.SaveSubjectGrade
 import hs.kr.entrydsm.application.application.port.`in`.result.AcademicRecordResult
 import hs.kr.entrydsm.application.application.port.`in`.result.EvaluationResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
@@ -26,16 +28,17 @@ class EvaluationCommandService(
     private val scoreCalculator = ScoreCalculator()
 
     override fun saveSubjectGrades(command: SaveSubjectGradesCommand) {
-        saveSubjectGrades(command.applicantId, command.schoolSemester, command.subjectGrades)
+        saveSubjectGrades(command.applicantId, command.userId, command.schoolSemester, command.subjectGrades)
     }
 
     override fun saveGedScores(command: SaveGedScoresCommand) {
-        saveGedScores(command.applicantId, command.gedScores)
+        saveGedScores(command.applicantId, command.userId, command.gedScores)
     }
 
     override fun saveAcademicRecord(command: SaveAcademicRecordCommand): AcademicRecordResult {
         val record = saveAcademicRecord(
             applicantId = command.applicantId,
+            userId = command.userId,
             absentCount = command.absentCount,
             earlyLeaveCount = command.earlyLeaveCount,
             lateCount = command.lateCount,
@@ -53,40 +56,42 @@ class EvaluationCommandService(
 
     override fun saveCertificates(command: SaveCertificatesCommand) {
         saveCertificates(
-            command.applicantId,
-            command.isDsmAlgorithmAwarded,
-            command.isProgrammingCertified,
+            applicantId = command.applicantId,
+            userId = command.userId,
+            isDsmAlgorithmAwarded = command.isDsmAlgorithmAwarded,
+            isProgrammingCertified = command.isProgrammingCertified,
         )
     }
 
     override fun calculateResult(command: CalculateEvaluationCommand): EvaluationResult {
-        return EvaluationResult(calculateResult(command.applicantId))
+        return EvaluationResult(calculateResult(command.applicantId, command.userId))
     }
 
     fun saveSubjectGrades(
         applicantId: Long,
+        userId: Long? = null,
         schoolSemester: SchoolSemester,
         subjectGrades: SubjectGrades,
     ) {
-        val applicant = getApplicant(applicantId)
+        val applicant = getApplicant(applicantId, userId)
+        require(applicant.graduationType != GraduationType.GED) {
+            "subject grades are unavailable for GED applicants"
+        }
         val record = getOrCreateAcademicRecord(applicant)
+        record.gedScores = null
         record.subjectGrades[schoolSemester] = subjectGrades
         applicant.academicRecord = record
         applicant.touch()
         applicantRepository.save(applicant)
     }
 
-    fun saveGedScores(applicantId: Long, gedScores: GedScores) {
-        validateScore(gedScores.koreanScore)
-        validateScore(gedScores.mathScore)
-        validateScore(gedScores.englishScore)
-        validateScore(gedScores.scienceScore)
-        validateScore(gedScores.societyScore)
-        validateScore(gedScores.technologyScore)
-        validateScore(gedScores.historyScore)
-
-        val applicant = getApplicant(applicantId)
+    fun saveGedScores(applicantId: Long, userId: Long? = null, gedScores: GedScores) {
+        val applicant = getApplicant(applicantId, userId)
+        require(applicant.graduationType == GraduationType.GED) {
+            "GED scores are available only for GED applicants"
+        }
         val record = getOrCreateAcademicRecord(applicant)
+        record.subjectGrades.clear()
         record.gedScores = gedScores
         applicant.academicRecord = record
         applicant.touch()
@@ -95,6 +100,7 @@ class EvaluationCommandService(
 
     fun saveAcademicRecord(
         applicantId: Long,
+        userId: Long? = null,
         absentCount: Int,
         earlyLeaveCount: Int,
         lateCount: Int,
@@ -107,7 +113,7 @@ class EvaluationCommandService(
         require(classAbsenceCount >= 0) { "classAbsenceCount must be greater than or equal to 0" }
         require(volunteerTime >= 0) { "volunteerTime must be greater than or equal to 0" }
 
-        val applicant = getApplicant(applicantId)
+        val applicant = getApplicant(applicantId, userId)
         val record = getOrCreateAcademicRecord(applicant)
         record.absentCount = absentCount
         record.earlyLeaveCount = earlyLeaveCount
@@ -122,10 +128,11 @@ class EvaluationCommandService(
 
     fun saveCertificates(
         applicantId: Long,
+        userId: Long? = null,
         isDsmAlgorithmAwarded: Boolean,
         isProgrammingCertified: Boolean,
     ) {
-        val applicant = getApplicant(applicantId)
+        val applicant = getApplicant(applicantId, userId)
         val record = getOrCreateAcademicRecord(applicant)
         record.isDsmAlgorithmAwarded = isDsmAlgorithmAwarded
         record.isProgrammingCertified = isProgrammingCertified
@@ -134,25 +141,29 @@ class EvaluationCommandService(
         applicantRepository.save(applicant)
     }
 
-    fun calculateResult(applicantId: Long): Map<String, Double> {
-        val applicant = getApplicant(applicantId)
+    fun calculateResult(applicantId: Long, userId: Long? = null): Map<String, Double> {
+        val applicant = getApplicant(applicantId, userId)
+        val admissionType = requireNotNull(applicant.admissionType) {
+            "admissionType is required"
+        }
         val result = scoreCalculator.calculate(applicant)
-        applicant.totalScore = result["REGULAR"]
+        applicant.totalScore = result.getValue(admissionType)
         applicant.totalScoreUpdatedAt = LocalDateTime.now()
+        applicant.touch()
         applicantRepository.save(applicant)
-        return result
+        return result.mapKeys { it.key.name }
     }
 
-    private fun getApplicant(applicantId: Long): Applicant {
-        return applicantRepository.findById(applicantId)
+    private fun getApplicant(applicantId: Long, userId: Long? = null): Applicant {
+        val applicant = applicantRepository.findById(applicantId)
             ?: throw ApplicantNotFoundException(applicantId)
+        if (userId != null && applicant.accountId != userId) {
+            throw ApplicantAccessDeniedException(applicantId)
+        }
+        return applicant
     }
 
     private fun getOrCreateAcademicRecord(applicant: Applicant): AcademicRecord {
         return applicant.academicRecord ?: AcademicRecord()
-    }
-
-    private fun validateScore(score: Int) {
-        require(score in 0..100) { "score must be between 0 and 100" }
     }
 }

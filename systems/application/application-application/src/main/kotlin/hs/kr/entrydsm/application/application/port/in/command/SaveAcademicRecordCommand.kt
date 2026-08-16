@@ -2,6 +2,8 @@ package hs.kr.entrydsm.application.application.port.`in`.command
 
 data class SaveAcademicRecordCommand(
     val applicantId: Long,
+    val authorization: String? = null,
+    val userId: Long? = null,
     val absentCount: Int,
     val earlyLeaveCount: Int,
     val lateCount: Int,

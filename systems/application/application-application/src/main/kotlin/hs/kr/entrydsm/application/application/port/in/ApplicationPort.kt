@@ -20,6 +20,6 @@ interface ApplicationPort {
     fun updateIntroduction(command: UpdateIntroductionCommand)
     fun updateStudyPlan(command: UpdateStudyPlanCommand)
     fun submit(command: SubmitApplicationCommand)
-    fun getLanding(): LandingResult
+    fun getLanding(accountId: Long?): LandingResult
 }
 

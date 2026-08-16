@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.application.domain.service
 
+import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
@@ -11,18 +12,20 @@ import kotlin.math.floor
 import kotlin.math.round
 
 class ScoreCalculator {
-    fun calculate(applicant: Applicant): Map<String, Double> {
+    fun calculate(applicant: Applicant): Map<AdmissionType, Double> {
         val record = applicant.academicRecord ?: return mapOf(
-            "REGULAR" to EMPTY_SCORE,
-            "SOCIAL" to EMPTY_SCORE,
-            "MEISTER" to EMPTY_SCORE,
+            AdmissionType.REGULAR to EMPTY_SCORE,
+            AdmissionType.SOCIAL to EMPTY_SCORE,
+            AdmissionType.MEISTER to EMPTY_SCORE,
         )
 
-        val gedScores = record.gedScores
-        val baseSubjectScore = if (gedScores != null) {
-            calculateGedBaseScore(gedScores)
-        } else {
-            calculateSchoolBaseScore(record, applicant.graduationType)
+        val baseSubjectScore = when (applicant.graduationType) {
+            GraduationType.GED -> calculateGedBaseScore(
+                requireNotNull(record.gedScores) {
+                    "gedScores is required for GED applicants"
+                },
+            )
+            else -> calculateSchoolBaseScore(record, applicant.graduationType)
         }
 
         val attendanceScore = calculateAttendanceScore(record)
@@ -46,9 +49,9 @@ class ScoreCalculator {
         )
 
         return mapOf(
-            "REGULAR" to regularScore,
-            "SOCIAL" to specialScore,
-            "MEISTER" to specialScore,
+            AdmissionType.REGULAR to regularScore,
+            AdmissionType.SOCIAL to specialScore,
+            AdmissionType.MEISTER to specialScore,
         )
     }
 

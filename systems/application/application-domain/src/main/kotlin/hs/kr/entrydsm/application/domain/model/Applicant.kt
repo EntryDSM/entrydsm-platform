@@ -63,7 +63,15 @@ data class AcademicRecord(
     var isProgrammingCertified: Boolean = false,
     val subjectGrades: MutableMap<SchoolSemester, SubjectGrades> = linkedMapOf(),
     var gedScores: GedScores? = null,
-)
+) {
+    init {
+        require(absentCount >= 0) { "absentCount must be greater than or equal to 0" }
+        require(lateCount >= 0) { "lateCount must be greater than or equal to 0" }
+        require(earlyLeaveCount >= 0) { "earlyLeaveCount must be greater than or equal to 0" }
+        require(classAbsenceCount >= 0) { "classAbsenceCount must be greater than or equal to 0" }
+        require(volunteerTime >= 0) { "volunteerTime must be greater than or equal to 0" }
+    }
+}
 
 data class SubjectGrades(
     val koreanGrade: SubjectGrade,
@@ -83,4 +91,18 @@ data class GedScores(
     val societyScore: Int,
     val technologyScore: Int,
     val historyScore: Int,
-)
+) {
+    init {
+        listOf(
+            koreanScore,
+            mathScore,
+            englishScore,
+            scienceScore,
+            societyScore,
+            technologyScore,
+            historyScore,
+        ).forEach { score ->
+            require(score in 0..100) { "score must be between 0 and 100" }
+        }
+    }
+}

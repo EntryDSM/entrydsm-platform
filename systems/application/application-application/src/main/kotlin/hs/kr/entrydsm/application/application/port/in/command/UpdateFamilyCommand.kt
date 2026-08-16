@@ -5,6 +5,8 @@ import hs.kr.entrydsm.application.domain.enum.GuardianRelation
 
 data class UpdateFamilyCommand(
     val applicantId: Long,
+    val authorization: String? = null,
+    val userId: Long? = null,
     val guardianName: String,
     val guardianPhoneNumber: String,
     val guardianGender: Gender,
