@@ -1,30 +1,47 @@
 package hs.kr.entrydsm.identity.adapterout.persistence
 
-import hs.kr.entrydsm.identity.application.port.out.AccountRepository
+import hs.kr.entrydsm.identity.adapterout.entity.ApplicationProjectionJpaEntity
+import hs.kr.entrydsm.identity.adapterout.entity.IdentityOutboxJpaEntity
+import hs.kr.entrydsm.identity.adapterout.repository.ApplicationProjectionJpaRepository
+import hs.kr.entrydsm.identity.adapterout.repository.IdentityOutboxJpaRepository
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
+import hs.kr.entrydsm.identity.application.port.out.ApplicationEventConsumer
+import hs.kr.entrydsm.identity.application.port.out.ApplicationOutboxPort
+import hs.kr.entrydsm.identity.application.port.out.data.ApplicationOutboxEvent
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
+import hs.kr.entrydsm.identity.application.port.out.data.ApplicationStateChangedEvent
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
-import hs.kr.entrydsm.identity.domain.model.Account
 import java.time.Instant
+import java.util.UUID
 import org.springframework.context.annotation.Primary
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
-/** Reads application state from the account aggregate persisted by the account adapter. */
+/** Owns the local application projection and its transactional outbox. */
 @Component
 @Primary
-@Profile("!test")
+@Profile("prod", "dev", "integration")
 class AccountApplicationDataPersistenceAdapter(
-    private val accountRepository: AccountRepository,
-) : ApplicationDataPort {
+    private val projectionRepository: ApplicationProjectionJpaRepository,
+    private val outboxRepository: IdentityOutboxJpaRepository,
+) : ApplicationDataPort, ApplicationEventConsumer, ApplicationOutboxPort {
+    @Transactional
     override fun create(userId: Long, updatedAt: Instant): ApplicationSnapshot =
-        findByUserId(userId) ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
+        projectionRepository.findById(userId).orElseGet {
+            projectionRepository.save(
+                ApplicationProjectionJpaEntity(
+                    userId = userId,
+                    stateUpdatedAt = updatedAt,
+                ),
+            )
+        }.toSnapshot()
 
+    @Transactional(readOnly = true)
     override fun findByUserId(userId: Long): ApplicationSnapshot? =
-        accountRepository.findByUserId(userId)?.toApplicationSnapshot()
+        projectionRepository.findById(userId).orElse(null)?.toSnapshot()
 
     @Transactional
     override fun cancel(
@@ -32,22 +49,94 @@ class AccountApplicationDataPersistenceAdapter(
         reason: String?,
         updatedAt: Instant,
     ): ApplicationSnapshot {
-        val account = accountRepository.findByUserId(userId)
+        val projection = projectionRepository.findById(userId).orElse(null)
             ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
-        account.profile.cancel(updatedAt)
-        accountRepository.save(account)
-        return account.toApplicationSnapshot()
+        if (projection.applicantStatus != ApplicantStatus.SUBMITTED) {
+            throw IdentityDomainException(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED)
+        }
+
+        projection.applicantStatus = ApplicantStatus.CANCELED
+        projection.stateUpdatedAt = updatedAt
+        projection.sourceVersion += 1
+        projectionRepository.save(projection)
+        outboxRepository.save(
+            IdentityOutboxJpaEntity(
+                eventId = UUID.randomUUID().toString(),
+                userId = userId,
+                sourceVersion = projection.sourceVersion,
+                applicantStatus = projection.applicantStatus,
+                submittedAt = projection.submittedAt,
+                passStatus = projection.passStatus,
+                announcedAt = projection.announcedAt,
+                occurredAt = updatedAt,
+                reason = reason,
+            ),
+        )
+        return projection.toSnapshot()
     }
 
-    private fun Account.toApplicationSnapshot(
-        applicantStatus: ApplicantStatus = profile.applicantStatus,
-        updatedAt: Instant = profile.updatedAt,
-    ): ApplicationSnapshot = ApplicationSnapshot(
+    @Transactional
+    override fun consume(event: ApplicationStateChangedEvent): Boolean {
+        val projection = projectionRepository.findById(event.userId).orElse(null)
+        if (projection != null && event.version <= projection.sourceVersion) return false
+
+        val resolved = projection ?: ApplicationProjectionJpaEntity(userId = event.userId)
+        resolved.applicantStatus = event.applicantStatus
+        resolved.submittedAt = event.submittedAt
+        resolved.passStatus = event.passStatus
+        resolved.announcedAt = event.announcedAt
+        resolved.stateUpdatedAt = event.occurredAt
+        resolved.sourceVersion = event.version
+        projectionRepository.save(resolved)
+        return true
+    }
+
+    @Transactional(readOnly = true)
+    override fun pending(limit: Int): List<ApplicationOutboxEvent> =
+        outboxRepository.findTop100ByPublishedAtIsNullOrderByCreatedAtAsc()
+            .take(limit.coerceAtLeast(0))
+            .map { it.toOutboxEvent() }
+
+    @Transactional
+    override fun markPublished(eventId: String, publishedAt: Instant) {
+        outboxRepository.findById(eventId).ifPresent {
+            it.publishedAt = publishedAt
+            outboxRepository.save(it)
+        }
+    }
+
+    @Transactional
+    override fun markFailed(eventId: String, failure: String) {
+        outboxRepository.findById(eventId).ifPresent {
+            it.attempts += 1
+            it.lastError = failure.take(LAST_ERROR_MAX_LENGTH)
+            outboxRepository.save(it)
+        }
+    }
+
+    private fun ApplicationProjectionJpaEntity.toSnapshot(): ApplicationSnapshot = ApplicationSnapshot(
         userId = userId,
         applicantStatus = applicantStatus,
-        submittedAt = profile.submittedAt,
-        updatedAt = updatedAt,
-        passStatus = profile.passStatus,
-        announcedAt = profile.announcedAt,
+        submittedAt = submittedAt,
+        updatedAt = stateUpdatedAt,
+        passStatus = passStatus,
+        announcedAt = announcedAt,
     )
+
+    private fun IdentityOutboxJpaEntity.toOutboxEvent(): ApplicationOutboxEvent = ApplicationOutboxEvent(
+        eventId = eventId,
+        userId = userId,
+        version = sourceVersion,
+        applicantStatus = applicantStatus,
+        submittedAt = submittedAt,
+        passStatus = passStatus,
+        announcedAt = announcedAt,
+        occurredAt = occurredAt,
+        attempts = attempts,
+        lastError = lastError,
+    )
+
+    private companion object {
+        const val LAST_ERROR_MAX_LENGTH = 1000
+    }
 }
