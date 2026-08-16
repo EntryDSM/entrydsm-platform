@@ -15,3 +15,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+
+entrydsm:
+  application:
+    schedule:
+      application-start-at: ${APPLICATION_START_AT}
+      application-end-at: ${APPLICATION_END_AT}
+      result-announced-at: ${RESULT_ANNOUNCED_AT}
