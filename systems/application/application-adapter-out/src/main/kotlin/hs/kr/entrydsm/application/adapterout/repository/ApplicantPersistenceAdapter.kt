@@ -23,4 +23,8 @@ class ApplicantPersistenceAdapter(
     @Transactional(readOnly = true)
     override fun findById(id: Long): Applicant? =
         applicantJpaRepository.findById(id).orElse(null)?.toDomain()
+
+    @Transactional(readOnly = true)
+    override fun findByAccountId(accountId: Long): Applicant? =
+        applicantJpaRepository.findByAccountId(accountId)?.toDomain()
 }
