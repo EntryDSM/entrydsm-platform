@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 
 @Component
 @Primary
-@Profile("!test")
+@Profile("prod", "dev", "integration")
 class AccountQueryPersistenceAdapter(
     private val accountRepository: AccountRepository,
 ) : AccountQueryPort {

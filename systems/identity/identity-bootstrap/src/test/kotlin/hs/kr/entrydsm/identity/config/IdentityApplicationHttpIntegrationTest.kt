@@ -154,11 +154,15 @@ class IdentityApplicationHttpIntegrationTest {
         @JvmStatic
         @BeforeClass
         fun checkDocker() {
-            assumeTrue(
-                "Docker daemon is required for HTTP persistence integration tests",
-                DockerClientFactory.instance().isDockerAvailable,
-            )
+            val available = DockerClientFactory.instance().isDockerAvailable
+            if (!available && integrationTestsAreRequired()) {
+                error("Docker daemon is required for HTTP persistence integration tests")
+            }
+            assumeTrue("Docker daemon is required for HTTP persistence integration tests", available)
         }
+
+        private fun integrationTestsAreRequired(): Boolean =
+            System.getenv("IDENTITY_INTEGRATION_REQUIRED").equals("true", ignoreCase = true)
 
         @JvmStatic
         @DynamicPropertySource

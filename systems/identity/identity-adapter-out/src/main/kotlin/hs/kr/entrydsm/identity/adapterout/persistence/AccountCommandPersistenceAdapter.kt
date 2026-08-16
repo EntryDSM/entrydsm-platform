@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
 
 @Component
 @Primary
-@Profile("!test")
+@Profile("prod", "dev", "integration")
 class AccountCommandPersistenceAdapter(
     private val accountRepository: AccountRepository,
 ) : AccountCommandPort {

@@ -6,5 +6,5 @@ import org.springframework.context.annotation.Profile
 
 @Configuration(proxyBeanMethods = false)
 @EnableJpaAuditing
-@Profile("!test")
+@Profile("prod", "dev", "integration")
 class JpaAuditingConfig

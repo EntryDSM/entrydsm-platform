@@ -9,12 +9,14 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
       open-in-view: false
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+
+# Use the explicit dev-mock profile when database-backed adapters are not desired.
 
 auth:
   jwt:
