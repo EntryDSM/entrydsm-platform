@@ -8,9 +8,6 @@ import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Profile
 
 class MockApplicationDataAdapter : ApplicationDataPort {
     private val applications = ConcurrentHashMap<Long, ApplicationSnapshot>()
@@ -43,22 +40,17 @@ class MockApplicationDataAdapter : ApplicationDataPort {
         userId: Long,
         reason: String?,
         updatedAt: Instant,
-    ): ApplicationSnapshot {
-        val current = applications[userId]
-            ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
-        if (current.applicantStatus != ApplicantStatus.SUBMITTED) {
-            throw IdentityDomainException(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED)
-        }
-        return current.copy(
-            applicantStatus = ApplicantStatus.CANCELED,
-            updatedAt = updatedAt,
-        ).also { applications[userId] = it }
-    }
-}
-
-@Configuration(proxyBeanMethods = false)
-@Profile("dev", "test")
-class MockApplicationDataAdapterConfiguration {
-    @Bean
-    fun mockApplicationDataAdapter(): ApplicationDataPort = MockApplicationDataAdapter()
+    ): ApplicationSnapshot = requireNotNull(
+        applications.compute(userId) { _, current ->
+            val application = current
+                ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
+            if (application.applicantStatus != ApplicantStatus.SUBMITTED) {
+                throw IdentityDomainException(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED)
+            }
+            application.copy(
+                applicantStatus = ApplicantStatus.CANCELED,
+                updatedAt = updatedAt,
+            )
+        },
+    )
 }

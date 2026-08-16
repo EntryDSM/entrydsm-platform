@@ -12,9 +12,7 @@ import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Clock
 import java.time.Instant
-import org.springframework.stereotype.Service
 
-@Service
 class ApplicationService(
     private val accountRepository: AccountRepository,
     private val applicationDataPort: ApplicationDataPort,

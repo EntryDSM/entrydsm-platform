@@ -6,10 +6,6 @@ import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Profile
 
 /** Fallback application-data port required by authentication registration transactions. */
 class MockAuthApplicationDataAdapter : ApplicationDataPort {
@@ -34,12 +30,4 @@ class MockAuthApplicationDataAdapter : ApplicationDataPort {
             updatedAt = updatedAt,
         ).also { applicationsByUserId[userId] = it }
     }
-}
-
-@Configuration(proxyBeanMethods = false)
-@Profile("dev", "test")
-class MockAuthApplicationDataAdapterConfiguration {
-    @Bean
-    @ConditionalOnMissingBean(ApplicationDataPort::class)
-    fun mockAuthApplicationDataAdapter(): ApplicationDataPort = MockAuthApplicationDataAdapter()
 }

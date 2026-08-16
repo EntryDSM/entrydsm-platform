@@ -1,6 +1,8 @@
 package hs.kr.entrydsm.identity.config
 
 import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
+import hs.kr.entrydsm.identity.application.port.`in`.ApplicationPort
+import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
@@ -10,6 +12,7 @@ import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenVerifier
+import hs.kr.entrydsm.identity.application.service.ApplicationService
 import hs.kr.entrydsm.identity.application.service.AuthService
 import hs.kr.entrydsm.identity.application.service.AccountService
 import java.time.Clock
@@ -18,6 +21,13 @@ import org.springframework.context.annotation.Configuration
 
 @Configuration(proxyBeanMethods = false)
 class IdentityApplicationConfig {
+    @Bean
+    fun applicationService(
+        accountRepository: AccountRepository,
+        applicationDataPort: ApplicationDataPort,
+        clock: Clock,
+    ): ApplicationPort = ApplicationService(accountRepository, applicationDataPort, clock)
+
     @Bean
     fun accountService(
         accountQueryPort: AccountQueryPort,
