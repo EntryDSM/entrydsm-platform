@@ -6,6 +6,7 @@ import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.GuardianRelation
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
+import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import jakarta.persistence.CascadeType
@@ -111,14 +112,14 @@ open class ApplicantJpaEntity(
     @Column(name = "updated_at", nullable = false)
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 
-    @OneToOne(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-    var middleSchoolInfo: MiddleSchoolInfoJpaEntity? = null,
+    @OneToOne(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    open var middleSchoolInfo: MiddleSchoolInfoJpaEntity? = null,
 
-    @OneToOne(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-    var academicRecord: AcademicRecordJpaEntity? = null,
+    @OneToOne(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    open var academicRecord: AcademicRecordJpaEntity? = null,
 
     @OneToMany(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true)
-    var passResults: MutableList<PassResultJpaEntity> = mutableListOf(),
+    open var passResults: MutableList<PassResultJpaEntity> = mutableListOf(),
 ) {
     fun toDomain(): Applicant =
         Applicant(
@@ -174,7 +175,6 @@ open class ApplicantJpaEntity(
         studyPlan = domain.studyPlan
         totalScore = domain.totalScore
         totalScoreUpdatedAt = domain.totalScoreUpdatedAt
-        createdAt = domain.createdAt
         updatedAt = domain.updatedAt
         updateMiddleSchoolInfo(domain.middleSchoolInfo)
         updateAcademicRecord(domain.academicRecord)
@@ -189,7 +189,7 @@ open class ApplicantJpaEntity(
         }
     }
 
-    private fun updateAcademicRecord(domain: hs.kr.entrydsm.application.domain.model.AcademicRecord?) {
+    private fun updateAcademicRecord(domain: AcademicRecord?) {
         academicRecord = domain?.let {
             (academicRecord ?: AcademicRecordJpaEntity(applicant = this)).apply {
                 updateFrom(it)
@@ -200,8 +200,9 @@ open class ApplicantJpaEntity(
 
     companion object {
         fun from(domain: Applicant): ApplicantJpaEntity =
-            ApplicantJpaEntity(id = domain.id.takeIf { it > 0 }).apply {
+            ApplicantJpaEntity().apply {
                 updateFrom(domain)
+                createdAt = domain.createdAt
             }
     }
 }

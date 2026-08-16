@@ -23,7 +23,7 @@ open class AcademicRecordJpaEntity(
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "applicant_id", nullable = false, unique = true)
-    var applicant: ApplicantJpaEntity? = null,
+    open var applicant: ApplicantJpaEntity? = null,
 
     @Column(name = "absent_count", nullable = false)
     var absentCount: Int = 0,
@@ -46,11 +46,11 @@ open class AcademicRecordJpaEntity(
     @Column(name = "is_programming_certified", nullable = false)
     var isProgrammingCertified: Boolean = false,
 
-    @OneToMany(mappedBy = "academicRecord", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-    var subjectGrades: MutableList<SubjectGradeJpaEntity> = mutableListOf(),
+    @OneToMany(mappedBy = "academicRecord", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    open var subjectGrades: MutableList<SubjectGradeJpaEntity> = mutableListOf(),
 
-    @OneToOne(mappedBy = "academicRecord", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-    var gedScores: GedScoreJpaEntity? = null,
+    @OneToOne(mappedBy = "academicRecord", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    open var gedScores: GedScoreJpaEntity? = null,
 ) {
     fun updateFrom(domain: AcademicRecord) {
         absentCount = domain.absentCount
@@ -60,17 +60,22 @@ open class AcademicRecordJpaEntity(
         volunteerTime = domain.volunteerTime
         isDsmAlgorithmAwarded = domain.isDsmAlgorithmAwarded
         isProgrammingCertified = domain.isProgrammingCertified
-        subjectGrades.clear()
-        subjectGrades.addAll(
-            domain.subjectGrades.map { (semester, grades) ->
-                SubjectGradeJpaEntity(
+        val domainSemesters = domain.subjectGrades.keys
+        subjectGrades.removeIf { it.id.schoolSemester !in domainSemesters }
+        domain.subjectGrades.forEach { (semester, grades) ->
+            val entity = subjectGrades.firstOrNull { it.id.schoolSemester == semester }
+                ?: SubjectGradeJpaEntity(
                     id = SubjectGradeId(schoolSemester = semester),
                     academicRecord = this,
-                ).apply { updateFrom(grades) }
-            },
-        )
+                ).also(subjectGrades::add)
+            entity.academicRecord = this
+            entity.updateFrom(grades)
+        }
         gedScores = domain.gedScores?.let {
-            GedScoreJpaEntity(academicRecord = this).apply { updateFrom(it) }
+            (gedScores ?: GedScoreJpaEntity(academicRecord = this)).apply {
+                academicRecord = this@AcademicRecordJpaEntity
+                updateFrom(it)
+            }
         }
     }
 

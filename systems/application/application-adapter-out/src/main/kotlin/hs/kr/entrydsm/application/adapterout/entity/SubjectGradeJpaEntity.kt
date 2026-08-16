@@ -22,7 +22,7 @@ open class SubjectGradeJpaEntity(
     @MapsId("academicRecordId")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "academic_record_id")
-    var academicRecord: AcademicRecordJpaEntity? = null,
+    open var academicRecord: AcademicRecordJpaEntity? = null,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "korean_grade", nullable = false, length = 2)
