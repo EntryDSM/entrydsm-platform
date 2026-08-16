@@ -28,6 +28,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -47,8 +48,9 @@ class ApplicationController(
     @GetMapping("/landing")
     fun getLanding(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
     ): ApiResponse<LandingResponse> {
-        val result = applicationPort.getLanding()
+        val result = applicationPort.getLanding(userId)
         return ApiResponse(data = result.toResponse(landingScheduleProperties))
     }
 
@@ -56,10 +58,15 @@ class ApplicationController(
     @ResponseStatus(HttpStatus.CREATED)
     fun createApplicant(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
         @RequestBody request: CreateApplicantRequest,
     ): ApiResponse<CreateApplicantResponse> {
         val result = applicationPort.createApplicant(
-            CreateApplicantCommand(accountId = request.accountId),
+            CreateApplicantCommand(
+                authorization = authorization,
+                userId = userId,
+                accountId = request.accountId,
+            ),
         )
         return ApiResponse(data = result.toResponse())
     }
@@ -67,11 +74,14 @@ class ApplicationController(
     @PatchMapping("/{id}/type")
     fun updateType(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
         @PathVariable id: Long,
         @RequestBody request: UpdateTypeRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateType(
             UpdateTypeCommand(
+                authorization = authorization,
+                userId = userId,
                 applicantId = id,
                 admissionType = request.admissionType,
                 region = request.region,
@@ -84,11 +94,15 @@ class ApplicationController(
 
     @PatchMapping("/{id}/personal")
     fun updatePersonal(
+        @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
         @PathVariable id: Long,
         @RequestBody request: UpdatePersonalRequest,
     ): ApiResponse<Unit> {
         applicationPort.updatePersonal(
             UpdatePersonalCommand(
+                authorization = authorization,
+                userId = userId,
                 applicantId = id,
                 photoFileId = request.photoFileId,
                 name = request.name,
@@ -104,11 +118,14 @@ class ApplicationController(
     @PatchMapping("/{id}/family")
     fun updateFamily(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
         @PathVariable id: Long,
         @RequestBody request: UpdateFamilyRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateFamily(
             UpdateFamilyCommand(
+                authorization = authorization,
+                userId = userId,
                 applicantId = id,
                 guardianName = request.guardianName,
                 guardianPhoneNumber = request.guardianPhoneNumber,
@@ -125,11 +142,14 @@ class ApplicationController(
     @PatchMapping("/{id}/middle-school")
     fun updateMiddleSchool(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
         @PathVariable id: Long,
         @RequestBody request: UpdateMiddleSchoolRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateMiddleSchool(
             UpdateMiddleSchoolCommand(
+                authorization = authorization,
+                userId = userId,
                 applicantId = id,
                 schoolName = request.schoolName,
                 studentNumber = request.studentNumber,
@@ -143,11 +163,17 @@ class ApplicationController(
     @PatchMapping("/{id}/self-introduction")
     fun updateIntroduction(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
         @PathVariable id: Long,
         @RequestBody request: UpdateIntroductionRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateIntroduction(
-            UpdateIntroductionCommand(id, request.introduction),
+            UpdateIntroductionCommand(
+                authorization = authorization,
+                userId = userId,
+                applicantId = id,
+                introduction = request.introduction,
+            ),
         )
         return ApiResponse(data = null)
     }
@@ -155,20 +181,33 @@ class ApplicationController(
     @PatchMapping("/{id}/study-plan")
     fun updateStudyPlan(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
         @PathVariable id: Long,
         @RequestBody request: UpdateStudyPlanRequest,
     ): ApiResponse<Unit> {
-        applicationPort.updateStudyPlan(UpdateStudyPlanCommand(id, request.studyPlan))
+        applicationPort.updateStudyPlan(
+            UpdateStudyPlanCommand(
+                authorization = authorization,
+                userId = userId,
+                applicantId = id,
+                studyPlan = request.studyPlan,
+            ),
+        )
         return ApiResponse(data = null)
     }
 
     @PatchMapping
     fun submit(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
         @RequestBody request: SubmitApplicationRequest,
     ): ApiResponse<Unit> {
         applicationPort.submit(
-            SubmitApplicationCommand(request.applicantId),
+            SubmitApplicationCommand(
+                authorization = authorization,
+                userId = userId,
+                applicantId = request.applicantId,
+            ),
         )
         return ApiResponse(data = null)
     }
