@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component
 @Component
 class AesGcmPersonalDataEncryptor(
     @Value("\${security.pii.encryption-key-base64:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}") keyBase64: String,
-    @Value("\${security.pii.legacy-plaintext-read-enabled:true}") private val legacyPlaintextReadEnabled: Boolean,
 ) : PersonalDataEncryptor {
     private val key = SecretKeySpec(Base64.getDecoder().decode(keyBase64), KEY_ALGORITHM)
     private val secureRandom = SecureRandom()
@@ -37,12 +36,7 @@ class AesGcmPersonalDataEncryptor(
     }
 
     override fun decrypt(value: String): String {
-        if (!isEncrypted(value)) {
-            check(legacyPlaintextReadEnabled) {
-                "Legacy plaintext personal data is disabled"
-            }
-            return value
-        }
+        require(isEncrypted(value)) { "Plaintext personal data is not supported" }
 
         val parts = value.split('.')
         require(parts.size == 3) { "Invalid encrypted personal data format" }

@@ -12,8 +12,6 @@ spring:
   main:
     lazy-initialization: true
 identity:
-  migrations:
-    required-version: ${IDENTITY_SCHEMA_REQUIRED_VERSION:V025}
   redis:
     namespace: ${REDIS_KEY_NAMESPACE:identity}
     durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED:false}
@@ -25,7 +23,6 @@ security:
   pii:
     login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY:dev-identity-login-id-hash-key-change-me}
     encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}
-    legacy-plaintext-read-enabled: ${IDENTITY_PII_LEGACY_PLAINTEXT_READ_ENABLED:true}
 auth:
   password:
     bcrypt-strength: ${BCRYPT_STRENGTH:12}

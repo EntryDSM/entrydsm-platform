@@ -12,6 +12,7 @@ import hs.kr.entrydsm.identity.adapterout.repository.JpaAccountRepositoryAdapter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,7 +64,6 @@ class PersonalDataCryptoTest {
     fun personalDataEncryptorUsesAuthenticatedEncryption() {
         val encryptor = AesGcmPersonalDataEncryptor(
             keyBase64 = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=",
-            legacyPlaintextReadEnabled = false,
         )
 
         val encrypted = encryptor.encrypt("홍길동")
@@ -75,13 +75,14 @@ class PersonalDataCryptoTest {
     }
 
     @Test
-    fun personalDataEncryptorCanReadLegacyPlaintextForMigration() {
+    fun personalDataEncryptorRejectsLegacyPlaintext() {
         val encryptor = AesGcmPersonalDataEncryptor(
             keyBase64 = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=",
-            legacyPlaintextReadEnabled = true,
         )
 
         assertFalse(encryptor.isEncrypted("홍길동"))
-        assertEquals("홍길동", encryptor.decrypt("홍길동"))
+        assertThrows(IllegalArgumentException::class.java) {
+            encryptor.decrypt("홍길동")
+        }
     }
 }

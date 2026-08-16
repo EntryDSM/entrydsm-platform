@@ -9,7 +9,6 @@ import hs.kr.entrydsm.identity.application.port.out.PersonalDataEncryptor
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.context.annotation.Profile
@@ -22,26 +21,19 @@ class JpaAccountRepositoryAdapter(
     private val studentProfileJpaRepository: StudentProfileJpaRepository,
     private val loginIdHasher: LoginIdHasher,
     private val personalDataEncryptor: PersonalDataEncryptor,
-    @Value("\${security.pii.legacy-plaintext-read-enabled:true}") private val legacyPlaintextReadEnabled: Boolean,
 ) : AccountRepository {
     override fun findByLoginId(loginId: String): Account? {
         val hashedLoginId = loginIdHasher.hash(loginId)
-        val entity = accountJpaRepository.findByLoginIdHash(hashedLoginId)
-            ?: if (legacyPlaintextReadEnabled) {
-                accountJpaRepository.findByLoginIdHash(loginId)
-            } else {
-                null
-            }
-        return entity?.let { it.toDomainAfterLegacyMigration() }
+        return accountJpaRepository.findByLoginIdHash(hashedLoginId)?.toDomainIfCurrent()
     }
 
     override fun findByUserId(userId: Long): Account? =
-        accountJpaRepository.findById(userId).orElse(null)?.toDomainAfterLegacyMigration()
+        accountJpaRepository.findById(userId).orElse(null)?.toDomainIfCurrent()
 
     override fun save(account: Account): Account {
         val hashedLoginId = loginIdHasher.hash(account.loginId)
         val existing = accountJpaRepository.findById(account.userId).orElse(null)
-            ?.takeIf { it.loginIdHash == account.loginId || it.loginIdHash == hashedLoginId }
+            ?.takeIf { it.loginIdHash == hashedLoginId }
         val entity = if (existing == null) {
             AccountJpaEntity(
                 loginIdHash = hashedLoginId,
@@ -136,58 +128,18 @@ class JpaAccountRepositoryAdapter(
             updatedAt = updatedAtValue() ?: accountUpdatedAt,
         )
 
-    private fun AccountJpaEntity.toDomainAfterLegacyMigration(): Account {
+    private fun AccountJpaEntity.toDomainIfCurrent(): Account? {
+        if (!loginIdHasher.isHash(loginIdHash) || !personalDataEncryptor.isEncrypted(loginIdEncrypted.orEmpty())) {
+            return null
+        }
         val profile = requireNotNull(id) { "Account ID must be present" }
             .let { studentProfileJpaRepository.findByAccount_Id(it) }
-            ?: error("Student profile not found for account $id")
-        migrateLegacyData(this, profile)
+            ?: return null
+        if (!personalDataEncryptor.isEncrypted(profile.nameEncrypted) ||
+            !personalDataEncryptor.isEncrypted(profile.phoneEncrypted)
+        ) {
+            return null
+        }
         return toDomain(profile)
-    }
-
-    private fun migrateLegacyData(
-        account: AccountJpaEntity,
-        profile: StudentProfileJpaEntity,
-    ) {
-        if (!legacyPlaintextReadEnabled) {
-            check(loginIdHasher.isHash(account.loginIdHash)) {
-                "Legacy plaintext login ID is disabled"
-            }
-            check(personalDataEncryptor.isEncrypted(account.loginIdEncrypted.orEmpty())) {
-                "Legacy plaintext login ID encryption is disabled"
-            }
-            check(personalDataEncryptor.isEncrypted(profile.nameEncrypted)) {
-                "Legacy plaintext name is disabled"
-            }
-            check(personalDataEncryptor.isEncrypted(profile.phoneEncrypted)) {
-                "Legacy plaintext phone is disabled"
-            }
-            return
-        }
-
-        var accountChanged = false
-        if (!loginIdHasher.isHash(account.loginIdHash)) {
-            if (account.loginIdEncrypted == null) {
-                account.loginIdEncrypted = personalDataEncryptor.encrypt(account.loginIdHash)
-            }
-            account.loginIdHash = loginIdHasher.hash(account.loginIdHash)
-            accountChanged = true
-        }
-        if (!personalDataEncryptor.isEncrypted(account.loginIdEncrypted.orEmpty())) {
-            account.loginIdEncrypted = personalDataEncryptor.encrypt(
-                requireNotNull(account.loginIdEncrypted) { "Legacy login ID must be present" },
-            )
-            accountChanged = true
-        }
-        var profileChanged = false
-        if (!personalDataEncryptor.isEncrypted(profile.nameEncrypted)) {
-            profile.nameEncrypted = personalDataEncryptor.encrypt(profile.nameEncrypted)
-            profileChanged = true
-        }
-        if (!personalDataEncryptor.isEncrypted(profile.phoneEncrypted)) {
-            profile.phoneEncrypted = personalDataEncryptor.encrypt(profile.phoneEncrypted)
-            profileChanged = true
-        }
-        if (accountChanged) accountJpaRepository.saveAndFlush(account)
-        if (profileChanged) studentProfileJpaRepository.saveAndFlush(profile)
     }
 }

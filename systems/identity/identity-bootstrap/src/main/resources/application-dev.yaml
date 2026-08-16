@@ -16,8 +16,6 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
 
-# Use the explicit dev-mock profile when database-backed adapters are not desired.
-
 auth:
   jwt:
     secret: ${JWT_SECRET:dev-development-jwt-secret-change-me-32}

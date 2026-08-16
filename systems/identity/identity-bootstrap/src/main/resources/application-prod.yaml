@@ -15,7 +15,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-  # V023-V025 migrations must be applied by the deployment migration runner before startup.
   data:
     redis:
       url: ${REDIS_URL}
@@ -28,10 +27,7 @@ security:
   pii:
     login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY}
     encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64}
-    legacy-plaintext-read-enabled: ${IDENTITY_PII_LEGACY_PLAINTEXT_READ_ENABLED:true}
 
 identity:
-  migrations:
-    required-version: ${IDENTITY_SCHEMA_REQUIRED_VERSION:V025}
   redis:
     durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED:true}

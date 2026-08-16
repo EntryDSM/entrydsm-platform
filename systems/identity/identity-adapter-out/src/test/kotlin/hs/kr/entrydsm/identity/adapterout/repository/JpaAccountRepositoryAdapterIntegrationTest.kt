@@ -113,38 +113,6 @@ class JpaAccountRepositoryAdapterIntegrationTest {
     }
 
     @Test
-    fun migratesLegacyPlaintextAccountDataOnFirstRead() {
-        val legacyAccount = accountJpaRepository.saveAndFlush(
-            AccountJpaEntity(
-                loginIdHash = LOGIN_ID,
-                passwordHash = "encoded-password",
-                role = Role.STUDENT,
-                status = AccountStatus.ACTIVE,
-            ),
-        )
-        studentProfileJpaRepository.saveAndFlush(
-            StudentProfileJpaEntity(
-                account = legacyAccount,
-                signupType = SignupType.SELF,
-                nameEncrypted = "홍길동",
-                phoneEncrypted = LOGIN_ID,
-                birthdate = BIRTHDATE,
-            ),
-        )
-
-        val migrated = requireNotNull(adapter.findByLoginId(LOGIN_ID))
-        val persistedAccount = requireNotNull(accountJpaRepository.findById(migrated.userId).orElse(null))
-        val persistedProfile = requireNotNull(studentProfileJpaRepository.findByAccount_Id(migrated.userId))
-
-        assertEquals(LOGIN_ID, migrated.loginId)
-        assertEquals("홍길동", migrated.profile.name)
-        assertNotEquals(LOGIN_ID, persistedAccount.loginIdHash)
-        assertNotEquals(LOGIN_ID, persistedAccount.loginIdEncrypted)
-        assertNotEquals("홍길동", persistedProfile.nameEncrypted)
-        assertNotEquals(LOGIN_ID, persistedProfile.phoneEncrypted)
-    }
-
-    @Test
     fun applicationDataAdapterUsesProjectionAndWritesOutboxForCancellation() {
         val saved = adapter.save(account())
         applicationDataAdapter.create(saved.userId, CREATED_AT)
