@@ -1,11 +1,13 @@
 package hs.kr.entrydsm.application.adapterout
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import hs.kr.entrydsm.application.adapterout.entity.ApplicantJpaEntityTest
+import hs.kr.entrydsm.application.adapterout.entity.AcademicRecordJpaEntityTest
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class ApplicationAdapterOutModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    AcademicRecordJpaEntityTest::class,
+    ApplicantJpaEntityTest::class,
+)
+class ApplicationAdapterOutModuleTest

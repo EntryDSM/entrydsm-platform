@@ -20,7 +20,7 @@ open class GedScoreJpaEntity(
     @MapsId
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "academic_record_id")
-    var academicRecord: AcademicRecordJpaEntity? = null,
+    open var academicRecord: AcademicRecordJpaEntity? = null,
 
     @Column(name = "korean_score", nullable = false)
     var koreanScore: Int = 0,
