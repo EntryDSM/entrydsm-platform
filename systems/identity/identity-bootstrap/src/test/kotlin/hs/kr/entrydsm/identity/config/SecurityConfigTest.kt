@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
 import org.springframework.mock.web.MockCookie
 import org.springframework.test.context.junit4.SpringRunner
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -24,12 +25,17 @@ import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
 import org.springframework.security.web.FilterChainProxy
 
 @RunWith(SpringRunner::class)
+@ActiveProfiles("test")
 @SpringBootTest(
     classes = [IdentityBootstrapApplication::class],
     properties = [
         "auth.jwt.secret=01234567890123456789012345678901",
         "auth.jwt.issuer=entrydsm-identity",
         "spring.main.lazy-initialization=true",
+        "spring.autoconfigure.exclude=" +
+            "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration," +
+            "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration," +
+            "org.springframework.boot.data.jpa.autoconfigure.DataJpaRepositoriesAutoConfiguration",
     ],
 )
 class SecurityConfigTest {

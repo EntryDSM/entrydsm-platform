@@ -15,6 +15,41 @@ import org.junit.Test
 
 class ApplicationControllerTest {
     @Test
+    fun getStatusMapsAuthorizationUserIdAndResponse() {
+        val applicationPort = FakeApplicationPort()
+        val controller = ApplicationController(applicationPort)
+
+        val response = controller.getStatus(
+            authorization = "Bearer access-token",
+            authenticatedUser = AuthenticatedUser(123L),
+        )
+
+        val command = requireNotNull(applicationPort.statusApplicationCommand)
+        assertEquals("Bearer access-token", command.authorization)
+        assertEquals(123L, command.userId)
+        assertEquals(ApplicantStatus.SUBMITTED, response.data?.applicantStatus)
+        assertEquals(NOW, response.data?.submittedAt)
+        assertEquals(NOW, response.data?.updatedAt)
+    }
+
+    @Test
+    fun getResultMapsAuthorizationUserIdAndResponse() {
+        val applicationPort = FakeApplicationPort()
+        val controller = ApplicationController(applicationPort)
+
+        val response = controller.getResult(
+            authorization = "Bearer access-token",
+            authenticatedUser = AuthenticatedUser(123L),
+        )
+
+        val command = requireNotNull(applicationPort.resultApplicationCommand)
+        assertEquals("Bearer access-token", command.authorization)
+        assertEquals(123L, command.userId)
+        assertEquals(PassStatus.PASSED, response.data?.passStatus)
+        assertEquals(NOW, response.data?.announcedAt)
+    }
+
+    @Test
     fun cancelApplicationMapsAuthorizationAndReason() {
         val applicationPort = FakeApplicationPort()
         val controller = ApplicationController(applicationPort)
@@ -33,13 +68,19 @@ class ApplicationControllerTest {
     }
 
     private class FakeApplicationPort : ApplicationPort {
+        var statusApplicationCommand: ReadApplicationCommand? = null
+        var resultApplicationCommand: ReadApplicationCommand? = null
         var cancelApplicationCommand: CancelApplicationCommand? = null
 
-        override fun getApplicationStatus(command: ReadApplicationCommand): ApplicationStatusResult =
-            applicationStatusResult(ApplicantStatus.SUBMITTED)
+        override fun getApplicationStatus(command: ReadApplicationCommand): ApplicationStatusResult {
+            statusApplicationCommand = command
+            return applicationStatusResult(ApplicantStatus.SUBMITTED)
+        }
 
-        override fun getApplicationResult(command: ReadApplicationCommand): ApplicationResultResult =
-            ApplicationResultResult(passStatus = PassStatus.PASSED, announcedAt = NOW)
+        override fun getApplicationResult(command: ReadApplicationCommand): ApplicationResultResult {
+            resultApplicationCommand = command
+            return ApplicationResultResult(passStatus = PassStatus.PASSED, announcedAt = NOW)
+        }
 
         override fun cancelApplication(command: CancelApplicationCommand): ApplicationStatusResult {
             cancelApplicationCommand = command
