@@ -29,6 +29,9 @@ import org.springframework.security.web.csrf.CsrfFilter
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.security.web.csrf.CsrfToken
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import java.time.Instant
 import java.time.LocalDate
 
@@ -37,6 +40,9 @@ import java.time.LocalDate
 class SecurityConfig {
     @Value("\${security.cookies.secure:true}")
     private var secureCookies: Boolean = true
+
+    @Value("\${security.cors.allowed-origins:}")
+    private var allowedCorsOrigins: String = ""
 
     private val publicRequestMatchers = arrayOf(
         "/actuator/health",
@@ -73,6 +79,18 @@ class SecurityConfig {
         JwtAuthorizationDeniedHandler(objectMapper)
 
     @Bean
+    fun corsConfigurationSource(): CorsConfigurationSource =
+        UrlBasedCorsConfigurationSource().also { source ->
+            source.registerCorsConfiguration("/**", CorsConfiguration().apply {
+                allowedOrigins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
+                allowedMethods = listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS")
+                allowedHeaders = listOf("Authorization", "Content-Type", "X-XSRF-TOKEN", "X-Requested-With")
+                allowCredentials = true
+                maxAge = 3600
+            })
+        }
+
+    @Bean
     fun securityFilterChain(
         http: HttpSecurity,
         jwtFilter: JwtFilter,
@@ -95,7 +113,7 @@ class SecurityConfig {
                     // The request header must therefore contain the same token value as the cookie.
                     .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
             }
-            .cors { it.disable() }
+            .cors { }
             .formLogin { it.disable() }
             .httpBasic { it.disable() }
             .sessionManagement {

@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delet
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options
 import org.springframework.web.context.WebApplicationContext
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
@@ -32,6 +33,7 @@ import org.springframework.security.web.FilterChainProxy
         "auth.jwt.secret=01234567890123456789012345678901",
         "auth.jwt.issuer=entrydsm-identity",
         "spring.main.lazy-initialization=true",
+        "security.cors.allowed-origins=https://frontend.example",
         "spring.autoconfigure.exclude=" +
             "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration," +
             "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration," +
@@ -127,6 +129,19 @@ class SecurityConfigTest {
 
         assertEquals(401, response.status)
         assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
+    }
+
+    @Test
+    fun configuredOriginCanUseCredentialedCorsPreflight() {
+        val response = mockMvc.perform(
+            options("/api/identity/v11/auth/login")
+                .header("Origin", "https://frontend.example")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "content-type,x-xsrf-token"),
+        ).andReturn().response
+
+        assertEquals("https://frontend.example", response.getHeader("Access-Control-Allow-Origin"))
+        assertEquals("true", response.getHeader("Access-Control-Allow-Credentials"))
     }
 
     @Test
