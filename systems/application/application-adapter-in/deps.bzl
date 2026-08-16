@@ -1,5 +1,6 @@
 KOTLIN_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
+    "@maven//:org_springframework_boot_spring_boot_starter_security",
     "//systems/application/application-application:main",
     "//systems/application/application-domain:main",
 ]

@@ -2,6 +2,7 @@ package hs.kr.entrydsm.application.adapterin.web.exception
 
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorResponse
+import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
@@ -26,6 +27,14 @@ class GlobalExceptionHandler {
             status = HttpStatus.NOT_FOUND,
             code = "APPLICANT_NOT_FOUND",
             message = exception.message ?: "applicant not found",
+        )
+
+    @ExceptionHandler(ApplicantAccessDeniedException::class)
+    fun handleApplicantAccessDenied(exception: ApplicantAccessDeniedException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.FORBIDDEN,
+            code = "APPLICANT_ACCESS_DENIED",
+            message = exception.message ?: "applicant access denied",
         )
 
     @ExceptionHandler(
