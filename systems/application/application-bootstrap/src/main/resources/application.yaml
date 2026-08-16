@@ -25,10 +25,3 @@ management:
 logging:
   level:
     root: INFO
-
-entrydsm:
-  application:
-    schedule:
-      application-start-at: "${APPLICATION_START_AT:2026-04-01T09:00:00}"
-      application-end-at: "${APPLICATION_END_AT:2026-04-30T17:00:00}"
-      result-announced-at: "${RESULT_ANNOUNCED_AT:2026-05-15T10:00:00}"
