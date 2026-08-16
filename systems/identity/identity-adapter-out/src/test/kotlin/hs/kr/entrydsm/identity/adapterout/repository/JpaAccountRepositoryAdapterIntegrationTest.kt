@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.identity.adapterout.repository
 
 import hs.kr.entrydsm.identity.adapterout.config.JpaAuditingConfig
+import hs.kr.entrydsm.identity.adapterout.persistence.AccountApplicationDataPersistenceAdapter
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
@@ -22,7 +23,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
-import org.springframework.boot.autoconfigure.domain.EntityScan
+import org.springframework.boot.persistence.autoconfigure.EntityScan
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Import
@@ -39,6 +40,9 @@ import org.testcontainers.utility.DockerImageName
 class JpaAccountRepositoryAdapterIntegrationTest {
     @Autowired
     private lateinit var adapter: JpaAccountRepositoryAdapter
+
+    @Autowired
+    private lateinit var applicationDataAdapter: AccountApplicationDataPersistenceAdapter
 
     @Autowired
     private lateinit var accountJpaRepository: AccountJpaRepository
@@ -89,11 +93,32 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         assertNotEquals(profileUpdatedAt, profileEntity.updatedAtValue())
     }
 
+    @Test
+    fun applicationDataAdapterReadsAndPersistsApplicationStateThroughAccountProfile() {
+        val saved = adapter.save(account())
+
+        val beforeCancel = requireNotNull(applicationDataAdapter.findByUserId(saved.userId))
+        assertEquals(ApplicantStatus.SUBMITTED, beforeCancel.applicantStatus)
+        assertEquals(PassStatus.NOT_ANNOUNCED, beforeCancel.passStatus)
+
+        val canceled = applicationDataAdapter.cancel(saved.userId, "개인 사유", TRANSITION_TIME)
+        val persisted = requireNotNull(adapter.findByUserId(saved.userId))
+
+        assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
+        assertEquals(TRANSITION_TIME, canceled.updatedAt)
+        assertEquals(ApplicantStatus.CANCELED, persisted.profile.applicantStatus)
+        assertEquals(TRANSITION_TIME, persisted.profile.updatedAt)
+    }
+
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @EntityScan("hs.kr.entrydsm.identity.adapterout.entity")
     @EnableJpaRepositories("hs.kr.entrydsm.identity.adapterout.repository")
-    @Import(JpaAuditingConfig::class, JpaAccountRepositoryAdapter::class)
+    @Import(
+        JpaAuditingConfig::class,
+        JpaAccountRepositoryAdapter::class,
+        AccountApplicationDataPersistenceAdapter::class,
+    )
     class JpaTestApplication
 
     private companion object {
@@ -120,11 +145,11 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         @DynamicPropertySource
         fun registerDatabaseProperties(registry: DynamicPropertyRegistry) {
             mysql = GenericContainer<Nothing>(DockerImageName.parse(MYSQL_IMAGE))
-                .withEnv("MYSQL_DATABASE", DATABASE)
-                .withEnv("MYSQL_USER", "identity")
-                .withEnv("MYSQL_PASSWORD", "identity")
-                .withEnv("MYSQL_ROOT_PASSWORD", "root")
                 .withExposedPorts(MYSQL_PORT)
+            mysql.addEnv("MYSQL_DATABASE", DATABASE)
+            mysql.addEnv("MYSQL_USER", "identity")
+            mysql.addEnv("MYSQL_PASSWORD", "identity")
+            mysql.addEnv("MYSQL_ROOT_PASSWORD", "root")
             mysql.start()
             mysqlStarted = true
             registry.add("spring.datasource.url") {

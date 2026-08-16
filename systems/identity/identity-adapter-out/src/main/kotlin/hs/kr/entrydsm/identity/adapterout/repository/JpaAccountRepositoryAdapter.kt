@@ -9,9 +9,11 @@ import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.context.annotation.Profile
 
 @Repository
 @Transactional
+@Profile("!test")
 class JpaAccountRepositoryAdapter(
     private val accountJpaRepository: AccountJpaRepository,
     private val studentProfileJpaRepository: StudentProfileJpaRepository,
