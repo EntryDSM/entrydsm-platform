@@ -2,7 +2,6 @@ package hs.kr.entrydsm.identity.config
 
 import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
 import hs.kr.entrydsm.identity.application.port.`in`.ApplicationPort
-import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
@@ -23,10 +22,9 @@ import org.springframework.context.annotation.Configuration
 class IdentityApplicationConfig {
     @Bean
     fun applicationService(
-        accountRepository: AccountRepository,
         applicationDataPort: ApplicationDataPort,
         clock: Clock,
-    ): ApplicationPort = ApplicationService(accountRepository, applicationDataPort, clock)
+    ): ApplicationPort = ApplicationService(applicationDataPort, clock)
 
     @Bean
     fun accountService(

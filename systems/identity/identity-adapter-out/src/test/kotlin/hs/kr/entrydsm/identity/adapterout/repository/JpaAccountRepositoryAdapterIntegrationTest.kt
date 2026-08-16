@@ -1,7 +1,12 @@
 package hs.kr.entrydsm.identity.adapterout.repository
 
 import hs.kr.entrydsm.identity.adapterout.config.JpaAuditingConfig
+import hs.kr.entrydsm.identity.adapterout.entity.AccountJpaEntity
+import hs.kr.entrydsm.identity.adapterout.entity.StudentProfileJpaEntity
 import hs.kr.entrydsm.identity.adapterout.persistence.AccountApplicationDataPersistenceAdapter
+import hs.kr.entrydsm.identity.adapterout.security.AesGcmPersonalDataEncryptor
+import hs.kr.entrydsm.identity.adapterout.security.HmacLoginIdHasher
+import hs.kr.entrydsm.identity.application.port.out.data.ApplicationStateChangedEvent
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
@@ -50,8 +55,16 @@ class JpaAccountRepositoryAdapterIntegrationTest {
     @Autowired
     private lateinit var studentProfileJpaRepository: StudentProfileJpaRepository
 
+    @Autowired
+    private lateinit var applicationProjectionJpaRepository: ApplicationProjectionJpaRepository
+
+    @Autowired
+    private lateinit var identityOutboxJpaRepository: IdentityOutboxJpaRepository
+
     @Before
     fun clearDatabase() {
+        identityOutboxJpaRepository.deleteAll()
+        applicationProjectionJpaRepository.deleteAll()
         studentProfileJpaRepository.deleteAll()
         accountJpaRepository.deleteAll()
     }
@@ -64,6 +77,12 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         assertEquals(saved.userId, adapter.findByUserId(saved.userId)?.userId)
         assertEquals(saved.userId, adapter.findByLoginId(LOGIN_ID)?.userId)
         assertEquals(BIRTHDATE, adapter.findByUserId(saved.userId)?.profile?.birthdate)
+        val persistedAccount = requireNotNull(accountJpaRepository.findById(saved.userId).orElse(null))
+        val persistedProfile = requireNotNull(studentProfileJpaRepository.findByAccount_Id(saved.userId))
+        assertNotEquals(LOGIN_ID, persistedAccount.loginIdHash)
+        assertNotEquals(LOGIN_ID, persistedAccount.loginIdEncrypted)
+        assertNotEquals("홍길동", persistedProfile.nameEncrypted)
+        assertNotEquals(LOGIN_ID, persistedProfile.phoneEncrypted)
         assertNotNull(accountJpaRepository.findById(saved.userId).orElse(null)?.createdAtValue())
         assertNotNull(studentProfileJpaRepository.findByAccount_Id(saved.userId)?.createdAtValue())
     }
@@ -94,8 +113,53 @@ class JpaAccountRepositoryAdapterIntegrationTest {
     }
 
     @Test
-    fun applicationDataAdapterReadsAndPersistsApplicationStateThroughAccountProfile() {
+    fun migratesLegacyPlaintextAccountDataOnFirstRead() {
+        val legacyAccount = accountJpaRepository.saveAndFlush(
+            AccountJpaEntity(
+                loginIdHash = LOGIN_ID,
+                passwordHash = "encoded-password",
+                role = Role.STUDENT,
+                status = AccountStatus.ACTIVE,
+            ),
+        )
+        studentProfileJpaRepository.saveAndFlush(
+            StudentProfileJpaEntity(
+                account = legacyAccount,
+                signupType = SignupType.SELF,
+                nameEncrypted = "홍길동",
+                phoneEncrypted = LOGIN_ID,
+                birthdate = BIRTHDATE,
+            ),
+        )
+
+        val migrated = requireNotNull(adapter.findByLoginId(LOGIN_ID))
+        val persistedAccount = requireNotNull(accountJpaRepository.findById(migrated.userId).orElse(null))
+        val persistedProfile = requireNotNull(studentProfileJpaRepository.findByAccount_Id(migrated.userId))
+
+        assertEquals(LOGIN_ID, migrated.loginId)
+        assertEquals("홍길동", migrated.profile.name)
+        assertNotEquals(LOGIN_ID, persistedAccount.loginIdHash)
+        assertNotEquals(LOGIN_ID, persistedAccount.loginIdEncrypted)
+        assertNotEquals("홍길동", persistedProfile.nameEncrypted)
+        assertNotEquals(LOGIN_ID, persistedProfile.phoneEncrypted)
+    }
+
+    @Test
+    fun applicationDataAdapterUsesProjectionAndWritesOutboxForCancellation() {
         val saved = adapter.save(account())
+        applicationDataAdapter.create(saved.userId, CREATED_AT)
+        applicationDataAdapter.consume(
+            ApplicationStateChangedEvent(
+                eventId = "application-submitted-1",
+                userId = saved.userId,
+                version = 1,
+                applicantStatus = ApplicantStatus.SUBMITTED,
+                submittedAt = CREATED_AT,
+                passStatus = PassStatus.NOT_ANNOUNCED,
+                announcedAt = null,
+                occurredAt = CREATED_AT,
+            ),
+        )
 
         val beforeCancel = requireNotNull(applicationDataAdapter.findByUserId(saved.userId))
         assertEquals(ApplicantStatus.SUBMITTED, beforeCancel.applicantStatus)
@@ -106,8 +170,8 @@ class JpaAccountRepositoryAdapterIntegrationTest {
 
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
         assertEquals(TRANSITION_TIME, canceled.updatedAt)
-        assertEquals(ApplicantStatus.CANCELED, persisted.profile.applicantStatus)
-        assertEquals(TRANSITION_TIME, persisted.profile.updatedAt)
+        assertEquals(ApplicantStatus.SUBMITTED, persisted.profile.applicantStatus)
+        assertEquals(1, identityOutboxJpaRepository.count())
     }
 
     @SpringBootConfiguration
@@ -116,6 +180,8 @@ class JpaAccountRepositoryAdapterIntegrationTest {
     @EnableJpaRepositories("hs.kr.entrydsm.identity.adapterout.repository")
     @Import(
         JpaAuditingConfig::class,
+        AesGcmPersonalDataEncryptor::class,
+        HmacLoginIdHasher::class,
         JpaAccountRepositoryAdapter::class,
         AccountApplicationDataPersistenceAdapter::class,
     )

@@ -15,7 +15,7 @@ import org.junit.Test
 class IdentityServiceTest {
     @Test
     fun applicationStatusAndCancellationPersistState() {
-        val (serviceBundle, accounts, applications) = services()
+        val (serviceBundle, applications) = services()
 
         val status = serviceBundle.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token", 123L))
         val canceled = serviceBundle.application.cancelApplication(
@@ -26,13 +26,11 @@ class IdentityServiceTest {
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
         assertEquals(CANCELLATION_TIME, canceled.updatedAt)
         assertEquals(CANCELLATION_TIME, applications.snapshots.getValue(123L).updatedAt)
-        assertEquals(ApplicantStatus.CANCELED, accounts.findByUserId(123L)?.profile?.applicantStatus)
-        assertEquals(CANCELLATION_TIME, accounts.findByUserId(123L)?.profile?.updatedAt)
     }
 
     @Test
     fun cancellationRejectsMissingApplication() {
-        val (serviceBundle, _, applications) = services()
+        val (serviceBundle, applications) = services()
         applications.snapshots.remove(123L)
 
         val exception = captureIdentityException {
@@ -44,7 +42,7 @@ class IdentityServiceTest {
 
     @Test
     fun cancellationRejectsApplicationThatIsNotSubmitted() {
-        val (serviceBundle, _, applications) = services()
+        val (serviceBundle, applications) = services()
         applications.snapshots[123L] = applications.snapshots.getValue(123L).copy(
             applicantStatus = ApplicantStatus.CANCELED,
         )
@@ -58,7 +56,7 @@ class IdentityServiceTest {
 
     @Test
     fun applicationServiceRejectsAuthorizationHeaderWithoutAuthenticatedUser() {
-        val (serviceBundle, _, _) = services()
+        val (serviceBundle, _) = services()
 
         val exception = captureIdentityException {
             serviceBundle.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token"))
@@ -69,7 +67,7 @@ class IdentityServiceTest {
 
     @Test
     fun resultIsUnavailableBeforeAnnouncement() {
-        val (services, _, applications) = services()
+        val (services, applications) = services()
         applications.snapshots[123L] = applications.snapshots.getValue(123L).copy(
             passStatus = PassStatus.NOT_ANNOUNCED,
             announcedAt = null,
@@ -85,14 +83,9 @@ class IdentityServiceTest {
         assertEquals(ErrorCode.APPLICATION_RESULT_NOT_AVAILABLE, exception?.errorCode)
     }
 
-    private fun services(): Triple<ServiceBundle, FakeAccountRepository, FakeApplicationDataPort> {
-        val accounts = FakeAccountRepository()
+    private fun services(): Pair<ServiceBundle, FakeApplicationDataPort> {
         val applications = FakeApplicationDataPort()
-        return Triple(
-            ServiceBundle(application = ApplicationService(accounts, applications, FIXED_CLOCK)),
-            accounts,
-            applications,
-        )
+        return Pair(ServiceBundle(application = ApplicationService(applications, FIXED_CLOCK)), applications)
     }
 
     private fun captureIdentityException(block: () -> Unit): IdentityDomainException = try {
