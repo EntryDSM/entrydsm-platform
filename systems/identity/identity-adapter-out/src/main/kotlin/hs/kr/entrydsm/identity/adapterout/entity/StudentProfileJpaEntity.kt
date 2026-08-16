@@ -35,10 +35,10 @@ open class StudentProfileJpaEntity(
     val signupType: SignupType = SignupType.SELF,
 
     @Column(name = "name_encrypted", nullable = false, length = 255)
-    val nameEncrypted: String = "",
+    var nameEncrypted: String = "",
 
     @Column(name = "phone_encrypted", nullable = false, length = 255)
-    val phoneEncrypted: String = "",
+    var phoneEncrypted: String = "",
 
     @Column(name = "birthdate", nullable = false, columnDefinition = "DATE")
     val birthdate: LocalDate = LocalDate.of(1970, 1, 1),

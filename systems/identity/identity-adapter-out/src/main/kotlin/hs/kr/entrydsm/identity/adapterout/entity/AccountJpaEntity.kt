@@ -21,7 +21,10 @@ open class AccountJpaEntity(
     val id: Long? = null,
 
     @Column(name = "login_id_hash", unique = true, nullable = false, length = 255)
-    val loginIdHash: String = "",
+    var loginIdHash: String = "",
+
+    @Column(name = "login_id_encrypted", length = 255)
+    var loginIdEncrypted: String? = null,
 
     @Column(name = "password_hash", nullable = false, length = 255)
     var passwordHash: String = "",
