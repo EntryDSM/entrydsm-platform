@@ -5,6 +5,7 @@ import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificatio
 import hs.kr.entrydsm.notification.application.port.out.FaqRepository
 import hs.kr.entrydsm.notification.application.port.out.NoticeRepository
 import hs.kr.entrydsm.notification.application.port.out.RecruitmentGuidelineRepository
+import hs.kr.entrydsm.notification.application.port.out.data.PageData
 import hs.kr.entrydsm.notification.domain.model.Faq
 import hs.kr.entrydsm.notification.domain.model.Notice
 import hs.kr.entrydsm.notification.domain.model.RecruitmentGuideline
@@ -149,17 +150,23 @@ class NotificationServiceTest {
             recruitmentGuidelineRepository = FakeRecruitmentGuidelineRepository(guideline),
         )
 
-    private class FakeNoticeRepository(
+    private inner class FakeNoticeRepository(
         private val notices: List<Notice> = emptyList(),
     ) : NoticeRepository {
-        override fun findAll(): List<Notice> = notices
+        override fun findPage(command: ReadNotificationPageCommand): PageData<Notice> {
+            val sorted = notices.sortedWith(compareByDescending<Notice> { it.createdAt }.thenByDescending { it.id })
+            return sorted.toPageData(command)
+        }
+
         override fun findById(id: Long): Notice? = notices.firstOrNull { it.id == id }
     }
 
-    private class FakeFaqRepository(
+    private inner class FakeFaqRepository(
         private val faqs: List<Faq> = emptyList(),
     ) : FaqRepository {
-        override fun findAll(): List<Faq> = faqs
+        override fun findPage(command: ReadNotificationPageCommand): PageData<Faq> =
+            faqs.sortedBy { it.id }.toPageData(command)
+
         override fun findById(id: Long): Faq? = faqs.firstOrNull { it.id == id }
     }
 
@@ -206,6 +213,21 @@ class NotificationServiceTest {
             createdAt = createdAt,
             updatedAt = updatedAt,
         )
+
+    private fun <T> List<T>.toPageData(command: ReadNotificationPageCommand): PageData<T> {
+        val fromIndex = command.offset()
+            .coerceAtMost(size.toLong())
+            .toInt()
+        val toIndex = (fromIndex.toLong() + command.size.toLong())
+            .coerceAtMost(size.toLong())
+            .toInt()
+        return PageData(
+            content = subList(fromIndex, toIndex),
+            page = command.page,
+            size = command.size,
+            totalElements = size.toLong(),
+        )
+    }
 
     private companion object {
         val now: LocalDateTime = LocalDateTime.parse("2026-08-17T09:00:00")
