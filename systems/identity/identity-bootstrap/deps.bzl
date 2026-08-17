@@ -2,10 +2,10 @@ SPRING_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
     "@maven//:org_springframework_boot_spring_boot_starter_security",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
+    "@maven//:org_springframework_boot_spring_boot_autoconfigure",
 ]
 
 KOTLIN_DEPS = [
-    "@maven//:org_springframework_boot_spring_boot_autoconfigure",
     "@maven//:org_jetbrains_kotlin_kotlin_reflect",
     "@maven//:com_fasterxml_jackson_module_jackson_module_kotlin",
     "@maven//:io_jsonwebtoken_jjwt_api",

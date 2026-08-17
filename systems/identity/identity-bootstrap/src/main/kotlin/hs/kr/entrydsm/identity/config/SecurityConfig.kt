@@ -94,14 +94,11 @@ class SecurityConfig {
         }
 
     private fun validateSecurityConfiguration(environment: Environment) {
-        val origins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
-        require(origins.none { it == "*" }) {
-            "Wildcard CORS origins are not allowed when credentials are enabled"
-        }
-        if (environment.acceptsProfiles(Profiles.of("prod"))) {
-            require(secureCookies) { "Secure cookies must be enabled in the prod profile" }
-            require(origins.isNotEmpty()) { "CORS origins must be configured in the prod profile" }
-        }
+        SecurityConfigurationValidator.validate(
+            secureCookies = secureCookies,
+            allowedCorsOrigins = allowedCorsOrigins,
+            production = environment.acceptsProfiles(Profiles.of("prod")),
+        )
     }
 
     @Bean
@@ -148,6 +145,23 @@ class SecurityConfig {
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
             .build()
         }
+}
+
+object SecurityConfigurationValidator {
+    fun validate(
+        secureCookies: Boolean,
+        allowedCorsOrigins: String,
+        production: Boolean,
+    ) {
+        val origins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
+        require(origins.none { it == "*" }) {
+            "Wildcard CORS origins are not allowed when credentials are enabled"
+        }
+        if (production) {
+            require(secureCookies) { "Secure cookies must be enabled in the prod profile" }
+            require(origins.isNotEmpty()) { "CORS origins must be configured in the prod profile" }
+        }
+    }
 }
 
 private class CsrfCookieResponseFilter : org.springframework.web.filter.OncePerRequestFilter() {

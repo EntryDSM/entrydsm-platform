@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -144,6 +145,24 @@ class SecurityConfigTest {
 
         assertEquals("https://frontend.example", response.getHeader("Access-Control-Allow-Origin"))
         assertEquals("true", response.getHeader("Access-Control-Allow-Credentials"))
+    }
+
+    @Test
+    fun productionSecurityRejectsInsecureCookiesAndWildcardOrigins() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SecurityConfigurationValidator.validate(
+                secureCookies = false,
+                allowedCorsOrigins = "https://frontend.example",
+                production = true,
+            )
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            SecurityConfigurationValidator.validate(
+                secureCookies = true,
+                allowedCorsOrigins = "*",
+                production = true,
+            )
+        }
     }
 
     @Test
