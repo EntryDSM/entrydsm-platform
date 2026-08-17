@@ -33,6 +33,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.context.WebApplicationContext
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.wait.strategy.Wait
 import org.testcontainers.utility.DockerImageName
 
 @RunWith(SpringRunner::class)
@@ -155,30 +156,45 @@ class IdentityApplicationHttpIntegrationTest {
         @BeforeClass
         fun checkDocker() {
             val available = DockerClientFactory.instance().isDockerAvailable
-            if (!available && integrationTestsAreRequired()) {
+            if (!available && IntegrationTestGate.isRequired()) {
                 error("Docker daemon is required for HTTP persistence integration tests")
             }
             assumeTrue("Docker daemon is required for HTTP persistence integration tests", available)
         }
 
-        private fun integrationTestsAreRequired(): Boolean =
-            System.getenv("IDENTITY_INTEGRATION_REQUIRED").equals("true", ignoreCase = true)
+        private object IntegrationTestGate {
+            fun isRequired(): Boolean =
+                System.getenv("IDENTITY_INTEGRATION_REQUIRED").equals("true", ignoreCase = true)
+        }
 
         @JvmStatic
         @DynamicPropertySource
         fun registerContainerProperties(registry: DynamicPropertyRegistry) {
-            mysql = GenericContainer<Nothing>(DockerImageName.parse(MYSQL_IMAGE))
-                .withExposedPorts(MYSQL_PORT)
-            mysql.addEnv("MYSQL_DATABASE", DATABASE)
-            mysql.addEnv("MYSQL_USER", "identity")
-            mysql.addEnv("MYSQL_PASSWORD", "identity")
-            mysql.addEnv("MYSQL_ROOT_PASSWORD", "root")
-            mysql.start()
+            try {
+                if (!::mysql.isInitialized || !mysql.isRunning) {
+                    mysql = GenericContainer<Nothing>(DockerImageName.parse(MYSQL_IMAGE))
+                        .withExposedPorts(MYSQL_PORT)
+                    mysql.setWaitStrategy(Wait.forLogMessage(".*ready for connections.*\\n", 1))
+                    mysql.addEnv("MYSQL_DATABASE", DATABASE)
+                    mysql.addEnv("MYSQL_USER", "identity")
+                    mysql.addEnv("MYSQL_PASSWORD", "identity")
+                    mysql.addEnv("MYSQL_ROOT_PASSWORD", "root")
+                    mysql.start()
+                }
 
-            redis = GenericContainer<Nothing>(DockerImageName.parse(REDIS_IMAGE))
-                .withExposedPorts(REDIS_PORT)
-            redis.start()
-            containersStarted = true
+                if (!::redis.isInitialized || !redis.isRunning) {
+                    redis = GenericContainer<Nothing>(DockerImageName.parse(REDIS_IMAGE))
+                        .withExposedPorts(REDIS_PORT)
+                    redis.setWaitStrategy(Wait.forListeningPort())
+                    redis.start()
+                }
+                containersStarted = true
+            } catch (failure: Throwable) {
+                if (::redis.isInitialized && redis.isRunning) redis.stop()
+                if (::mysql.isInitialized && mysql.isRunning) mysql.stop()
+                containersStarted = false
+                throw failure
+            }
 
             registry.add("spring.datasource.url") {
                 "jdbc:mysql://${mysql.host}:${mysql.getMappedPort(MYSQL_PORT)}/$DATABASE?useSSL=false&serverTimezone=UTC"
@@ -194,6 +210,11 @@ class IdentityApplicationHttpIntegrationTest {
             registry.add("auth.jwt.secret") { "01234567890123456789012345678901" }
             registry.add("auth.jwt.issuer") { "entrydsm-identity" }
             registry.add("security.cookies.secure") { "false" }
+            registry.add("security.pii.login-id-hash-key") { "integration-test-login-id-hash-key" }
+            registry.add("security.pii.encryption-key-base64") {
+                "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
+            }
+            registry.add("security.cors.allowed-origins") { "http://localhost:3000" }
         }
 
         @JvmStatic

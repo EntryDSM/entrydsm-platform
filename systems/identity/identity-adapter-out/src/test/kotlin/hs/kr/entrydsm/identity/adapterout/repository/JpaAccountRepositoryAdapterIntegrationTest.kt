@@ -74,9 +74,16 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         val saved = adapter.save(account())
 
         assertNotNull(saved.userId)
-        assertEquals(saved.userId, adapter.findByUserId(saved.userId)?.userId)
-        assertEquals(saved.userId, adapter.findByLoginId(LOGIN_ID)?.userId)
-        assertEquals(BIRTHDATE, adapter.findByUserId(saved.userId)?.profile?.birthdate)
+        val byUserId = requireNotNull(adapter.findByUserId(saved.userId))
+        val byLoginId = requireNotNull(adapter.findByLoginId(LOGIN_ID))
+        assertEquals(saved.userId, byUserId.userId)
+        assertEquals(saved.loginId, byUserId.loginId)
+        assertEquals(saved.profile.name, byUserId.profile.name)
+        assertEquals(saved.profile.phone, byUserId.profile.phone)
+        assertEquals(saved.loginId, byLoginId.loginId)
+        assertEquals(saved.profile.name, byLoginId.profile.name)
+        assertEquals(saved.profile.phone, byLoginId.profile.phone)
+        assertEquals(BIRTHDATE, byUserId.profile.birthdate)
         val persistedAccount = requireNotNull(accountJpaRepository.findById(saved.userId).orElse(null))
         val persistedProfile = requireNotNull(studentProfileJpaRepository.findByAccount_Id(saved.userId))
         assertNotEquals(LOGIN_ID, persistedAccount.loginIdHash)
@@ -116,7 +123,7 @@ class JpaAccountRepositoryAdapterIntegrationTest {
     fun applicationDataAdapterUsesProjectionAndWritesOutboxForCancellation() {
         val saved = adapter.save(account())
         applicationDataAdapter.create(saved.userId, CREATED_AT)
-        applicationDataAdapter.consume(
+        assertEquals(true, applicationDataAdapter.consume(
             ApplicationStateChangedEvent(
                 eventId = "application-submitted-1",
                 userId = saved.userId,
@@ -127,7 +134,34 @@ class JpaAccountRepositoryAdapterIntegrationTest {
                 announcedAt = null,
                 occurredAt = CREATED_AT,
             ),
-        )
+        ))
+
+        val outboxCountBeforeRejectedEvents = identityOutboxJpaRepository.count()
+        assertEquals(false, applicationDataAdapter.consume(
+            ApplicationStateChangedEvent(
+                eventId = "application-submitted-1",
+                userId = saved.userId,
+                version = 2,
+                applicantStatus = ApplicantStatus.SUBMITTED,
+                submittedAt = CREATED_AT,
+                passStatus = PassStatus.NOT_ANNOUNCED,
+                announcedAt = null,
+                occurredAt = CREATED_AT,
+            ),
+        ))
+        assertEquals(false, applicationDataAdapter.consume(
+            ApplicationStateChangedEvent(
+                eventId = "application-submitted-old",
+                userId = saved.userId,
+                version = 0,
+                applicantStatus = ApplicantStatus.NONE,
+                submittedAt = null,
+                passStatus = PassStatus.NOT_ANNOUNCED,
+                announcedAt = null,
+                occurredAt = CREATED_AT,
+            ),
+        ))
+        assertEquals(outboxCountBeforeRejectedEvents, identityOutboxJpaRepository.count())
 
         val beforeCancel = requireNotNull(applicationDataAdapter.findByUserId(saved.userId))
         assertEquals(ApplicantStatus.SUBMITTED, beforeCancel.applicantStatus)
@@ -194,6 +228,10 @@ class JpaAccountRepositoryAdapterIntegrationTest {
             registry.add("spring.datasource.driver-class-name") { "com.mysql.cj.jdbc.Driver" }
             registry.add("spring.jpa.hibernate.ddl-auto") { "create-drop" }
             registry.add("spring.jpa.properties.hibernate.dialect") { "org.hibernate.dialect.MySQLDialect" }
+            registry.add("security.pii.login-id-hash-key") { "integration-test-login-id-hash-key" }
+            registry.add("security.pii.encryption-key-base64") {
+                "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
+            }
         }
 
         @JvmStatic

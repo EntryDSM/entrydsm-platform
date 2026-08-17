@@ -2,6 +2,7 @@ package hs.kr.entrydsm.identity.adapterout
 
 import hs.kr.entrydsm.identity.adapterout.security.BCryptPasswordHasher
 import hs.kr.entrydsm.identity.adapterout.security.AesGcmPersonalDataEncryptor
+import hs.kr.entrydsm.identity.adapterout.security.AccountPasswordResetOwnershipVerifierTest
 import hs.kr.entrydsm.identity.adapterout.security.HmacLoginIdHasher
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterIntegrationTest
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterTest
@@ -9,6 +10,7 @@ import hs.kr.entrydsm.identity.adapterout.security.RedisDurabilityGuardTest
 import hs.kr.entrydsm.identity.adapterout.persistence.AccountCommandPersistenceAdapterTest
 import hs.kr.entrydsm.identity.adapterout.persistence.TransactionalAccountRegistrationAdapterTest
 import hs.kr.entrydsm.identity.adapterout.repository.JpaAccountRepositoryAdapterIntegrationTest
+import hs.kr.entrydsm.identity.adapterout.persistence.PersistenceProfileContractTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -17,6 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Suite
+import javax.crypto.AEADBadTagException
 
 @RunWith(Suite::class)
 @Suite.SuiteClasses(
@@ -28,6 +31,8 @@ import org.junit.runners.Suite
     RedisRefreshTokenRotationAdapterTest::class,
     RedisDurabilityGuardTest::class,
     RedisRefreshTokenRotationAdapterIntegrationTest::class,
+    AccountPasswordResetOwnershipVerifierTest::class,
+    PersistenceProfileContractTest::class,
 )
 class IdentityAdapterOutModuleTest
 
@@ -72,6 +77,13 @@ class PersonalDataCryptoTest {
         assertTrue(encryptor.isEncrypted(encrypted))
         assertEquals("홍길동", encryptor.decrypt(encrypted))
         assertNotEquals(encrypted, encryptor.encrypt("홍길동"))
+
+        val parts = encrypted.split('.').toMutableList()
+        val tamperedCiphertext = java.util.Base64.getUrlDecoder().decode(parts[2]).also { it[0] = (it[0].toInt() xor 1).toByte() }
+        parts[2] = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(tamperedCiphertext)
+        assertThrows(AEADBadTagException::class.java) {
+            encryptor.decrypt(parts.joinToString("."))
+        }
     }
 
     @Test

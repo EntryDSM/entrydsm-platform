@@ -81,6 +81,11 @@ class AuthControllerTest {
             .login(LoginRequest(loginId = "entry", password = "password123!"))
 
         assertTrue(response.headers[HttpHeaders.SET_COOKIE].orEmpty().none { it.contains("Secure") })
+
+        val secureResponse = AuthController(FakeAuthPort(), true)
+            .login(LoginRequest(loginId = "entry", password = "password123!"))
+
+        assertTrue(secureResponse.headers[HttpHeaders.SET_COOKIE].orEmpty().all { it.contains("Secure") })
     }
 
     @Test

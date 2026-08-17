@@ -121,7 +121,7 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
         @BeforeClass
         fun startRedis() {
             val available = DockerClientFactory.instance().isDockerAvailable
-            if (!available && integrationTestsAreRequired()) {
+            if (!available && IntegrationTestGate.isRequired()) {
                 error("Docker daemon is required for Redis integration tests")
             }
             assumeTrue("Docker daemon is required for Redis integration tests", available)
@@ -144,8 +144,10 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
             )
         }
 
-        private fun integrationTestsAreRequired(): Boolean =
-            System.getenv("IDENTITY_INTEGRATION_REQUIRED").equals("true", ignoreCase = true)
+        private object IntegrationTestGate {
+            fun isRequired(): Boolean =
+                System.getenv("IDENTITY_INTEGRATION_REQUIRED").equals("true", ignoreCase = true)
+        }
 
         @JvmStatic
         @AfterClass
