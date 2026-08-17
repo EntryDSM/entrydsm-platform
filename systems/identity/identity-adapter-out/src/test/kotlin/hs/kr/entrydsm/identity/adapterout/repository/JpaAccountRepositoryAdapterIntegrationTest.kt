@@ -19,7 +19,9 @@ import hs.kr.entrydsm.identity.domain.model.PasswordHash
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -197,9 +199,14 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         )
 
         val executor = Executors.newFixedThreadPool(2)
+        val ready = CountDownLatch(2)
+        val start = CountDownLatch(1)
         try {
             val futures = (1..2).map { index ->
                 executor.submit(java.util.concurrent.Callable {
+                    ready.countDown()
+                    check(ready.await(10, TimeUnit.SECONDS)) { "Concurrent cancellation task was not ready" }
+                    check(start.await(10, TimeUnit.SECONDS)) { "Concurrent cancellation test did not start" }
                     try {
                         applicationDataAdapter.cancel(
                             saved.userId,
@@ -212,7 +219,9 @@ class JpaAccountRepositoryAdapterIntegrationTest {
                     }
                 })
             }
-            val failures = futures.map { it.get() }.filterIsInstance<IdentityDomainException>()
+            assertEquals(true, ready.await(10, TimeUnit.SECONDS))
+            start.countDown()
+            val failures = futures.map { it.get(10, TimeUnit.SECONDS) }.filterIsInstance<IdentityDomainException>()
 
             assertEquals(1, failures.size)
             assertEquals(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED, failures.single().errorCode)

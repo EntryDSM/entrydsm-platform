@@ -20,12 +20,14 @@ class AccountPasswordResetOwnershipVerifier(
     @Value("\${auth.password-reset.max-attempts:5}") private val maxAttempts: Int,
     @Value("\${auth.password-reset.window-seconds:900}") private val windowSeconds: Long,
     private val clock: Clock = Clock.systemUTC(),
+    @Value("\${auth.password-reset.max-tracked-login-ids:10000}") private val maxTrackedLoginIds: Int = MAX_TRACKED_LOGIN_IDS,
 ) : PasswordResetOwnershipVerifier {
     private val attemptsByLoginId = ConcurrentHashMap<String, AttemptWindow>()
 
     init {
         require(maxAttempts > 0) { "Password reset max attempts must be positive" }
         require(windowSeconds > 0) { "Password reset window must be positive" }
+        require(maxTrackedLoginIds > 0) { "Password reset tracked login ID limit must be positive" }
     }
 
     override fun verify(command: PasswordResetCommand): Boolean {
@@ -35,23 +37,17 @@ class AccountPasswordResetOwnershipVerifier(
     }
 
     private fun allowAttempt(loginId: String): Boolean {
+        if (loginId.isBlank()) return false
         val now = Instant.now(clock)
         synchronized(attemptsByLoginId) {
             attemptsByLoginId.entries.removeIf {
                 Duration.between(it.value.startedAt, now).seconds >= windowSeconds
             }
-            if (!attemptsByLoginId.containsKey(loginId) && attemptsByLoginId.size >= MAX_TRACKED_LOGIN_IDS) {
-                attemptsByLoginId.entries.minByOrNull { it.value.startedAt }?.let {
-                    attemptsByLoginId.remove(it.key)
-                }
-            }
-            val window = attemptsByLoginId.compute(loginId) { _, current ->
-                if (current == null) {
-                    AttemptWindow(now, 1)
-                } else {
-                    current.copy(attempts = current.attempts + 1)
-                }
-            } ?: return false
+            val current = attemptsByLoginId[loginId]
+            if (current == null && attemptsByLoginId.size >= maxTrackedLoginIds) return false
+            val window = current?.copy(attempts = current.attempts + 1)
+                ?: AttemptWindow(now, 1)
+            attemptsByLoginId[loginId] = window
             return window.attempts <= maxAttempts
         }
     }

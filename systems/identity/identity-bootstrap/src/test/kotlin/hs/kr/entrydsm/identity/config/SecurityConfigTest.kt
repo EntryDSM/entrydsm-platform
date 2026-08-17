@@ -166,6 +166,17 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun productionSecurityRejectsEmptyCorsOrigins() {
+        assertThrows(IllegalArgumentException::class.java) {
+            SecurityConfigurationValidator.validate(
+                secureCookies = true,
+                allowedCorsOrigins = "",
+                production = true,
+            )
+        }
+    }
+
+    @Test
     fun applicationStatusWithoutAuthorizationReturnsUnauthorizedError() {
         val response = mockMvc.perform(
             get("/api/identity/v11/applications/status"),

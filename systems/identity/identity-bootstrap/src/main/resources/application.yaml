@@ -30,6 +30,7 @@ auth:
     enabled: ${AUTH_PASSWORD_RESET_ENABLED:false}
     max-attempts: ${AUTH_PASSWORD_RESET_MAX_ATTEMPTS:5}
     window-seconds: ${AUTH_PASSWORD_RESET_WINDOW_SECONDS:900}
+    max-tracked-login-ids: ${AUTH_PASSWORD_RESET_MAX_TRACKED_LOGIN_IDS:10000}
   jwt:
     secret: ${JWT_SECRET}
     issuer: ${JWT_ISSUER:entrydsm-identity}
