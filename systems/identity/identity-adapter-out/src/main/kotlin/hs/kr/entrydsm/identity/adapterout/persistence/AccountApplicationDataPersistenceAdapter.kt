@@ -49,7 +49,7 @@ class AccountApplicationDataPersistenceAdapter(
         reason: String?,
         updatedAt: Instant,
     ): ApplicationSnapshot {
-        val projection = projectionRepository.findById(userId).orElse(null)
+        val projection = projectionRepository.findByUserIdForUpdate(userId)
             ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
         if (projection.applicantStatus != ApplicantStatus.SUBMITTED) {
             throw IdentityDomainException(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED)
@@ -77,8 +77,12 @@ class AccountApplicationDataPersistenceAdapter(
 
     @Transactional
     override fun consume(event: ApplicationStateChangedEvent): Boolean {
-        val projection = projectionRepository.findById(event.userId).orElse(null)
-        if (projection != null && event.version <= projection.sourceVersion) return false
+        val projection = projectionRepository.findByUserIdForUpdate(event.userId)
+        if (projection != null &&
+            (event.version <= projection.sourceVersion || event.eventId == projection.lastEventId)
+        ) {
+            return false
+        }
 
         val resolved = projection ?: ApplicationProjectionJpaEntity(userId = event.userId)
         resolved.applicantStatus = event.applicantStatus
@@ -87,6 +91,7 @@ class AccountApplicationDataPersistenceAdapter(
         resolved.announcedAt = event.announcedAt
         resolved.stateUpdatedAt = event.occurredAt
         resolved.sourceVersion = event.version
+        resolved.lastEventId = event.eventId
         projectionRepository.save(resolved)
         return true
     }

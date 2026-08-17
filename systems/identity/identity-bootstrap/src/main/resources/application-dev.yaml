@@ -10,12 +10,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-      open-in-view: false
+    open-in-view: false
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-
 auth:
   jwt:
     secret: ${JWT_SECRET:dev-development-jwt-secret-change-me-32}
@@ -23,3 +22,5 @@ auth:
 security:
   cookies:
     secure: ${COOKIE_SECURE:false}
+  cors:
+    allowed-origins: ${IDENTITY_CORS_ALLOWED_ORIGINS:http://localhost:3000}

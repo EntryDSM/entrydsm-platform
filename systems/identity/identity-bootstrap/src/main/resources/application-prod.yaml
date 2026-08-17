@@ -24,6 +24,10 @@ auth:
     secret: ${JWT_SECRET}
 
 security:
+  cookies:
+    secure: ${COOKIE_SECURE}
+  cors:
+    allowed-origins: ${IDENTITY_CORS_ALLOWED_ORIGINS}
   pii:
     login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY}
     encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64}

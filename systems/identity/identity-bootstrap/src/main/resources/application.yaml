@@ -21,8 +21,8 @@ security:
   cors:
     allowed-origins: ${IDENTITY_CORS_ALLOWED_ORIGINS:}
   pii:
-    login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY:dev-identity-login-id-hash-key-change-me}
-    encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}
+    login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY}
+    encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64}
 auth:
   password:
     bcrypt-strength: ${BCRYPT_STRENGTH:12}

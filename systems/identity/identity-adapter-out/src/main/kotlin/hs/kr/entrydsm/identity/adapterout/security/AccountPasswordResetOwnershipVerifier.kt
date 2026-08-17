@@ -23,6 +23,11 @@ class AccountPasswordResetOwnershipVerifier(
 ) : PasswordResetOwnershipVerifier {
     private val attemptsByLoginId = ConcurrentHashMap<String, AttemptWindow>()
 
+    init {
+        require(maxAttempts > 0) { "Password reset max attempts must be positive" }
+        require(windowSeconds > 0) { "Password reset window must be positive" }
+    }
+
     override fun verify(command: PasswordResetCommand): Boolean {
         if (!allowAttempt(command.loginId)) return false
         val account = accountQueryPort.findByLoginId(command.loginId) ?: return false
@@ -31,18 +36,32 @@ class AccountPasswordResetOwnershipVerifier(
 
     private fun allowAttempt(loginId: String): Boolean {
         val now = Instant.now(clock)
-        val window = attemptsByLoginId.compute(loginId) { _, current ->
-            if (current == null || Duration.between(current.startedAt, now).seconds >= windowSeconds) {
-                AttemptWindow(now, 1)
-            } else {
-                current.copy(attempts = current.attempts + 1)
+        synchronized(attemptsByLoginId) {
+            attemptsByLoginId.entries.removeIf {
+                Duration.between(it.value.startedAt, now).seconds >= windowSeconds
             }
-        } ?: return false
-        return window.attempts <= maxAttempts
+            if (!attemptsByLoginId.containsKey(loginId) && attemptsByLoginId.size >= MAX_TRACKED_LOGIN_IDS) {
+                attemptsByLoginId.entries.minByOrNull { it.value.startedAt }?.let {
+                    attemptsByLoginId.remove(it.key)
+                }
+            }
+            val window = attemptsByLoginId.compute(loginId) { _, current ->
+                if (current == null) {
+                    AttemptWindow(now, 1)
+                } else {
+                    current.copy(attempts = current.attempts + 1)
+                }
+            } ?: return false
+            return window.attempts <= maxAttempts
+        }
     }
 
     private data class AttemptWindow(
         val startedAt: Instant,
         val attempts: Int,
     )
+
+    private companion object {
+        const val MAX_TRACKED_LOGIN_IDS = 10_000
+    }
 }

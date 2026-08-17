@@ -8,16 +8,24 @@ import javax.crypto.Cipher
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Component
 
 @Component
+@Lazy(false)
 class AesGcmPersonalDataEncryptor(
-    @Value("\${security.pii.encryption-key-base64:MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=}") keyBase64: String,
+    @Value("\${security.pii.encryption-key-base64}") keyBase64: String,
 ) : PersonalDataEncryptor {
-    private val key = SecretKeySpec(Base64.getDecoder().decode(keyBase64), KEY_ALGORITHM)
+    private val key = SecretKeySpec(
+        Base64.getDecoder().decode(keyBase64.trim()),
+        KEY_ALGORITHM,
+    )
     private val secureRandom = SecureRandom()
 
     init {
+        require(keyBase64.isNotBlank()) {
+            "PII encryption key must not be blank"
+        }
         require(key.encoded.size in VALID_KEY_LENGTHS) {
             "PII encryption key must be 128, 192, or 256 bits"
         }

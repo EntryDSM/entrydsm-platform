@@ -21,6 +21,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.core.env.Environment
+import org.springframework.core.env.Profiles
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
@@ -79,8 +81,9 @@ class SecurityConfig {
         JwtAuthorizationDeniedHandler(objectMapper)
 
     @Bean
-    fun corsConfigurationSource(): CorsConfigurationSource =
+    fun corsConfigurationSource(environment: Environment): CorsConfigurationSource =
         UrlBasedCorsConfigurationSource().also { source ->
+            validateSecurityConfiguration(environment)
             source.registerCorsConfiguration("/**", CorsConfiguration().apply {
                 allowedOrigins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
                 allowedMethods = listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS")
@@ -89,6 +92,17 @@ class SecurityConfig {
                 maxAge = 3600
             })
         }
+
+    private fun validateSecurityConfiguration(environment: Environment) {
+        val origins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
+        require(origins.none { it == "*" }) {
+            "Wildcard CORS origins are not allowed when credentials are enabled"
+        }
+        if (environment.acceptsProfiles(Profiles.of("prod"))) {
+            require(secureCookies) { "Secure cookies must be enabled in the prod profile" }
+            require(origins.isNotEmpty()) { "CORS origins must be configured in the prod profile" }
+        }
+    }
 
     @Bean
     fun securityFilterChain(

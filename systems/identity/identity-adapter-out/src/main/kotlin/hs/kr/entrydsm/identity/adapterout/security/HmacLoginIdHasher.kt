@@ -5,13 +5,19 @@ import java.nio.charset.StandardCharsets.UTF_8
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Component
 
 @Component
+@Lazy(false)
 class HmacLoginIdHasher(
-    @Value("\${security.pii.login-id-hash-key:dev-identity-login-id-hash-key-change-me}") key: String,
+    @Value("\${security.pii.login-id-hash-key}") key: String,
 ) : LoginIdHasher {
-    private val secretKey = SecretKeySpec(key.toByteArray(UTF_8), ALGORITHM)
+    private val secretKey = SecretKeySpec(key.trim().toByteArray(UTF_8), ALGORITHM)
+
+    init {
+        require(key.isNotBlank()) { "Login ID hash key must not be blank" }
+    }
 
     override fun hash(loginId: String): String {
         require(loginId.isNotBlank()) { "Login ID must not be blank" }

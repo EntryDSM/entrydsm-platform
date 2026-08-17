@@ -9,6 +9,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.Instant
 
 @Entity
@@ -37,4 +38,11 @@ open class ApplicationProjectionJpaEntity(
 
     @Column(name = "source_version", nullable = false)
     var sourceVersion: Long = 0,
+
+    @Version
+    @Column(name = "lock_version", nullable = false)
+    var lockVersion: Long = 0,
+
+    @Column(name = "last_event_id", length = 36)
+    var lastEventId: String? = null,
 ) : BaseTimeEntity()
