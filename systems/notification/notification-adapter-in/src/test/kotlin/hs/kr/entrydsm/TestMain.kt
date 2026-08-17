@@ -34,4 +34,15 @@ class NotificationAdapterInModuleTest {
         assertEquals("INVALID_REQUEST", response.body?.code)
         assertEquals("invalid request", response.body?.message)
     }
+
+    @Test
+    fun unhandledExceptionReturnsStableErrorResponse() {
+        val response = GlobalExceptionHandler()
+            .handleUnhandledException(RuntimeException("database connection failed"))
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.statusCode)
+        assertEquals(500, response.body?.status)
+        assertEquals("INTERNAL_SERVER_ERROR", response.body?.code)
+        assertEquals("internal server error", response.body?.message)
+    }
 }
