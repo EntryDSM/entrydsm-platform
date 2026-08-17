@@ -1,11 +1,11 @@
 package hs.kr.entrydsm.notification.application
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import hs.kr.entrydsm.notification.application.service.NotificationServiceTest
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class NotificationApplicationModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    NotificationServiceTest::class,
+)
+class NotificationApplicationModuleTest
