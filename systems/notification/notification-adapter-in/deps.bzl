@@ -1,3 +1,4 @@
+# Dependencies for the notification REST adapter module.
 KOTLIN_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
     "//systems/notification/notification-application:main",
