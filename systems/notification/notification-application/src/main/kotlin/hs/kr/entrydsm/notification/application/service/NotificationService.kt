@@ -15,9 +15,7 @@ import hs.kr.entrydsm.notification.application.port.out.NoticeRepository
 import hs.kr.entrydsm.notification.application.port.out.RecruitmentGuidelineRepository
 import hs.kr.entrydsm.notification.domain.model.Faq
 import hs.kr.entrydsm.notification.domain.model.Notice
-import org.springframework.stereotype.Service
 
-@Service
 class NotificationService(
     private val noticeRepository: NoticeRepository,
     private val faqRepository: FaqRepository,
@@ -100,11 +98,12 @@ class NotificationService(
         command: ReadNotificationPageCommand,
         mapper: (T) -> R,
     ): PageResult<R> {
-        require(command.page >= 0) { "page must be greater than or equal to 0" }
-        require(command.size > 0) { "size must be greater than 0" }
-
-        val fromIndex = (command.page * command.size).coerceAtMost(size)
-        val toIndex = (fromIndex + command.size).coerceAtMost(size)
+        val fromIndex = command.offset()
+            .coerceAtMost(size.toLong())
+            .toInt()
+        val toIndex = (fromIndex.toLong() + command.size.toLong())
+            .coerceAtMost(size.toLong())
+            .toInt()
         val totalPages = if (isEmpty()) 0 else ((size - 1) / command.size) + 1
         return PageResult(
             content = subList(fromIndex, toIndex).map(mapper),
