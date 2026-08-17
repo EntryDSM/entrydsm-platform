@@ -2,7 +2,7 @@ spring:
   application:
     name: notification
   profiles:
-    default: dev
+    default: local
   main:
     lazy-initialization: true
 
@@ -10,7 +10,7 @@ server:
   shutdown: graceful
 
 grpc:
-  port: ${GRPC_PORT:9090}
+  port: ${GRPC_PORT}
 
 management:
   endpoints:
