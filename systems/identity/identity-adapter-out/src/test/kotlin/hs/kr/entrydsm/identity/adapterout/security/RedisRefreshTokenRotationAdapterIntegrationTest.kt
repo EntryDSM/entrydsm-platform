@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.identity.adapterout.security
 
+import hs.kr.entrydsm.identity.test.IntegrationTestGate
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
 import java.time.Clock
 import java.time.Duration
@@ -142,11 +143,6 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
                 namespace = NAMESPACE,
                 issuer = ISSUER,
             )
-        }
-
-        private object IntegrationTestGate {
-            fun isRequired(): Boolean =
-                System.getenv("IDENTITY_INTEGRATION_REQUIRED").equals("true", ignoreCase = true)
         }
 
         @JvmStatic

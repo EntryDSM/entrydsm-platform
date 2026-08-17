@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity.config
 import hs.kr.entrydsm.identity.IdentityBootstrapApplication
 import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.test.IntegrationTestGate
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -160,11 +161,6 @@ class IdentityApplicationHttpIntegrationTest {
                 error("Docker daemon is required for HTTP persistence integration tests")
             }
             assumeTrue("Docker daemon is required for HTTP persistence integration tests", available)
-        }
-
-        private object IntegrationTestGate {
-            fun isRequired(): Boolean =
-                System.getenv("IDENTITY_INTEGRATION_REQUIRED").equals("true", ignoreCase = true)
         }
 
         @JvmStatic

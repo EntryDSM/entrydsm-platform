@@ -12,11 +12,14 @@ import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.enum.SignupType
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.PasswordHash
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
 import java.time.LocalDate
+import java.util.concurrent.Executors
 import org.junit.AfterClass
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -174,6 +177,49 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         assertEquals(TRANSITION_TIME, canceled.updatedAt)
         assertEquals(ApplicantStatus.SUBMITTED, persisted.profile.applicantStatus)
         assertEquals(1, identityOutboxJpaRepository.count())
+    }
+
+    @Test
+    fun concurrentCancellationAllowsOnlyOneStateTransition() {
+        val saved = adapter.save(account())
+        applicationDataAdapter.create(saved.userId, CREATED_AT)
+        applicationDataAdapter.consume(
+            ApplicationStateChangedEvent(
+                eventId = "application-concurrent-submitted",
+                userId = saved.userId,
+                version = 1,
+                applicantStatus = ApplicantStatus.SUBMITTED,
+                submittedAt = CREATED_AT,
+                passStatus = PassStatus.NOT_ANNOUNCED,
+                announcedAt = null,
+                occurredAt = CREATED_AT,
+            ),
+        )
+
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val futures = (1..2).map { index ->
+                executor.submit(java.util.concurrent.Callable {
+                    try {
+                        applicationDataAdapter.cancel(
+                            saved.userId,
+                            "concurrent-$index",
+                            TRANSITION_TIME,
+                        )
+                        null
+                    } catch (exception: IdentityDomainException) {
+                        exception
+                    }
+                })
+            }
+            val failures = futures.map { it.get() }.filterIsInstance<IdentityDomainException>()
+
+            assertEquals(1, failures.size)
+            assertEquals(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED, failures.single().errorCode)
+            assertEquals(1, identityOutboxJpaRepository.count())
+        } finally {
+            executor.shutdownNow()
+        }
     }
 
     @SpringBootConfiguration

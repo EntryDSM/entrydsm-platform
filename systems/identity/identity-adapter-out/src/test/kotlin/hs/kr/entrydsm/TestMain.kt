@@ -97,4 +97,17 @@ class PersonalDataCryptoTest {
             encryptor.decrypt("홍길동")
         }
     }
+
+    @Test
+    fun personalDataSecurityKeysRejectMissingOrMalformedValues() {
+        assertThrows(IllegalArgumentException::class.java) {
+            HmacLoginIdHasher("   ")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AesGcmPersonalDataEncryptor(keyBase64 = "not-base64")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            AesGcmPersonalDataEncryptor(keyBase64 = "")
+        }
+    }
 }
