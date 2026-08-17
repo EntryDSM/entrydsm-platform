@@ -13,6 +13,7 @@ import hs.kr.entrydsm.notification.application.port.`in`.result.RecruitmentSched
 import hs.kr.entrydsm.notification.application.port.out.FaqRepository
 import hs.kr.entrydsm.notification.application.port.out.NoticeRepository
 import hs.kr.entrydsm.notification.application.port.out.RecruitmentGuidelineRepository
+import hs.kr.entrydsm.notification.application.port.out.data.PageData
 import hs.kr.entrydsm.notification.domain.model.Faq
 import hs.kr.entrydsm.notification.domain.model.Notice
 
@@ -22,18 +23,14 @@ class NotificationService(
     private val recruitmentGuidelineRepository: RecruitmentGuidelineRepository,
 ) : NotificationPort {
     override fun getNotices(command: ReadNotificationPageCommand): PageResult<NoticeSummaryResult> =
-        noticeRepository.findAll()
-            .sortedByDescending { it.createdAt }
-            .toPage(command) { it.toSummaryResult() }
+        noticeRepository.findPage(command).toResult { it.toSummaryResult() }
 
     override fun getNotice(id: Long): NoticeDetailResult =
         noticeRepository.findById(id)?.toDetailResult()
             ?: throw NotificationNotFoundException("notice not found: id=$id")
 
     override fun getFaqs(command: ReadNotificationPageCommand): PageResult<FaqSummaryResult> =
-        faqRepository.findAll()
-            .sortedBy { it.id }
-            .toPage(command) { it.toSummaryResult() }
+        faqRepository.findPage(command).toResult { it.toSummaryResult() }
 
     override fun getFaq(id: Long): FaqDetailResult =
         faqRepository.findById(id)?.toDetailResult()
@@ -94,24 +91,16 @@ class NotificationService(
             updatedAt = updatedAt,
         )
 
-    private fun <T, R> List<T>.toPage(
-        command: ReadNotificationPageCommand,
+    private fun <T, R> PageData<T>.toResult(
         mapper: (T) -> R,
     ): PageResult<R> {
-        val fromIndex = command.offset()
-            .coerceAtMost(size.toLong())
-            .toInt()
-        val toIndex = (fromIndex.toLong() + command.size.toLong())
-            .coerceAtMost(size.toLong())
-            .toInt()
-        val totalPages = if (isEmpty()) 0 else ((size - 1) / command.size) + 1
         return PageResult(
-            content = subList(fromIndex, toIndex).map(mapper),
-            page = command.page,
-            size = command.size,
-            totalElements = size.toLong(),
+            content = content.map(mapper),
+            page = page,
+            size = size,
+            totalElements = totalElements,
             totalPages = totalPages,
-            last = command.page >= totalPages - 1,
+            last = last,
         )
     }
 }
