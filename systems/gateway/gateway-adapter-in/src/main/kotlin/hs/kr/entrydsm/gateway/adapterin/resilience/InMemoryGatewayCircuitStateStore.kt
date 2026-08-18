@@ -15,6 +15,10 @@ class InMemoryGatewayCircuitStateStore(
 ) : GatewayCircuitStateStore {
     private val states = ConcurrentHashMap<String, State>()
 
+    fun clear() {
+        states.clear()
+    }
+
     override fun tryAcquire(
         routeId: String,
         policy: GatewayRuntimeProperties.Resilience,

@@ -41,6 +41,19 @@ class GatewayCircuitBreakerGlobalFilter(
                     return@flatMap reject(exchange)
                 }
                 chain.filter(exchange)
+                    .onErrorResume { error ->
+                        circuitBreaker.onError(
+                            System.nanoTime() - startedAt,
+                            TimeUnit.NANOSECONDS,
+                            error,
+                        )
+                        recordSafely(
+                            routeId,
+                            failed = true,
+                            permit = sharedPermit,
+                            policy = policy,
+                        ).then(Mono.error(error))
+                    }
                     .then(Mono.defer {
                         val failed = exchange.response.statusCode?.is5xxServerError == true
                         val duration = System.nanoTime() - startedAt
@@ -53,29 +66,13 @@ class GatewayCircuitBreakerGlobalFilter(
                         } else {
                             circuitBreaker.onSuccess(duration, TimeUnit.NANOSECONDS)
                         }
-                        stateStore.record(
+                        recordSafely(
                             routeId,
                             failed,
-                            sharedPermit.halfOpen,
-                            policy,
-                            sharedPermit.permitId,
+                            permit = sharedPermit,
+                            policy = policy,
                         )
                     })
-                    .onErrorResume { error ->
-                        circuitBreaker.onError(
-                            System.nanoTime() - startedAt,
-                            TimeUnit.NANOSECONDS,
-                            error,
-                        )
-                        stateStore.record(
-                            routeId,
-                            failed = true,
-                            sharedPermit.halfOpen,
-                            policy,
-                            sharedPermit.permitId,
-                        )
-                            .then(Mono.error(error))
-                    }
             }
     }
 
@@ -85,6 +82,20 @@ class GatewayCircuitBreakerGlobalFilter(
         exchange.response.headers.add("Retry-After", openDurationSeconds.toString())
         return responseWriter.write(exchange, HttpStatus.SERVICE_UNAVAILABLE, "CIRCUIT_OPEN")
     }
+
+    private fun recordSafely(
+        routeId: String,
+        failed: Boolean,
+        permit: GatewayCircuitPermit,
+        policy: GatewayRuntimeProperties.Resilience,
+    ): Mono<Void> = stateStore.record(
+        routeId,
+        failed,
+        permit.halfOpen,
+        policy,
+        permit.permitId,
+    ).doOnError { error -> logger.warn("Circuit state record failed for route {}", routeId, error) }
+        .onErrorResume { Mono.empty() }
 
     private class DownstreamResponseFailure(routeId: String) :
         RuntimeException(
