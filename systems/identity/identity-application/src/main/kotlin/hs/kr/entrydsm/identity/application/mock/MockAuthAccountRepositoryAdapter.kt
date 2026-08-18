@@ -7,9 +7,6 @@ import hs.kr.entrydsm.identity.domain.model.Account
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
 
 /** Fallback account store that keeps the authentication service runnable without the account API. */
 class MockAuthAccountRepositoryAdapter : AccountRepository {
@@ -47,11 +44,4 @@ class MockAuthAccountRepositoryAdapter : AccountRepository {
         accountsById[account.userId] = account
         return account
     }
-}
-
-@Configuration(proxyBeanMethods = false)
-class MockAuthAccountRepositoryAdapterConfiguration {
-    @Bean
-    @ConditionalOnMissingBean(AccountRepository::class)
-    fun mockAuthAccountRepositoryAdapter(): AccountRepository = MockAuthAccountRepositoryAdapter()
 }

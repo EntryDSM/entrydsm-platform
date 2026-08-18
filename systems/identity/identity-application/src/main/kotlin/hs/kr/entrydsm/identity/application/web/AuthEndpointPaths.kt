@@ -13,5 +13,5 @@ object AuthEndpointPaths {
     const val TOKEN = "$BASE$TOKEN_PATH"
     const val PASSWORD_RESET = "$BASE$PASSWORD_RESET_PATH"
 
-    val PUBLIC = setOf(SIGNUP, LOGIN, TOKEN)
+    val PUBLIC = setOf(SIGNUP, LOGIN, TOKEN, PASSWORD_RESET)
 }

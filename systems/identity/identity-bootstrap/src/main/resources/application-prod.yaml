@@ -15,7 +15,6 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
-  # V023__student_profiles_birthdate_date.sql must be applied by the deployment migration runner.
   data:
     redis:
       url: ${REDIS_URL}
@@ -23,6 +22,15 @@ spring:
 auth:
   jwt:
     secret: ${JWT_SECRET}
+
+security:
+  cookies:
+    secure: ${COOKIE_SECURE}
+  cors:
+    allowed-origins: ${IDENTITY_CORS_ALLOWED_ORIGINS}
+  pii:
+    login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY}
+    encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64}
 
 identity:
   redis:

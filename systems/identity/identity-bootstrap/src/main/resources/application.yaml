@@ -18,11 +18,19 @@ identity:
 security:
   cookies:
     secure: ${COOKIE_SECURE:true}
+  cors:
+    allowed-origins: ${IDENTITY_CORS_ALLOWED_ORIGINS:}
+  pii:
+    login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY}
+    encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64}
 auth:
   password:
     bcrypt-strength: ${BCRYPT_STRENGTH:12}
   password-reset:
     enabled: ${AUTH_PASSWORD_RESET_ENABLED:false}
+    max-attempts: ${AUTH_PASSWORD_RESET_MAX_ATTEMPTS:5}
+    window-seconds: ${AUTH_PASSWORD_RESET_WINDOW_SECONDS:900}
+    max-tracked-login-ids: ${AUTH_PASSWORD_RESET_MAX_TRACKED_LOGIN_IDS:10000}
   jwt:
     secret: ${JWT_SECRET}
     issuer: ${JWT_ISSUER:entrydsm-identity}

@@ -4,6 +4,7 @@ import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.identity.config.SecurityConfig
 import hs.kr.entrydsm.identity.config.SecurityConfigTest
+import hs.kr.entrydsm.identity.config.IdentityApplicationHttpIntegrationTest
 import hs.kr.entrydsm.identity.config.security.JwtFilterTest
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import java.time.Instant
@@ -19,6 +20,7 @@ import org.junit.runners.Suite
     ObjectMapperConfigurationTest::class,
     JwtFilterTest::class,
     SecurityConfigTest::class,
+    IdentityApplicationHttpIntegrationTest::class,
 )
 class IdentityBootstrapModuleTest
 

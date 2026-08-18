@@ -10,6 +10,7 @@ KOTLIN_DEPS = [
 TEST_DEPS = [
     "@maven//:junit_junit",
     "@maven//:org_testcontainers_testcontainers",
+    "@maven//:org_springframework_boot_spring_boot_persistence",
     "@maven//:org_springframework_boot_spring_boot_starter_test",
 ]
 

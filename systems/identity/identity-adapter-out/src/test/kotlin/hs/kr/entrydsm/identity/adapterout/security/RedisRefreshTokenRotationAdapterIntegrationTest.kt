@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.identity.adapterout.security
 
+import hs.kr.entrydsm.identity.test.IntegrationTestGate
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
 import java.time.Clock
 import java.time.Duration
@@ -120,10 +121,11 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
         @JvmStatic
         @BeforeClass
         fun startRedis() {
-            assumeTrue(
-                "Docker daemon is required for Redis integration tests",
-                DockerClientFactory.instance().isDockerAvailable,
-            )
+            val available = DockerClientFactory.instance().isDockerAvailable
+            if (!available && IntegrationTestGate.isRequired()) {
+                error("Docker daemon is required for Redis integration tests")
+            }
+            assumeTrue("Docker daemon is required for Redis integration tests", available)
             redis = GenericContainer<Nothing>(DockerImageName.parse(REDIS_IMAGE))
                 .withExposedPorts(REDIS_PORT)
             redis.start()

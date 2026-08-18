@@ -2,6 +2,7 @@ SPRING_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
     "@maven//:org_springframework_boot_spring_boot_starter_security",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
+    "@maven//:org_springframework_boot_spring_boot_autoconfigure",
 ]
 
 KOTLIN_DEPS = [
@@ -15,6 +16,7 @@ KOTLIN_DEPS = [
 TEST_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_test",
     "@maven//:junit_junit",
+    "@maven//:org_testcontainers_testcontainers",
 ]
 
 MODULE_DEPS = SPRING_DEPS + KOTLIN_DEPS

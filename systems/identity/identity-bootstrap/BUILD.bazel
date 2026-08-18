@@ -27,6 +27,8 @@ kt_jvm_test(
     plugins = ["//:spring_allopen"],
     resources = glob(["src/main/resources/**"]),
     test_class = "hs.kr.entrydsm.identity.IdentityBootstrapModuleTest",
-    deps = [":main"] + MODULE_DEPS + TEST_DEPS,
+    deps = [":main"] + MODULE_DEPS + TEST_DEPS + [
+        "//systems/identity/identity-test-support:main",
+    ],
 )
 
