@@ -210,6 +210,7 @@ class IdentityApplicationHttpIntegrationTest {
             registry.add("security.pii.encryption-key-base64") {
                 "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
             }
+            registry.add("pass.proof-key-current") { "integration-test-pass-proof-key" }
             registry.add("security.cors.allowed-origins") { "http://localhost:3000" }
         }
 

@@ -35,3 +35,7 @@ security:
 identity:
   redis:
     durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED:true}
+
+pass:
+  target: ${PASS_TARGET:PROD}
+  popup-url: ${PASS_POPUP_URL:https://safe.ok-name.co.kr/CommonSvl}

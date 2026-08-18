@@ -2,6 +2,8 @@ package hs.kr.entrydsm.identity.adapterout.security
 
 import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetCommand
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
+import hs.kr.entrydsm.identity.application.port.out.PassProofStore
+import hs.kr.entrydsm.identity.application.port.out.PassVerificationProof
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Clock
@@ -27,7 +29,7 @@ class AccountPasswordResetOwnershipVerifierTest {
         `when`(profile.name).thenReturn("홍길동")
         `when`(profile.birthdate).thenReturn(BIRTHDATE)
 
-        val verifier = AccountPasswordResetOwnershipVerifier(queryPort, 3, 60, MutableClock())
+        val verifier = verifier(queryPort, 3, 60, MutableClock())
 
         assertFalse(verifier.verify(command("missing", "홍길동")))
         assertFalse(verifier.verify(command("known", "다른 이름")))
@@ -42,7 +44,7 @@ class AccountPasswordResetOwnershipVerifierTest {
         `when`(account.profile).thenReturn(profile)
         `when`(profile.name).thenReturn("홍길동")
         `when`(profile.birthdate).thenReturn(BIRTHDATE)
-        val verifier = AccountPasswordResetOwnershipVerifier(queryPort, 2, 60, MutableClock())
+        val verifier = verifier(queryPort, 2, 60, MutableClock())
 
         assertTrue(verifier.verify(command("known", "홍길동")))
         assertTrue(verifier.verify(command("known", "홍길동")))
@@ -59,13 +61,7 @@ class AccountPasswordResetOwnershipVerifierTest {
         `when`(account.profile).thenReturn(profile)
         `when`(profile.name).thenReturn("홍길동")
         `when`(profile.birthdate).thenReturn(BIRTHDATE)
-        val verifier = AccountPasswordResetOwnershipVerifier(
-            queryPort,
-            1,
-            60,
-            MutableClock(),
-            1,
-        )
+        val verifier = verifier(queryPort, 1, 60, MutableClock(), 1)
 
         assertTrue(verifier.verify(command("known", "홍길동")))
         assertFalse(verifier.verify(command("attacker", "홍길동")))
@@ -84,7 +80,7 @@ class AccountPasswordResetOwnershipVerifierTest {
         `when`(profile.name).thenReturn("홍길동")
         `when`(profile.birthdate).thenReturn(BIRTHDATE)
         val clock = MutableClock()
-        val verifier = AccountPasswordResetOwnershipVerifier(queryPort, 1, 60, clock)
+        val verifier = verifier(queryPort, 1, 60, clock)
 
         assertTrue(verifier.verify(command("known", "홍길동")))
         assertFalse(verifier.verify(command("known", "홍길동")))
@@ -94,26 +90,41 @@ class AccountPasswordResetOwnershipVerifierTest {
 
     @Test(expected = IllegalArgumentException::class)
     fun rejectsInvalidAttemptConfiguration() {
-        AccountPasswordResetOwnershipVerifier(mock(AccountQueryPort::class.java), 0, 60, MutableClock())
+        verifier(mock(AccountQueryPort::class.java), 0, 60, MutableClock())
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun rejectsInvalidWindowConfiguration() {
-        AccountPasswordResetOwnershipVerifier(mock(AccountQueryPort::class.java), 3, 0, MutableClock())
+        verifier(mock(AccountQueryPort::class.java), 3, 0, MutableClock())
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun rejectsInvalidTrackedLoginIdConfiguration() {
-        AccountPasswordResetOwnershipVerifier(mock(AccountQueryPort::class.java), 3, 60, MutableClock(), 0)
+        verifier(mock(AccountQueryPort::class.java), 3, 60, MutableClock(), 0)
     }
 
     @Test
     fun rejectsBlankLoginIdWithoutQueryingAccount() {
         val queryPort = mock(AccountQueryPort::class.java)
-        val verifier = AccountPasswordResetOwnershipVerifier(queryPort, 3, 60, MutableClock())
+        val verifier = verifier(queryPort, 3, 60, MutableClock())
 
         assertFalse(verifier.verify(command(" ", "홍길동")))
         verify(queryPort, never()).findByLoginId(" ")
+    }
+
+    @Test
+    fun rejectsMatchingProfileWhenPassProofIsMissing() {
+        val queryPort = mock(AccountQueryPort::class.java)
+        val account = mock(Account::class.java)
+        val profile = mock(StudentProfile::class.java)
+        `when`(queryPort.findByLoginId("known")).thenReturn(account)
+        `when`(account.profile).thenReturn(profile)
+        `when`(profile.name).thenReturn("홍길동")
+        `when`(profile.birthdate).thenReturn(BIRTHDATE)
+
+        val verifier = verifier(queryPort, 3, 60, MutableClock(), proof = null)
+
+        assertFalse(verifier.verify(command("known", "홍길동")))
     }
 
     private fun command(loginId: String, name: String) = PasswordResetCommand(
@@ -122,6 +133,27 @@ class AccountPasswordResetOwnershipVerifierTest {
         birthdate = BIRTHDATE,
         newPassword = "new-password",
     )
+
+    private fun verifier(
+        queryPort: AccountQueryPort,
+        maxAttempts: Int,
+        windowSeconds: Long,
+        clock: Clock,
+        maxTrackedLoginIds: Int = 10_000,
+        proof: PassVerificationProof? = PassVerificationProof("known", "홍길동"),
+    ): AccountPasswordResetOwnershipVerifier {
+        val proofStore = mock(PassProofStore::class.java)
+        `when`(proofStore.consume("known", "홍길동"))
+            .thenReturn(proof)
+        return AccountPasswordResetOwnershipVerifier(
+            queryPort,
+            maxAttempts,
+            windowSeconds,
+            clock,
+            maxTrackedLoginIds,
+            proofStore,
+        )
+    }
 
     private class MutableClock : Clock() {
         var current: Instant = Instant.parse("2026-06-11T10:00:00Z")

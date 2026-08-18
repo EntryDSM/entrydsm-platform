@@ -35,6 +35,7 @@ import org.springframework.security.web.FilterChainProxy
         "auth.jwt.issuer=entrydsm-identity",
         "security.pii.login-id-hash-key=test-login-id-hash-key",
         "security.pii.encryption-key-base64=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=",
+        "pass.proof-key-current=test-pass-proof-key",
         "spring.main.lazy-initialization=true",
         "security.cors.allowed-origins=https://frontend.example",
         "spring.autoconfigure.exclude=" +
