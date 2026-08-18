@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import hs.kr.entrydsm.gateway.domain.TraceId
 import org.springframework.http.HttpStatusCode
 import org.springframework.http.MediaType
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Component
 import org.springframework.web.server.ServerWebExchange
 import reactor.core.publisher.Mono
 
 @Component
 class GatewayErrorResponseWriter(
+    @Qualifier("gatewayErrorObjectMapper")
     private val objectMapper: ObjectMapper,
 ) {
     fun write(

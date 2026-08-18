@@ -97,6 +97,25 @@ class GatewayCorsGlobalFilterTest {
         assertEquals(null, exchange.response.headers.getFirst("Access-Control-Allow-Origin"))
     }
 
+    @Test
+    fun passesOptionsWithoutPreflightHeadersThroughChain() {
+        val exchange = MockServerWebExchange.from(
+            MockServerHttpRequest.options("/api/identity/users")
+                .header("Origin", "http://localhost:3000")
+                .build(),
+        )
+        var chainCalled = false
+
+        filter().filter(exchange, GatewayFilterChain {
+            chainCalled = true
+            Mono.empty()
+        }).block()
+
+        assertTrue(chainCalled)
+        assertEquals("http://localhost:3000", exchange.response.headers.getFirst("Access-Control-Allow-Origin"))
+        assertEquals(null, exchange.response.headers.getFirst("Access-Control-Allow-Methods"))
+    }
+
     private fun exchange(origin: String, requestedMethod: String, requestedHeaders: String) =
         MockServerWebExchange.from(
             MockServerHttpRequest.options("/api/identity/users")

@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.gateway.adapterin.configuration
 
 import hs.kr.entrydsm.gateway.adapterin.route.GatewayRouteConfiguration
+import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeConfiguration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -41,6 +42,6 @@ class GatewayServicePropertiesTest {
 
     @Configuration(proxyBeanMethods = false)
     @EnableAutoConfiguration
-    @Import(GatewayRouteConfiguration::class)
+    @Import(GatewayRuntimeConfiguration::class, GatewayRouteConfiguration::class)
     class TestApplication
 }

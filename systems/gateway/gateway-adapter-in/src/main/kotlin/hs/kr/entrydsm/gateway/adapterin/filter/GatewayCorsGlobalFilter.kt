@@ -28,17 +28,18 @@ class GatewayCorsGlobalFilter(
 
     override fun filter(exchange: ServerWebExchange, chain: GatewayFilterChain): Mono<Void> {
         val origin = exchange.request.headers.getFirst(HttpHeaders.ORIGIN) ?: return chain.filter(exchange)
+        val requestedMethod = exchange.request.headers.getFirst(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD)
+            ?.uppercase()
+        val isPreflight = exchange.request.method == HttpMethod.OPTIONS && requestedMethod != null
         if (origin !in allowedOrigins) {
-            return if (exchange.request.method == HttpMethod.OPTIONS) {
+            return if (isPreflight) {
                 responseWriter.write(exchange, HttpStatus.FORBIDDEN, "CORS_FORBIDDEN")
             } else {
                 chain.filter(exchange)
             }
         }
 
-        if (exchange.request.method == HttpMethod.OPTIONS) {
-            val requestedMethod = exchange.request.headers.getFirst(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD)
-                ?.uppercase()
+        if (isPreflight) {
             val requestedHeaders = exchange.request.headers.getFirst(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS)
                 ?.split(',')
                 ?.map(String::trim)

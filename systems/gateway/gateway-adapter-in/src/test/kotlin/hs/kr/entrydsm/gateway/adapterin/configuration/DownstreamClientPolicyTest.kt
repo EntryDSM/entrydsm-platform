@@ -58,18 +58,18 @@ class DownstreamClientPolicyTest {
 
     @Test
     fun acceptsRetryPolicyBoundaryValues() {
-        assertEquals(
-            listOf("GET", "HEAD", "OPTIONS"),
-            DownstreamClientPolicy(retryMethods = listOf("GET", "HEAD", "OPTIONS")).retryMethods,
+        val policy = DownstreamClientPolicy(
+            retryMethods = listOf("GET", "HEAD", "OPTIONS"),
+            retryFirstBackoffMillis = 100,
+            retryMaxBackoffMillis = 100,
+            retryBackoffFactor = 1,
         )
-        assertEquals(
-            100L,
-            DownstreamClientPolicy(
-                retryFirstBackoffMillis = 100,
-                retryMaxBackoffMillis = 100,
-            ).retryMaxBackoffMillis,
-        )
-        assertEquals(1, DownstreamClientPolicy(retryBackoffFactor = 1).retryBackoffFactor)
+
+        policy.validate()
+
+        assertEquals(listOf("GET", "HEAD", "OPTIONS"), policy.retryMethods)
+        assertEquals(100L, policy.retryMaxBackoffMillis)
+        assertEquals(1, policy.retryBackoffFactor)
     }
 
     private fun assertInvalid(field: String, block: () -> Unit) {

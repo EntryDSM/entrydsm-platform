@@ -2,6 +2,7 @@ package hs.kr.entrydsm.gateway.adapterin.resilience
 
 import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.time.Duration
 
@@ -26,5 +27,6 @@ class GatewayResilienceConfigurationTest {
         assertEquals(7, config.minimumNumberOfCalls)
         assertEquals(Duration.ofSeconds(12).toMillis(), config.waitIntervalFunctionInOpenState.apply(1))
         assertEquals(3, config.permittedNumberOfCallsInHalfOpenState)
+        assertTrue(config.isAutomaticTransitionFromOpenToHalfOpenEnabled)
     }
 }

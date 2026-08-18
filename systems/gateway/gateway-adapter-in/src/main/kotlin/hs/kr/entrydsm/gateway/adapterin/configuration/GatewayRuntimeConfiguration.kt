@@ -6,8 +6,12 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(GatewayRuntimeProperties::class, DownstreamClientPolicy::class)
+@EnableConfigurationProperties(
+    GatewayRuntimeProperties::class,
+    GatewayServiceProperties::class,
+    DownstreamClientPolicy::class,
+)
 class GatewayRuntimeConfiguration {
-    @Bean
-    fun gatewayObjectMapper(): ObjectMapper = ObjectMapper()
+    @Bean("gatewayErrorObjectMapper")
+    fun gatewayErrorObjectMapper(): ObjectMapper = ObjectMapper().findAndRegisterModules()
 }
