@@ -10,7 +10,6 @@ import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
 import hs.kr.entrydsm.identity.application.port.out.PassProofStore
-import hs.kr.entrydsm.identity.application.port.out.PassCallbackTokenStore
 import hs.kr.entrydsm.identity.application.port.out.PassProviderPort
 import hs.kr.entrydsm.identity.application.port.out.SignupOwnershipVerifier
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
@@ -79,14 +78,12 @@ class IdentityApplicationConfig {
     fun passService(
         passProviderPort: PassProviderPort,
         passProofStore: PassProofStore,
-        passCallbackTokenStore: PassCallbackTokenStore,
         @Value("\${pass.proof-ttl-seconds:300}") proofTtlSeconds: Long,
-        @Value("\${pass.allowed-redirect-origins:\${pass.base-url:http://localhost:3000}}")
+        @Value("\${pass.allowed-redirect-origins:\${pass.base-url:}}")
         allowedRedirectOrigins: String,
     ): PassPort = PassService(
         passProviderPort,
         passProofStore,
-        passCallbackTokenStore,
         proofTtlSeconds,
         allowedRedirectOrigins,
     )

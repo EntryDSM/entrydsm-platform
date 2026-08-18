@@ -12,6 +12,7 @@ import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
+import hs.kr.entrydsm.identity.application.port.out.PassProofStoreUnavailableException
 import hs.kr.entrydsm.identity.application.port.out.SignupOwnershipVerifier
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
@@ -94,6 +95,24 @@ class AuthServiceTest {
         }
 
         assertEquals(ErrorCode.PASS_PROOF_NOT_FOUND, thrown?.errorCode)
+    }
+
+    @Test
+    fun signupMapsProofStoreFailureToServiceUnavailable() {
+        val thrown = try {
+            service(
+                signupOwnershipVerifier = SignupOwnershipVerifier {
+                    throw PassProofStoreUnavailableException(IllegalStateException("redis unavailable"))
+                },
+            ).signup(
+                SignupCommand("password123!", "홍길동", "01012345678", BIRTHDATE, SignupType.SELF)
+            )
+            null
+        } catch (exception: IdentityDomainException) {
+            exception
+        }
+
+        assertEquals(ErrorCode.PASS_PROOF_STORE_UNAVAILABLE, thrown?.errorCode)
     }
 
     @Test(expected = IdentityDomainException::class)
@@ -275,9 +294,27 @@ class AuthServiceTest {
         throw AssertionError("refresh-token revocation failure must prevent account save")
     }
 
+    @Test
+    fun passwordResetMapsProofStoreFailureToServiceUnavailable() {
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account())
+        val thrown = try {
+            service(
+                passwordResetOwnershipVerifier = PasswordResetOwnershipVerifier {
+                    throw PassProofStoreUnavailableException(IllegalStateException("redis unavailable"))
+                },
+            ).resetPassword(PasswordResetCommand("entry", "홍길동", BIRTHDATE, "new-password"))
+            null
+        } catch (exception: IdentityDomainException) {
+            exception
+        }
+
+        assertEquals(ErrorCode.PASS_PROOF_STORE_UNAVAILABLE, thrown?.errorCode)
+    }
+
     private fun service(
         registration: AccountRegistrationPort = AccountRegistrationPort { _, _ -> account() },
         signupOwnershipVerifier: SignupOwnershipVerifier = SignupOwnershipVerifier { true },
+        passwordResetOwnershipVerifier: PasswordResetOwnershipVerifier = PasswordResetOwnershipVerifier { true },
         revocationStore: RefreshTokenRevocationStore = object : RefreshTokenRevocationStore {
             override fun currentVersion(userId: Long): Long = refreshTokenVersions[userId] ?: 0L
 
@@ -297,7 +334,7 @@ class AuthServiceTest {
         },
         refreshTokenRevocationStore = revocationStore,
         clock = clock,
-        passwordResetOwnershipVerifier = PasswordResetOwnershipVerifier { true },
+        passwordResetOwnershipVerifier = passwordResetOwnershipVerifier,
         signupOwnershipVerifier = signupOwnershipVerifier,
     )
 

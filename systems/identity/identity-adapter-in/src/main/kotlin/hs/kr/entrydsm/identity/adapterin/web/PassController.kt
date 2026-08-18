@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.adapterin.web.dto.response.PassVerificationRespon
 import hs.kr.entrydsm.identity.application.port.`in`.PassPort
 import hs.kr.entrydsm.identity.application.web.AuthEndpointPaths
 import jakarta.validation.Valid
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -31,10 +32,16 @@ class PassController(
     @GetMapping(AuthEndpointPaths.PASS_INFO_PATH)
     fun info(
         @RequestParam("mdl_tkn") token: String,
-    ): ApiResponse<PassVerificationResponse> =
-        ApiResponse(
-            data = passPort.verify(token).let {
-                PassVerificationResponse(it.phoneNumber, it.name)
-            },
+    ): ResponseEntity<ApiResponse<PassVerificationResponse>> = ResponseEntity
+        .ok()
+        .header(HttpHeaders.CACHE_CONTROL, "no-store, no-cache, must-revalidate")
+        .header(HttpHeaders.PRAGMA, "no-cache")
+        .header("Referrer-Policy", "no-referrer")
+        .body(
+            ApiResponse(
+                data = passPort.verify(token).let {
+                    PassVerificationResponse(it.phoneNumber, it.name)
+                },
+            ),
         )
 }

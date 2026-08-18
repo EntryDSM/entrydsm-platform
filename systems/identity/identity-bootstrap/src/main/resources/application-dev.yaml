@@ -19,6 +19,10 @@ auth:
   jwt:
     secret: ${JWT_SECRET:dev-development-jwt-secret-change-me-32}
 
+pass:
+  base-url: ${BASE_URL:http://localhost:3000}
+  allowed-redirect-origins: ${PASS_ALLOWED_REDIRECT_ORIGINS:http://localhost:3000}
+
 security:
   cookies:
     secure: ${COOKIE_SECURE:false}

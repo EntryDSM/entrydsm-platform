@@ -3,6 +3,9 @@ package hs.kr.entrydsm.identity.adapterout
 import hs.kr.entrydsm.identity.adapterout.security.BCryptPasswordHasher
 import hs.kr.entrydsm.identity.adapterout.security.AesGcmPersonalDataEncryptor
 import hs.kr.entrydsm.identity.adapterout.security.AccountPasswordResetOwnershipVerifierTest
+import hs.kr.entrydsm.identity.adapterout.security.AccountSignupOwnershipVerifierTest
+import hs.kr.entrydsm.identity.adapterout.pass.KcbLicenseFileInitializerTest
+import hs.kr.entrydsm.identity.adapterout.pass.KcbPassProviderAdapterTest
 import hs.kr.entrydsm.identity.adapterout.security.HmacLoginIdHasher
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterIntegrationTest
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterTest
@@ -32,6 +35,9 @@ import javax.crypto.AEADBadTagException
     RedisDurabilityGuardTest::class,
     RedisRefreshTokenRotationAdapterIntegrationTest::class,
     AccountPasswordResetOwnershipVerifierTest::class,
+    AccountSignupOwnershipVerifierTest::class,
+    KcbLicenseFileInitializerTest::class,
+    KcbPassProviderAdapterTest::class,
     PersistenceProfileContractTest::class,
 )
 class IdentityAdapterOutModuleTest

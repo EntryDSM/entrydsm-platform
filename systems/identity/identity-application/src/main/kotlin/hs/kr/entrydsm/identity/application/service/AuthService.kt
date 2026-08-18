@@ -15,6 +15,7 @@ import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
+import hs.kr.entrydsm.identity.application.port.out.PassProofStoreUnavailableException
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.port.out.SignupOwnershipVerifier
@@ -44,8 +45,12 @@ class AuthService(
 ) : AuthPort {
     override fun signup(command: SignupCommand): AccountResult {
         requireValidSignup(command)
-        if (!signupOwnershipVerifier.verify(command)) {
-            throw IdentityDomainException(ErrorCode.PASS_PROOF_NOT_FOUND)
+        try {
+            if (!signupOwnershipVerifier.verify(command)) {
+                throw IdentityDomainException(ErrorCode.PASS_PROOF_NOT_FOUND)
+            }
+        } catch (exception: PassProofStoreUnavailableException) {
+            throw IdentityDomainException(ErrorCode.PASS_PROOF_STORE_UNAVAILABLE, exception)
         }
         if (accountQueryPort.findByLoginId(command.phone) != null) {
             throw IdentityDomainException(ErrorCode.ACCOUNT_ALREADY_EXISTS)
@@ -132,8 +137,12 @@ class AuthService(
             throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
         }
         requireValidPassword(command.newPassword)
-        if (!passwordResetOwnershipVerifier.verify(command)) {
-            throw IdentityDomainException(ErrorCode.PASS_PROOF_NOT_FOUND)
+        try {
+            if (!passwordResetOwnershipVerifier.verify(command)) {
+                throw IdentityDomainException(ErrorCode.PASS_PROOF_NOT_FOUND)
+            }
+        } catch (exception: PassProofStoreUnavailableException) {
+            throw IdentityDomainException(ErrorCode.PASS_PROOF_STORE_UNAVAILABLE, exception)
         }
         val account = accountQueryPort.findByLoginId(command.loginId)
             ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)

@@ -36,8 +36,7 @@ class AccountPasswordResetOwnershipVerifier(
         if (!allowAttempt(command.loginId)) return false
         val account = accountQueryPort.findByLoginId(command.loginId) ?: return false
         if (account.profile.name != command.name || account.profile.birthdate != command.birthdate) return false
-        val passProof = passProofStore.consume(command.loginId) ?: return false
-        return passProof.phoneNumber == command.loginId
+        return passProofStore.consume(command.loginId, command.name) != null
     }
 
     private fun allowAttempt(loginId: String): Boolean {

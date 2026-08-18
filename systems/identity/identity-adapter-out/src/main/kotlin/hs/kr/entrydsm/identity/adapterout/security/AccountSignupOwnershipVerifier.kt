@@ -11,7 +11,6 @@ class AccountSignupOwnershipVerifier(
     private val passProofStore: PassProofStore,
 ) : SignupOwnershipVerifier {
     override fun verify(command: SignupCommand): Boolean {
-        val proof = passProofStore.consume(command.phone) ?: return false
-        return proof.phoneNumber == command.phone && proof.name == command.name
+        return passProofStore.consume(command.phone, command.name) != null
     }
 }

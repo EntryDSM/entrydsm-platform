@@ -127,7 +127,7 @@ class AccountPasswordResetOwnershipVerifierTest {
         maxTrackedLoginIds: Int = 10_000,
     ): AccountPasswordResetOwnershipVerifier {
         val proofStore = mock(PassProofStore::class.java)
-        `when`(proofStore.consume("known"))
+        `when`(proofStore.consume("known", "홍길동"))
             .thenReturn(PassVerificationProof("known", "홍길동"))
         return AccountPasswordResetOwnershipVerifier(
             queryPort,

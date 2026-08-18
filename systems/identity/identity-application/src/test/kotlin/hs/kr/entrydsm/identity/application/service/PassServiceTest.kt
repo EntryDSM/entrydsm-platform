@@ -1,7 +1,6 @@
 package hs.kr.entrydsm.identity.application.service
 
 import hs.kr.entrydsm.identity.application.port.out.PassIdentity
-import hs.kr.entrydsm.identity.application.port.out.PassCallbackTokenStore
 import hs.kr.entrydsm.identity.application.port.out.PassProofStore
 import hs.kr.entrydsm.identity.application.port.out.PassProviderException
 import hs.kr.entrydsm.identity.application.port.out.PassProviderPort
@@ -19,7 +18,6 @@ class PassServiceTest {
         val service = PassService(
             provider = provider(PassIdentity("01012345678", "홍길동")),
             proofStore = store,
-            callbackTokenStore = AllowingCallbackTokenStore,
             proofTtlSeconds = 300,
             allowedRedirectOrigins = "https://auth.entrydsm.kr",
         )
@@ -27,7 +25,7 @@ class PassServiceTest {
         val result = service.verify("model-token")
 
         assertEquals("01012345678", result.phoneNumber)
-        assertEquals(Triple("01012345678", "홍길동", 300L), store.saved)
+        assertEquals(Triple("model-token", "01012345678", "홍길동"), store.saved)
     }
 
     @Test
@@ -35,7 +33,6 @@ class PassServiceTest {
         val service = PassService(
             provider = provider(PassIdentity("01012345678", "홍길동")),
             proofStore = RecordingProofStore(),
-            callbackTokenStore = AllowingCallbackTokenStore,
             proofTtlSeconds = 300,
             allowedRedirectOrigins = "https://auth.entrydsm.kr",
         )
@@ -58,7 +55,6 @@ class PassServiceTest {
                     throw PassProviderException(PassProviderException.Reason.UNAVAILABLE)
             },
             proofStore = RecordingProofStore(),
-            callbackTokenStore = AllowingCallbackTokenStore,
             proofTtlSeconds = 300,
             allowedRedirectOrigins = "https://auth.entrydsm.kr",
         )
@@ -75,8 +71,7 @@ class PassServiceTest {
     fun rejectsAProviderTokenThatWasAlreadyClaimed() {
         val service = PassService(
             provider = provider(PassIdentity("01012345678", "홍길동")),
-            proofStore = RecordingProofStore(),
-            callbackTokenStore = RejectingCallbackTokenStore,
+            proofStore = RejectingProofStore,
             proofTtlSeconds = 300,
             allowedRedirectOrigins = "https://auth.entrydsm.kr",
         )
@@ -95,20 +90,19 @@ class PassServiceTest {
     }
 
     private class RecordingProofStore : PassProofStore {
-        var saved: Triple<String, String, Long>? = null
+        var saved: Triple<String, String, String>? = null
 
-        override fun save(phoneNumber: String, name: String, ttlSeconds: Long) {
-            saved = Triple(phoneNumber, name, ttlSeconds)
+        override fun saveForToken(token: String, phoneNumber: String, name: String, ttlSeconds: Long): Boolean {
+            saved = Triple(token, phoneNumber, name)
+            return true
         }
 
-        override fun consume(phoneNumber: String): PassVerificationProof? = null
+        override fun consume(phoneNumber: String, name: String): PassVerificationProof? = null
     }
 
-    private object AllowingCallbackTokenStore : PassCallbackTokenStore {
-        override fun claim(token: String, ttlSeconds: Long): Boolean = true
-    }
+    private object RejectingProofStore : PassProofStore {
+        override fun saveForToken(token: String, phoneNumber: String, name: String, ttlSeconds: Long): Boolean = false
 
-    private object RejectingCallbackTokenStore : PassCallbackTokenStore {
-        override fun claim(token: String, ttlSeconds: Long): Boolean = false
+        override fun consume(phoneNumber: String, name: String): PassVerificationProof? = null
     }
 }

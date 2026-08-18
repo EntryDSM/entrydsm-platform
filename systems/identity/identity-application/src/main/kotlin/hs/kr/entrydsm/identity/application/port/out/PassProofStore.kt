@@ -1,10 +1,11 @@
 package hs.kr.entrydsm.identity.application.port.out
 
 interface PassProofStore {
-    fun save(phoneNumber: String, name: String, ttlSeconds: Long)
+    /** Atomically claims the provider token and stores its proof. */
+    fun saveForToken(token: String, phoneNumber: String, name: String, ttlSeconds: Long): Boolean
 
-    /** Atomically returns and removes the proof for the supplied phone number. */
-    fun consume(phoneNumber: String): PassVerificationProof?
+    /** Atomically returns and removes a proof only when phone number and name match. */
+    fun consume(phoneNumber: String, name: String): PassVerificationProof?
 }
 
 data class PassVerificationProof(

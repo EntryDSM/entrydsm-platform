@@ -40,14 +40,16 @@ pass:
   license: ${PASS_LICENSE:${PASS_LICENSE_FILE_PATH:/tmp/V61290000000_IDS_01_PROD_AES_license.dat}}
   license-file-url: ${PASS_LICENSE_FILE_URL:}
   license-file-path: ${PASS_LICENSE_FILE_PATH:/tmp/V61290000000_IDS_01_PROD_AES_license.dat}
-  base-url: ${BASE_URL:http://localhost:3000}
+  base-url: ${BASE_URL:}
   site-name: ${SITE_NAME:${PASS_SITE_NAME:EntryDSM}}
   site-url: ${SITE_URL:${PASS_SITE_URL:https://entrydsm.kr}}
   popup-url: ${PASS_POPUP_URL:https://safe.ok-name.co.kr/CommonSvl}
   proof-ttl-seconds: ${PASS_PROOF_TTL_SECONDS:300}
   connect-timeout-ms: ${PASS_CONNECT_TIMEOUT_MS:5000}
   read-timeout-ms: ${PASS_READ_TIMEOUT_MS:10000}
-  allowed-redirect-origins: ${PASS_ALLOWED_REDIRECT_ORIGINS:${BASE_URL:http://localhost:3000}}
+  allowed-redirect-origins: ${PASS_ALLOWED_REDIRECT_ORIGINS:${BASE_URL:}}
+  proof-key-current: ${PASS_PROOF_KEY_CURRENT:${IDENTITY_LOGIN_ID_HASH_KEY}}
+  proof-key-previous: ${PASS_PROOF_KEY_PREVIOUS:}
 server:
   shutdown: graceful
 management:

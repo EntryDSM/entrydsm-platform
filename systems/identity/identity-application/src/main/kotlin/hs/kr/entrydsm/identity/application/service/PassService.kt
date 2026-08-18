@@ -3,7 +3,6 @@ package hs.kr.entrydsm.identity.application.service
 import hs.kr.entrydsm.identity.application.port.`in`.PassPort
 import hs.kr.entrydsm.identity.application.port.`in`.PassVerificationResult
 import hs.kr.entrydsm.identity.application.port.out.PassIdentity
-import hs.kr.entrydsm.identity.application.port.out.PassCallbackTokenStore
 import hs.kr.entrydsm.identity.application.port.out.PassProofStore
 import hs.kr.entrydsm.identity.application.port.out.PassProviderException
 import hs.kr.entrydsm.identity.application.port.out.PassProviderPort
@@ -14,7 +13,6 @@ import java.net.URI
 class PassService(
     private val provider: PassProviderPort,
     private val proofStore: PassProofStore,
-    private val callbackTokenStore: PassCallbackTokenStore,
     private val proofTtlSeconds: Long,
     allowedRedirectOrigins: String,
 ) : PassPort {
@@ -54,16 +52,11 @@ class PassService(
             throw IdentityDomainException(ErrorCode.INVALID_PASS)
         }
         try {
-            if (!callbackTokenStore.claim(token, proofTtlSeconds)) {
+            if (!proofStore.saveForToken(token, identity.phoneNumber, identity.name, proofTtlSeconds)) {
                 throw IdentityDomainException(ErrorCode.INVALID_PASS)
             }
         } catch (exception: IdentityDomainException) {
             throw exception
-        } catch (exception: RuntimeException) {
-            throw IdentityDomainException(ErrorCode.PASS_PROOF_STORE_UNAVAILABLE, exception)
-        }
-        try {
-            proofStore.save(identity.phoneNumber, identity.name, proofTtlSeconds)
         } catch (exception: RuntimeException) {
             throw IdentityDomainException(ErrorCode.PASS_PROOF_STORE_UNAVAILABLE, exception)
         }

@@ -33,7 +33,7 @@ class KcbPassProviderAdapter(
         val result = call(START_SERVICE, request.toString())
         val resultCode = result.optString(RESULT_CODE)
         val resultMessage = result.optString(RESULT_MESSAGE)
-        val modelToken = result.optString(MODEL_TOKEN)
+        val modelToken = popupModelToken(resultCode, result.optString(MODEL_TOKEN))
         return popupHtml(
             modelToken = modelToken.takeIf { resultCode == SUCCESS_CODE },
             resultCode = resultCode,
@@ -134,4 +134,11 @@ class KcbPassProviderAdapter(
         const val PHONE_NUMBER = "TEL_NO"
         const val CERT_CHOICE_COMMAND = "kcb.oknm.online.safehscert.popup.cmd.P931_CertChoiceCmd"
     }
+}
+
+fun popupModelToken(resultCode: String, modelToken: String): String? {
+    if (resultCode == "B000" && modelToken.isBlank()) {
+        throw PassProviderException(PassProviderException.Reason.INVALID_RESPONSE)
+    }
+    return modelToken.takeIf { resultCode == "B000" }
 }
