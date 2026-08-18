@@ -33,7 +33,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.doThrow
 import org.mockito.Mockito.mock
@@ -186,6 +188,23 @@ class AuthServiceTest {
         service().resetPassword(
             PasswordResetCommand("entry", "다른이름", BIRTHDATE, "new-password")
         )
+    }
+
+    @Test
+    fun passwordResetRequiresPassOwnershipProof() {
+        val account = account()
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account)
+
+        val exception = assertThrows(IdentityDomainException::class.java) {
+            service(
+                passwordResetOwnershipVerifier = PasswordResetOwnershipVerifier { false },
+            ).resetPassword(PasswordResetCommand("entry", "홍길동", BIRTHDATE, "new-password"))
+        }
+
+        assertEquals(ErrorCode.PASS_PROOF_NOT_FOUND, exception.errorCode)
+        assertEquals(PASSWORD_HASH, account.passwordHash)
+        assertTrue(refreshTokenVersions.isEmpty())
+        org.mockito.Mockito.verifyNoInteractions(commandPort, passwordHasher)
     }
 
     @Test(expected = IdentityDomainException::class)

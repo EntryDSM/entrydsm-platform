@@ -112,6 +112,21 @@ class AccountPasswordResetOwnershipVerifierTest {
         verify(queryPort, never()).findByLoginId(" ")
     }
 
+    @Test
+    fun rejectsMatchingProfileWhenPassProofIsMissing() {
+        val queryPort = mock(AccountQueryPort::class.java)
+        val account = mock(Account::class.java)
+        val profile = mock(StudentProfile::class.java)
+        `when`(queryPort.findByLoginId("known")).thenReturn(account)
+        `when`(account.profile).thenReturn(profile)
+        `when`(profile.name).thenReturn("홍길동")
+        `when`(profile.birthdate).thenReturn(BIRTHDATE)
+
+        val verifier = verifier(queryPort, 3, 60, MutableClock(), proof = null)
+
+        assertFalse(verifier.verify(command("known", "홍길동")))
+    }
+
     private fun command(loginId: String, name: String) = PasswordResetCommand(
         loginId = loginId,
         name = name,
@@ -125,10 +140,11 @@ class AccountPasswordResetOwnershipVerifierTest {
         windowSeconds: Long,
         clock: Clock,
         maxTrackedLoginIds: Int = 10_000,
+        proof: PassVerificationProof? = PassVerificationProof("known", "홍길동"),
     ): AccountPasswordResetOwnershipVerifier {
         val proofStore = mock(PassProofStore::class.java)
         `when`(proofStore.consume("known", "홍길동"))
-            .thenReturn(PassVerificationProof("known", "홍길동"))
+            .thenReturn(proof)
         return AccountPasswordResetOwnershipVerifier(
             queryPort,
             maxAttempts,

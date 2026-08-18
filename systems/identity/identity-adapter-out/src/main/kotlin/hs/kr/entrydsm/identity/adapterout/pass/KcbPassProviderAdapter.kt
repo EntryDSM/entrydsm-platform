@@ -68,7 +68,7 @@ class KcbPassProviderAdapter(
     }
 
     private fun validateConfiguration() {
-        if (cpCode.isBlank() || effectiveLicense().isBlank() || popupUrl.isBlank() ||
+        if (target.isBlank() || cpCode.isBlank() || effectiveLicense().isBlank() || popupUrl.isBlank() ||
             connectTimeoutMs <= 0 || readTimeoutMs <= 0
         ) {
             throw PassProviderException(PassProviderException.Reason.UNAVAILABLE)
