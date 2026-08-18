@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity.adapterout.security
 import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetCommand
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
+import hs.kr.entrydsm.identity.application.port.out.PassProofStore
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -21,6 +22,7 @@ class AccountPasswordResetOwnershipVerifier(
     @Value("\${auth.password-reset.window-seconds:900}") private val windowSeconds: Long,
     private val clock: Clock = Clock.systemUTC(),
     @Value("\${auth.password-reset.max-tracked-login-ids:10000}") private val maxTrackedLoginIds: Int = MAX_TRACKED_LOGIN_IDS,
+    private val passProofStore: PassProofStore,
 ) : PasswordResetOwnershipVerifier {
     private val attemptsByLoginId = ConcurrentHashMap<String, AttemptWindow>()
 
@@ -33,7 +35,9 @@ class AccountPasswordResetOwnershipVerifier(
     override fun verify(command: PasswordResetCommand): Boolean {
         if (!allowAttempt(command.loginId)) return false
         val account = accountQueryPort.findByLoginId(command.loginId) ?: return false
-        return account.profile.name == command.name && account.profile.birthdate == command.birthdate
+        if (account.profile.name != command.name || account.profile.birthdate != command.birthdate) return false
+        val passProof = passProofStore.consume(command.loginId) ?: return false
+        return passProof.phoneNumber == command.loginId
     }
 
     private fun allowAttempt(loginId: String): Boolean {

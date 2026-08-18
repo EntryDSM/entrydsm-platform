@@ -11,6 +11,8 @@ import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
+import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
+import hs.kr.entrydsm.identity.application.port.out.SignupOwnershipVerifier
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
@@ -72,6 +74,26 @@ class AuthServiceTest {
         assertEquals(Role.USER, result.role)
         assertEquals("01012345678", registration?.loginId)
         assertEquals(PASSWORD_HASH, registration?.passwordHash)
+    }
+
+    @Test
+    fun signupRequiresPassOwnershipProof() {
+        val thrown = try {
+            service(signupOwnershipVerifier = SignupOwnershipVerifier { false }).signup(
+                SignupCommand(
+                    password = "password123!",
+                    name = "홍길동",
+                    phone = "01012345678",
+                    birthdate = BIRTHDATE,
+                    signupType = SignupType.SELF,
+                )
+            )
+            null
+        } catch (exception: IdentityDomainException) {
+            exception
+        }
+
+        assertEquals(ErrorCode.PASS_PROOF_NOT_FOUND, thrown?.errorCode)
     }
 
     @Test(expected = IdentityDomainException::class)
@@ -255,6 +277,7 @@ class AuthServiceTest {
 
     private fun service(
         registration: AccountRegistrationPort = AccountRegistrationPort { _, _ -> account() },
+        signupOwnershipVerifier: SignupOwnershipVerifier = SignupOwnershipVerifier { true },
         revocationStore: RefreshTokenRevocationStore = object : RefreshTokenRevocationStore {
             override fun currentVersion(userId: Long): Long = refreshTokenVersions[userId] ?: 0L
 
@@ -274,6 +297,8 @@ class AuthServiceTest {
         },
         refreshTokenRevocationStore = revocationStore,
         clock = clock,
+        passwordResetOwnershipVerifier = PasswordResetOwnershipVerifier { true },
+        signupOwnershipVerifier = signupOwnershipVerifier,
     )
 
     private fun account(status: AccountStatus = AccountStatus.ACTIVE): Account {
