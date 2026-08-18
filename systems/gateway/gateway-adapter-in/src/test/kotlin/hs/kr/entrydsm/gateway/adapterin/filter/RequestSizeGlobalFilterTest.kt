@@ -25,7 +25,7 @@ class RequestSizeGlobalFilterTest {
         )
         var chainCalled = false
 
-        filter(10).filter(exchange, chain(exchange) {
+        filter(10).filter(exchange, chain {
             chainCalled = true
         }).block()
 

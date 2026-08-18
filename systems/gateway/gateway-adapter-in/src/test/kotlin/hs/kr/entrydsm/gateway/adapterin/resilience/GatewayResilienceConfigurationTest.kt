@@ -24,7 +24,7 @@ class GatewayResilienceConfigurationTest {
         assertEquals(25.0f, config.failureRateThreshold)
         assertEquals(20, config.slidingWindowSize)
         assertEquals(7, config.minimumNumberOfCalls)
-        assertEquals(Duration.ofSeconds(12), config.waitDurationInOpenState)
+        assertEquals(Duration.ofSeconds(12).toMillis(), config.waitIntervalFunctionInOpenState.apply(1))
         assertEquals(3, config.permittedNumberOfCallsInHalfOpenState)
     }
 }

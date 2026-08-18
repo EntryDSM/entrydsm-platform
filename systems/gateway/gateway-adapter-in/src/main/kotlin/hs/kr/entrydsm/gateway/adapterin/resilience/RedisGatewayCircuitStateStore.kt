@@ -26,32 +26,20 @@ class RedisGatewayCircuitStateStore(
     ): Mono<GatewayCircuitPermit> {
         val openKey = key(routeId, "open")
         val probeKey = key(routeId, "probe")
-        return redis.hasKey(openKey)
-            .flatMap { opened ->
-                if (!opened) {
-                    Mono.just(GatewayCircuitPermit(true, false))
+        return redis.opsForValue().get(openKey)
+            .flatMap { openedUntil ->
+                if (openedUntil.toLongOrNull()?.let { it > System.currentTimeMillis() } != false) {
+                    Mono.just(GatewayCircuitPermit(false, false))
                 } else {
-                    redis.opsForValue()
-                        .increment(probeKey)
-                        .flatMap { permits ->
-                            if (permits <= policy.permittedNumberOfCallsInHalfOpenState) {
-                                redis.expire(
-                                    probeKey,
-                                    Duration.ofSeconds(GatewayCircuitStateStore.PROBE_TIMEOUT_SECONDS),
-                                )
-                                    .thenReturn(GatewayCircuitPermit(true, true))
-                            } else {
-                                redis.opsForValue().decrement(probeKey)
-                                    .thenReturn(GatewayCircuitPermit(false, false))
-                            }
-                        }
+                    acquireHalfOpen(probeKey, policy)
                 }
             }
+            .defaultIfEmpty(GatewayCircuitPermit(true, false))
             .doOnError { error -> logger.warn("Redis circuit acquire failed for route {}", routeId, error) }
             .onErrorReturn(GatewayCircuitPermit(true, false))
     }
 
-    override fun releaseHalfOpen(routeId: String, permitId: String? = null): Mono<Void> =
+    override fun releaseHalfOpen(routeId: String, permitId: String?): Mono<Void> =
         redis.opsForValue().decrement(key(routeId, "probe")).then()
 
     override fun record(
@@ -59,12 +47,16 @@ class RedisGatewayCircuitStateStore(
         failed: Boolean,
         halfOpen: Boolean,
         policy: GatewayRuntimeProperties.Resilience,
-        permitId: String? = null,
+        permitId: String?,
     ): Mono<Void> {
         if (halfOpen) {
             return if (failed) {
                 redis.opsForValue()
-                    .set(key(routeId, "open"), "1", Duration.ofSeconds(policy.waitDurationSeconds))
+                    .set(
+                        key(routeId, "open"),
+                        openUntil(policy),
+                        Duration.ofSeconds(policy.waitDurationSeconds + GatewayCircuitStateStore.PROBE_TIMEOUT_SECONDS),
+                    )
                     .then(redis.delete(key(routeId, "probe")))
                     .then()
             } else {
@@ -83,7 +75,11 @@ class RedisGatewayCircuitStateStore(
                     failures * 100.0 / events.size >= policy.failureRateThreshold
                 if (opens) {
                     redis.opsForValue()
-                        .set(key(routeId, "open"), "1", Duration.ofSeconds(policy.waitDurationSeconds))
+                        .set(
+                            key(routeId, "open"),
+                            openUntil(policy),
+                            Duration.ofSeconds(policy.waitDurationSeconds + GatewayCircuitStateStore.PROBE_TIMEOUT_SECONDS),
+                        )
                 } else {
                     Mono.empty()
                 }
@@ -95,6 +91,27 @@ class RedisGatewayCircuitStateStore(
     }
 
     private fun key(routeId: String, suffix: String): String = "$KEY_PREFIX:$routeId:$suffix"
+
+    private fun acquireHalfOpen(
+        probeKey: String,
+        policy: GatewayRuntimeProperties.Resilience,
+    ): Mono<GatewayCircuitPermit> = redis.opsForValue()
+        .increment(probeKey)
+        .flatMap { permits ->
+            if (permits <= policy.permittedNumberOfCallsInHalfOpenState) {
+                redis.expire(
+                    probeKey,
+                    Duration.ofSeconds(GatewayCircuitStateStore.PROBE_TIMEOUT_SECONDS),
+                )
+                    .thenReturn(GatewayCircuitPermit(true, true))
+            } else {
+                redis.opsForValue().decrement(probeKey)
+                    .thenReturn(GatewayCircuitPermit(false, false))
+            }
+        }
+
+    private fun openUntil(policy: GatewayRuntimeProperties.Resilience): String =
+        (System.currentTimeMillis() + policy.waitDurationSeconds * 1_000).toString()
 
     private companion object {
         const val KEY_PREFIX = "gateway:circuit"

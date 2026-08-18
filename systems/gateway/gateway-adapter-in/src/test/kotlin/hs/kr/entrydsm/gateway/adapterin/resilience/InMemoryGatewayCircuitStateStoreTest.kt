@@ -52,6 +52,7 @@ class InMemoryGatewayCircuitStateStoreTest {
         val store = InMemoryGatewayCircuitStateStore(nowMillis = { now })
         val policy = policy(permittedNumberOfCallsInHalfOpenState = 2)
         store.record("identity", failed = true, halfOpen = false, policy).block()
+        now = 2_002L
 
         assertTrue(store.tryAcquire("identity", policy).block()!!.allowed)
         assertTrue(store.tryAcquire("identity", policy).block()!!.allowed)

@@ -3,6 +3,7 @@ package hs.kr.entrydsm.gateway.adapterin.integration
 import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeConfiguration
 import hs.kr.entrydsm.gateway.adapterin.error.DownstreamFailureGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayGlobalExceptionHandler
+import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
 import hs.kr.entrydsm.gateway.adapterin.filter.GatewayAccessGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.filter.GatewayCorsGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.filter.RequestSizeGlobalFilter
@@ -179,6 +180,7 @@ class GatewayProxyIntegrationTest {
         GatewayAccessGlobalFilter::class,
         RequestSizeGlobalFilter::class,
         GatewayGlobalExceptionHandler::class,
+        GatewayErrorResponseWriter::class,
         DownstreamFailureGlobalFilter::class,
         GatewayCircuitBreakerGlobalFilter::class,
     )

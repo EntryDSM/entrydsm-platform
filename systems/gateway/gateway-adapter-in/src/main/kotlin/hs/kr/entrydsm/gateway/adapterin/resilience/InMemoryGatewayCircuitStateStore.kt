@@ -52,7 +52,7 @@ class InMemoryGatewayCircuitStateStore(
         failed: Boolean,
         halfOpen: Boolean,
         policy: GatewayRuntimeProperties.Resilience,
-        permitId: String? = null,
+        permitId: String?,
     ): Mono<Void> = Mono.fromRunnable {
         val state = states.computeIfAbsent(routeId) { State() }
         synchronized(state) {

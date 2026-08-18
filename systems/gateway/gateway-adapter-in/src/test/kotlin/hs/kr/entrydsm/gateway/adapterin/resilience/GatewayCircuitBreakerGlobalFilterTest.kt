@@ -73,7 +73,7 @@ class GatewayCircuitBreakerGlobalFilterTest {
         MockServerHttpRequest.get("/api/identity/users").build(),
     ).also { exchange ->
         exchange.attributes[ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR] =
-            Route.async().id("identity").uri(URI("http://identity")).build()
+            Route.async().id("identity").uri(URI("http://identity")).predicate { true }.build()
     }
 
     private fun responseError(exchange: MockServerWebExchange): String =
