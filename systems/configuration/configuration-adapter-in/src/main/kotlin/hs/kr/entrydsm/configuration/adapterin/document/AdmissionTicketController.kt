@@ -7,6 +7,7 @@ import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileExtension
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
+import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.IssueDownloadUrlUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.UploadFileUseCase
 import org.springframework.web.bind.annotation.GetMapping
@@ -43,7 +44,7 @@ class AdmissionTicketController(
         @RequestParam("format", defaultValue = "pdf") format: String,
     ): ApiResponse<DownloadUrlResponse> {
         val extension = FileExtension.fromExtension(format)?.takeIf(CATEGORY::supports)
-            ?: throw IllegalArgumentException("Unsupported format: $format")
+            ?: throw InvalidFileFormatException(format, CATEGORY)
         val fileName = FileNaming.admissionTicketFileName(receiptCode, extension)
         return ApiResponse.success(
             DownloadUrlResponse.from(

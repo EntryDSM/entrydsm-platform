@@ -7,7 +7,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatE
 import org.springframework.web.multipart.MultipartFile
 
 fun MultipartFile.requireExtension(category: FileCategory): FileExtension =
-    FileExtension.fromFileName(originalName())
+    FileExtension.fromFileName(originalName())?.takeIf(category::supports)
         ?: throw InvalidFileFormatException(originalName(), category)
 
 fun MultipartFile.toUploadCommand(category: FileCategory, fileName: String) = UploadFileCommand(

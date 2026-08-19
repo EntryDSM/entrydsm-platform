@@ -7,6 +7,7 @@ import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileExtension
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
+import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.IssueDownloadUrlUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.UploadFileUseCase
 import org.springframework.web.bind.annotation.GetMapping
@@ -50,7 +51,7 @@ class ApplicantListController(
 
     private fun requireXlsx(fileName: String) {
         if (FileExtension.fromFileName(fileName) != FileExtension.XLSX) {
-            throw IllegalArgumentException("fileName must end with .xlsx: $fileName")
+            throw InvalidFileFormatException(fileName, CATEGORY)
         }
     }
 }
