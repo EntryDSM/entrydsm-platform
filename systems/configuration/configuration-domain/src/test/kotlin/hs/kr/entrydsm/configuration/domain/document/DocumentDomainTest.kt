@@ -52,6 +52,11 @@ class DocumentDomainTest {
         )
     }
 
+    @Test(expected = InvalidFileNameException::class)
+    fun `object key에 상위 경로 참조가 들어오면 거부한다`() {
+        FileCategory.APPLICANT_LIST.objectKeyOf("../../etc/passwd")
+    }
+
     @Test
     fun `명세 예시와 같은 파일명을 만든다`() {
         assertEquals(
@@ -70,8 +75,8 @@ class DocumentDomainTest {
 
     @Test
     fun `증명사진과 첨부파일 이름에 랜덤 토큰을 붙인다`() {
-        assertTrue(FileNaming.photoFileName(FileExtension.JPG).matches(Regex("photo_[0-9a-f]{8}\\.jpg")))
-        assertTrue(FileNaming.attachmentFileName("guide.pdf").matches(Regex("[0-9a-f]{8}_guide\\.pdf")))
+        assertTrue(FileNaming.photoFileName(FileExtension.JPG).matches(Regex("photo_[0-9a-f]{32}\\.jpg")))
+        assertTrue(FileNaming.attachmentFileName("guide.pdf").matches(Regex("[0-9a-f]{32}_guide\\.pdf")))
     }
 
     @Test
