@@ -40,7 +40,7 @@ class FileDocumentService(
             throw FileTooLargeException(command.sizeBytes, command.category.maxSizeBytes)
         }
 
-        val objectKey = command.category.objectKeyOf(FileNaming.requireSafeFileName(command.fileName))
+        val objectKey = command.category.objectKeyOf(command.fileName)
         val stored = storagePort.upload(objectKey, extension.contentType, command.sizeBytes, content)
 
         return try {
@@ -84,9 +84,7 @@ class FileDocumentService(
         fileDocumentRepository.findById(id) ?: throw FileDocumentNotFoundException("id=$id")
 
     override fun findByFileName(category: FileCategory, fileName: String): FileDocument? =
-        fileDocumentRepository.findByObjectKey(
-            category.objectKeyOf(FileNaming.requireSafeFileName(fileName))
-        )
+        fileDocumentRepository.findByObjectKey(category.objectKeyOf(fileName))
 
     override fun existsById(id: Long): Boolean =
         fileDocumentRepository.existsById(id)
