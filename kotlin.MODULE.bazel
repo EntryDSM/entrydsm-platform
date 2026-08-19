@@ -9,6 +9,7 @@ maven.artifact(artifact = "junit-platform-launcher", group = "org.junit.platform
 maven.artifact(artifact = "spring-cloud-starter-gateway-server-webflux", group = "org.springframework.cloud", version = "5.0.2")
 maven.artifact(artifact = "resilience4j-circuitbreaker", group = "io.github.resilience4j", version = "2.3.0")
 maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springframework.boot", version = "4.0.1")
+maven.artifact(artifact = "context-propagation", group = "io.micrometer", version = "1.2.0")
 maven.artifact(artifact = "junit", group = "junit", version = "4.13.2")
 maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", version = "2.1.0")
 maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")

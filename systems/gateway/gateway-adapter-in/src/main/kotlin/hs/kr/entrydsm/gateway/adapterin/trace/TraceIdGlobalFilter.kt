@@ -31,12 +31,9 @@ class TraceIdGlobalFilter : GlobalFilter, Ordered {
             Mono.empty()
         }
         return chain.filter(exchange.mutate().request(request).build())
-            .contextWrite { context -> context.put(TRACE_CONTEXT_KEY, traceId.value) }
+            .contextWrite { context -> context.put(TraceContextKeys.KEY, traceId.value) }
     }
 
     override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE
 
-    private companion object {
-        const val TRACE_CONTEXT_KEY = "gateway.trace-id"
-    }
 }
