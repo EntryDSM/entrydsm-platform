@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.configuration.adapterin.common
 
+import hs.kr.entrydsm.configuration.adapterin.document.InvalidFileReferenceIdException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
@@ -8,10 +9,12 @@ import hs.kr.entrydsm.configuration.domain.document.exception.PresignFailedExcep
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUploadFailedException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.MissingServletRequestParameterException
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
+import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
 
 @RestControllerAdvice
@@ -33,9 +36,11 @@ class DocumentExceptionHandler {
 
     @ExceptionHandler(
         InvalidFileNameException::class,
+        InvalidFileReferenceIdException::class,
         MissingServletRequestParameterException::class,
         MethodArgumentNotValidException::class,
-        IllegalArgumentException::class,
+        MethodArgumentTypeMismatchException::class,
+        HttpMessageNotReadableException::class,
     )
     fun handleInvalidRequestParam(e: Exception) =
         respond(ErrorCode.INVALID_REQUEST_PARAM, e)
