@@ -18,7 +18,7 @@ fun main() {
     launcher.execute(request)
     listener.summary.printTo(PrintWriter(System.out))
 
-    if (listener.summary.testsFailedCount > 0) {
+    if (listener.summary.testsFailedCount > 0 || listener.summary.containersFailedCount > 0) {
         exitProcess(1)
     }
 }

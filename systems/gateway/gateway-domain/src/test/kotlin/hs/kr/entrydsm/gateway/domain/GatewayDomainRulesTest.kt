@@ -8,7 +8,17 @@ class GatewayDomainRulesTest {
     @Test
     fun validatesTraceIdAndDefinesAllServices() {
         assertEquals("trace-01", TraceId.from("trace-01").value)
-        assertEquals(6, GatewayService.entries.size)
+        assertEquals(
+            mapOf(
+                "identity" to "/api/identity",
+                "application" to "/api/application",
+                "admin" to "/api/admin",
+                "notification" to "/api/notification",
+                "observability" to "/api/observability",
+                "configuration" to "/api/configuration",
+            ),
+            GatewayService.entries.associate { it.routeId to it.pathPrefix },
+        )
         assertThrows(IllegalArgumentException::class.java) { TraceId.from("trace id") }
     }
 }

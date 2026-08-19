@@ -49,7 +49,7 @@ fun main() {
     listener.summary.failures.forEach { failure ->
         failure.exception.printStackTrace(System.out)
     }
-    if (listener.summary.testsFailedCount > 0) {
+    if (listener.summary.testsFailedCount > 0 || listener.summary.containersFailedCount > 0) {
         exitProcess(1)
     }
 }

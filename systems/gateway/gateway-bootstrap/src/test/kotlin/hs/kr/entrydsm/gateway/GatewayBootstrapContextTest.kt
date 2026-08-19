@@ -1,6 +1,6 @@
 package hs.kr.entrydsm.gateway
 
-import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -16,6 +16,7 @@ class GatewayBootstrapContextTest {
 
     @Test
     fun startsGatewayContextWithRoutes() {
-        assertNotNull(routeLocator.routes.collectList().block())
+        val routes = routeLocator.routes.collectList().block().orEmpty()
+        assertTrue(routes.isNotEmpty())
     }
 }
