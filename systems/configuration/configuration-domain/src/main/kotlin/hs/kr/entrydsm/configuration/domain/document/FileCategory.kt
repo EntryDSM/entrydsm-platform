@@ -9,17 +9,17 @@ enum class FileCategory(
     val allowedExtensions: Set<FileExtension>,
     val maxSizeBytes: Long,
 ) {
-    APPLICATION("application", FileExtension.DOCUMENT_FORMATS, MAX_DOCUMENT_SIZE_BYTES),
-    ADMISSION_TICKET("admission-ticket", FileExtension.DOCUMENT_FORMATS, MAX_DOCUMENT_SIZE_BYTES),
+    APPLICATION("application", FileExtension.documentFormats, MAX_DOCUMENT_SIZE_BYTES),
+    ADMISSION_TICKET("admission-ticket", FileExtension.documentFormats, MAX_DOCUMENT_SIZE_BYTES),
     APPLICANT_LIST("applicant-list", setOf(FileExtension.XLSX), MAX_DOCUMENT_SIZE_BYTES),
-    PHOTO("photo", FileExtension.IMAGE_FORMATS, MAX_PHOTO_SIZE_BYTES),
-    ATTACHMENT("attachment", FileExtension.ATTACHMENT_FORMATS, MAX_ATTACHMENT_SIZE_BYTES),
-    GUIDELINE("guideline", FileExtension.ATTACHMENT_FORMATS, MAX_ATTACHMENT_SIZE_BYTES),
+    PHOTO("photo", FileExtension.imageFormats, MAX_PHOTO_SIZE_BYTES),
+    ATTACHMENT("attachment", FileExtension.attachmentFormats, MAX_ATTACHMENT_SIZE_BYTES),
+    GUIDELINE("guideline", FileExtension.attachmentFormats, MAX_ATTACHMENT_SIZE_BYTES),
     ;
 
     fun supports(extension: FileExtension): Boolean = extension in allowedExtensions
 
     fun exceedsMaxSize(sizeBytes: Long): Boolean = sizeBytes > maxSizeBytes
 
-    fun objectKeyOf(fileName: String): String = "$prefix/$fileName"
+    fun objectKeyOf(fileName: String): String = "$prefix/${FileNaming.requireSafeFileName(fileName)}"
 }

@@ -15,11 +15,11 @@ enum class FileExtension(
     ;
 
     companion object {
-        val DOCUMENT_FORMATS = setOf(PDF, HWP)
+        val documentFormats = setOf(PDF, HWP)
 
-        val IMAGE_FORMATS = setOf(JPG, PNG, WEBP)
+        val imageFormats = setOf(JPG, PNG, WEBP)
 
-        val ATTACHMENT_FORMATS = DOCUMENT_FORMATS + IMAGE_FORMATS + setOf(XLSX, DOCX)
+        val attachmentFormats = documentFormats + imageFormats + setOf(XLSX, DOCX)
 
         fun fromFileName(fileName: String): FileExtension? {
             val extension = fileName.substringAfterLast('.', "")
