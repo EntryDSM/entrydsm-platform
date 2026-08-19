@@ -25,6 +25,7 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
 import org.springframework.http.HttpStatusCode
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.annotation.DirtiesContext
@@ -32,6 +33,7 @@ import org.springframework.test.web.reactive.server.WebTestClient
 import reactor.core.publisher.Mono
 import reactor.netty.DisposableServer
 import reactor.netty.http.server.HttpServer
+import reactor.netty.resources.LoopResources
 import java.time.Duration
 
 @SpringBootTest(
@@ -41,17 +43,25 @@ import java.time.Duration
         "gateway.request.max-body-bytes=10",
         "gateway.resilience.state-store=memory",
         "spring.cloud.gateway.server.webflux.globalcors.enabled=false",
-        "spring.cloud.gateway.server.webflux.httpclient.response-timeout=500ms",
+        "spring.cloud.gateway.server.webflux.httpclient.response-timeout=2s",
     ],
 )
 class GatewayProxyIntegrationTest {
     @Autowired
     private lateinit var applicationContext: ApplicationContext
 
+    @Autowired
+    private lateinit var stateStore: InMemoryGatewayCircuitStateStore
+
+    @Autowired
+    private lateinit var circuitBreakerRegistry: CircuitBreakerRegistry
+
     private lateinit var client: WebTestClient
 
     @BeforeEach
     fun createClient() {
+        stateStore.clear()
+        circuitBreakerRegistry.allCircuitBreakers.forEach { it.transitionToClosedState() }
         client = WebTestClient.bindToApplicationContext(applicationContext)
             .build()
     }
@@ -187,32 +197,36 @@ class GatewayProxyIntegrationTest {
     class TestApplication
 
     companion object {
-        private lateinit var downstream: DisposableServer
+        private var downstream: DisposableServer? = null
+        private var downstreamLoops: LoopResources? = null
 
         @JvmStatic
         @DynamicPropertySource
         fun startDownstream(registry: DynamicPropertyRegistry) {
-            downstream = HttpServer.create()
+            val server = downstream ?: HttpServer.create()
                 .host("127.0.0.1")
                 .port(0)
+                .runOn(LoopResources.create("gateway-review-downstream", 1, true).also { downstreamLoops = it })
                 .handle { request, response ->
+                    val body = "${request.method().name()} ${request.uri()}"
+                    val bodyPublisher = if (request.uri().contains("/timeout")) {
+                        Mono.just(body).delaySubscription(Duration.ofSeconds(3))
+                    } else {
+                        Mono.just(body)
+                    }
                     response.status(if (request.uri().contains("/failure")) 500 else 200)
                         .addHeader("Content-Type", "text/plain")
+                        .addHeader("Content-Length", body.toByteArray().size.toString())
                         .addHeader(
                             "X-Downstream-Authorization",
                             request.requestHeaders().get("Authorization") ?: "missing",
                         )
-                        .sendString(
-                            if (request.uri().contains("/timeout")) {
-                                Mono.delay(Duration.ofSeconds(1))
-                                    .thenReturn("${request.method().name()} ${request.uri()}")
-                            } else {
-                                Mono.just("${request.method().name()} ${request.uri()}")
-                            },
-                        )
+                        .sendString(bodyPublisher)
+                        .then()
                 }
                 .bindNow()
-            val uri = "http://127.0.0.1:${downstream.port()}"
+                .also { downstream = it }
+            val uri = "http://127.0.0.1:${server.port()}"
             listOf("identity", "application", "admin", "notification", "observability", "configuration")
                 .forEach { service -> registry.add("gateway.services.$service") { uri } }
         }
@@ -220,7 +234,10 @@ class GatewayProxyIntegrationTest {
         @JvmStatic
         @AfterAll
         fun stopDownstream() {
-            downstream.disposeNow()
+            downstream?.disposeNow()
+            downstreamLoops?.disposeLater()?.block()
+            downstream = null
+            downstreamLoops = null
         }
     }
 }

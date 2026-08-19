@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.cloud.gateway.filter.GatewayFilterChain
@@ -30,7 +32,8 @@ class GatewayCircuitBreakerGlobalFilterTest {
         assertEquals(503, exchange.response.statusCode?.value())
         assertEquals("CIRCUIT_OPEN", responseError(exchange))
         assertEquals("30", exchange.response.headers.getFirst("Retry-After"))
-        assertTrue(!chainCalled)
+        assertFalse(chainCalled)
+        assertFalse(store.recorded)
     }
 
     @Test
@@ -59,6 +62,48 @@ class GatewayCircuitBreakerGlobalFilterTest {
         assertTrue(store.recorded)
     }
 
+    @Test
+    fun recordsDownstream5xxAsFailure() {
+        val exchange = exchange()
+        val store = FakeStateStore(GatewayCircuitPermit(allowed = true, halfOpen = false))
+
+        filter(store).filter(exchange, GatewayFilterChain {
+            exchange.response.statusCode = org.springframework.http.HttpStatus.BAD_GATEWAY
+            Mono.empty()
+        }).block()
+
+        assertTrue(store.recorded)
+        assertTrue(store.recordedFailed)
+    }
+
+    @Test
+    fun recordsChainFailureAndRethrowsOriginalError() {
+        val exchange = exchange()
+        val failure = IllegalStateException("downstream failed")
+        val store = FakeStateStore(GatewayCircuitPermit(allowed = true, halfOpen = false))
+
+        assertThrows(IllegalStateException::class.java) {
+            filter(store).filter(exchange, GatewayFilterChain { Mono.error(failure) }).block()
+        }
+
+        assertTrue(store.recorded)
+        assertTrue(store.recordedFailed)
+    }
+
+    @Test
+    fun doesNotTreatStateStoreRecordFailureAsDownstreamFailure() {
+        val exchange = exchange()
+        val store = FakeStateStore(
+            GatewayCircuitPermit(allowed = true, halfOpen = false),
+            recordError = IllegalStateException("store failed"),
+        )
+
+        filter(store).filter(exchange, GatewayFilterChain { Mono.empty() }).block()
+
+        assertEquals(1, store.recordCalls)
+        assertFalse(store.recordedFailed)
+    }
+
     private fun filter(
         store: FakeStateStore,
         registry: CircuitBreakerRegistry = CircuitBreakerRegistry.ofDefaults(),
@@ -81,15 +126,18 @@ class GatewayCircuitBreakerGlobalFilterTest {
             .map { buffer -> buffer.toString(Charsets.UTF_8) }
             .reduce(String::plus)
             .block()
-            ?.let { body -> Regex("\\\"error\\\":\\\"([^\"]+)\\\"").find(body)?.groupValues?.get(1).orEmpty() }
+            ?.let { body -> ObjectMapper().readTree(body).path("error").asText() }
             .orEmpty()
 
     private class FakeStateStore(
         private val permit: GatewayCircuitPermit,
+        private val recordError: Throwable? = null,
     ) : GatewayCircuitStateStore {
         var recorded = false
         var recordedHalfOpen = false
         var recordedPermitId: String? = null
+        var recordedFailed = false
+        var recordCalls = 0
 
         override fun tryAcquire(
             routeId: String,
@@ -106,8 +154,11 @@ class GatewayCircuitBreakerGlobalFilterTest {
             permitId: String?,
         ): Mono<Void> {
             recorded = true
+            recordCalls += 1
             recordedHalfOpen = halfOpen
             recordedPermitId = permitId
+            recordedFailed = failed
+            if (recordError != null) return Mono.error(recordError)
             return Mono.empty()
         }
     }

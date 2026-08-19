@@ -25,7 +25,7 @@ class InMemoryGatewayCircuitStateStoreTest {
     }
 
     @Test
-    fun expiresStaleHalfOpenPermitWithoutReleasingANewPermit() {
+    fun stalePermitDoesNotChangeStateAfterCurrentPermitIsReleased() {
         var now = 1_001L
         val store = InMemoryGatewayCircuitStateStore(
             nowMillis = { now },
@@ -42,8 +42,12 @@ class InMemoryGatewayCircuitStateStoreTest {
         assertTrue(currentPermit.halfOpen)
         assertFalse(stalePermit.permitId == currentPermit.permitId)
 
+        store.releaseHalfOpen("identity", currentPermit.permitId).block()
         store.record("identity", failed = true, halfOpen = true, policy, stalePermit.permitId).block()
-        assertFalse(store.tryAcquire("identity", policy).block()!!.allowed)
+
+        val nextPermit = store.tryAcquire("identity", policy).block()!!
+        assertTrue(nextPermit.allowed)
+        assertTrue(nextPermit.halfOpen)
     }
 
     @Test
