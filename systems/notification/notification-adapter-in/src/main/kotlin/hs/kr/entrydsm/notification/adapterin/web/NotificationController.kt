@@ -25,8 +25,15 @@ class NotificationController(
     fun getNotices(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int,
+        @RequestParam(required = false) category: String?,
     ): ApiResponse<PageResponse<NoticeSummaryResponse>> {
-        val result = notificationPort.getNotices(ReadNotificationPageCommand(page = page, size = size))
+        val result = notificationPort.getNotices(
+            ReadNotificationPageCommand.of(
+                page = page,
+                size = size,
+                category = category,
+            ),
+        )
         return ApiResponse(
             status = 200,
             message = "공지 목록 조회 성공",

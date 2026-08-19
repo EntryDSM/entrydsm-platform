@@ -14,7 +14,12 @@ class NoticePersistenceAdapter(
     private val noticeJpaRepository: NoticeJpaRepository,
 ) : NoticeRepository {
     override fun findPage(command: ReadNotificationPageCommand): PageData<Notice> {
-        val page = noticeJpaRepository.findAllByOrderByCreatedAtDescIdDesc(command.toPageRequest())
+        val page = command.category?.let { category ->
+            noticeJpaRepository.findAllByCategoryOrderByCreatedAtDescIdDesc(
+                category,
+                command.toPageRequest(),
+            )
+        } ?: noticeJpaRepository.findAllByOrderByCreatedAtDescIdDesc(command.toPageRequest())
         return PageData(
             content = page.content.map { it.toDomain() },
             page = command.page,

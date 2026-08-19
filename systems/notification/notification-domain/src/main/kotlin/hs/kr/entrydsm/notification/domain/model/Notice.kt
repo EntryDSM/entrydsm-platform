@@ -6,6 +6,7 @@ data class Notice(
     val id: Long,
     val title: String,
     val content: String,
+    val category: NoticeCategory,
     val author: String,
     val viewCount: Int,
     val createdAt: LocalDateTime,

@@ -1,8 +1,11 @@
 package hs.kr.entrydsm.notification.adapterout.entity
 
 import hs.kr.entrydsm.notification.domain.model.Notice
+import hs.kr.entrydsm.notification.domain.model.NoticeCategory
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
@@ -23,6 +26,10 @@ open class NoticeJpaEntity(
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     var content: String = "",
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", nullable = false, length = 32)
+    var category: NoticeCategory = NoticeCategory.ADMISSION_NOTICE,
+
     @Column(name = "author", nullable = false, length = 50)
     var author: String = "",
 
@@ -40,6 +47,7 @@ open class NoticeJpaEntity(
             id = requireNotNull(id),
             title = title,
             content = content,
+            category = category,
             author = author,
             viewCount = viewCount,
             createdAt = createdAt,

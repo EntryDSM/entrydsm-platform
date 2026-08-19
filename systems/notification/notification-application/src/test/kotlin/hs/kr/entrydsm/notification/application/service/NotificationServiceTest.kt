@@ -8,6 +8,7 @@ import hs.kr.entrydsm.notification.application.port.out.RecruitmentGuidelineRepo
 import hs.kr.entrydsm.notification.application.port.out.data.PageData
 import hs.kr.entrydsm.notification.domain.model.Faq
 import hs.kr.entrydsm.notification.domain.model.Notice
+import hs.kr.entrydsm.notification.domain.model.NoticeCategory
 import hs.kr.entrydsm.notification.domain.model.RecruitmentGuideline
 import hs.kr.entrydsm.notification.domain.model.RecruitmentSchedule
 import java.time.LocalDate
@@ -34,6 +35,40 @@ class NotificationServiceTest {
         assertEquals(2L, result.totalElements)
         assertEquals(2, result.totalPages)
         assertFalse(result.last)
+    }
+
+    @Test
+    fun getNoticesReturnsPagedNoticesFilteredByCategory() {
+        val service = service(
+            notices = listOf(
+                notice(
+                    id = 1L,
+                    title = "admission",
+                    category = NoticeCategory.ADMISSION_NOTICE,
+                    createdAt = now.minusDays(1),
+                ),
+                notice(
+                    id = 2L,
+                    title = "prospective",
+                    category = NoticeCategory.PROSPECTIVE_STUDENT,
+                    createdAt = now,
+                ),
+            ),
+        )
+
+        val result = service.getNotices(
+            ReadNotificationPageCommand(
+                page = 0,
+                size = 10,
+                category = NoticeCategory.ADMISSION_NOTICE,
+            ),
+        )
+
+        assertEquals(1, result.content.size)
+        assertEquals(1L, result.content.first().noticeId)
+        assertEquals("admission", result.content.first().title)
+        assertEquals(1L, result.totalElements)
+        assertTrue(result.last)
     }
 
     @Test
@@ -154,7 +189,9 @@ class NotificationServiceTest {
         private val notices: List<Notice> = emptyList(),
     ) : NoticeRepository {
         override fun findPage(command: ReadNotificationPageCommand): PageData<Notice> {
-            val sorted = notices.sortedWith(compareByDescending<Notice> { it.createdAt }.thenByDescending { it.id })
+            val sorted = notices
+                .filter { command.category == null || it.category == command.category }
+                .sortedWith(compareByDescending<Notice> { it.createdAt }.thenByDescending { it.id })
             return sorted.toPageData(command)
         }
 
@@ -180,6 +217,7 @@ class NotificationServiceTest {
         id: Long,
         title: String = "title",
         content: String = "content",
+        category: NoticeCategory = NoticeCategory.ADMISSION_NOTICE,
         author: String = "admin",
         viewCount: Int = 0,
         createdAt: LocalDateTime = now,
@@ -189,6 +227,7 @@ class NotificationServiceTest {
             id = id,
             title = title,
             content = content,
+            category = category,
             author = author,
             viewCount = viewCount,
             createdAt = createdAt,
