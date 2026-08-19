@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.s3.model.HeadObjectResponse
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.S3Exception
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
+import java.lang.reflect.Proxy
 
 class S3StorageAdapterTest {
 
@@ -59,14 +60,17 @@ class S3StorageAdapterTest {
         adapter(FakeS3Client()).delete("photo/a.jpg")
     }
 
-    private fun adapter(client: S3Client) = S3StorageAdapter(client, StubPresigner(), "entrydsm")
+    private fun adapter(client: S3Client) = S3StorageAdapter(client, stubPresigner(), "entrydsm")
+
+    // presign 은 이 테스트에서 쓰지 않는다. 메서드가 7개라 프록시로 대신한다.
+    private fun stubPresigner(): S3Presigner =
+        Proxy.newProxyInstance(
+            S3Presigner::class.java.classLoader,
+            arrayOf(S3Presigner::class.java),
+        ) { _, _, _ -> throw UnsupportedOperationException() } as S3Presigner
 
     private fun s3Exception(statusCode: Int): S3Exception =
         S3Exception.builder().statusCode(statusCode).message("status=$statusCode").build() as S3Exception
-
-    private class StubPresigner : S3Presigner {
-        override fun close() = Unit
-    }
 
     private class FakeS3Client(
         private val headFailure: RuntimeException? = null,
