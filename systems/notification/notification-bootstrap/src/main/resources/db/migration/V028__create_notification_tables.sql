@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS notices (
     id BIGINT NOT NULL AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
+    category VARCHAR(32) NOT NULL,
     author VARCHAR(50) NOT NULL,
     view_count INT NOT NULL,
     created_at DATETIME(6) NOT NULL,
