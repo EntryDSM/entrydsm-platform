@@ -16,24 +16,18 @@ import hs.kr.entrydsm.configuration.domain.document.port.`in`.UploadFileUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 import java.io.InputStream
 
-@Service
-@Transactional(readOnly = true)
 class FileDocumentService(
     private val storagePort: StoragePort,
     private val fileDocumentRepository: FileDocumentRepository,
-    @Value("\${aws.s3.presign-expiry-seconds:600}") private val presignExpirySeconds: Long,
+    private val presignExpirySeconds: Long,
 ) : UploadFileUseCase,
     IssueDownloadUrlUseCase,
     ReadFileUseCase {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    @Transactional
     override fun upload(command: UploadFileCommand, content: InputStream): FileDocument {
         val extension = resolveExtension(command)
         if (command.category.exceedsMaxSize(command.sizeBytes)) {
@@ -41,6 +35,8 @@ class FileDocumentService(
         }
 
         val objectKey = command.category.objectKeyOf(command.fileName)
+        // 같은 키를 덮어쓴 경우 보상 삭제가 이전 파일까지 지우면 안 된다.
+        val replacedExistingObject = storagePort.exists(objectKey)
         val stored = storagePort.upload(objectKey, extension.contentType, command.sizeBytes, content)
 
         return try {
@@ -55,7 +51,7 @@ class FileDocumentService(
                 )
             )
         } catch (e: RuntimeException) {
-            deleteOrphan(objectKey)
+            if (!replacedExistingObject) deleteOrphan(objectKey)
             throw e
         }
     }
