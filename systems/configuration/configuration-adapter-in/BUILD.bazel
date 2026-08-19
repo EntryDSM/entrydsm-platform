@@ -28,3 +28,12 @@ kt_jvm_test(
     test_class = "hs.kr.entrydsm.configuration.adapterin.common.DocumentApiContractTest",
     deps = MODULE_DEPS + TEST_DEPS + [":main"],
 )
+
+kt_jvm_test(
+    name = "document_controller_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.configuration.adapterin.document.DocumentControllerTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
