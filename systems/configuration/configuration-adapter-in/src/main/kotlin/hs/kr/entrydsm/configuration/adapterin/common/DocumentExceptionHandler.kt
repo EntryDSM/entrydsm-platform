@@ -6,6 +6,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeExcept
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameException
 import hs.kr.entrydsm.configuration.domain.document.exception.PresignFailedException
+import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUploadFailedException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
@@ -52,6 +53,10 @@ class DocumentExceptionHandler {
     @ExceptionHandler(PresignFailedException::class)
     fun handlePresignFailed(e: PresignFailedException) =
         respond(ErrorCode.PRESIGN_FAILED, e)
+
+    @ExceptionHandler(StorageUnavailableException::class)
+    fun handleStorageUnavailable(e: StorageUnavailableException) =
+        respond(ErrorCode.STORAGE_UNAVAILABLE, e)
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(e: Exception): ResponseEntity<ApiResponse<Nothing>> {
