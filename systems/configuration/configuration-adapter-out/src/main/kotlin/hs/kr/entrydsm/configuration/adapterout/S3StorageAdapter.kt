@@ -2,6 +2,7 @@ package hs.kr.entrydsm.configuration.adapterout
 
 import hs.kr.entrydsm.configuration.domain.document.StoredObject
 import hs.kr.entrydsm.configuration.domain.document.exception.PresignFailedException
+import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUploadFailedException
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.springframework.beans.factory.annotation.Value
@@ -13,8 +14,8 @@ import software.amazon.awssdk.services.s3.model.ChecksumAlgorithm
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
+import software.amazon.awssdk.services.s3.model.S3Exception
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 import java.io.InputStream
@@ -80,16 +81,27 @@ class S3StorageAdapter(
                     .build()
             )
             true
-        } catch (e: NoSuchKeyException) {
-            false
+        } catch (e: S3Exception) {
+            // HEAD 응답에는 본문이 없어 객체 없음이 NoSuchKeyException 대신 404 S3Exception 으로 올라오기도 한다.
+            if (e.statusCode() == HTTP_NOT_FOUND) false else throw StorageUnavailableException(objectKey, e)
+        } catch (e: SdkException) {
+            throw StorageUnavailableException(objectKey, e)
         }
 
     override fun delete(objectKey: String) {
-        s3Client.deleteObject(
-            DeleteObjectRequest.builder()
-                .bucket(bucket)
-                .key(objectKey)
-                .build()
-        )
+        try {
+            s3Client.deleteObject(
+                DeleteObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(objectKey)
+                    .build()
+            )
+        } catch (e: SdkException) {
+            throw StorageUnavailableException(objectKey, e)
+        }
+    }
+
+    private companion object {
+        const val HTTP_NOT_FOUND = 404
     }
 }

@@ -9,5 +9,6 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "허용 용량을 초과했습니다."),
     STORAGE_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, "파일 저장에 실패했습니다."),
     PRESIGN_FAILED(HttpStatus.BAD_GATEWAY, "다운로드 URL 발급에 실패했습니다."),
+    STORAGE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "파일 저장소에 접근할 수 없습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
 }

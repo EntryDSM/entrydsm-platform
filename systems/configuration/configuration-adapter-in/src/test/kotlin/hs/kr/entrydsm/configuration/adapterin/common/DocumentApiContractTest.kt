@@ -15,6 +15,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeExcept
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameException
 import hs.kr.entrydsm.configuration.domain.document.exception.PresignFailedException
+import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUploadFailedException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -67,6 +68,7 @@ class DocumentApiContractTest {
         assertEquals(HttpStatus.CONTENT_TOO_LARGE, ErrorCode.FILE_TOO_LARGE.status)
         assertEquals(HttpStatus.BAD_GATEWAY, ErrorCode.STORAGE_UPLOAD_FAILED.status)
         assertEquals(HttpStatus.BAD_GATEWAY, ErrorCode.PRESIGN_FAILED.status)
+        assertEquals(HttpStatus.BAD_GATEWAY, ErrorCode.STORAGE_UNAVAILABLE.status)
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_SERVER_ERROR.status)
     }
 
@@ -95,6 +97,10 @@ class DocumentApiContractTest {
         assertMapped(
             ErrorCode.PRESIGN_FAILED,
             handler.handlePresignFailed(PresignFailedException("photo/a.jpg")),
+        )
+        assertMapped(
+            ErrorCode.STORAGE_UNAVAILABLE,
+            handler.handleStorageUnavailable(StorageUnavailableException("photo/a.jpg")),
         )
     }
 
