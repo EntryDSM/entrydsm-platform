@@ -12,9 +12,7 @@ import hs.kr.entrydsm.observability.domain.service.DeviceTypeParser
 import java.time.Clock
 import java.time.Instant
 import java.util.UUID
-import org.springframework.stereotype.Service
 
-@Service
 class SessionCollectionService(
     private val sessionStorePort: SessionStorePort,
     private val rateLimitPort: RateLimitPort,
