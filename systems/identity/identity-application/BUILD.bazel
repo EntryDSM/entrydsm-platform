@@ -16,7 +16,7 @@ kt_jvm_test(
     srcs = glob(["src/test/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
-    test_class = "hs.kr.entrydsm.identity.application.IdentityApplicationModuleTest",
+    test_class = "hs.kr.entrydsm.identity.application.AuthIdentityApplicationModuleTest",
     deps = [":main"] + MODULE_DEPS + TEST_DEPS,
 )
 
