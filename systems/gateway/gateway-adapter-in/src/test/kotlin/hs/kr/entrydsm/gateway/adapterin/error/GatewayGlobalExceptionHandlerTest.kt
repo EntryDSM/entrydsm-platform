@@ -9,6 +9,7 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.mock.web.server.MockServerWebExchange
 import org.springframework.core.io.buffer.DataBufferUtils
 import java.nio.charset.StandardCharsets
+import tools.jackson.databind.json.JsonMapper
 
 class GatewayGlobalExceptionHandlerTest {
     @Test
@@ -58,7 +59,7 @@ class GatewayGlobalExceptionHandlerTest {
     fun serializesErrorFieldsAsValidUtf8Json() {
         val exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/error").build())
 
-        GatewayErrorResponseWriter(ObjectMapper()).write(
+        GatewayErrorResponseWriter(JsonMapper.builder().build()).write(
             exchange,
             org.springframework.http.HttpStatus.BAD_REQUEST,
             "quote\" slash\\ 한글",
@@ -80,5 +81,5 @@ class GatewayGlobalExceptionHandlerTest {
             .block()
             .orEmpty()
 
-    private fun handler() = GatewayGlobalExceptionHandler(GatewayErrorResponseWriter(ObjectMapper()))
+    private fun handler() = GatewayGlobalExceptionHandler(GatewayErrorResponseWriter(JsonMapper.builder().build()))
 }

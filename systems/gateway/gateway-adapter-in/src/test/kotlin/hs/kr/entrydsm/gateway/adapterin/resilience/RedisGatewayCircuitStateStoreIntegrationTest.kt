@@ -56,6 +56,34 @@ class RedisGatewayCircuitStateStoreIntegrationTest {
     }
 
     @Test
+    fun allowsNextHalfOpenProbeAfterFailureWhenWaitIsShorterThanProbeTtl() {
+        val redisTemplate = connect()
+        val policy = policy(waitDurationSeconds = 1)
+        val route = route()
+        val store = RedisGatewayCircuitStateStore(redisTemplate)
+
+        store.record(route, failed = true, halfOpen = false, policy).block(Duration.ofSeconds(2))
+        Thread.sleep(1_100)
+
+        val firstPermit = store.tryAcquire(route, policy).block(Duration.ofSeconds(2))!!
+        assertTrue(firstPermit.halfOpen)
+
+        store.record(
+            route,
+            failed = true,
+            halfOpen = true,
+            policy = policy,
+            permitId = firstPermit.permitId,
+        ).block(Duration.ofSeconds(2))
+        Thread.sleep(1_100)
+
+        val nextPermit = store.tryAcquire(route, policy).block(Duration.ofSeconds(2))!!
+
+        assertTrue(nextPermit.allowed)
+        assertTrue(nextPermit.halfOpen)
+    }
+
+    @Test
     fun failsOpenWhenRedisIsUnavailable() {
         val unavailableFactory = LettuceConnectionFactory(RedisStandaloneConfiguration("127.0.0.1", 1))
         unavailableFactory.afterPropertiesSet()

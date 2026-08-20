@@ -150,11 +150,11 @@ class RedisGatewayCircuitStateStore(
         val HALF_OPEN_RECORD_SCRIPT = DefaultRedisScript(
             """
             if redis.call('EXISTS', KEYS[1]) == 0 then return 'IGNORED' end
-            redis.call('DEL', KEYS[1])
             if ARGV[1] == '1' then
+                redis.call('DEL', KEYS[1], KEYS[3])
                 redis.call('SET', KEYS[2], ARGV[2], 'PX', tonumber(ARGV[3]) * 1000)
             else
-                redis.call('DEL', KEYS[2], KEYS[3], KEYS[4])
+                redis.call('DEL', KEYS[1], KEYS[2], KEYS[3], KEYS[4])
             end
             return 'OK'
             """.trimIndent(),

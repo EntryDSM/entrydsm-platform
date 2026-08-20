@@ -5,6 +5,7 @@ import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -14,6 +15,7 @@ import org.springframework.cloud.gateway.support.ServerWebExchangeUtils
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.mock.web.server.MockServerWebExchange
 import reactor.core.publisher.Mono
+import tools.jackson.databind.json.JsonMapper
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
 import java.net.URI
 
@@ -82,10 +84,11 @@ class GatewayCircuitBreakerGlobalFilterTest {
         val failure = IllegalStateException("downstream failed")
         val store = FakeStateStore(GatewayCircuitPermit(allowed = true, halfOpen = false))
 
-        assertThrows(IllegalStateException::class.java) {
+        val thrown = assertThrows(IllegalStateException::class.java) {
             filter(store).filter(exchange, GatewayFilterChain { Mono.error(failure) }).block()
         }
 
+        assertSame(failure, thrown)
         assertTrue(store.recorded)
         assertTrue(store.recordedFailed)
     }
@@ -111,7 +114,7 @@ class GatewayCircuitBreakerGlobalFilterTest {
         GatewayRuntimeProperties(),
         registry,
         store,
-        GatewayErrorResponseWriter(ObjectMapper()),
+        GatewayErrorResponseWriter(JsonMapper.builder().build()),
     )
 
     private fun exchange(): MockServerWebExchange = MockServerWebExchange.from(

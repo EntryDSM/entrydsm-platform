@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.gateway.adapterin.filter
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -11,6 +10,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.mock.web.server.MockServerWebExchange
 import reactor.core.publisher.Mono
+import tools.jackson.databind.json.JsonMapper
 
 class GatewayCorsGlobalFilterTest {
     @Test
@@ -127,6 +127,6 @@ class GatewayCorsGlobalFilterTest {
 
     private fun filter() = GatewayCorsGlobalFilter(
         GatewayRuntimeProperties(),
-        GatewayErrorResponseWriter(ObjectMapper()),
+        GatewayErrorResponseWriter(JsonMapper.builder().build()),
     )
 }

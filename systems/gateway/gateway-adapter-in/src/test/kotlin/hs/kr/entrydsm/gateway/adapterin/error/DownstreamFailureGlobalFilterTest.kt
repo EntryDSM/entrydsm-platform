@@ -1,12 +1,12 @@
 package hs.kr.entrydsm.gateway.adapterin.error
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.springframework.cloud.gateway.filter.GatewayFilterChain
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.mock.web.server.MockServerWebExchange
 import reactor.core.publisher.Mono
+import tools.jackson.databind.json.JsonMapper
 import java.net.ConnectException
 
 class DownstreamFailureGlobalFilterTest {
@@ -40,7 +40,7 @@ class DownstreamFailureGlobalFilterTest {
             .build(),
     ).also { it.response.headers.set("X-Trace-Id", traceId) }
 
-    private fun handler() = GatewayGlobalExceptionHandler(GatewayErrorResponseWriter(ObjectMapper()))
+    private fun handler() = GatewayGlobalExceptionHandler(GatewayErrorResponseWriter(JsonMapper.builder().build()))
 
     private class ReadTimeoutException : RuntimeException()
 }
