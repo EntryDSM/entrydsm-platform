@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.observability.adapterin.web.controller
 
+import hs.kr.entrydsm.observability.adapterin.web.ClientIpResolver
 import hs.kr.entrydsm.observability.adapterin.web.dto.common.ApiResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.request.SessionEventRequest
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class SessionCollectController(
     private val recordSessionEventUseCase: RecordSessionEventUseCase,
+    private val clientIpResolver: ClientIpResolver,
 ) {
     @PostMapping("/api/monitor/v11/collect/session")
     fun collect(
@@ -29,15 +31,8 @@ class SessionCollectController(
             sessionId = request.sessionId,
             service = request.service,
             userAgent = userAgent,
-            clientIp = clientIp(httpRequest),
+            clientIp = clientIpResolver.resolve(httpRequest),
         )
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(ApiResponse(data = result.toResponse()))
     }
-
-    private fun clientIp(request: HttpServletRequest): String =
-        request.getHeader("X-Forwarded-For")
-            ?.substringBefore(",")
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?: request.remoteAddr
 }

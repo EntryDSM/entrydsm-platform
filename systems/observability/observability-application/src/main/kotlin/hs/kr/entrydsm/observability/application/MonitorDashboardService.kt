@@ -28,9 +28,7 @@ import hs.kr.entrydsm.observability.domain.service.ServiceLabels
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import org.springframework.stereotype.Service
 
-@Service
 class MonitorDashboardService(
     private val sessionStorePort: SessionStorePort,
     private val healthCheckPort: HealthCheckPort,
@@ -54,7 +52,8 @@ class MonitorDashboardService(
             DeviceStatResult(type, count, ratio(count, totalVisitors))
         }
 
-        val perServiceItems = ServiceName.entries.map { service ->
+        // 헬스체크는 외부 HTTP 호출이라 순차 실행하면 서비스 수만큼 타임아웃이 누적된다.
+        val perServiceItems = ServiceName.entries.parallelStream().map { service ->
             val check = healthCheckPort.check(service)
             val status = HealthStatusClassifier.classify(check.responseTimeMs, check.dependencies.values.all { it })
             ServiceActivityItemResult(
@@ -63,7 +62,7 @@ class MonitorDashboardService(
                 activeUsers = sessionStorePort.concurrentUsers(service, now, WINDOW_SECONDS),
                 status = status,
             )
-        }
+        }.toList()
         val totalActiveUsers = sessionStorePort.concurrentUsers(null, now, WINDOW_SECONDS)
         val totalItem = ServiceActivityItemResult(
             service = "TOTAL",

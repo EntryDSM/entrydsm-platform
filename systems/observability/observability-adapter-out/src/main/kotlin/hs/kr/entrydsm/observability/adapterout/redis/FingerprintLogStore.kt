@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.observability.adapterout.redis
 
 import hs.kr.entrydsm.observability.domain.model.Cursor
+import java.time.Duration
 import java.time.Instant
 import org.springframework.data.redis.core.StringRedisTemplate
 
@@ -17,18 +18,22 @@ class FingerprintLogStore(
         val entryKey = entryKey(fingerprint)
         val hashOps = redis.opsForHash<String, String>()
         val nowMillis = occurredAt.toEpochMilli().toString()
-        if (redis.hasKey(entryKey)) {
-            hashOps.increment(entryKey, FIELD_COUNT, 1)
-            hashOps.put(entryKey, FIELD_LAST_OCCURRED_AT, nowMillis)
+        // HINCRBY는 원자적이고 키가 없으면 1을 돌려준다. 존재 확인 후 분기하면 동시 요청이 서로의 누적 카운트를 덮어쓴다.
+        val count = hashOps.increment(entryKey, FIELD_COUNT, 1)
+        if (count == 1L) {
+            hashOps.putAll(entryKey, fields + mapOf(FIELD_FIRST_OCCURRED_AT to nowMillis, FIELD_LAST_OCCURRED_AT to nowMillis))
         } else {
-            hashOps.putAll(
-                entryKey,
-                fields + mapOf(FIELD_COUNT to "1", FIELD_FIRST_OCCURRED_AT to nowMillis, FIELD_LAST_OCCURRED_AT to nowMillis),
-            )
+            hashOps.put(entryKey, FIELD_LAST_OCCURRED_AT, nowMillis)
         }
+        redis.expire(entryKey, RETENTION)
+
         val score = occurredAt.toEpochMilli().toDouble()
-        redis.opsForZSet().add(indexKey(ALL), fingerprint, score)
-        groupKeys.forEach { redis.opsForZSet().add(indexKey(it), fingerprint, score) }
+        val expiredBefore = occurredAt.minus(RETENTION).toEpochMilli().toDouble()
+        (listOf(ALL) + groupKeys).forEach { group ->
+            redis.opsForZSet().add(indexKey(group), fingerprint, score)
+            // entry Hash는 TTL로 사라지므로 index ZSet도 같은 보존 기간으로 잘라내 무한히 커지지 않게 한다.
+            redis.opsForZSet().removeRangeByScore(indexKey(group), 0.0, expiredBefore)
+        }
     }
 
     fun entry(fingerprint: String): Map<String, String> = redis.opsForHash<String, String>().entries(entryKey(fingerprint))
@@ -39,8 +44,10 @@ class FingerprintLogStore(
     /** @return (최신순 fingerprint 목록, 다음 페이지 존재 여부) */
     fun page(group: String, from: Instant, to: Instant, cursor: Cursor?, size: Int): Pair<List<String>, Boolean> {
         val maxScore = cursor?.lastScore?.toDouble() ?: to.toEpochMilli().toDouble()
+        // 커서가 있으면 직전 페이지의 마지막 항목이 한 번 더 섞여 들어오므로 그만큼 더 가져와야 hasNext가 맞는다.
+        val limit = size + 1 + if (cursor != null) 1 else 0
         val fetched = redis.opsForZSet()
-            .reverseRangeByScore(indexKey(group), from.toEpochMilli().toDouble(), maxScore, 0, (size + 1).toLong())
+            .reverseRangeByScore(indexKey(group), from.toEpochMilli().toDouble(), maxScore, 0, limit.toLong())
             ?.toList()
             ?: emptyList()
         val filtered = if (cursor != null) fetched.filterNot { it == cursor.lastId } else fetched
@@ -57,5 +64,8 @@ class FingerprintLogStore(
         const val FIELD_COUNT = "count"
         const val FIELD_FIRST_OCCURRED_AT = "firstOccurredAt"
         const val FIELD_LAST_OCCURRED_AT = "lastOccurredAt"
+
+        /** 로그 조회 API가 허용하는 최대 조회 범위(7일)와 맞춘다. */
+        private val RETENTION: Duration = Duration.ofDays(7)
     }
 }

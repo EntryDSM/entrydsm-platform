@@ -26,12 +26,13 @@ class ActuatorHealthCheckAdapter(
         val baseUrl = properties.services[service.name.lowercase()]?.baseUrl
             ?: return ServiceHealthCheck(responseTimeMs = null, version = null, dependencies = emptyMap())
 
-        val request = HttpRequest.newBuilder(URI.create("$baseUrl/actuator/health"))
-            .timeout(TIMEOUT)
-            .GET()
-            .build()
         val start = System.nanoTime()
         return try {
+            // URI.create은 잘못된 base-url에서 예외를 던진다. 설정 하나가 헬스 API 전체를 실패시키지 않도록 try 안에서 만든다.
+            val request = HttpRequest.newBuilder(URI.create("$baseUrl/actuator/health"))
+                .timeout(TIMEOUT)
+                .GET()
+                .build()
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
             val elapsedMs = (System.nanoTime() - start) / 1_000_000
             if (response.statusCode() !in 200..299) {
@@ -42,7 +43,10 @@ class ActuatorHealthCheckAdapter(
                 ?.associate { it.key to (it.value["status"]?.asText() == "UP") }
                 ?: emptyMap()
             ServiceHealthCheck(responseTimeMs = elapsedMs, version = null, dependencies = dependencies)
-        } catch (e: Exception) {
+        } catch (exception: InterruptedException) {
+            Thread.currentThread().interrupt()
+            ServiceHealthCheck(responseTimeMs = null, version = null, dependencies = emptyMap())
+        } catch (exception: Exception) {
             ServiceHealthCheck(responseTimeMs = null, version = null, dependencies = emptyMap())
         }
     }

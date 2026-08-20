@@ -5,8 +5,8 @@ import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
 import hs.kr.entrydsm.observability.application.port.out.SessionStorePort
 import hs.kr.entrydsm.observability.domain.enum.DeviceType
 import hs.kr.entrydsm.observability.domain.enum.ServiceName
-import hs.kr.entrydsm.observability.domain.enum.SessionEventType
 import hs.kr.entrydsm.observability.domain.enum.ErrorCode
+import hs.kr.entrydsm.observability.domain.enum.SessionEventType
 import hs.kr.entrydsm.observability.domain.exception.MonitorDomainException
 import java.time.Clock
 import java.time.Instant
@@ -31,7 +31,7 @@ class SessionCollectionServiceTest {
 
     @Test
     fun heartbeatKeepsIssuedSessionId() {
-        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), clock)
+        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), FakeMetricsStorePort(), clock)
         val sessionId = service.record(SessionEventType.ENTER, null, ServiceName.APPLICATION, null, "127.0.0.1").sessionId
 
         val result = service.record(SessionEventType.HEARTBEAT, sessionId, ServiceName.APPLICATION, null, "127.0.0.1")
@@ -41,7 +41,7 @@ class SessionCollectionServiceTest {
 
     @Test
     fun heartbeatAfterLeaveThrowsSessionNotFound() {
-        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), clock)
+        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), FakeMetricsStorePort(), clock)
         val sessionId = service.record(SessionEventType.ENTER, null, ServiceName.APPLICATION, null, "127.0.0.1").sessionId
 
         assertEquals(sessionId, service.record(SessionEventType.LEAVE, sessionId, ServiceName.APPLICATION, null, "127.0.0.1").sessionId)
@@ -64,7 +64,7 @@ class SessionCollectionServiceTest {
 
     @Test
     fun heartbeatWithoutSessionIdThrowsInvalidPayload() {
-        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), clock)
+        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), FakeMetricsStorePort(), clock)
 
         val exception = assertThrows(MonitorDomainException::class.java) {
             service.record(SessionEventType.HEARTBEAT, null, ServiceName.APPLICATION, null, "127.0.0.1")
@@ -74,7 +74,7 @@ class SessionCollectionServiceTest {
 
     @Test
     fun leaveOnUnknownSessionThrowsSessionNotFound() {
-        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), clock)
+        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(true), FakeMetricsStorePort(), clock)
 
         val exception = assertThrows(MonitorDomainException::class.java) {
             service.record(SessionEventType.LEAVE, "sess_unknown", ServiceName.APPLICATION, null, "127.0.0.1")

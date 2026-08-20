@@ -11,16 +11,15 @@ import hs.kr.entrydsm.observability.domain.service.HealthStatusClassifier
 import hs.kr.entrydsm.observability.domain.service.ServiceLabels
 import java.time.Clock
 import java.time.Instant
-import org.springframework.stereotype.Service
 
-@Service
 class MonitorHealthService(
     private val healthCheckPort: HealthCheckPort,
     private val clock: Clock,
 ) : GetServiceHealthUseCase {
 
     override fun getHealth(): ServiceHealthResult {
-        val services = ServiceName.entries.map { service ->
+        // 순차 호출하면 서비스 수만큼 3초 타임아웃이 누적된다. 요청 지연을 단일 대상의 타임아웃 수준으로 묶는다.
+        val services = ServiceName.entries.parallelStream().map { service ->
             val check = healthCheckPort.check(service)
             val allDependenciesUp = check.dependencies.values.all { it }
             ServiceHealthItemResult(
@@ -33,7 +32,7 @@ class MonitorHealthService(
                     DependencyStatusResult(name, if (up) ServiceStatus.UP else ServiceStatus.DOWN)
                 },
             )
-        }
+        }.toList()
         return ServiceHealthResult(
             overall = HealthStatusClassifier.overall(services.map { it.status }),
             checkedAt = Instant.now(clock),

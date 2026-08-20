@@ -17,9 +17,9 @@ class FingerprintTest {
     }
 
     @Test
-    fun fingerprintIsEightHexChars() {
+    fun fingerprintIsSixteenHexChars() {
         val fingerprint = Fingerprint.of("DOM", "boom", "/a")
-        assertEquals(8, fingerprint.length)
-        assertEquals(true, fingerprint.matches(Regex("[0-9a-f]{8}")))
+        assertEquals(16, fingerprint.length)
+        assertEquals(true, fingerprint.matches(Regex("[0-9a-f]{16}")))
     }
 }

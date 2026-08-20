@@ -5,6 +5,7 @@ import java.time.Duration
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class TimeBucketerTest {
@@ -23,5 +24,32 @@ class TimeBucketerTest {
         val buckets = TimeBucketer.bucketStarts(from, to, Duration.ofHours(1))
 
         assertEquals(listOf(Instant.parse("2026-07-28T00:00:00Z"), Instant.parse("2026-07-28T01:00:00Z")), buckets)
+    }
+
+    @Test
+    fun bucketCountMatchesBucketStartsSize() {
+        val from = Instant.parse("2026-07-28T00:00:00Z")
+        val to = Instant.parse("2026-07-28T02:30:00Z")
+
+        assertEquals(
+            TimeBucketer.bucketStarts(from, to, Duration.ofHours(1)).size.toLong(),
+            TimeBucketer.bucketCount(from, to, Duration.ofHours(1)),
+        )
+    }
+
+    @Test
+    fun bucketCountIsZeroWhenRangeIsEmpty() {
+        val at = Instant.parse("2026-07-28T00:00:00Z")
+
+        assertEquals(0L, TimeBucketer.bucketCount(at, at, Duration.ofHours(1)))
+    }
+
+    @Test
+    fun rejectsNonPositiveInterval() {
+        val from = Instant.parse("2026-07-28T00:00:00Z")
+        val to = Instant.parse("2026-07-28T02:00:00Z")
+
+        assertThrows(IllegalArgumentException::class.java) { TimeBucketer.bucketStarts(from, to, Duration.ZERO) }
+        assertThrows(IllegalArgumentException::class.java) { TimeBucketer.bucketStarts(from, to, Duration.ofMinutes(-5)) }
     }
 }
