@@ -54,13 +54,16 @@ class RedisClientLogStoreAdapter(
         )
     }
 
+    /** 예전에 기록된 값이 지금의 enum에 없을 수 있다. 항목 하나 때문에 목록 조회 전체가 실패하지 않도록 건너뛴다. */
     private fun toEntry(fingerprint: String, fields: Map<String, String>): ClientLogEntry? {
         if (fields.isEmpty()) return null
+        val level = LogLevel.entries.find { it.name == fields[FIELD_LEVEL] } ?: return null
+        val source = LogSource.entries.find { it.name == fields[FIELD_SOURCE] } ?: return null
         return ClientLogEntry(
             fingerprint = fingerprint,
-            level = LogLevel.valueOf(fields.getValue(FIELD_LEVEL)),
+            level = level,
             message = fields.getValue(FIELD_MESSAGE),
-            source = LogSource.valueOf(fields.getValue(FIELD_SOURCE)),
+            source = source,
             pageUrl = fields.getValue(FIELD_PAGE_URL),
             browser = fields[FIELD_BROWSER]?.takeIf { it.isNotEmpty() },
             os = fields[FIELD_OS]?.takeIf { it.isNotEmpty() },
