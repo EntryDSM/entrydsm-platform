@@ -1,6 +1,6 @@
 SPRING_DEPS = [
-    "@maven//:org_springframework_boot_spring_boot_starter_web",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
+    "@maven//:org_springframework_cloud_spring_cloud_starter_gateway_server_webflux",
 ]
 
 KOTLIN_DEPS = [
@@ -10,7 +10,8 @@ KOTLIN_DEPS = [
 
 TEST_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_test",
-    "@maven//:junit_junit",
+    "@maven//:org_junit_jupiter_junit_jupiter",
+    "@maven//:org_junit_platform_junit_platform_launcher",
 ]
 
 MODULE_DEPS = SPRING_DEPS + KOTLIN_DEPS

@@ -16,6 +16,6 @@ kt_jvm_test(
     srcs = glob(["src/test/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
-    test_class = "hs.kr.entrydsm.gateway.domain.GatewayDomainModuleTest",
-    deps = MODULE_DEPS + TEST_DEPS,
+    main_class = "hs.kr.entrydsm.gateway.domain.GatewayDomainTestRunnerKt",
+    deps = [":main"] + MODULE_DEPS + TEST_DEPS,
 )
