@@ -7,4 +7,5 @@ import hs.kr.entrydsm.identity.domain.enum.ErrorCode
  */
 abstract class IdentityException(
     val errorCode: ErrorCode,
-) : RuntimeException(errorCode.message)
+    cause: Throwable? = null,
+) : RuntimeException(errorCode.message, cause)
