@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity.domain
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.domain.model.Account
@@ -46,7 +47,7 @@ class AccountTest {
             userId = 123L,
             loginId = "01012345678",
             passwordHash = PasswordHash.fromEncoded("encoded-password"),
-            role = "USER",
+            role = Role.USER,
             status = AccountStatus.ACTIVE,
             profile = StudentProfile(
                 name = "홍길동",

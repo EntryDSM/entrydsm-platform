@@ -1,0 +1,19 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+
+package(default_visibility = ["//visibility:public"])
+
+kt_jvm_library(
+    name = "main",
+    srcs = ["src/main/kotlin/hs/kr/entrydsm/identity/test/IntegrationTestGate.kt"],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+)
+
+kt_jvm_test(
+    name = "test",
+    srcs = ["src/test/kotlin/hs/kr/entrydsm/identity/test/IntegrationTestGateTest.kt"],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.identity.test.IntegrationTestGateTest",
+    deps = [":main", "@maven//:junit_junit"],
+)

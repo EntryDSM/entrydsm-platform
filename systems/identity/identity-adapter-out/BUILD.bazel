@@ -3,12 +3,18 @@ load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
 package(default_visibility = ["//visibility:public"])
 
+java_import(
+    name = "okcert",
+    jars = ["libs/OkCert3-java1.5-2.3.1.jar"],
+)
+
 kt_jvm_library(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
-    deps = MODULE_DEPS,
+    plugins = ["//:spring_allopen"],
+    deps = MODULE_DEPS + [":okcert"],
 )
 
 kt_jvm_test(
@@ -17,5 +23,7 @@ kt_jvm_test(
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     test_class = "hs.kr.entrydsm.identity.adapterout.IdentityAdapterOutModuleTest",
-    deps = [":main"] + MODULE_DEPS + TEST_DEPS,
+    deps = [":main"] + MODULE_DEPS + TEST_DEPS + [
+        "//systems/identity/identity-test-support:main",
+    ],
 )
