@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component
  * 여러 5분 버킷을 합집합(SUNIONSTORE)해 고유 방문자 수를 계산한다.
  * ponytail: 넓은 범위(예: 90일 x 1d)를 조회하면 유니온 대상 키가 많아질 수 있다.
  * 관리자 조회용 API라 빈도가 낮아 감내 가능, 느려지면 인터벌별 사전 집계로 교체한다.
+ * ponytail: 저장 해상도가 5분이라 5분 경계에 걸치지 않는 조회는 해당 버킷 전체를 포함한다(최대 5분 과대 집계).
+ * 분 단위 정확도가 필요해지면 방문자를 timestamp score의 ZSet으로 바꾼다.
  */
 @Component
 class RedisMetricsStoreAdapter(
