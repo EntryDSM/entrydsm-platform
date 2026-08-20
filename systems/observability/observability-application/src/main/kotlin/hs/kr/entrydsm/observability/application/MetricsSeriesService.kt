@@ -13,14 +13,14 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
-import org.springframework.stereotype.Service
 
-@Service
 class MetricsSeriesService(
     private val metricsStorePort: MetricsStorePort,
     private val clock: Clock,
 ) : GetMetricsSeriesUseCase {
 
+    // ponytail: 버킷마다 저장소를 한 번씩 조회한다(최대 MAX_BUCKETS회).
+    // 관리자 조회용이라 감내 가능, 느려지면 MetricsStorePort에 구간 일괄 조회를 추가해 파이프라인으로 묶는다.
     override fun getSeries(metrics: List<MetricType>, from: Instant?, to: Instant?, interval: String?): MetricsSeriesResult {
         if (metrics.isEmpty()) throw MonitorDomainException(ErrorCode.INVALID_METRIC)
 
@@ -33,8 +33,11 @@ class MetricsSeriesService(
 
         val resolvedInterval = interval ?: "1h"
         val duration = TimeBucketer.durationOf(resolvedInterval) ?: throw MonitorDomainException(ErrorCode.INVALID_INTERVAL)
+        // 리스트를 만든 뒤 세면 90일 x 5m 같은 요청에서 2만 개가 넘는 Instant를 만들고 바로 버린다.
+        if (TimeBucketer.bucketCount(resolvedFrom, resolvedTo, duration) > MAX_BUCKETS) {
+            throw MonitorDomainException(ErrorCode.INVALID_INTERVAL)
+        }
         val buckets = TimeBucketer.bucketStarts(resolvedFrom, resolvedTo, duration)
-        if (buckets.size > MAX_BUCKETS) throw MonitorDomainException(ErrorCode.INVALID_INTERVAL)
 
         val series = metrics.map { metric ->
             val points = buckets.map { bucketStart ->

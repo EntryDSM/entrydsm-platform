@@ -10,9 +10,7 @@ import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
 import hs.kr.entrydsm.observability.domain.enum.ErrorCode
 import hs.kr.entrydsm.observability.domain.exception.MonitorDomainException
 import hs.kr.entrydsm.observability.domain.service.UserAgentParser
-import org.springframework.stereotype.Service
 
-@Service
 class ClientLogCollectionService(
     private val clientLogStorePort: ClientLogStorePort,
     private val rateLimitPort: RateLimitPort,

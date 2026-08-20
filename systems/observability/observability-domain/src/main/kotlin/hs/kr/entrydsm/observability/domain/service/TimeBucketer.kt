@@ -14,8 +14,18 @@ object TimeBucketer {
 
     fun durationOf(interval: String): Duration? = INTERVALS[interval]
 
+    /** 버킷 목록을 만들지 않고 개수만 센다. 범위 검증에서 큰 리스트를 만들었다 버리지 않기 위한 것. */
+    fun bucketCount(from: Instant, to: Instant, interval: Duration): Long {
+        require(!interval.isZero && !interval.isNegative) { "interval must be positive: $interval" }
+        if (!from.isBefore(to)) return 0
+        val span = Duration.between(from, to).toMillis()
+        val step = interval.toMillis()
+        return (span + step - 1) / step
+    }
+
     /** points의 t는 버킷의 시작 시각이다. */
     fun bucketStarts(from: Instant, to: Instant, interval: Duration): List<Instant> {
+        require(!interval.isZero && !interval.isNegative) { "interval must be positive: $interval" }
         val starts = mutableListOf<Instant>()
         var cursor = from
         while (cursor.isBefore(to)) {

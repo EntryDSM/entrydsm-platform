@@ -3,7 +3,7 @@ package hs.kr.entrydsm.observability.domain.service
 import hs.kr.entrydsm.observability.domain.enum.ServiceName
 
 object ServiceLabels {
-    private val LABELS = mapOf(
+    private val labels = mapOf(
         ServiceName.IDENTITY to "유저",
         ServiceName.AUTH to "인증",
         ServiceName.APPLICATION to "접수",
@@ -13,5 +13,5 @@ object ServiceLabels {
         ServiceName.SCHEDULE to "일정",
     )
 
-    fun of(service: ServiceName): String = LABELS.getValue(service)
+    fun of(service: ServiceName): String = labels.getValue(service)
 }
