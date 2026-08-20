@@ -11,10 +11,8 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import org.springframework.stereotype.Service
 
 /** ponytail: 데이터량이 적어 동기 생성만 지원한다(202 GENERATING/폴링 큐 없음). 느려지면 잡 큐로 교체. */
-@Service
 class ReportService(
     private val getDashboardSnapshotUseCase: GetDashboardSnapshotUseCase,
     private val reportGeneratorPort: ReportGeneratorPort,

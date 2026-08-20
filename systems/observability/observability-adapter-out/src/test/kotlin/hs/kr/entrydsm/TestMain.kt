@@ -1,11 +1,11 @@
 package hs.kr.entrydsm.observability.adapterout
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import hs.kr.entrydsm.observability.adapterout.report.XlsxCsvReportGeneratorTest
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class ObservabilityAdapterOutModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    XlsxCsvReportGeneratorTest::class,
+)
+class ObservabilityAdapterOutModuleTest

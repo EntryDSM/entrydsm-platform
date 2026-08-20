@@ -5,13 +5,18 @@ import hs.kr.entrydsm.observability.application.ClientLogQueryService
 import hs.kr.entrydsm.observability.application.MetricsSeriesService
 import hs.kr.entrydsm.observability.application.MonitorDashboardService
 import hs.kr.entrydsm.observability.application.MonitorHealthService
+import hs.kr.entrydsm.observability.application.ReportService
 import hs.kr.entrydsm.observability.application.ServerLogQueryService
 import hs.kr.entrydsm.observability.application.SessionCollectionService
 import hs.kr.entrydsm.observability.application.StorageUsageQueryService
+import hs.kr.entrydsm.observability.application.port.`in`.GetDashboardSnapshotUseCase
 import hs.kr.entrydsm.observability.application.port.out.ClientLogStorePort
 import hs.kr.entrydsm.observability.application.port.out.HealthCheckPort
 import hs.kr.entrydsm.observability.application.port.out.MetricsStorePort
+import hs.kr.entrydsm.observability.application.port.out.LiveLogPublisherPort
 import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
+import hs.kr.entrydsm.observability.application.port.out.ReportGeneratorPort
+import hs.kr.entrydsm.observability.application.port.out.ReportObjectStoragePort
 import hs.kr.entrydsm.observability.application.port.out.RoundPort
 import hs.kr.entrydsm.observability.application.port.out.ServerLogStorePort
 import hs.kr.entrydsm.observability.application.port.out.SessionStorePort
@@ -58,7 +63,8 @@ class UseCaseConfig {
     fun clientLogCollectionService(
         clientLogStorePort: ClientLogStorePort,
         rateLimitPort: RateLimitPort,
-    ) = ClientLogCollectionService(clientLogStorePort, rateLimitPort)
+        liveLogPublisherPort: LiveLogPublisherPort,
+    ) = ClientLogCollectionService(clientLogStorePort, rateLimitPort, liveLogPublisherPort)
 
     @Bean
     fun clientLogQueryService(
@@ -74,4 +80,13 @@ class UseCaseConfig {
 
     @Bean
     fun storageUsageQueryService(storageUsagePort: StorageUsagePort) = StorageUsageQueryService(storageUsagePort)
+
+    @Bean
+    fun reportService(
+        getDashboardSnapshotUseCase: GetDashboardSnapshotUseCase,
+        reportGeneratorPort: ReportGeneratorPort,
+        reportObjectStoragePort: ReportObjectStoragePort,
+        roundPort: RoundPort,
+        clock: Clock,
+    ) = ReportService(getDashboardSnapshotUseCase, reportGeneratorPort, reportObjectStoragePort, roundPort, clock)
 }
