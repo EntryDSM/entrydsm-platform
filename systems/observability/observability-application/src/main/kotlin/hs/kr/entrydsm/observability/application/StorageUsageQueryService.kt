@@ -5,10 +5,8 @@ import hs.kr.entrydsm.observability.application.port.`in`.result.BucketUsageResu
 import hs.kr.entrydsm.observability.application.port.`in`.result.DatabaseUsageResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.StorageUsageResult
 import hs.kr.entrydsm.observability.application.port.out.StorageUsagePort
-import org.springframework.stereotype.Service
 
 /** ponytail: 실시간으로 측정하므로 서버 자체 캐시는 두지 않는다. cacheTtlSeconds는 클라이언트에 권장하는 캐시 기간이다. */
-@Service
 class StorageUsageQueryService(
     private val storageUsagePort: StorageUsagePort,
 ) : GetStorageUsageUseCase {

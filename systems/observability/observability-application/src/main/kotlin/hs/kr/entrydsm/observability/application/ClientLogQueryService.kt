@@ -10,9 +10,7 @@ import hs.kr.entrydsm.observability.domain.model.Cursor
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import org.springframework.stereotype.Service
 
-@Service
 class ClientLogQueryService(
     private val clientLogStorePort: ClientLogStorePort,
     private val clock: Clock,
@@ -21,7 +19,8 @@ class ClientLogQueryService(
     override fun getLogs(levels: Set<LogLevel>?, from: Instant?, to: Instant?, size: Int, cursor: Cursor?): ClientLogPage {
         val now = Instant.now(clock)
         val resolvedTo = to ?: now
-        val resolvedFrom = from ?: now.minus(DEFAULT_LOOKBACK)
+        // to만 지정한 과거 조회에서 from이 to보다 뒤가 되지 않도록 기준을 resolvedTo로 잡는다.
+        val resolvedFrom = from ?: resolvedTo.minus(DEFAULT_LOOKBACK)
         if (resolvedFrom.isAfter(resolvedTo) || Duration.between(resolvedFrom, resolvedTo) > MAX_RANGE) {
             throw MonitorDomainException(ErrorCode.INVALID_TIME_RANGE)
         }

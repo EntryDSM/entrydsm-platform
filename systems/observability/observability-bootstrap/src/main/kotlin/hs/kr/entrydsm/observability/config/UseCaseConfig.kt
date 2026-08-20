@@ -1,14 +1,19 @@
 package hs.kr.entrydsm.observability.config
 
+import hs.kr.entrydsm.observability.application.ClientLogCollectionService
+import hs.kr.entrydsm.observability.application.ClientLogQueryService
 import hs.kr.entrydsm.observability.application.MetricsSeriesService
 import hs.kr.entrydsm.observability.application.MonitorDashboardService
 import hs.kr.entrydsm.observability.application.MonitorHealthService
+import hs.kr.entrydsm.observability.application.ServerLogQueryService
 import hs.kr.entrydsm.observability.application.SessionCollectionService
+import hs.kr.entrydsm.observability.application.StorageUsageQueryService
 import hs.kr.entrydsm.observability.application.port.out.ClientLogStorePort
 import hs.kr.entrydsm.observability.application.port.out.HealthCheckPort
 import hs.kr.entrydsm.observability.application.port.out.MetricsStorePort
 import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
 import hs.kr.entrydsm.observability.application.port.out.RoundPort
+import hs.kr.entrydsm.observability.application.port.out.ServerLogStorePort
 import hs.kr.entrydsm.observability.application.port.out.SessionStorePort
 import hs.kr.entrydsm.observability.application.port.out.StorageUsagePort
 import java.time.Clock
@@ -48,4 +53,25 @@ class UseCaseConfig {
         metricsStorePort: MetricsStorePort,
         clock: Clock,
     ) = MetricsSeriesService(metricsStorePort, clock)
+
+    @Bean
+    fun clientLogCollectionService(
+        clientLogStorePort: ClientLogStorePort,
+        rateLimitPort: RateLimitPort,
+    ) = ClientLogCollectionService(clientLogStorePort, rateLimitPort)
+
+    @Bean
+    fun clientLogQueryService(
+        clientLogStorePort: ClientLogStorePort,
+        clock: Clock,
+    ) = ClientLogQueryService(clientLogStorePort, clock)
+
+    @Bean
+    fun serverLogQueryService(
+        serverLogStorePort: ServerLogStorePort,
+        clock: Clock,
+    ) = ServerLogQueryService(serverLogStorePort, clock)
+
+    @Bean
+    fun storageUsageQueryService(storageUsagePort: StorageUsagePort) = StorageUsageQueryService(storageUsagePort)
 }

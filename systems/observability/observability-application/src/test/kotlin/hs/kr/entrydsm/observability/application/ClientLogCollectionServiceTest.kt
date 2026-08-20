@@ -5,8 +5,9 @@ import hs.kr.entrydsm.observability.application.port.out.ClientLogEntry
 import hs.kr.entrydsm.observability.application.port.out.ClientLogInput
 import hs.kr.entrydsm.observability.application.port.out.ClientLogPage
 import hs.kr.entrydsm.observability.application.port.out.ClientLogStorePort
-import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
 import hs.kr.entrydsm.observability.application.port.out.LiveLogPublisherPort
+import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
+import hs.kr.entrydsm.observability.domain.enum.ErrorCode
 import hs.kr.entrydsm.observability.domain.enum.LogLevel
 import hs.kr.entrydsm.observability.domain.enum.LogSource
 import hs.kr.entrydsm.observability.domain.exception.MonitorDomainException
@@ -44,19 +45,28 @@ class ClientLogCollectionServiceTest {
     fun rejectsEmptyOrOversizedBatch() {
         val service = ClientLogCollectionService(store, FakeRateLimitPort(true), LiveLogPublisherPort {})
 
-        assertThrows(MonitorDomainException::class.java) { service.record("sess_1", emptyList(), null, "127.0.0.1") }
-        assertThrows(MonitorDomainException::class.java) {
+        val empty = assertThrows(MonitorDomainException::class.java) {
+            service.record("sess_1", emptyList(), null, "127.0.0.1")
+        }
+        val oversized = assertThrows(MonitorDomainException::class.java) {
             service.record("sess_1", List(21) { item() }, null, "127.0.0.1")
         }
+
+        assertEquals(ErrorCode.INVALID_PAYLOAD, empty.errorCode)
+        assertEquals(ErrorCode.INVALID_PAYLOAD, oversized.errorCode)
+        assertEquals(0, store.recorded.size)
     }
 
     @Test
     fun rateLimitExceededThrowsTooManyRequests() {
         val service = ClientLogCollectionService(store, FakeRateLimitPort(false), LiveLogPublisherPort {})
 
-        assertThrows(MonitorDomainException::class.java) {
+        val exception = assertThrows(MonitorDomainException::class.java) {
             service.record("sess_1", listOf(item()), null, "127.0.0.1")
         }
+
+        assertEquals(ErrorCode.TOO_MANY_REQUESTS, exception.errorCode)
+        assertEquals(0, store.recorded.size)
     }
 
     private class FakeClientLogStorePort : ClientLogStorePort {
