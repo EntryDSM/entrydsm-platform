@@ -9,6 +9,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.enum.SignupType
 import java.time.Instant
 import java.time.LocalDate
@@ -27,16 +28,17 @@ class ResponseMapperTest {
 
     @Test
     fun mapsUserIdToExternalFormat() {
-        val response = UserSummaryResult(123L, "USER", AccountStatus.ACTIVE).toResponse()
+        val response = UserSummaryResult(123L, Role.USER, AccountStatus.ACTIVE).toResponse()
 
         assertEquals("user_123", response.userId)
+        assertEquals("USER", response.role)
     }
 
     @Test
     fun mapsAccountAndNestedProfile() {
         val response = AccountResult(
             userId = 123L,
-            role = "USER",
+            role = Role.USER,
             status = AccountStatus.ACTIVE,
             profile = profile,
             createdAt = timestamp,
@@ -44,6 +46,7 @@ class ResponseMapperTest {
         ).toResponse()
 
         assertEquals("user_123", response.userId)
+        assertEquals("USER", response.role)
         assertEquals(profile.name, response.profile.name)
         assertEquals(profile.applicantStatus, response.profile.applicantStatus)
         assertEquals(timestamp, response.updatedAt)
@@ -53,7 +56,7 @@ class ResponseMapperTest {
     fun mapsBasicInfoAndProfileFields() {
         val response = BasicInfoResult(
             userId = 123L,
-            role = "USER",
+            role = Role.USER,
             status = AccountStatus.ACTIVE,
             name = profile.name,
             phone = profile.phone,
@@ -65,6 +68,7 @@ class ResponseMapperTest {
         ).toResponse()
 
         assertEquals("user_123", response.userId)
+        assertEquals("USER", response.role)
         assertEquals(profile.birthdate, response.birthdate)
         assertEquals(profile.signupType, response.signupType)
     }
