@@ -1,10 +1,12 @@
 package hs.kr.entrydsm.observability.adapterin.web.security
 
+import hs.kr.entrydsm.observability.domain.enum.ErrorCode
 import hs.kr.entrydsm.observability.domain.exception.MonitorDomainException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import java.nio.charset.StandardCharsets
 import java.util.Date
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -21,7 +23,7 @@ class JwtAuthInterceptorTest {
     }
     private val interceptor = JwtAuthInterceptor(properties)
 
-    private fun token(role: String, expiresInMillis: Long = 60_000): String =
+    private fun token(role: String, expiresInMillis: Long = 60_000, issuer: String = this.issuer): String =
         Jwts.builder()
             .issuer(issuer)
             .claim("role", role)
@@ -38,33 +40,36 @@ class JwtAuthInterceptorTest {
         assertTrue(allowed)
     }
 
+    private fun rejectionCode(token: String?): ErrorCode =
+        assertThrows(MonitorDomainException::class.java) {
+            interceptor.preHandle(requestWithToken(token), MockHttpServletResponse(), Any())
+        }.errorCode
+
     @Test
     fun rejectsMissingTokenWithUnauthorized() {
-        assertThrows(MonitorDomainException::class.java) {
-            interceptor.preHandle(requestWithToken(null), MockHttpServletResponse(), Any())
-        }
+        assertEquals(ErrorCode.UNAUTHORIZED, rejectionCode(null))
     }
 
     @Test
     fun rejectsNonAdminRoleWithForbidden() {
-        assertThrows(MonitorDomainException::class.java) {
-            interceptor.preHandle(requestWithToken(token("USER")), MockHttpServletResponse(), Any())
-        }
+        assertEquals(ErrorCode.FORBIDDEN, rejectionCode(token("USER")))
     }
 
     @Test
     fun rejectsExpiredTokenWithUnauthorized() {
-        assertThrows(MonitorDomainException::class.java) {
-            interceptor.preHandle(requestWithToken(token("ADMIN", expiresInMillis = -1000)), MockHttpServletResponse(), Any())
-        }
+        assertEquals(ErrorCode.UNAUTHORIZED, rejectionCode(token("ADMIN", expiresInMillis = -1000)))
+    }
+
+    @Test
+    fun rejectsWrongIssuerWithUnauthorized() {
+        assertEquals(ErrorCode.UNAUTHORIZED, rejectionCode(token("ADMIN", issuer = "someone-else")))
     }
 
     @Test
     fun rejectsWrongSignatureWithUnauthorized() {
         val otherKey = Keys.hmacShaKeyFor("another-secret-key-at-least-32-bytes!!".toByteArray(StandardCharsets.UTF_8))
         val forged = Jwts.builder().issuer(issuer).claim("role", "ADMIN").signWith(otherKey).compact()
-        assertThrows(MonitorDomainException::class.java) {
-            interceptor.preHandle(requestWithToken(forged), MockHttpServletResponse(), Any())
-        }
+
+        assertEquals(ErrorCode.UNAUTHORIZED, rejectionCode(forged))
     }
 }

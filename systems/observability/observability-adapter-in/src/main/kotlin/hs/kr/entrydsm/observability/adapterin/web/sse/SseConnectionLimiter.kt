@@ -1,7 +1,6 @@
 package hs.kr.entrydsm.observability.adapterin.web.sse
 
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 import org.springframework.stereotype.Component
 
 /**
@@ -10,17 +9,26 @@ import org.springframework.stereotype.Component
  */
 @Component
 class SseConnectionLimiter {
-    private val counts = ConcurrentHashMap<String, AtomicInteger>()
+    private val counts = ConcurrentHashMap<String, Int>()
 
     fun tryAcquire(key: String): Boolean {
-        val count = counts.computeIfAbsent(key) { AtomicInteger(0) }
-        if (count.incrementAndGet() <= MAX_CONNECTIONS_PER_KEY) return true
-        count.decrementAndGet()
-        return false
+        // compute는 키 단위로 원자적이다. 읽고 쓰는 사이에 다른 요청이 끼어들어 제한을 넘기지 않는다.
+        var acquired = false
+        counts.compute(key) { _, current ->
+            val count = current ?: 0
+            if (count < MAX_CONNECTIONS_PER_KEY) {
+                acquired = true
+                count + 1
+            } else {
+                count
+            }
+        }
+        return acquired
     }
 
     fun release(key: String) {
-        counts[key]?.decrementAndGet()
+        // 마지막 연결이 끊기면 키까지 지운다. 남겨두면 IP 수만큼 맵이 계속 커진다.
+        counts.computeIfPresent(key) { _, count -> (count - 1).takeIf { it > 0 } }
     }
 
     companion object {

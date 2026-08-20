@@ -19,6 +19,8 @@ import org.junit.Test
 
 class ClientLogCollectionServiceTest {
     private val store = FakeClientLogStorePort()
+    private val published = mutableListOf<ClientLogInput>()
+    private val publisher = LiveLogPublisherPort { published.add(it) }
 
     private fun item() = ClientLogItem(
         level = LogLevel.ERROR,
@@ -31,7 +33,7 @@ class ClientLogCollectionServiceTest {
 
     @Test
     fun truncatesOverlongMessageAndRecordsEachItem() {
-        val service = ClientLogCollectionService(store, FakeRateLimitPort(true), LiveLogPublisherPort {})
+        val service = ClientLogCollectionService(store, FakeRateLimitPort(true), publisher)
 
         val result = service.record("sess_1", listOf(item()), "Mozilla/5.0 (Windows NT 10.0) Chrome/138.0.0.0", "127.0.0.1")
 
@@ -39,11 +41,12 @@ class ClientLogCollectionServiceTest {
         assertEquals(0, result.rejected)
         assertEquals(500, store.recorded.single().message.length)
         assertEquals("Chrome 138", store.recorded.single().browser)
+        assertEquals(store.recorded, published)
     }
 
     @Test
     fun rejectsEmptyOrOversizedBatch() {
-        val service = ClientLogCollectionService(store, FakeRateLimitPort(true), LiveLogPublisherPort {})
+        val service = ClientLogCollectionService(store, FakeRateLimitPort(true), publisher)
 
         val empty = assertThrows(MonitorDomainException::class.java) {
             service.record("sess_1", emptyList(), null, "127.0.0.1")
@@ -55,11 +58,12 @@ class ClientLogCollectionServiceTest {
         assertEquals(ErrorCode.INVALID_PAYLOAD, empty.errorCode)
         assertEquals(ErrorCode.INVALID_PAYLOAD, oversized.errorCode)
         assertEquals(0, store.recorded.size)
+        assertEquals(0, published.size)
     }
 
     @Test
     fun rateLimitExceededThrowsTooManyRequests() {
-        val service = ClientLogCollectionService(store, FakeRateLimitPort(false), LiveLogPublisherPort {})
+        val service = ClientLogCollectionService(store, FakeRateLimitPort(false), publisher)
 
         val exception = assertThrows(MonitorDomainException::class.java) {
             service.record("sess_1", listOf(item()), null, "127.0.0.1")
@@ -67,6 +71,7 @@ class ClientLogCollectionServiceTest {
 
         assertEquals(ErrorCode.TOO_MANY_REQUESTS, exception.errorCode)
         assertEquals(0, store.recorded.size)
+        assertEquals(0, published.size)
     }
 
     private class FakeClientLogStorePort : ClientLogStorePort {

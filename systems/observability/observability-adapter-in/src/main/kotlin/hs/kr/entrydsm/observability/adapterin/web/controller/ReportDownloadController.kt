@@ -16,8 +16,9 @@ class ReportDownloadController(
     @GetMapping("/api/monitor/v11/reports/download")
     fun download(@RequestParam token: String): ResponseEntity<ByteArray> {
         val downloaded = reportObjectStoragePort.resolve(token) ?: return ResponseEntity.notFound().build()
+        val safeFileName = downloaded.fileName.filterNot { it == '"' || it == '\n' || it == '\r' }
         return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"${downloaded.fileName}\"")
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"$safeFileName\"")
             .contentType(MediaType.APPLICATION_OCTET_STREAM)
             .body(downloaded.bytes)
     }

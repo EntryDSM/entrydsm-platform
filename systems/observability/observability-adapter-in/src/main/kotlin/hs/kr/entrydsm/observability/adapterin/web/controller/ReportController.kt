@@ -7,7 +7,7 @@ import hs.kr.entrydsm.observability.application.port.`in`.GenerateReportUseCase
 import hs.kr.entrydsm.observability.domain.enum.ErrorCode
 import hs.kr.entrydsm.observability.domain.enum.ReportFormat
 import hs.kr.entrydsm.observability.domain.exception.MonitorDomainException
-import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
@@ -15,7 +15,8 @@ import org.springframework.web.bind.annotation.RestController
 class ReportController(
     private val generateReportUseCase: GenerateReportUseCase,
 ) {
-    @GetMapping("/api/monitor/v11/reports")
+    // 파일과 다운로드 토큰을 만드는 요청이라 GET이 아니다. 프리페치나 재시도가 리포트를 새로 만들지 않게 한다.
+    @PostMapping("/api/monitor/v11/reports")
     fun generate(
         @RequestParam(defaultValue = "xlsx") format: String,
     ): ApiResponse<ReportGeneratedResponse> {

@@ -23,12 +23,14 @@ class LocalFileReportObjectStorageAdapter(
     private val clock: Clock,
 ) : ReportObjectStoragePort {
 
+    /** 저장 객체는 토큰 이름으로만 만든다. 같은 회차·날짜·형식의 리포트가 서로를 덮어써 이전 토큰이 다른 내용을 내려주는 일을 막고, fileName이 경로로 해석될 여지도 없앤다. */
     override fun store(fileName: String, bytes: ByteArray): StoredReport {
         val dir = File(storageDir).apply { mkdirs() }
-        File(dir, fileName).writeBytes(bytes)
-
         val token = UUID.randomUUID().toString()
-        redis.opsForValue().set(tokenKey(token), File(dir, fileName).absolutePath, TTL)
+        val objectFile = File(dir, token)
+        objectFile.writeBytes(bytes)
+
+        redis.opsForValue().set(tokenKey(token), "$fileName\n${objectFile.absolutePath}", TTL)
         return StoredReport(
             downloadUrl = "/api/monitor/v11/reports/download?token=$token",
             expiresAt = Instant.now(clock).plus(TTL),
@@ -36,10 +38,11 @@ class LocalFileReportObjectStorageAdapter(
     }
 
     override fun resolve(token: String): DownloadedReport? {
-        val path = redis.opsForValue().get(tokenKey(token)) ?: return null
+        val stored = redis.opsForValue().get(tokenKey(token)) ?: return null
+        val (fileName, path) = stored.split("\n", limit = 2).takeIf { it.size == 2 } ?: return null
         val file = File(path)
         if (!file.exists()) return null
-        return DownloadedReport(fileName = file.name, bytes = file.readBytes())
+        return DownloadedReport(fileName = fileName, bytes = file.readBytes())
     }
 
     private fun tokenKey(token: String) = "monitor:report:token:$token"

@@ -41,8 +41,11 @@ class XlsxCsvReportGenerator : ReportGeneratorPort {
     private fun toCsv(snapshot: DashboardSnapshotResult): String =
         buildString {
             appendLine("metric,value")
-            rows(snapshot).forEach { (key, value) -> appendLine("$key,$value") }
+            rows(snapshot).forEach { (key, value) -> appendLine("${escapeCsv(key)},${escapeCsv(value)}") }
         }
+
+    /** RFC 4180: 쉼표·큰따옴표·줄바꿈이 들어가도 열 구조가 깨지지 않게 감싸고 내부 큰따옴표는 두 번 쓴다. */
+    private fun escapeCsv(field: String): String = "\"" + field.replace("\"", "\"\"") + "\""
 
     private fun toXlsx(snapshot: DashboardSnapshotResult): ByteArray {
         XSSFWorkbook().use { workbook ->
