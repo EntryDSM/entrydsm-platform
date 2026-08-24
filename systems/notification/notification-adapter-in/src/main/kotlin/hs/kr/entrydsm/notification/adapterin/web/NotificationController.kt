@@ -9,6 +9,7 @@ import hs.kr.entrydsm.notification.adapterin.web.dto.response.NoticeSummaryRespo
 import hs.kr.entrydsm.notification.adapterin.web.dto.response.PageResponse
 import hs.kr.entrydsm.notification.adapterin.web.dto.response.RecruitmentGuidelineResponse
 import hs.kr.entrydsm.notification.application.port.`in`.NotificationPort
+import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -57,8 +58,15 @@ class NotificationController(
     fun getFaqs(
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "10") size: Int,
+        @RequestParam(required = false) category: String?,
     ): ApiResponse<PageResponse<FaqSummaryResponse>> {
-        val result = notificationPort.getFaqs(ReadNotificationPageCommand(page = page, size = size))
+        val result = notificationPort.getFaqs(
+            ReadFaqPageCommand.of(
+                page = page,
+                size = size,
+                category = category,
+            ),
+        )
         return ApiResponse(
             status = 200,
             message = "자주 묻는 질문 목록 조회 성공",

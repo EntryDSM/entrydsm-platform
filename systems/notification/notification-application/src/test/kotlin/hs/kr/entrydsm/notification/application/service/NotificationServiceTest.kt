@@ -1,12 +1,14 @@
 package hs.kr.entrydsm.notification.application.service
 
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
+import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
 import hs.kr.entrydsm.notification.application.port.out.FaqRepository
 import hs.kr.entrydsm.notification.application.port.out.NoticeRepository
 import hs.kr.entrydsm.notification.application.port.out.RecruitmentGuidelineRepository
 import hs.kr.entrydsm.notification.application.port.out.data.PageData
 import hs.kr.entrydsm.notification.domain.model.Faq
+import hs.kr.entrydsm.notification.domain.model.FaqCategory
 import hs.kr.entrydsm.notification.domain.model.Notice
 import hs.kr.entrydsm.notification.domain.model.NoticeCategory
 import hs.kr.entrydsm.notification.domain.model.RecruitmentGuideline
@@ -112,13 +114,38 @@ class NotificationServiceTest {
             ),
         )
 
-        val result = service.getFaqs(ReadNotificationPageCommand(page = 0, size = 1))
+        val result = service.getFaqs(ReadFaqPageCommand(page = 0, size = 1))
 
         assertEquals(1, result.content.size)
         assertEquals(1L, result.content.first().faqId)
         assertEquals("first", result.content.first().question)
         assertEquals(2L, result.totalElements)
         assertFalse(result.last)
+    }
+
+    @Test
+    fun getFaqsReturnsPagedFaqsFilteredByCategory() {
+        val service = service(
+            faqs = listOf(
+                faq(id = 1L, category = FaqCategory.ADMISSION.label, question = "admission"),
+                faq(id = 2L, category = FaqCategory.CAREER.label, question = "career"),
+            ),
+        )
+
+        val result = service.getFaqs(
+            ReadFaqPageCommand(
+                page = 0,
+                size = 10,
+                category = FaqCategory.ADMISSION,
+            ),
+        )
+
+        assertEquals(1, result.content.size)
+        assertEquals(1L, result.content.first().faqId)
+        assertEquals("admission", result.content.first().question)
+        assertEquals(FaqCategory.ADMISSION.label, result.content.first().category)
+        assertEquals(1L, result.totalElements)
+        assertTrue(result.last)
     }
 
     @Test(expected = NotificationNotFoundException::class)
@@ -201,8 +228,13 @@ class NotificationServiceTest {
     private inner class FakeFaqRepository(
         private val faqs: List<Faq> = emptyList(),
     ) : FaqRepository {
-        override fun findPage(command: ReadNotificationPageCommand): PageData<Faq> =
-            faqs.sortedBy { it.id }.toPageData(command)
+        override fun findPage(command: ReadFaqPageCommand): PageData<Faq> {
+            val category = command.category
+            return faqs
+                .filter { category == null || it.category == category.label }
+                .sortedBy { it.id }
+                .toPageData(command)
+        }
 
         override fun findById(id: Long): Faq? = faqs.firstOrNull { it.id == id }
     }
@@ -254,6 +286,21 @@ class NotificationServiceTest {
         )
 
     private fun <T> List<T>.toPageData(command: ReadNotificationPageCommand): PageData<T> {
+        val fromIndex = command.offset()
+            .coerceAtMost(size.toLong())
+            .toInt()
+        val toIndex = (fromIndex.toLong() + command.size.toLong())
+            .coerceAtMost(size.toLong())
+            .toInt()
+        return PageData(
+            content = subList(fromIndex, toIndex),
+            page = command.page,
+            size = command.size,
+            totalElements = size.toLong(),
+        )
+    }
+
+    private fun <T> List<T>.toPageData(command: ReadFaqPageCommand): PageData<T> {
         val fromIndex = command.offset()
             .coerceAtMost(size.toLong())
             .toInt()

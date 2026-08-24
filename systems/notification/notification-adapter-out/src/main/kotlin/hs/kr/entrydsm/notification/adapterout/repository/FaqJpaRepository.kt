@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface FaqJpaRepository : JpaRepository<FaqJpaEntity, Long> {
     fun findAllByOrderByIdAsc(pageable: Pageable): Page<FaqJpaEntity>
+    fun findAllByCategoryOrderByIdAsc(category: String, pageable: Pageable): Page<FaqJpaEntity>
 }
 
