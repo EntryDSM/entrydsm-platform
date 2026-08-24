@@ -2,6 +2,7 @@ package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
+import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
@@ -31,7 +32,7 @@ class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
 ) : ApplicationPort {
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
-        return CreateApplicantResult(createApplicant(command.userId ?: command.accountId).id)
+        return CreateApplicantResult(createApplicant(requireUserId(command.userId)).id)
     }
 
     override fun updateType(command: UpdateTypeCommand) {
@@ -92,7 +93,7 @@ class ApplicationCommandService(
     }
 
     override fun submit(command: SubmitApplicationCommand) {
-        submit(command.applicantId, command.userId)
+        submit(command.userId)
     }
 
     override fun getLanding(accountId: Long?): LandingResult {
@@ -238,6 +239,16 @@ class ApplicationCommandService(
         saveTouched(applicant)
     }
 
+    fun submit(userId: Long?) {
+        val applicant = getApplicantByUserId(userId)
+        require(applicant.admissionType != null) { "admission type is required" }
+        require(!applicant.name.isNullOrBlank()) { "personal info is required" }
+        require(!applicant.guardianName.isNullOrBlank()) { "family info is required" }
+        require(!applicant.introduction.isNullOrBlank()) { "introduction is required" }
+        require(!applicant.studyPlan.isNullOrBlank()) { "studyPlan is required" }
+        saveTouched(applicant)
+    }
+
     private fun getApplicant(applicantId: Long, userId: Long? = null): Applicant {
         val applicant = applicantRepository.findById(applicantId)
             ?: throw ApplicantNotFoundException(applicantId)
@@ -246,6 +257,15 @@ class ApplicationCommandService(
         }
         return applicant
     }
+
+    private fun getApplicantByUserId(userId: Long?): Applicant {
+        val accountId = requireUserId(userId)
+        return applicantRepository.findByAccountId(accountId)
+            ?: throw ApplicantNotFoundException(accountId)
+    }
+
+    private fun requireUserId(userId: Long?): Long =
+        userId ?: throw AuthenticationRequiredException()
 
     private fun saveTouched(applicant: Applicant) {
         applicant.touch()

@@ -6,13 +6,12 @@ import hs.kr.entrydsm.application.application.port.`in`.command.SaveCertificates
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveGedScoresCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveSubjectGradesCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.AcademicRecordResult
-import hs.kr.entrydsm.application.application.port.`in`.result.EvaluationResult
 
 interface EvaluationPort {
     fun saveSubjectGrades(command: SaveSubjectGradesCommand)
     fun saveGedScores(command: SaveGedScoresCommand)
     fun saveAcademicRecord(command: SaveAcademicRecordCommand): AcademicRecordResult
     fun saveCertificates(command: SaveCertificatesCommand)
-    fun calculateResult(command: CalculateEvaluationCommand): EvaluationResult
+    fun calculateResult(command: CalculateEvaluationCommand)
 }
 

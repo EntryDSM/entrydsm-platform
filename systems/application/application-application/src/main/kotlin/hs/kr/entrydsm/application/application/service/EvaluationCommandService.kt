@@ -1,7 +1,7 @@
 package hs.kr.entrydsm.application.application.service
 
-import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
+import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CalculateEvaluationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveAcademicRecordCommand
@@ -9,7 +9,6 @@ import hs.kr.entrydsm.application.application.port.`in`.command.SaveCertificates
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveGedScoresCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveSubjectGradesCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.AcademicRecordResult
-import hs.kr.entrydsm.application.application.port.`in`.result.EvaluationResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
@@ -28,16 +27,15 @@ class EvaluationCommandService(
     private val scoreCalculator = ScoreCalculator()
 
     override fun saveSubjectGrades(command: SaveSubjectGradesCommand) {
-        saveSubjectGrades(command.applicantId, command.userId, command.schoolSemester, command.subjectGrades)
+        saveSubjectGrades(command.userId, command.schoolSemester, command.subjectGrades)
     }
 
     override fun saveGedScores(command: SaveGedScoresCommand) {
-        saveGedScores(command.applicantId, command.userId, command.gedScores)
+        saveGedScores(command.userId, command.gedScores)
     }
 
     override fun saveAcademicRecord(command: SaveAcademicRecordCommand): AcademicRecordResult {
         val record = saveAcademicRecord(
-            applicantId = command.applicantId,
             userId = command.userId,
             absentCount = command.absentCount,
             earlyLeaveCount = command.earlyLeaveCount,
@@ -56,24 +54,22 @@ class EvaluationCommandService(
 
     override fun saveCertificates(command: SaveCertificatesCommand) {
         saveCertificates(
-            applicantId = command.applicantId,
             userId = command.userId,
             isDsmAlgorithmAwarded = command.isDsmAlgorithmAwarded,
             isProgrammingCertified = command.isProgrammingCertified,
         )
     }
 
-    override fun calculateResult(command: CalculateEvaluationCommand): EvaluationResult {
-        return EvaluationResult(calculateResult(command.applicantId, command.userId))
+    override fun calculateResult(command: CalculateEvaluationCommand) {
+        calculateResult(command.userId)
     }
 
     fun saveSubjectGrades(
-        applicantId: Long,
-        userId: Long? = null,
+        userId: Long?,
         schoolSemester: SchoolSemester,
         subjectGrades: SubjectGrades,
     ) {
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         require(applicant.graduationType != GraduationType.GED) {
             "subject grades are unavailable for GED applicants"
         }
@@ -85,8 +81,8 @@ class EvaluationCommandService(
         applicantRepository.save(applicant)
     }
 
-    fun saveGedScores(applicantId: Long, userId: Long? = null, gedScores: GedScores) {
-        val applicant = getApplicant(applicantId, userId)
+    fun saveGedScores(userId: Long?, gedScores: GedScores) {
+        val applicant = getApplicantByUserId(userId)
         require(applicant.graduationType == GraduationType.GED) {
             "GED scores are available only for GED applicants"
         }
@@ -99,8 +95,7 @@ class EvaluationCommandService(
     }
 
     fun saveAcademicRecord(
-        applicantId: Long,
-        userId: Long? = null,
+        userId: Long?,
         absentCount: Int,
         earlyLeaveCount: Int,
         lateCount: Int,
@@ -113,7 +108,7 @@ class EvaluationCommandService(
         require(classAbsenceCount >= 0) { "classAbsenceCount must be greater than or equal to 0" }
         require(volunteerTime >= 0) { "volunteerTime must be greater than or equal to 0" }
 
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         val record = getOrCreateAcademicRecord(applicant)
         record.absentCount = absentCount
         record.earlyLeaveCount = earlyLeaveCount
@@ -127,12 +122,11 @@ class EvaluationCommandService(
     }
 
     fun saveCertificates(
-        applicantId: Long,
-        userId: Long? = null,
+        userId: Long?,
         isDsmAlgorithmAwarded: Boolean,
         isProgrammingCertified: Boolean,
     ) {
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         val record = getOrCreateAcademicRecord(applicant)
         record.isDsmAlgorithmAwarded = isDsmAlgorithmAwarded
         record.isProgrammingCertified = isProgrammingCertified
@@ -141,8 +135,8 @@ class EvaluationCommandService(
         applicantRepository.save(applicant)
     }
 
-    fun calculateResult(applicantId: Long, userId: Long? = null): Map<String, Double> {
-        val applicant = getApplicant(applicantId, userId)
+    fun calculateResult(userId: Long?) {
+        val applicant = getApplicantByUserId(userId)
         val admissionType = requireNotNull(applicant.admissionType) {
             "admissionType is required"
         }
@@ -151,17 +145,16 @@ class EvaluationCommandService(
         applicant.totalScoreUpdatedAt = LocalDateTime.now()
         applicant.touch()
         applicantRepository.save(applicant)
-        return result.mapKeys { it.key.name }
     }
 
-    private fun getApplicant(applicantId: Long, userId: Long? = null): Applicant {
-        val applicant = applicantRepository.findById(applicantId)
-            ?: throw ApplicantNotFoundException(applicantId)
-        if (userId != null && applicant.accountId != userId) {
-            throw ApplicantAccessDeniedException(applicantId)
-        }
-        return applicant
+    private fun getApplicantByUserId(userId: Long?): Applicant {
+        val accountId = requireUserId(userId)
+        return applicantRepository.findByAccountId(accountId)
+            ?: throw ApplicantNotFoundException(accountId)
     }
+
+    private fun requireUserId(userId: Long?): Long =
+        userId ?: throw AuthenticationRequiredException()
 
     private fun getOrCreateAcademicRecord(applicant: Applicant): AcademicRecord {
         return applicant.academicRecord ?: AcademicRecord()
