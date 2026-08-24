@@ -9,7 +9,6 @@ import hs.kr.entrydsm.application.application.port.`in`.command.SaveCertificates
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveGedScoresCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveSubjectGradesCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.AcademicRecordResult
-import hs.kr.entrydsm.application.application.port.`in`.result.EvaluationResult
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import org.junit.Assert.assertEquals
@@ -25,7 +24,6 @@ class EvaluationControllerTest {
             authorization = "Bearer access-token",
             userId = 10L,
             request = SaveSubjectGradesRequest(
-                applicantId = 1L,
                 schoolSemester = "3-1",
                 subjects = subjectGradesRequest(),
             ),
@@ -45,15 +43,30 @@ class EvaluationControllerTest {
             authorization = "Bearer access-token",
             userId = 10L,
             request = SaveSubjectGradesRequest(
-                applicantId = 1L,
                 schoolSemester = "1-1",
                 subjects = subjectGradesRequest(),
             ),
         )
     }
 
+    @Test
+    fun getResultCalculatesAndDoesNotExposeScores() {
+        val evaluationPort = FakeEvaluationPort()
+        val controller = EvaluationController(evaluationPort)
+
+        val response = controller.getResult(
+            authorization = "Bearer access-token",
+            userId = 10L,
+        )
+
+        assertEquals(null, response.data)
+        assertEquals(10L, evaluationPort.calculateEvaluationCommand?.userId)
+        assertEquals("Bearer access-token", evaluationPort.calculateEvaluationCommand?.authorization)
+    }
+
     private class FakeEvaluationPort : EvaluationPort {
         var saveSubjectGradesCommand: SaveSubjectGradesCommand? = null
+        var calculateEvaluationCommand: CalculateEvaluationCommand? = null
 
         override fun saveSubjectGrades(command: SaveSubjectGradesCommand) {
             saveSubjectGradesCommand = command
@@ -72,8 +85,9 @@ class EvaluationControllerTest {
 
         override fun saveCertificates(command: SaveCertificatesCommand) = Unit
 
-        override fun calculateResult(command: CalculateEvaluationCommand): EvaluationResult =
-            EvaluationResult(scores = emptyMap())
+        override fun calculateResult(command: CalculateEvaluationCommand) {
+            calculateEvaluationCommand = command
+        }
     }
 
     private companion object {

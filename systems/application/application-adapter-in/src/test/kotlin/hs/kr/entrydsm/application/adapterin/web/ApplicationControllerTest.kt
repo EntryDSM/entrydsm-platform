@@ -1,7 +1,6 @@
 package hs.kr.entrydsm.application.adapterin.web
 
 import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
-import hs.kr.entrydsm.application.adapterin.web.dto.request.CreateApplicantRequest
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
@@ -19,17 +18,15 @@ import org.junit.Test
 
 class ApplicationControllerTest {
     @Test
-    fun createApplicantPassesAccountId() {
+    fun createApplicantPassesAuthenticatedUser() {
         val applicationPort = FakeApplicationPort()
         val controller = ApplicationController(applicationPort, scheduleProperties())
 
         val response = controller.createApplicant(
             authorization = "Bearer access-token",
             userId = 10L,
-            request = CreateApplicantRequest(accountId = 10L),
         )
 
-        assertEquals(10L, applicationPort.createApplicantCommand?.accountId)
         assertEquals(10L, applicationPort.createApplicantCommand?.userId)
         assertEquals("Bearer access-token", applicationPort.createApplicantCommand?.authorization)
         assertEquals(1L, response.data?.applicantId)

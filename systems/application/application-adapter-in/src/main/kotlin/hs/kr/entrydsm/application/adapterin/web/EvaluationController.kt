@@ -7,7 +7,6 @@ import hs.kr.entrydsm.application.adapterin.web.dto.request.SaveCertificatesRequ
 import hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest
 import hs.kr.entrydsm.application.adapterin.web.dto.request.SaveSubjectGradesRequest
 import hs.kr.entrydsm.application.adapterin.web.dto.response.AcademicRecordResponse
-import hs.kr.entrydsm.application.adapterin.web.dto.response.EvaluationResultResponse
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CalculateEvaluationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveAcademicRecordCommand
@@ -18,12 +17,10 @@ import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.model.GedScores
 import org.springframework.http.HttpHeaders
 import org.springframework.security.core.annotation.AuthenticationPrincipal
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -61,7 +58,6 @@ class EvaluationController(
             SaveGedScoresCommand(
                 authorization = authorization,
                 userId = userId,
-                applicantId = request.applicantId,
                 gedScores = GedScores(
                     koreanScore = request.koreanScore,
                     mathScore = request.mathScore,
@@ -86,12 +82,11 @@ class EvaluationController(
             SaveAcademicRecordCommand(
                 authorization = authorization,
                 userId = userId,
-                applicantId = request.applicantId,
                 absentCount = request.absentCount,
                 earlyLeaveCount = request.earlyLeaveCount,
                 lateCount = request.lateCount,
                 classAbsenceCount = request.classAbsenceCount,
-                volunteerTime = request.resolvedVolunteerTime(),
+                volunteerTime = request.volunteerTime,
             ),
         )
         return ApiResponse(data = result.toResponse())
@@ -107,7 +102,6 @@ class EvaluationController(
             SaveCertificatesCommand(
                 authorization = authorization,
                 userId = userId,
-                applicantId = request.applicantId,
                 isDsmAlgorithmAwarded = request.isDsmAlgorithmAwarded,
                 isProgrammingCertified = request.isProgrammingCertified,
             ),
@@ -115,20 +109,18 @@ class EvaluationController(
         return ApiResponse(data = null)
     }
 
-    @GetMapping("/result")
+    @PostMapping("/result")
     fun getResult(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
         @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
-        @RequestParam applicantId: Long,
-    ): ApiResponse<EvaluationResultResponse> {
-        val result = evaluationPort.calculateResult(
+    ): ApiResponse<Unit> {
+        evaluationPort.calculateResult(
             CalculateEvaluationCommand(
                 authorization = authorization,
                 userId = userId,
-                applicantId = applicantId,
             ),
         )
-        return ApiResponse(data = result.toResponse())
+        return ApiResponse(data = null)
     }
 
     private fun saveSubjectGrades(
@@ -140,7 +132,6 @@ class EvaluationController(
             SaveSubjectGradesCommand(
                 authorization = authorization,
                 userId = userId,
-                applicantId = request.applicantId,
                 schoolSemester = request.schoolSemester.toSchoolSemester(),
                 subjectGrades = request.subjects.toDomain(),
             ),

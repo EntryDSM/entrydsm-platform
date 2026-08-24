@@ -4,6 +4,7 @@ import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
+import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.http.HttpStatus
@@ -35,6 +36,14 @@ class GlobalExceptionHandler {
             status = HttpStatus.FORBIDDEN,
             code = "APPLICANT_ACCESS_DENIED",
             message = exception.message ?: "applicant access denied",
+        )
+
+    @ExceptionHandler(AuthenticationRequiredException::class)
+    fun handleAuthenticationRequired(exception: AuthenticationRequiredException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.UNAUTHORIZED,
+            code = "AUTHENTICATION_REQUIRED",
+            message = exception.message ?: "authentication is required",
         )
 
     @ExceptionHandler(
