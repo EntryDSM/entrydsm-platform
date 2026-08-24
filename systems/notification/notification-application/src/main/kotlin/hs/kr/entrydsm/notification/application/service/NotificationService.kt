@@ -2,6 +2,7 @@ package hs.kr.entrydsm.notification.application.service
 
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
 import hs.kr.entrydsm.notification.application.port.`in`.NotificationPort
+import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqDetailResult
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqSummaryResult
@@ -29,7 +30,7 @@ class NotificationService(
         noticeRepository.findById(id)?.toDetailResult()
             ?: throw NotificationNotFoundException("notice not found: id=$id")
 
-    override fun getFaqs(command: ReadNotificationPageCommand): PageResult<FaqSummaryResult> =
+    override fun getFaqs(command: ReadFaqPageCommand): PageResult<FaqSummaryResult> =
         faqRepository.findPage(command).toResult { it.toSummaryResult() }
 
     override fun getFaq(id: Long): FaqDetailResult =
