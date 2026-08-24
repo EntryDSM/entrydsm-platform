@@ -3,13 +3,11 @@ package hs.kr.entrydsm.application.adapterin.web.dto.common
 import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
 import hs.kr.entrydsm.application.adapterin.web.dto.response.AcademicRecordResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.response.CreateApplicantResponse
-import hs.kr.entrydsm.application.adapterin.web.dto.response.EvaluationResultResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.response.LandingResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.response.PeriodResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.response.ScheduleResponse
 import hs.kr.entrydsm.application.application.port.`in`.result.AcademicRecordResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
-import hs.kr.entrydsm.application.application.port.`in`.result.EvaluationResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 
 fun CreateApplicantResult.toResponse(): CreateApplicantResponse =
@@ -35,6 +33,3 @@ fun AcademicRecordResult.toResponse(): AcademicRecordResponse =
         classAbsenceCount = classAbsenceCount,
         volunteerTime = volunteerTime,
     )
-
-fun EvaluationResult.toResponse(): EvaluationResultResponse =
-    EvaluationResultResponse(scores = scores)

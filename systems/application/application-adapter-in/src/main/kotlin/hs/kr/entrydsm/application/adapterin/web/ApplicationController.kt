@@ -3,8 +3,6 @@ package hs.kr.entrydsm.application.adapterin.web
 import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ApiResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.common.toResponse
-import hs.kr.entrydsm.application.adapterin.web.dto.request.CreateApplicantRequest
-import hs.kr.entrydsm.application.adapterin.web.dto.request.SubmitApplicationRequest
 import hs.kr.entrydsm.application.adapterin.web.dto.request.UpdateFamilyRequest
 import hs.kr.entrydsm.application.adapterin.web.dto.request.UpdateIntroductionRequest
 import hs.kr.entrydsm.application.adapterin.web.dto.request.UpdateMiddleSchoolRequest
@@ -59,13 +57,11 @@ class ApplicationController(
     fun createApplicant(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
         @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
-        @RequestBody request: CreateApplicantRequest,
     ): ApiResponse<CreateApplicantResponse> {
         val result = applicationPort.createApplicant(
             CreateApplicantCommand(
                 authorization = authorization,
                 userId = userId,
-                accountId = request.accountId,
             ),
         )
         return ApiResponse(data = result.toResponse())
@@ -200,13 +196,11 @@ class ApplicationController(
     fun submit(
         @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
         @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
-        @RequestBody request: SubmitApplicationRequest,
     ): ApiResponse<Unit> {
         applicationPort.submit(
             SubmitApplicationCommand(
                 authorization = authorization,
                 userId = userId,
-                applicantId = request.applicantId,
             ),
         )
         return ApiResponse(data = null)
