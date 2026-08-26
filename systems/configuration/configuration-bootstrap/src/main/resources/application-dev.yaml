@@ -1,0 +1,17 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/configuration_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
+
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET:entrydsm-document-local}
+    region: ${AWS_S3_REGION:ap-northeast-2}
+    presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS:600}
+
+grpc:
+  port: ${GRPC_PORT:9090}
