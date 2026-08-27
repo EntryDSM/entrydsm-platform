@@ -14,10 +14,13 @@ class FileDocumentPersistenceAdapter(
 ) : FileDocumentRepository {
 
     @Transactional
-    override fun save(fileDocument: FileDocument): FileDocument =
-        fileDocumentJpaRepository.save(
-            FileDocumentJpaEntity.from(fileDocument)
+    override fun save(fileDocument: FileDocument): FileDocument {
+        // object_key 가 고유하므로 같은 키를 다시 올리면 새 행 대신 기존 행을 갱신한다.
+        val id = fileDocument.id ?: fileDocumentJpaRepository.findByObjectKey(fileDocument.objectKey)?.id
+        return fileDocumentJpaRepository.save(
+            FileDocumentJpaEntity.from(fileDocument.copy(id = id))
         ).toDomain()
+    }
 
     override fun findById(id: Long): FileDocument? =
         fileDocumentJpaRepository.findById(id).orElse(null)?.toDomain()
