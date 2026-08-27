@@ -9,5 +9,10 @@ import org.junit.runners.Suite
     MonitorHealthServiceTest::class,
     MonitorDashboardServiceTest::class,
     MetricsSeriesServiceTest::class,
+    ClientLogCollectionServiceTest::class,
+    ClientLogQueryServiceTest::class,
+    ServerLogQueryServiceTest::class,
+    StorageUsageQueryServiceTest::class,
+    ReportServiceTest::class,
 )
 class ObservabilityApplicationModuleTest

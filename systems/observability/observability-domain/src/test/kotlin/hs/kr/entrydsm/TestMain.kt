@@ -10,5 +10,6 @@ import org.junit.runners.Suite
     DeviceTypeParserTest::class,
     FingerprintTest::class,
     TimeBucketerTest::class,
+    UserAgentParserTest::class,
 )
 class ObservabilityDomainModuleTest
