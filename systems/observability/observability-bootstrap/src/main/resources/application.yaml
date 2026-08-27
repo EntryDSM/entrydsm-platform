@@ -5,6 +5,10 @@ spring:
     default: local
   main:
     lazy-initialization: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 server:
   shutdown: graceful
 management:
@@ -19,3 +23,32 @@ management:
 logging:
   level:
     root: INFO
+auth:
+  jwt:
+    # 기본값을 두지 않는다. 미설정이면 기동에 실패해야 알려진 시크릿으로 토큰이 검증되는 일이 없다.
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER:entrydsm}
+monitor:
+  # 신뢰하는 프록시(로드밸런서) IP 목록. 비어 있으면 X-Forwarded-For를 신뢰하지 않는다.
+  trusted-proxies: ${MONITOR_TRUSTED_PROXIES:}
+  services:
+    identity:
+      base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
+    auth:
+      base-url: ${AUTH_BASE_URL:http://localhost:8081}
+    application:
+      base-url: ${APPLICATION_BASE_URL:http://localhost:8082}
+    evaluation:
+      base-url: ${EVALUATION_BASE_URL:http://localhost:8083}
+    document:
+      base-url: ${DOCUMENT_BASE_URL:http://localhost:8084}
+    notification:
+      base-url: ${NOTIFICATION_BASE_URL:http://localhost:8085}
+    schedule:
+      base-url: ${SCHEDULE_BASE_URL:http://localhost:8086}
+  report:
+    storage-dir: ${MONITOR_REPORT_DIR:/tmp/entrydsm-monitor-reports}
+  round:
+    name: ${MONITOR_ROUND_NAME:current}
+    from: ${MONITOR_ROUND_FROM:2026-01-01T00:00:00+09:00}
+    to: ${MONITOR_ROUND_TO:2026-12-31T23:59:59+09:00}

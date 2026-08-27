@@ -2,6 +2,7 @@ package hs.kr.entrydsm.observability.application
 
 import hs.kr.entrydsm.observability.application.port.`in`.RecordSessionEventUseCase
 import hs.kr.entrydsm.observability.application.port.`in`.result.SessionEventResult
+import hs.kr.entrydsm.observability.application.port.out.MetricsStorePort
 import hs.kr.entrydsm.observability.application.port.out.RateLimitPort
 import hs.kr.entrydsm.observability.application.port.out.SessionStorePort
 import hs.kr.entrydsm.observability.domain.enum.ErrorCode
@@ -16,6 +17,7 @@ import java.util.UUID
 class SessionCollectionService(
     private val sessionStorePort: SessionStorePort,
     private val rateLimitPort: RateLimitPort,
+    private val metricsStorePort: MetricsStorePort,
     private val clock: Clock,
 ) : RecordSessionEventUseCase {
 
@@ -34,6 +36,7 @@ class SessionCollectionService(
             SessionEventType.ENTER -> {
                 val newSessionId = generateSessionId()
                 sessionStorePort.enter(newSessionId, service, DeviceTypeParser.parse(userAgent), now)
+                metricsStorePort.recordVisitor(newSessionId, now)
                 newSessionId
             }
             SessionEventType.HEARTBEAT -> {
@@ -41,6 +44,7 @@ class SessionCollectionService(
                 if (!sessionStorePort.heartbeat(id, service, now)) {
                     throw MonitorDomainException(ErrorCode.SESSION_NOT_FOUND)
                 }
+                metricsStorePort.recordVisitor(id, now)
                 id
             }
             SessionEventType.LEAVE -> {
