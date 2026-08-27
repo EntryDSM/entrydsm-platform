@@ -17,6 +17,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+  servlet:
+    multipart:
+      max-file-size: 21MB
+      max-request-size: 21MB
 
 aws:
   s3:
@@ -29,6 +33,12 @@ server:
 
 grpc:
   port: ${GRPC_PORT:9090}
+
+aws:
+  s3:
+    bucket: ${S3_BUCKET:entrydsm-document-local}
+    region: ${AWS_REGION:ap-northeast-2}
+    presign-expiry-seconds: ${S3_PRESIGN_EXPIRY_SECONDS:600}
 
 management:
   endpoints:
