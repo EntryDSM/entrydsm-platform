@@ -20,6 +20,7 @@ import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServerLogItemResp
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServerLogPageResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceActivityItemResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceActivityResponse
+import hs.kr.entrydsm.observability.adapterin.web.dto.response.ReportGeneratedResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceHealthItemResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.ServiceHealthResponse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.SessionEventResponse
@@ -48,6 +49,7 @@ import hs.kr.entrydsm.observability.application.port.`in`.result.ResourceUsageBr
 import hs.kr.entrydsm.observability.application.port.`in`.result.ServiceActivityItemResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ServiceActivityResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ServiceHealthItemResult
+import hs.kr.entrydsm.observability.application.port.`in`.result.ReportResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ServiceHealthResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.SessionEventResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.TrafficResult
@@ -194,3 +196,12 @@ fun DatabaseUsageResult.toResponse(): DatabaseUsageResponse =
 
 fun BucketUsageResult.toResponse(): BucketUsageResponse =
     BucketUsageResponse(usedBytes = usedBytes, objectCount = objectCount, measuredAt = measuredAt)
+
+fun ReportResult.toResponse(): ReportGeneratedResponse =
+    ReportGeneratedResponse(
+        status = "READY",
+        downloadUrl = downloadUrl,
+        fileName = fileName,
+        sizeBytes = sizeBytes,
+        expiresAt = expiresAt,
+    )
