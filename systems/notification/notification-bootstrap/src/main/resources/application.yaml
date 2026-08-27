@@ -5,8 +5,13 @@ spring:
     default: local
   main:
     lazy-initialization: true
+
 server:
   shutdown: graceful
+
+grpc:
+  port: ${GRPC_PORT}
+
 management:
   endpoints:
     web:
@@ -16,6 +21,7 @@ management:
     health:
       probes:
         enabled: true
+
 logging:
   level:
     root: INFO
