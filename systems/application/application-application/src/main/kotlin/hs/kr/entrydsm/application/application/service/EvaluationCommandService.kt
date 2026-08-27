@@ -18,9 +18,7 @@ import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import java.time.LocalDateTime
-import org.springframework.stereotype.Service
 
-@Service
 class EvaluationCommandService(
     private val applicantRepository: ApplicantRepository,
 ) : EvaluationPort {

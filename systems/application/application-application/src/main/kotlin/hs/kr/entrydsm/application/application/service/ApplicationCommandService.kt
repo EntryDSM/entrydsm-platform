@@ -25,9 +25,7 @@ import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import java.time.LocalDate
 import java.time.YearMonth
-import org.springframework.stereotype.Service
 
-@Service
 class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
 ) : ApplicationPort {

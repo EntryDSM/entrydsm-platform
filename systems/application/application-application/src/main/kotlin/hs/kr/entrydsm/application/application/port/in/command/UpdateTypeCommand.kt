@@ -7,7 +7,6 @@ import java.time.YearMonth
 
 data class UpdateTypeCommand(
     val applicantId: Long,
-    val authorization: String? = null,
     val userId: Long? = null,
     val admissionType: AdmissionType,
     val region: Region,
