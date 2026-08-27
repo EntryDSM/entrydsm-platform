@@ -1,0 +1,13 @@
+.git
+.idea
+.vscode
+.gradle
+bazel-*
+bazel-bin
+bazel-out
+bazel-testlogs
+tmp
+temp
+logs
+*.log
+*.iml

@@ -9,21 +9,17 @@ import org.junit.Test
 
 class IdentityBootstrapConfigurationTest {
     @Test
-    fun exposesProductionConfigurationWithValidatedSchema() {
+    fun exposesDeploymentConfigurationWithValidatedSchema() {
         val configuration = requireNotNull(
-            javaClass.classLoader.getResourceAsStream("application-prod.yaml"),
+            javaClass.classLoader.getResourceAsStream("application.yaml"),
         ).use { it.readBytes().toString(StandardCharsets.UTF_8) }
 
-        assertTrue(configuration.contains("on-profile: prod"))
         assertTrue(configuration.contains("ddl-auto: validate"))
         assertTrue(configuration.contains("open-in-view: false"))
         assertTrue(configuration.contains("\${DB_URL}"))
-
-        val productionConfiguration = requireNotNull(
-            javaClass.classLoader.getResourceAsStream("application-prod.yaml"),
-        ).use { it.readBytes().toString(StandardCharsets.UTF_8) }
-        assertTrue(productionConfiguration.contains("secure: \${COOKIE_SECURE}"))
-        assertTrue(productionConfiguration.contains("allowed-origins: \${IDENTITY_CORS_ALLOWED_ORIGINS}"))
+        assertTrue(configuration.contains("secure: \${COOKIE_SECURE}"))
+        assertTrue(configuration.contains("allowed-origins: \${IDENTITY_CORS_ALLOWED_ORIGINS}"))
+        assertTrue(configuration.contains("proof-key-previous: \${PASS_PROOF_KEY_PREVIOUS:}"))
     }
 
     @Test

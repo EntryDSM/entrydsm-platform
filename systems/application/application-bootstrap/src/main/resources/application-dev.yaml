@@ -3,9 +3,9 @@ spring:
     activate:
       on-profile: dev
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/application_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -19,6 +19,12 @@ spring:
 entrydsm:
   application:
     schedule:
-      application-start-at: ${APPLICATION_START_AT}
-      application-end-at: ${APPLICATION_END_AT}
-      result-announced-at: ${RESULT_ANNOUNCED_AT}
+      application-start-at: ${APPLICATION_START_AT:2026-09-01T00:00:00}
+      application-end-at: ${APPLICATION_END_AT:2026-10-01T00:00:00}
+      result-announced-at: ${RESULT_ANNOUNCED_AT:2026-11-01T00:00:00}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+grpc:
+  port: ${GRPC_PORT:9090}

@@ -1,14 +1,12 @@
 spring:
   application:
     name: configuration
-  profiles:
-    default: local
   main:
     lazy-initialization: true
   datasource:
-    url: jdbc:mysql://localhost:3306/configuration_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:password}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -25,20 +23,14 @@ spring:
 aws:
   s3:
     bucket: ${AWS_S3_BUCKET}
-    region: ${AWS_S3_REGION:ap-northeast-2}
-    presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS:600}
+    region: ${AWS_S3_REGION}
+    presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS}
 
 server:
   shutdown: graceful
 
 grpc:
-  port: ${GRPC_PORT:9090}
-
-aws:
-  s3:
-    bucket: ${S3_BUCKET:entrydsm-document-local}
-    region: ${AWS_REGION:ap-northeast-2}
-    presign-expiry-seconds: ${S3_PRESIGN_EXPIRY_SECONDS:600}
+  port: ${GRPC_PORT}
 
 management:
   endpoints:

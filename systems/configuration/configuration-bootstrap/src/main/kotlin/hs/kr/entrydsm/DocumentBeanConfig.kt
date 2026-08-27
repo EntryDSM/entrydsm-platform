@@ -14,6 +14,6 @@ class DocumentBeanConfig {
     fun fileDocumentService(
         storagePort: StoragePort,
         fileDocumentRepository: FileDocumentRepository,
-        @Value("\${aws.s3.presign-expiry-seconds:600}") presignExpirySeconds: Long,
+        @Value("\${aws.s3.presign-expiry-seconds}") presignExpirySeconds: Long,
     ) = FileDocumentService(storagePort, fileDocumentRepository, presignExpirySeconds)
 }

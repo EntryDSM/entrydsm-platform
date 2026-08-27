@@ -9,7 +9,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner
 
 @Configuration
 class S3Config(
-    @Value("\${aws.s3.region:ap-northeast-2}") private val region: String,
+    @Value("\${aws.s3.region}") private val region: String,
 ) {
 
     @Bean
