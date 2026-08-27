@@ -21,7 +21,6 @@ class EvaluationControllerTest {
         val controller = EvaluationController(evaluationPort)
 
         controller.saveExpectedGrades(
-            authorization = "Bearer access-token",
             userId = 10L,
             request = SaveSubjectGradesRequest(
                 schoolSemester = "3-1",
@@ -34,13 +33,11 @@ class EvaluationControllerTest {
             evaluationPort.saveSubjectGradesCommand?.schoolSemester,
         )
         assertEquals(10L, evaluationPort.saveSubjectGradesCommand?.userId)
-        assertEquals("Bearer access-token", evaluationPort.saveSubjectGradesCommand?.authorization)
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun saveExpectedGradesRejectsInvalidSchoolSemester() {
         EvaluationController(FakeEvaluationPort()).saveExpectedGrades(
-            authorization = "Bearer access-token",
             userId = 10L,
             request = SaveSubjectGradesRequest(
                 schoolSemester = "1-1",
@@ -55,13 +52,11 @@ class EvaluationControllerTest {
         val controller = EvaluationController(evaluationPort)
 
         val response = controller.getResult(
-            authorization = "Bearer access-token",
             userId = 10L,
         )
 
         assertEquals(null, response.data)
         assertEquals(10L, evaluationPort.calculateEvaluationCommand?.userId)
-        assertEquals("Bearer access-token", evaluationPort.calculateEvaluationCommand?.authorization)
     }
 
     private class FakeEvaluationPort : EvaluationPort {

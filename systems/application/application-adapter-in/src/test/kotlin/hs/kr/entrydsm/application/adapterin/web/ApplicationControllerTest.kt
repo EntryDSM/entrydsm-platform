@@ -23,12 +23,10 @@ class ApplicationControllerTest {
         val controller = ApplicationController(applicationPort, scheduleProperties())
 
         val response = controller.createApplicant(
-            authorization = "Bearer access-token",
             userId = 10L,
         )
 
         assertEquals(10L, applicationPort.createApplicantCommand?.userId)
-        assertEquals("Bearer access-token", applicationPort.createApplicantCommand?.authorization)
         assertEquals(1L, response.data?.applicantId)
     }
 
@@ -36,7 +34,7 @@ class ApplicationControllerTest {
     fun getLandingReturnsConfiguredSchedule() {
         val controller = ApplicationController(FakeApplicationPort(), scheduleProperties())
 
-        val response = controller.getLanding("Bearer access-token", 10L)
+        val response = controller.getLanding(10L)
 
         assertEquals("홍길동", response.data?.applicantName)
         assertEquals(APPLICATION_START_AT, response.data?.schedule?.applicationPeriod?.startAt)

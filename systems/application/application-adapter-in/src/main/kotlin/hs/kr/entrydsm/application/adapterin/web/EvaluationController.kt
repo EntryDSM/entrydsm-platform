@@ -15,8 +15,6 @@ import hs.kr.entrydsm.application.application.port.`in`.command.SaveGedScoresCom
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveSubjectGradesCommand
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.model.GedScores
-import org.springframework.http.HttpHeaders
-import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -30,33 +28,29 @@ class EvaluationController(
 ) {
     @PostMapping("/grades/expected")
     fun saveExpectedGrades(
-        @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
         @RequestBody request: SaveSubjectGradesRequest,
     ): ApiResponse<Unit> {
-        saveSubjectGrades(authorization, userId, request)
+        saveSubjectGrades(userId, request)
         return ApiResponse(data = null)
     }
 
     @PostMapping("/grades/graduated")
     fun saveGraduatedGrades(
-        @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
         @RequestBody request: SaveSubjectGradesRequest,
     ): ApiResponse<Unit> {
-        saveSubjectGrades(authorization, userId, request)
+        saveSubjectGrades(userId, request)
         return ApiResponse(data = null)
     }
 
     @PostMapping("/ged-scores")
     fun saveGedScores(
-        @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
         @RequestBody request: SaveGedScoresRequest,
     ): ApiResponse<Unit> {
         evaluationPort.saveGedScores(
             SaveGedScoresCommand(
-                authorization = authorization,
                 userId = userId,
                 gedScores = GedScores(
                     koreanScore = request.koreanScore,
@@ -74,13 +68,11 @@ class EvaluationController(
 
     @PostMapping("/academic-records")
     fun saveAcademicRecords(
-        @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
         @RequestBody request: SaveAcademicRecordRequest,
     ): ApiResponse<AcademicRecordResponse> {
         val result = evaluationPort.saveAcademicRecord(
             SaveAcademicRecordCommand(
-                authorization = authorization,
                 userId = userId,
                 absentCount = request.absentCount,
                 earlyLeaveCount = request.earlyLeaveCount,
@@ -94,13 +86,11 @@ class EvaluationController(
 
     @PostMapping("/certificates")
     fun saveCertificates(
-        @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
         @RequestBody request: SaveCertificatesRequest,
     ): ApiResponse<Unit> {
         evaluationPort.saveCertificates(
             SaveCertificatesCommand(
-                authorization = authorization,
                 userId = userId,
                 isDsmAlgorithmAwarded = request.isDsmAlgorithmAwarded,
                 isProgrammingCertified = request.isProgrammingCertified,
@@ -111,12 +101,10 @@ class EvaluationController(
 
     @PostMapping("/result")
     fun getResult(
-        @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
-        @AuthenticationPrincipal(expression = "userId") userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
     ): ApiResponse<Unit> {
         evaluationPort.calculateResult(
             CalculateEvaluationCommand(
-                authorization = authorization,
                 userId = userId,
             ),
         )
@@ -124,18 +112,20 @@ class EvaluationController(
     }
 
     private fun saveSubjectGrades(
-        authorization: String?,
         userId: Long?,
         request: SaveSubjectGradesRequest,
     ) {
         evaluationPort.saveSubjectGrades(
             SaveSubjectGradesCommand(
-                authorization = authorization,
                 userId = userId,
                 schoolSemester = request.schoolSemester.toSchoolSemester(),
                 subjectGrades = request.subjects.toDomain(),
             ),
         )
+    }
+
+    private companion object {
+        const val USER_ID_HEADER = "user-id"
     }
 }
 
