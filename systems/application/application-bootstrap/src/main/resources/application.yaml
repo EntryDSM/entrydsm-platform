@@ -2,11 +2,16 @@ spring:
   application:
     name: application
   profiles:
-    default: local
+    default: dev
   main:
     lazy-initialization: true
+
 server:
   shutdown: graceful
+
+grpc:
+  port: ${GRPC_PORT:9090}
+
 management:
   endpoints:
     web:
@@ -16,6 +21,7 @@ management:
     health:
       probes:
         enabled: true
+
 logging:
   level:
     root: INFO

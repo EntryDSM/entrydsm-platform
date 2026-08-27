@@ -1,11 +1,13 @@
 package hs.kr.entrydsm.application.adapterin
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import hs.kr.entrydsm.application.adapterin.web.ApplicationControllerTest
+import hs.kr.entrydsm.application.adapterin.web.EvaluationControllerTest
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class ApplicationAdapterInModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    ApplicationControllerTest::class,
+    EvaluationControllerTest::class,
+)
+class ApplicationAdapterInModuleTest
