@@ -117,15 +117,16 @@ class ScoreCalculator {
             return EMPTY_SCORE
         }
 
-        val convertedAbsences = record.absentCount + floor(
+        val convertedAbsences = record.absentCount.toLong() + floor(
             (
-                record.lateCount +
-                    record.earlyLeaveCount +
-                    record.classAbsenceCount
+                record.lateCount.toLong() +
+                    record.earlyLeaveCount.toLong() +
+                    record.classAbsenceCount.toLong()
                 ) / ATTENDANCE_CONVERSION_UNIT.toDouble(),
-        ).toInt()
+        ).toLong()
 
-        return (ATTENDANCE_MAX_SCORE - convertedAbsences).coerceAtLeast(EMPTY_SCORE)
+        return (ATTENDANCE_MAX_SCORE - convertedAbsences)
+            .coerceIn(EMPTY_SCORE, ATTENDANCE_MAX_SCORE)
     }
 
     private fun calculateVolunteerScore(
