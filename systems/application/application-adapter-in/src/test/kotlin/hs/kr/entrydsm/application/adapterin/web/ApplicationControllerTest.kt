@@ -37,9 +37,9 @@ class ApplicationControllerTest {
         val response = controller.getLanding(10L)
 
         assertEquals("홍길동", response.data?.applicantName)
-        assertEquals(APPLICATION_START_AT, response.data?.schedule?.applicationPeriod?.startAt)
-        assertEquals(APPLICATION_END_AT, response.data?.schedule?.applicationPeriod?.endAt)
-        assertEquals(RESULT_ANNOUNCED_AT, response.data?.schedule?.resultAnnouncedAt)
+        assertEquals(applicationStartAt, response.data?.schedule?.applicationPeriod?.startAt)
+        assertEquals(applicationEndAt, response.data?.schedule?.applicationPeriod?.endAt)
+        assertEquals(resultAnnouncedAt, response.data?.schedule?.resultAnnouncedAt)
     }
 
     private class FakeApplicationPort : ApplicationPort {
@@ -61,15 +61,15 @@ class ApplicationControllerTest {
     }
 
     private companion object {
-        val APPLICATION_START_AT: LocalDateTime = LocalDateTime.parse("2026-04-01T09:00:00")
-        val APPLICATION_END_AT: LocalDateTime = LocalDateTime.parse("2026-04-30T17:00:00")
-        val RESULT_ANNOUNCED_AT: LocalDateTime = LocalDateTime.parse("2026-05-15T10:00:00")
+        val applicationStartAt: LocalDateTime = LocalDateTime.parse("2026-10-19T09:00:00")
+        val applicationEndAt: LocalDateTime = LocalDateTime.parse("2026-10-23T17:00:00")
+        val resultAnnouncedAt: LocalDateTime = LocalDateTime.parse("2026-10-30T10:00:00")
 
         fun scheduleProperties(): LandingScheduleProperties =
             LandingScheduleProperties(
-                applicationStartAt = APPLICATION_START_AT,
-                applicationEndAt = APPLICATION_END_AT,
-                resultAnnouncedAt = RESULT_ANNOUNCED_AT,
+                applicationStartAt = applicationStartAt,
+                applicationEndAt = applicationEndAt,
+                resultAnnouncedAt = resultAnnouncedAt,
             )
     }
 }

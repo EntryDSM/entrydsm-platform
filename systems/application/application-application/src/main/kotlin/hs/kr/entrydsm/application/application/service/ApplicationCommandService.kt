@@ -129,6 +129,10 @@ class ApplicationCommandService(
         applicant.region = region
         applicant.graduationType = graduationType
         applicant.graduationDate = graduationDate
+        if (graduationType == GraduationType.GED) {
+            applicant.middleSchoolInfo = null
+            applicant.academicRecord?.subjectGrades?.clear()
+        }
         saveTouched(applicant)
     }
 
