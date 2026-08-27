@@ -49,4 +49,10 @@ maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "
 maven.artifact(artifact = "poi", group = "org.apache.poi", version = "5.4.0")
 maven.artifact(artifact = "poi-ooxml", group = "org.apache.poi", version = "5.4.0")
 
+# Validation
+maven.artifact(artifact = "spring-boot-starter-validation", group = "org.springframework.boot", version = "4.0.1")
+
+# AWS S3
+maven.artifact(artifact = "s3", group = "software.amazon.awssdk", version = "2.31.0")
+
 use_repo(maven, "maven")
