@@ -1,11 +1,12 @@
 package hs.kr.entrydsm.application.domain
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import hs.kr.entrydsm.application.domain.service.ScoreCalculatorTest
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class ApplicationDomainModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    ApplicationEnumTest::class,
+    ScoreCalculatorTest::class,
+)
+class ApplicationDomainModuleTest
