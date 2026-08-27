@@ -70,6 +70,40 @@ class ScoreCalculatorTest {
         assertEquals(80.0, result.getValue(AdmissionType.MEISTER), 0.0)
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsIncompleteProspectiveSubjectGrades() {
+        calculator.calculate(
+            Applicant(
+                id = 1L,
+                accountId = 1L,
+                graduationType = GraduationType.PROSPECTIVE,
+                academicRecord = AcademicRecord(
+                    subjectGrades = linkedMapOf(
+                        SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsIncompleteGraduatedSubjectGrades() {
+        calculator.calculate(
+            Applicant(
+                id = 1L,
+                accountId = 1L,
+                graduationType = GraduationType.GRADUATED,
+                academicRecord = AcademicRecord(
+                    subjectGrades = linkedMapOf(
+                        SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+                        SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+                        SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+                    ),
+                ),
+            ),
+        )
+    }
+
     @Test
     fun returnsZeroWhenAcademicRecordDoesNotExist() {
         val result = calculator.calculate(Applicant(id = 1L, accountId = 1L))

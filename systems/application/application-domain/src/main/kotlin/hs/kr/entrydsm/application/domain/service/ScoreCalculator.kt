@@ -67,13 +67,12 @@ class ScoreCalculator {
             GraduationType.GRADUATED -> GRADUATED_SEMESTER_WEIGHTS
             else -> PROSPECTIVE_GRADUATION_SEMESTER_WEIGHTS
         }
-        val weightedScores = semesterWeights.mapNotNull { (semester, weight) ->
-            record.subjectGrades[semester]
-                ?.let(::calculateSemesterAveragePoint)
-                ?.let { averagePoint -> (averagePoint / MAX_GRADE_POINT) * weight to weight }
-        }
-        if (weightedScores.isEmpty()) {
-            return EMPTY_SCORE
+        val weightedScores = semesterWeights.map { (semester, weight) ->
+            val subjectGrades = requireNotNull(record.subjectGrades[semester]) {
+                "subject grades are incomplete"
+            }
+            val averagePoint = calculateSemesterAveragePoint(subjectGrades)
+            (averagePoint / MAX_GRADE_POINT) * weight to weight
         }
 
         val earnedScore = weightedScores.sumOf { it.first }
