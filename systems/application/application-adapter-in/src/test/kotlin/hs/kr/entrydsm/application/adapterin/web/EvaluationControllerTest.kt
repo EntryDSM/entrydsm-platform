@@ -16,6 +16,29 @@ import org.junit.Test
 
 class EvaluationControllerTest {
     @Test
+    fun subjectGradesRequestConvertsEverySubjectGrade() {
+        val request = SubjectGradesRequest(
+            koreanGrade = SubjectGrade.A,
+            societyGrade = SubjectGrade.B,
+            englishGrade = SubjectGrade.C,
+            historyGrade = SubjectGrade.D,
+            mathGrade = SubjectGrade.E,
+            scienceGrade = SubjectGrade.X,
+            technologyGrade = SubjectGrade.A,
+        )
+
+        val result = request.toDomain()
+
+        assertEquals(SubjectGrade.A, result.koreanGrade)
+        assertEquals(SubjectGrade.B, result.societyGrade)
+        assertEquals(SubjectGrade.C, result.englishGrade)
+        assertEquals(SubjectGrade.D, result.historyGrade)
+        assertEquals(SubjectGrade.E, result.mathGrade)
+        assertEquals(SubjectGrade.X, result.scienceGrade)
+        assertEquals(SubjectGrade.A, result.technologyGrade)
+    }
+
+    @Test
     fun saveExpectedGradesConvertsSchoolSemester() {
         val evaluationPort = FakeEvaluationPort()
         val controller = EvaluationController(evaluationPort)
