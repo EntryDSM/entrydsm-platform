@@ -28,8 +28,8 @@ class ScoreCalculator {
             else -> calculateSchoolBaseScore(record, applicant.graduationType)
         }
 
-        val attendanceScore = calculateAttendanceScore(record)
-        val volunteerScore = calculateVolunteerScore(record.volunteerTime)
+        val attendanceScore = calculateAttendanceScore(record, applicant.graduationType)
+        val volunteerScore = calculateVolunteerScore(record.volunteerTime, applicant.graduationType)
         val regularAdditionalScore = calculateRegularAdditionalScore(record)
         val specialAdditionalScore = calculateSpecialAdditionalScore(record)
 
@@ -110,7 +110,14 @@ class ScoreCalculator {
         return if (points.isEmpty()) EMPTY_SCORE else points.average()
     }
 
-    private fun calculateAttendanceScore(record: AcademicRecord): Double {
+    private fun calculateAttendanceScore(
+        record: AcademicRecord,
+        graduationType: GraduationType?,
+    ): Double {
+        if (graduationType == GraduationType.GED) {
+            return EMPTY_SCORE
+        }
+
         val convertedAbsences = record.absentCount + floor(
             (
                 record.lateCount +
@@ -122,7 +129,14 @@ class ScoreCalculator {
         return (ATTENDANCE_MAX_SCORE - convertedAbsences).coerceAtLeast(EMPTY_SCORE)
     }
 
-    private fun calculateVolunteerScore(volunteerTime: Int): Double {
+    private fun calculateVolunteerScore(
+        volunteerTime: Int,
+        graduationType: GraduationType?,
+    ): Double {
+        if (graduationType == GraduationType.GED) {
+            return EMPTY_SCORE
+        }
+
         return volunteerTime.coerceIn(0, VOLUNTEER_MAX_SCORE.toInt()).toDouble()
     }
 

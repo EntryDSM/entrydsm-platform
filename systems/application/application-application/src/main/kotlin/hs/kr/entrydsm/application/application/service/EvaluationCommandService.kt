@@ -21,9 +21,8 @@ import java.time.LocalDateTime
 
 class EvaluationCommandService(
     private val applicantRepository: ApplicantRepository,
+    private val scoreCalculator: ScoreCalculator,
 ) : EvaluationPort {
-    private val scoreCalculator = ScoreCalculator()
-
     override fun saveSubjectGrades(command: SaveSubjectGradesCommand) {
         saveSubjectGrades(command.userId, command.schoolSemester, command.subjectGrades)
     }

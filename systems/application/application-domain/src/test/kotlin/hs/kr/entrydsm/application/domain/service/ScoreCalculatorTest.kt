@@ -46,6 +46,10 @@ class ScoreCalculatorTest {
             accountId = 1L,
             graduationType = GraduationType.GED,
             academicRecord = AcademicRecord(
+                absentCount = 10,
+                lateCount = 6,
+                earlyLeaveCount = 6,
+                classAbsenceCount = 6,
                 volunteerTime = 15,
                 gedScores = GedScores(
                     koreanScore = 100,
@@ -61,9 +65,9 @@ class ScoreCalculatorTest {
 
         val result = calculator.calculate(applicant)
 
-        assertEquals(170.0, result.getValue(AdmissionType.REGULAR), 0.0)
-        assertEquals(110.0, result.getValue(AdmissionType.SOCIAL), 0.0)
-        assertEquals(110.0, result.getValue(AdmissionType.MEISTER), 0.0)
+        assertEquals(140.0, result.getValue(AdmissionType.REGULAR), 0.0)
+        assertEquals(80.0, result.getValue(AdmissionType.SOCIAL), 0.0)
+        assertEquals(80.0, result.getValue(AdmissionType.MEISTER), 0.0)
     }
 
     @Test
