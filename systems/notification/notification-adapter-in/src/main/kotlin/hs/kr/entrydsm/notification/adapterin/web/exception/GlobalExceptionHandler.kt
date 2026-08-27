@@ -23,7 +23,7 @@ class GlobalExceptionHandler {
         response(
             status = HttpStatus.NOT_FOUND,
             code = "NOTIFICATION_NOT_FOUND",
-            message = exception.message ?: "notification not found",
+            message = "notification not found",
         )
 
     @ExceptionHandler(
@@ -38,7 +38,7 @@ class GlobalExceptionHandler {
         response(
             status = HttpStatus.BAD_REQUEST,
             code = "INVALID_REQUEST",
-            message = exception.message ?: "invalid request",
+            message = "invalid request",
         )
 
     @ExceptionHandler(Exception::class)
