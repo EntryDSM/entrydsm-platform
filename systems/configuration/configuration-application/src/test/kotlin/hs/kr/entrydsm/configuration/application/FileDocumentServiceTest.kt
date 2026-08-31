@@ -28,10 +28,10 @@ class FileDocumentServiceTest {
     fun `업로드는 카테고리 키로 저장하고 저장된 메타데이터를 돌려준다`() {
         val saved = service.upload(command(), content())
 
-        assertEquals("application/application_1001.pdf", saved.objectKey)
+        assertEquals("dsm_Entry/Backend/application/application_1001.pdf", saved.objectKey)
         assertEquals("application/pdf", saved.contentType)
         assertEquals("지원서.pdf", saved.originalName)
-        assertEquals(listOf("application/application_1001.pdf"), storage.uploaded)
+        assertEquals(listOf("dsm_Entry/Backend/application/application_1001.pdf"), storage.uploaded)
         assertEquals(1, repository.saved.size)
     }
 
@@ -61,12 +61,12 @@ class FileDocumentServiceTest {
 
         runCatching { service.upload(command(), content()) }
 
-        assertEquals(listOf("application/application_1001.pdf"), storage.deleted)
+        assertEquals(listOf("dsm_Entry/Backend/application/application_1001.pdf"), storage.deleted)
     }
 
     @Test
     fun `덮어쓴 객체는 메타데이터 저장이 실패해도 지우지 않는다`() {
-        storage.existingKeys += "application/application_1001.pdf"
+        storage.existingKeys += "dsm_Entry/Backend/application/application_1001.pdf"
         repository.failOnSave = true
 
         runCatching { service.upload(command(), content()) }
@@ -86,14 +86,14 @@ class FileDocumentServiceTest {
 
     @Test
     fun `파일명으로 다운로드 URL을 발급한다`() {
-        storage.existingKeys += "application/application_1001.pdf"
+        storage.existingKeys += "dsm_Entry/Backend/application/application_1001.pdf"
 
         val downloadUrl = service.issueByCommand(
             IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf"),
         )
 
         assertEquals("application_1001.pdf", downloadUrl.fileName)
-        assertEquals("https://s3/application/application_1001.pdf?expires=300", downloadUrl.downloadUrl)
+        assertEquals("https://s3/dsm_Entry/Backend/application/application_1001.pdf?expires=300", downloadUrl.downloadUrl)
         assertEquals(300L, downloadUrl.expiresIn)
     }
 
@@ -130,7 +130,7 @@ class FileDocumentServiceTest {
         repository.saved += FileDocument(
             id = 1,
             originalName = "지원서.pdf",
-            objectKey = "application/application_1001.pdf",
+            objectKey = "dsm_Entry/Backend/application/application_1001.pdf",
             bucket = "entrydsm",
             contentType = "application/pdf",
             sizeBytes = 10,

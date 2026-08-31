@@ -45,7 +45,7 @@ class DocumentControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.fileName").value("application_1001.pdf"))
-            .andExpect(jsonPath("$.data.key").value("application/application_1001.pdf"))
+            .andExpect(jsonPath("$.data.key").value("dsm_Entry/Backend/application/application_1001.pdf"))
 
         assertEquals(FileCategory.APPLICATION, upload.lastCommand?.category)
         assertEquals("application_1001.pdf", upload.lastCommand?.fileName)
@@ -66,8 +66,8 @@ class DocumentControllerTest {
 
     @Test
     fun `지원서 조회는 같은 수험번호의 여러 형식 중 최근 업로드본을 돌려준다`() {
-        read.put(stored("application/application_1001.pdf", Instant.parse("2026-01-01T00:00:00Z")))
-        read.put(stored("application/application_1001.hwp", Instant.parse("2026-02-01T00:00:00Z")))
+        read.put(stored("dsm_Entry/Backend/application/application_1001.pdf", Instant.parse("2026-01-01T00:00:00Z")))
+        read.put(stored("dsm_Entry/Backend/application/application_1001.hwp", Instant.parse("2026-02-01T00:00:00Z")))
 
         mockMvc(applicationController())
             .perform(get("/api/document/v11/application").param("receiptCode", "1001"))
@@ -83,7 +83,7 @@ class DocumentControllerTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.exists").value(false))
             .andExpect(jsonPath("$.data.fileName").value("application_1001.pdf"))
-            .andExpect(jsonPath("$.data.key").value("application/application_1001.pdf"))
+            .andExpect(jsonPath("$.data.key").value("dsm_Entry/Backend/application/application_1001.pdf"))
     }
 
     @Test

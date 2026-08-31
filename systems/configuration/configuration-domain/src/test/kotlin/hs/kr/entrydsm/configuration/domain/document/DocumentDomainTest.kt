@@ -45,9 +45,9 @@ class DocumentDomainTest {
     }
 
     @Test
-    fun `object key는 카테고리 prefix를 붙인다`() {
+    fun `object key는 루트 prefix와 카테고리 prefix를 붙인다`() {
         assertEquals(
-            "admission-ticket/admission_ticket_1001.pdf",
+            "dsm_Entry/Backend/admission-ticket/admission_ticket_1001.pdf",
             FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_1001.pdf"),
         )
     }
