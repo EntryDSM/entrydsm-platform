@@ -81,7 +81,7 @@ class GatewayProxyIntegrationTest {
                 .returnResult()
                 .responseBody
 
-            assertEquals("GET /$service/users?role=admin", response)
+            assertEquals("GET /api/$service/users?role=admin", response)
         }
     }
 
@@ -98,7 +98,7 @@ class GatewayProxyIntegrationTest {
             .returnResult()
             .responseBody
 
-        assertEquals("POST /identity/users?source=test", response)
+        assertEquals("POST /api/identity/users?source=test", response)
     }
 
     @Test
@@ -119,6 +119,19 @@ class GatewayProxyIntegrationTest {
             .exchange()
             .expectStatus().isOk
             .expectHeader().valueEquals("X-Downstream-Authorization", "missing")
+    }
+
+    @Test
+    fun forwardsCookieHeaderToDownstreamService() {
+        client.get()
+            .uri("/api/identity/accounts/me")
+            .header("Cookie", "access_token=identity-test-token; XSRF-TOKEN=csrf-test-token")
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().valueEquals(
+                "X-Downstream-Cookie",
+                "access_token=identity-test-token; XSRF-TOKEN=csrf-test-token",
+            )
     }
 
     @Test
@@ -220,6 +233,10 @@ class GatewayProxyIntegrationTest {
                         .addHeader(
                             "X-Downstream-Authorization",
                             request.requestHeaders().get("Authorization") ?: "missing",
+                        )
+                        .addHeader(
+                            "X-Downstream-Cookie",
+                            request.requestHeaders().get("Cookie") ?: "missing",
                         )
                         .sendString(bodyPublisher)
                         .then()

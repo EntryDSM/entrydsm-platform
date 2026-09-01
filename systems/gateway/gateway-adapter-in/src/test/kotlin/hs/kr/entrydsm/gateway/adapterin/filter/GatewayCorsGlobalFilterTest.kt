@@ -19,7 +19,7 @@ class GatewayCorsGlobalFilterTest {
             MockServerHttpRequest.options("/api/identity/users")
                 .header("Origin", "http://localhost:3000")
                 .header("Access-Control-Request-Method", "post")
-                .header("Access-Control-Request-Headers", "authorization,content-type")
+                .header("Access-Control-Request-Headers", "authorization,content-type,x-xsrf-token")
                 .build(),
         )
 
@@ -27,6 +27,7 @@ class GatewayCorsGlobalFilterTest {
 
         assertEquals("http://localhost:3000", exchange.response.headers.getFirst("Access-Control-Allow-Origin"))
         assertEquals("X-Trace-Id", exchange.response.headers.getFirst("Access-Control-Expose-Headers"))
+        assertTrue(exchange.response.headers.getFirst("Access-Control-Allow-Headers")?.contains("X-XSRF-TOKEN") == true)
         assertTrue(exchange.response.headers.getFirst("Vary")?.contains("Origin") == true)
     }
 
