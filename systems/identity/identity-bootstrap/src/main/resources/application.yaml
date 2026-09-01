@@ -62,6 +62,7 @@ pass:
   proof-key-current: ${PASS_PROOF_KEY_CURRENT}
   proof-key-previous: ${PASS_PROOF_KEY_PREVIOUS:}
 server:
+  port: ${SERVER_PORT}
   shutdown: graceful
 management:
   endpoints:

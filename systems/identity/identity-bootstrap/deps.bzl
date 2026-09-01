@@ -2,6 +2,8 @@ SPRING_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
     "@maven//:org_springframework_boot_spring_boot_starter_security",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
+    "@maven//:org_springframework_boot_spring_boot_starter_flyway",
+    "@maven//:org_flywaydb_flyway_mysql",
     "@maven//:org_springframework_boot_spring_boot_autoconfigure",
 ]
 

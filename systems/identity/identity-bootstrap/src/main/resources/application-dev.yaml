@@ -12,6 +12,8 @@ spring:
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       timeout: ${REDIS_COMMAND_TIMEOUT:2s}
       client-name: ${REDIS_CLIENT_NAME:identity}
+server:
+  port: ${SERVER_PORT:8080}
 identity:
   redis:
     namespace: ${REDIS_KEY_NAMESPACE:identity}
