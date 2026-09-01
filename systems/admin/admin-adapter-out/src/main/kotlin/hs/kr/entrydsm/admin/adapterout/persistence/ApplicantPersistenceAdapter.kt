@@ -3,19 +3,13 @@ package hs.kr.entrydsm.admin.adapterout.persistence
 import hs.kr.entrydsm.admin.adapterout.entity.ApplicantJpaEntity
 import hs.kr.entrydsm.admin.adapterout.repository.ApplicantJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ApplicantSpecifications
-import hs.kr.entrydsm.admin.domain.enum.AdmissionType
-import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
-import hs.kr.entrydsm.admin.domain.model.DailyApplicantCount
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
-import java.time.ZoneId
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Component
-
-private val KOREA_ZONE = ZoneId.of("Asia/Seoul")
 
 @Component
 class ApplicantPersistenceAdapter(
@@ -55,22 +49,4 @@ class ApplicantPersistenceAdapter(
         applicantJpaRepository
             .saveAll(applicants.map(ApplicantJpaEntity::from))
             .map(ApplicantJpaEntity::toDomain)
-
-    override fun countAll(): Long = applicantJpaRepository.count()
-
-    // ponytail: 통계 집계를 메모리에서 돈다. 한 회차 지원자가 수천 명 규모라 충분하다.
-    // 만 단위로 커지면 GROUP BY 쿼리로 내린다.
-    override fun countByAdmissionType(): Map<AdmissionType, Long> =
-        findAll().groupingBy { it.admissionType }.eachCount().mapValues { it.value.toLong() }
-
-    override fun countByRegion(): Map<Region, Long> =
-        findAll().groupingBy { it.region }.eachCount().mapValues { it.value.toLong() }
-
-    override fun countBySubmittedDate(): List<DailyApplicantCount> =
-        findAll()
-            .mapNotNull { it.submittedAt }
-            .groupingBy { it.atZone(KOREA_ZONE).toLocalDate() }
-            .eachCount()
-            .map { (date, count) -> DailyApplicantCount(date, count.toLong()) }
-            .sortedBy { it.date }
 }

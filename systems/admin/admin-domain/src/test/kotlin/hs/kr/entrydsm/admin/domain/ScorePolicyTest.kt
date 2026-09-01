@@ -30,6 +30,21 @@ class ScorePolicyTest {
     }
 
     @Test(expected = AdminDomainException::class)
+    fun `가중치가 NaN이면 정책을 거부한다`() {
+        ScoreWeights(subject = Double.NaN, attendance = 0.15, volunteer = 0.15)
+    }
+
+    @Test(expected = AdminDomainException::class)
+    fun `가중치가 무한대면 정책을 거부한다`() {
+        ScoreWeights(subject = Double.POSITIVE_INFINITY, attendance = 0.15, volunteer = 0.15)
+    }
+
+    @Test(expected = AdminDomainException::class)
+    fun `합이 1이어도 음수 가중치는 거부한다`() {
+        ScoreWeights(subject = 2.0, attendance = -1.0, volunteer = 0.0)
+    }
+
+    @Test(expected = AdminDomainException::class)
     fun `반올림 자릿수가 범위를 벗어나면 정책을 거부한다`() {
         ScorePolicy(
             policyVersion = 1,

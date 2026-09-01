@@ -25,6 +25,7 @@ object ExamineeNumberPolicy {
             .mapNotNull { it.examineeNumber?.toIntOrNull() }
             .maxOrNull()
             ?.plus(1)
+            ?.coerceAtLeast(FIRST_EXAMINEE_NUMBER)
             ?: FIRST_EXAMINEE_NUMBER
 
         val issued = pending

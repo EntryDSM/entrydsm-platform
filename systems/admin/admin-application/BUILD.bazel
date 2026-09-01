@@ -19,5 +19,5 @@ kt_jvm_test(
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     test_class = "hs.kr.entrydsm.admin.application.AdminApplicationModuleTest",
-    deps = MODULE_DEPS + TEST_DEPS,
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
 )

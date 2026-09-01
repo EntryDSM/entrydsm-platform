@@ -1,5 +1,7 @@
 package hs.kr.entrydsm.admin.domain.policy
 
+import hs.kr.entrydsm.admin.domain.enum.ErrorCode
+import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.Applicant
 
 /**
@@ -21,6 +23,10 @@ object ScreeningPolicy {
         stage: ScreeningStage,
         quota: Int,
     ): ScreeningOutcome {
+        if (quota < 0) {
+            throw AdminDomainException(ErrorCode.INVALID_REQUEST_BODY)
+        }
+
         val candidates = applicants.filter { it.status == stage.from }
         val (evaluable, excluded) = candidates.partition(::isEvaluable)
 

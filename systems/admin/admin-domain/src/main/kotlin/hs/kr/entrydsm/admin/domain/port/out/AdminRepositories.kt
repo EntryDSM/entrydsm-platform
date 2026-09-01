@@ -1,10 +1,7 @@
 package hs.kr.entrydsm.admin.domain.port.out
 
-import hs.kr.entrydsm.admin.domain.enum.AdmissionType
-import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
-import hs.kr.entrydsm.admin.domain.model.DailyApplicantCount
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.Notice
 import hs.kr.entrydsm.admin.domain.model.Page
@@ -23,13 +20,6 @@ interface ApplicantRepository {
 
     fun saveAll(applicants: List<Applicant>): List<Applicant>
 
-    fun countAll(): Long
-
-    fun countByAdmissionType(): Map<AdmissionType, Long>
-
-    fun countByRegion(): Map<Region, Long>
-
-    fun countBySubmittedDate(): List<DailyApplicantCount>
 }
 
 interface ScorePolicyRepository {

@@ -75,6 +75,10 @@ class ExportJobProcessor(
         }
     }
 
+    /**
+     * ponytail: ZIP 전체를 힙에 올린다. 한 회차 수천 명 규모면 감당되지만, 규모가 커지면
+     * StoragePort에 스트림 업로드를 더하고 임시 파일로 흘려보낸다.
+     */
     private fun bundleAdmissionTickets(job: ExportJob, applicants: List<Applicant>): String {
         val objectKey = DocumentNaming.admissionTicketBundleObjectKey(job.exportJobId)
 
@@ -112,10 +116,10 @@ class ExportJobProcessor(
                         applicant.region.label,
                         applicant.admissionType.label,
                         applicant.graduationStatus.label,
-                        applicant.isSubmitted,
-                        applicant.status,
+                        if (applicant.isSubmitted) "도착" else "미도착",
+                        applicant.status.name,
                         applicant.score?.totalScore ?: "",
-                    ).joinToString(",") { it.toString().replace(",", " ") },
+                    ).joinToString(",", transform = ::toCsvField),
                 )
             }
         }
@@ -123,4 +127,16 @@ class ExportJobProcessor(
         storagePort.upload(objectKey, CSV_CONTENT_TYPE, csv.toByteArray(Charsets.UTF_8))
         return objectKey
     }
+}
+
+/**
+ * CSV 한 칸을 만듭니다.
+ *
+ * 항상 큰따옴표로 감싸 쉼표·줄바꿈·따옴표를 그대로 보존하고, 스프레드시트가 수식으로
+ * 해석하는 선두 문자는 작은따옴표를 앞에 붙여 무력화합니다.
+ */
+fun toCsvField(value: Any?): String {
+    val raw = value?.toString().orEmpty()
+    val safe = if (raw.firstOrNull() in setOf('=', '+', '-', '@')) "'$raw" else raw
+    return "\"" + safe.replace("\"", "\"\"") + "\""
 }

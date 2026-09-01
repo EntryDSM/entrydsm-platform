@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
+import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantScore
 import hs.kr.entrydsm.admin.domain.policy.ExamineeNumberPolicy
@@ -65,6 +66,27 @@ class AdminPolicyTest {
 
         assertEquals(1, result.skippedCount)
         assertEquals(listOf("100002"), result.issued.map { it.examineeNumber })
+    }
+
+    @Test
+    fun `기존 수험 번호가 시작 번호보다 작아도 시작 번호부터 발급한다`() {
+        val result = ExamineeNumberPolicy.issue(
+            listOf(
+                applicant(receiptNumber = 1, examineeNumber = "7"),
+                applicant(receiptNumber = 2),
+            ),
+        )
+
+        assertEquals(listOf("100001"), result.issued.map { it.examineeNumber })
+    }
+
+    @Test(expected = AdminDomainException::class)
+    fun `정원이 음수면 산출을 거부한다`() {
+        ScreeningPolicy.evaluate(
+            listOf(applicant(receiptNumber = 1, examineeNumber = "100001", totalScore = 90.0)),
+            stage = ScreeningStage.FIRST,
+            quota = -1,
+        )
     }
 
     @Test

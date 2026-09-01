@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
+import software.amazon.awssdk.services.s3.model.S3Exception
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 
@@ -51,13 +51,21 @@ class S3StorageAdapter(
             throw AdminDomainException(ErrorCode.STORAGE_UNAVAILABLE, cause)
         }
 
+    /**
+     * 객체 없음(404)만 false로 봅니다. 권한 오류(403)나 통신 실패까지 없음으로 삼으면
+     * 실제로는 있는 원서를 없다고 답하게 됩니다.
+     */
     override fun exists(objectKey: String): Boolean =
-        try {
+        runCatching {
             s3Client.headObject(
                 HeadObjectRequest.builder().bucket(bucket).key(objectKey).build(),
             )
             true
-        } catch (exception: NoSuchKeyException) {
-            false
+        }.getOrElse { cause ->
+            if (cause is S3Exception && cause.statusCode() == 404) {
+                false
+            } else {
+                throw AdminDomainException(ErrorCode.STORAGE_UNAVAILABLE, cause)
+            }
         }
 }

@@ -16,6 +16,10 @@ data class ScoreWeights(
     val volunteer: Double,
 ) {
     init {
+        // NaN은 어떤 비교도 false라서 합계 검증만으로는 통과한다. 항목별로 먼저 막는다.
+        if (listOf(subject, attendance, volunteer).any { !it.isFinite() || it < 0.0 }) {
+            throw AdminDomainException(ErrorCode.INVALID_SCORE_POLICY)
+        }
         val sum = subject + attendance + volunteer
         if (Math.abs(sum - 1.0) > WEIGHT_SUM_TOLERANCE) {
             throw AdminDomainException(ErrorCode.INVALID_SCORE_POLICY)

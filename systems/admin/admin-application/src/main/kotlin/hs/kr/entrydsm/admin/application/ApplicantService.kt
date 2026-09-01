@@ -16,6 +16,7 @@ import hs.kr.entrydsm.admin.domain.port.`in`.UpdateApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import java.time.Clock
 import java.time.Instant
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -27,6 +28,8 @@ class ApplicantService(
 ) : ReadApplicantUseCase,
     UpdateApplicantUseCase,
     IssueExamineeNumberUseCase {
+
+    private val logger = LoggerFactory.getLogger(javaClass)
 
     override fun search(filter: ApplicantFilter, pageRequest: PageRequest): Page<Applicant> =
         applicantRepository.search(filter, pageRequest)
@@ -57,6 +60,14 @@ class ApplicantService(
             if (command.reason.isNullOrBlank()) {
                 throw AdminDomainException(ErrorCode.INVALID_REQUEST_BODY)
             }
+            // ponytail: 감사 로그 테이블이 아직 없다. 남길 곳이 생기면 그쪽으로 옮긴다.
+            logger.warn(
+                "Forced applicant status change [applicantId={}, {} -> {}, reason={}]",
+                applicant.id,
+                applicant.status,
+                command.status,
+                command.reason,
+            )
         } else if (!applicant.status.canTransitionTo(command.status)) {
             throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }

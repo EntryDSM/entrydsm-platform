@@ -16,7 +16,6 @@ data class PageRequest(
 ) {
     val normalizedPage: Int = page.coerceAtLeast(DEFAULT_PAGE)
     val normalizedSize: Int = size.coerceIn(1, MAX_SIZE)
-    val offset: Int = (normalizedPage - 1) * normalizedSize
 }
 
 /**

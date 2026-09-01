@@ -63,20 +63,24 @@ class ScorePolicyService(
 
     private fun Applicant.recalculated(policy: ScorePolicy): Applicant {
         val current = score!!
-        val total = current.subjectScore * policy.weights.subject +
-            current.attendanceScore * policy.weights.attendance +
-            current.volunteerScore * policy.weights.volunteer
+        val total = weighted(current.subjectScore, policy.weights.subject) +
+            weighted(current.attendanceScore, policy.weights.attendance) +
+            weighted(current.volunteerScore, policy.weights.volunteer)
 
         return copy(
             score = ApplicantScore(
                 subjectScore = current.subjectScore,
                 attendanceScore = current.attendanceScore,
                 volunteerScore = current.volunteerScore,
-                totalScore = BigDecimal(total)
+                totalScore = total
                     .setScale(policy.roundingScale, RoundingMode.HALF_UP)
                     .toDouble(),
             ),
             updatedAt = Instant.now(clock),
         )
     }
+
+    /** Double 곱셈의 이진 오차가 반올림 경계를 넘기지 않도록 BigDecimal로 계산합니다. */
+    private fun weighted(score: Double, weight: Double): BigDecimal =
+        BigDecimal.valueOf(score).multiply(BigDecimal.valueOf(weight))
 }
