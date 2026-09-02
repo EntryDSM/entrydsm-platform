@@ -26,7 +26,9 @@ maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "
 maven.artifact(artifact = "spring-boot-starter-data-jpa", group = "org.springframework.boot", version = "4.0.1")
 maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springframework.boot", version = "4.0.1")
 maven.artifact(artifact = "spring-boot-starter", group = "org.springframework.boot", version = "4.0.1")
+maven.artifact(artifact = "spring-boot-starter-flyway", group = "org.springframework.boot", version = "4.0.1")
 maven.artifact(artifact = "mysql-connector-j", group = "com.mysql", version = "9.3.0")
+maven.artifact(artifact = "flyway-mysql", group = "org.flywaydb", version = "11.14.1")
 
 # gRPC
 maven.artifact(artifact = "grpc-netty-shaded", group = "io.grpc", version = "1.70.0")

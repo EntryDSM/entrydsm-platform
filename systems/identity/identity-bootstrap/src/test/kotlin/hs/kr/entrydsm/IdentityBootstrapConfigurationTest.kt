@@ -15,6 +15,7 @@ class IdentityBootstrapConfigurationTest {
         ).use { it.readBytes().toString(StandardCharsets.UTF_8) }
 
         assertTrue(configuration.contains("ddl-auto: validate"))
+        assertTrue(configuration.contains("port: \${SERVER_PORT}"))
         assertTrue(configuration.contains("open-in-view: false"))
         assertTrue(configuration.contains("\${DB_URL}"))
         assertTrue(configuration.contains("secure: \${COOKIE_SECURE}"))
@@ -28,8 +29,10 @@ class IdentityBootstrapConfigurationTest {
     }
 
     @Test
-    fun restoresIdentityMigrationsForTheProtectedSchema() {
-        assertTrue(javaClass.classLoader.getResource("db/migration/V024__protect_identity_personal_data.sql") != null)
-        assertTrue(javaClass.classLoader.getResource("db/migration/V025__application_projection_and_outbox.sql") != null)
+    fun exposesIdentityMigrationsFromTheInitialSchema() {
+        assertTrue(javaClass.classLoader.getResource("db/migration/V001__create_identity_tables.sql") != null)
+        assertTrue(javaClass.classLoader.getResource("db/migration/V002__student_profiles_birthdate_date.sql") != null)
+        assertTrue(javaClass.classLoader.getResource("db/migration/V003__protect_identity_personal_data.sql") != null)
+        assertTrue(javaClass.classLoader.getResource("db/migration/V004__application_projection_and_outbox.sql") != null)
     }
 }
