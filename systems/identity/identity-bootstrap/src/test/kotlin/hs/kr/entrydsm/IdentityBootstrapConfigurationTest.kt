@@ -31,6 +31,7 @@ class IdentityBootstrapConfigurationTest {
     @Test
     fun exposesIdentityMigrationsFromTheInitialSchema() {
         assertTrue(javaClass.classLoader.getResource("db/migration/V001__create_identity_tables.sql") != null)
+        assertTrue(javaClass.classLoader.getResource("db/migration/V002__student_profiles_birthdate_date.sql") != null)
         assertTrue(javaClass.classLoader.getResource("db/migration/V003__protect_identity_personal_data.sql") != null)
         assertTrue(javaClass.classLoader.getResource("db/migration/V004__application_projection_and_outbox.sql") != null)
     }

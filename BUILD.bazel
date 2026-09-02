@@ -4,9 +4,9 @@ package(default_visibility = ["//visibility:public"])
 
 setup_kotlin_compiler()
 
-setup_spring_allopen_plugin()
+setup_spring_allopen_plugin(target_name = "spring_allopen")
 
-setup_jpa_allopen_plugin()
+setup_jpa_allopen_plugin(target_name = "spring_allopen")
 
 alias(
     name = "admin",
