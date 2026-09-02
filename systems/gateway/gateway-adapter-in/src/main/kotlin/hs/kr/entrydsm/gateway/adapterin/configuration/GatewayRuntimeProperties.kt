@@ -48,7 +48,12 @@ data class GatewayRuntimeProperties(
     data class Cors(
         var allowedOrigins: List<String> = listOf("http://localhost:3000"),
         var allowedMethods: List<String> = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"),
-        var allowedHeaders: List<String> = listOf("Authorization", "Content-Type", "X-Trace-Id"),
+        var allowedHeaders: List<String> = listOf(
+            "Authorization",
+            "Content-Type",
+            "X-Trace-Id",
+            "X-XSRF-TOKEN",
+        ),
         var maxAgeSeconds: Long = 3600,
     )
 

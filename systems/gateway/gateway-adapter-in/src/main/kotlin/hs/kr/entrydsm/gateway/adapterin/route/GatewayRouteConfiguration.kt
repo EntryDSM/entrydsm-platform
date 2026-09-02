@@ -19,7 +19,13 @@ class GatewayRouteConfiguration {
         properties.serviceUris.forEach { (service, uri) ->
             routes.route(service.routeId) { route ->
                 route.path("${service.pathPrefix}/**")
-                    .filters { filters -> filters.stripPrefix(1) }
+                    .filters { filters ->
+                        // Keep the gateway's /api prefix in the downstream service path.
+                        // stripPrefix remains part of the route normalization pipeline.
+                        filters
+                            .stripPrefix(1)
+                            .prefixPath("/api")
+                    }
                     .uri(uri.toString())
             }
         }
