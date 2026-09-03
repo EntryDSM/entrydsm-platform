@@ -21,6 +21,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.core.env.Environment
+import org.springframework.core.env.Profiles
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
@@ -29,6 +31,9 @@ import org.springframework.security.web.csrf.CsrfFilter
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.security.web.csrf.CsrfToken
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import java.time.Instant
 import java.time.LocalDate
 
@@ -37,6 +42,9 @@ import java.time.LocalDate
 class SecurityConfig {
     @Value("\${security.cookies.secure:true}")
     private var secureCookies: Boolean = true
+
+    @Value("\${security.cors.allowed-origins:}")
+    private var allowedCorsOrigins: String = ""
 
     private val publicRequestMatchers = arrayOf(
         "/actuator/health",
@@ -73,6 +81,27 @@ class SecurityConfig {
         JwtAuthorizationDeniedHandler(objectMapper)
 
     @Bean
+    fun corsConfigurationSource(environment: Environment): CorsConfigurationSource =
+        UrlBasedCorsConfigurationSource().also { source ->
+            validateSecurityConfiguration(environment)
+            source.registerCorsConfiguration("/**", CorsConfiguration().apply {
+                allowedOrigins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
+                allowedMethods = listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS")
+                allowedHeaders = listOf("Authorization", "Content-Type", "X-XSRF-TOKEN", "X-Requested-With")
+                allowCredentials = true
+                maxAge = 3600
+            })
+        }
+
+    private fun validateSecurityConfiguration(environment: Environment) {
+        SecurityConfigurationValidator.validate(
+            secureCookies = secureCookies,
+            allowedCorsOrigins = allowedCorsOrigins,
+            production = environment.acceptsProfiles(Profiles.of("prod")),
+        )
+    }
+
+    @Bean
     fun securityFilterChain(
         http: HttpSecurity,
         jwtFilter: JwtFilter,
@@ -95,7 +124,7 @@ class SecurityConfig {
                     // The request header must therefore contain the same token value as the cookie.
                     .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
             }
-            .cors { it.disable() }
+            .cors { }
             .formLogin { it.disable() }
             .httpBasic { it.disable() }
             .sessionManagement {
@@ -116,6 +145,23 @@ class SecurityConfig {
             .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
             .build()
         }
+}
+
+object SecurityConfigurationValidator {
+    fun validate(
+        secureCookies: Boolean,
+        allowedCorsOrigins: String,
+        production: Boolean,
+    ) {
+        val origins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
+        require(origins.none { it == "*" }) {
+            "Wildcard CORS origins are not allowed when credentials are enabled"
+        }
+        if (production) {
+            require(secureCookies) { "Secure cookies must be enabled in the prod profile" }
+            require(origins.isNotEmpty()) { "CORS origins must be configured in the prod profile" }
+        }
+    }
 }
 
 private class CsrfCookieResponseFilter : org.springframework.web.filter.OncePerRequestFilter() {

@@ -1,4 +1,6 @@
-KOTLIN_DEPS = []
+KOTLIN_DEPS = [
+    "//systems/application/application-domain:main",
+]
 
 TEST_DEPS = [
     "@maven//:junit_junit",

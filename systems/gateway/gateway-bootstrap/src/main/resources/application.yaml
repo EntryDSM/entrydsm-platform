@@ -1,12 +1,69 @@
 spring:
   application:
     name: gateway
-  profiles:
-    default: local
   main:
-    lazy-initialization: true
+    web-application-type: reactive
+    lazy-initialization: false
+  data:
+    redis:
+      url: ${GATEWAY_RESILIENCE_REDIS_URI}
+  cloud:
+    gateway:
+      server:
+        webflux:
+          globalcors:
+            enabled: false
+          httpclient:
+            connect-timeout: ${gateway.downstream.connect-timeout-millis}
+            response-timeout: ${gateway.downstream.response-timeout-millis}ms
+          default-filters:
+            - name: Retry
+              args:
+                retries: ${gateway.downstream.retries}
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+                methods: ${gateway.downstream.retry-methods}
+                backoff:
+                  firstBackoff: ${gateway.downstream.retry-first-backoff-millis}ms
+                  maxBackoff: ${gateway.downstream.retry-max-backoff-millis}ms
+                  factor: ${gateway.downstream.retry-backoff-factor}
+                  basedOnPreviousValue: ${gateway.downstream.retry-backoff-based-on-previous-value}
+                jitter:
+                  randomFactor: ${gateway.downstream.retry-jitter-random-factor}
 server:
+  port: ${SERVER_PORT}
   shutdown: graceful
+gateway:
+  downstream:
+    connect-timeout-millis: ${GATEWAY_DOWNSTREAM_CONNECT_TIMEOUT_MILLIS}
+    response-timeout-millis: ${GATEWAY_DOWNSTREAM_RESPONSE_TIMEOUT_MILLIS}
+    retries: ${GATEWAY_DOWNSTREAM_RETRIES}
+    retry-methods: GET,HEAD,OPTIONS
+    retry-first-backoff-millis: ${GATEWAY_DOWNSTREAM_RETRY_FIRST_BACKOFF_MILLIS}
+    retry-max-backoff-millis: ${GATEWAY_DOWNSTREAM_RETRY_MAX_BACKOFF_MILLIS}
+    retry-backoff-factor: ${GATEWAY_DOWNSTREAM_RETRY_BACKOFF_FACTOR}
+    retry-backoff-based-on-previous-value: ${GATEWAY_DOWNSTREAM_RETRY_BACKOFF_BASED_ON_PREVIOUS_VALUE}
+    retry-jitter-random-factor: ${GATEWAY_DOWNSTREAM_RETRY_JITTER_RANDOM_FACTOR}
+  services:
+    identity: ${GATEWAY_SERVICES_IDENTITY}
+    application: ${GATEWAY_SERVICES_APPLICATION}
+    admin: ${GATEWAY_SERVICES_ADMIN}
+    notification: ${GATEWAY_SERVICES_NOTIFICATION}
+    observability: ${GATEWAY_SERVICES_OBSERVABILITY}
+    configuration: ${GATEWAY_SERVICES_CONFIGURATION}
+  cors:
+    allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS}
+    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+    allowed-headers: Authorization,Content-Type,X-Trace-Id,X-XSRF-TOKEN
+    max-age-seconds: 3600
+  request:
+    max-body-bytes: ${GATEWAY_REQUEST_MAX_BODY_BYTES}
+  resilience:
+    failure-rate-threshold: ${GATEWAY_RESILIENCE_FAILURE_RATE_THRESHOLD}
+    sliding-window-size: ${GATEWAY_RESILIENCE_SLIDING_WINDOW_SIZE}
+    minimum-number-of-calls: ${GATEWAY_RESILIENCE_MINIMUM_NUMBER_OF_CALLS}
+    wait-duration-seconds: ${GATEWAY_RESILIENCE_WAIT_DURATION_SECONDS}
+    permitted-number-of-calls-in-half-open-state: ${GATEWAY_RESILIENCE_PERMITTED_NUMBER_OF_CALLS_IN_HALF_OPEN_STATE}
+    state-store: ${GATEWAY_RESILIENCE_STATE_STORE}
 management:
   endpoints:
     web:

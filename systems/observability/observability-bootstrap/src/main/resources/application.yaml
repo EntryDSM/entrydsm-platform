@@ -1,8 +1,6 @@
 spring:
   application:
     name: observability
-  profiles:
-    default: local
   main:
     lazy-initialization: true
 server:

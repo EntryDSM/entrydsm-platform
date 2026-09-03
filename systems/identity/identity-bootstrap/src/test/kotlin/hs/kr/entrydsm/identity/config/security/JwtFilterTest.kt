@@ -103,6 +103,8 @@ class JwtFilterTest {
         )
 
         assertEquals(503, result.status)
+        assertTrue(result.body.contains("REDIS_UNAVAILABLE"))
+        assertTrue(result.contentType.orEmpty().startsWith("application/json"))
         assertFalse(result.chainInvoked)
         assertNull(result.authentication)
     }
@@ -199,6 +201,8 @@ class JwtFilterTest {
             status = response.status,
             chainInvoked = chain.invoked,
             authentication = SecurityContextHolder.getContext().authentication,
+            body = response.contentAsString,
+            contentType = response.contentType,
         )
     }
 
@@ -247,6 +251,8 @@ class JwtFilterTest {
         val status: Int,
         val chainInvoked: Boolean,
         val authentication: Authentication?,
+        val body: String = "",
+        val contentType: String? = null,
     )
 
     private companion object {

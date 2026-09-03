@@ -1,0 +1,37 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+  data:
+    redis:
+      url: ${GATEWAY_RESILIENCE_REDIS_URI:redis://localhost:6379}
+server:
+  port: ${SERVER_PORT:8080}
+gateway:
+  downstream:
+    connect-timeout-millis: ${GATEWAY_DOWNSTREAM_CONNECT_TIMEOUT_MILLIS:2000}
+    response-timeout-millis: ${GATEWAY_DOWNSTREAM_RESPONSE_TIMEOUT_MILLIS:5000}
+    retries: ${GATEWAY_DOWNSTREAM_RETRIES:2}
+    retry-first-backoff-millis: ${GATEWAY_DOWNSTREAM_RETRY_FIRST_BACKOFF_MILLIS:50}
+    retry-max-backoff-millis: ${GATEWAY_DOWNSTREAM_RETRY_MAX_BACKOFF_MILLIS:1000}
+    retry-backoff-factor: ${GATEWAY_DOWNSTREAM_RETRY_BACKOFF_FACTOR:2}
+    retry-backoff-based-on-previous-value: ${GATEWAY_DOWNSTREAM_RETRY_BACKOFF_BASED_ON_PREVIOUS_VALUE:false}
+    retry-jitter-random-factor: ${GATEWAY_DOWNSTREAM_RETRY_JITTER_RANDOM_FACTOR:0.5}
+  services:
+    identity: ${GATEWAY_SERVICES_IDENTITY:http://localhost:8081}
+    application: ${GATEWAY_SERVICES_APPLICATION:http://localhost:8082}
+    admin: ${GATEWAY_SERVICES_ADMIN:http://localhost:8083}
+    notification: ${GATEWAY_SERVICES_NOTIFICATION:http://localhost:8084}
+    observability: ${GATEWAY_SERVICES_OBSERVABILITY:http://localhost:8085}
+    configuration: ${GATEWAY_SERVICES_CONFIGURATION:http://localhost:8086}
+  cors:
+    allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  request:
+    max-body-bytes: ${GATEWAY_REQUEST_MAX_BODY_BYTES:10485760}
+  resilience:
+    failure-rate-threshold: ${GATEWAY_RESILIENCE_FAILURE_RATE_THRESHOLD:50}
+    sliding-window-size: ${GATEWAY_RESILIENCE_SLIDING_WINDOW_SIZE:10}
+    minimum-number-of-calls: ${GATEWAY_RESILIENCE_MINIMUM_NUMBER_OF_CALLS:5}
+    wait-duration-seconds: ${GATEWAY_RESILIENCE_WAIT_DURATION_SECONDS:30}
+    permitted-number-of-calls-in-half-open-state: ${GATEWAY_RESILIENCE_PERMITTED_NUMBER_OF_CALLS_IN_HALF_OPEN_STATE:1}
+    state-store: ${GATEWAY_RESILIENCE_STATE_STORE:redis}

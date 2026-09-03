@@ -17,6 +17,7 @@ import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import java.net.URI
 import jakarta.validation.Valid
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
@@ -31,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping(AuthEndpointPaths.BASE)
 class AuthController(
     private val authPort: AuthPort,
+    @Value("\${security.cookies.secure:true}") private val secureCookies: Boolean = true,
 ) {
     @PostMapping(AuthEndpointPaths.SIGNUP_PATH)
     fun signup(
@@ -96,7 +98,7 @@ class AuthController(
     private fun accessTokenCookie(result: AuthTokenResult): ResponseCookie =
         ResponseCookie.from("access_token", result.accessToken.value)
             .httpOnly(true)
-            .secure(true)
+            .secure(secureCookies)
             .sameSite("Lax")
             .path("/")
             .maxAge(7200)
@@ -105,7 +107,7 @@ class AuthController(
     private fun refreshTokenCookie(result: AuthTokenResult): ResponseCookie =
         ResponseCookie.from("refresh_token", result.refreshToken.value)
             .httpOnly(true)
-            .secure(true)
+            .secure(secureCookies)
             .sameSite("Lax")
             .path("/")
             .maxAge(604800)
@@ -114,7 +116,7 @@ class AuthController(
     private fun expiredCookie(name: String): ResponseCookie =
         ResponseCookie.from(name, "")
             .httpOnly(true)
-            .secure(true)
+            .secure(secureCookies)
             .sameSite("Lax")
             .path("/")
             .maxAge(0)

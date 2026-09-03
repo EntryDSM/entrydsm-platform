@@ -1,6 +1,8 @@
 package hs.kr.entrydsm.identity.adapterout.security
 
+import hs.kr.entrydsm.identity.test.IntegrationTestGate
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
+import hs.kr.entrydsm.identity.application.port.out.PersonalDataEncryptor
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -11,6 +13,7 @@ import java.util.concurrent.TimeUnit
 import org.junit.AfterClass
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -105,6 +108,44 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
         }
     }
 
+    @Test
+    fun passProofIsStoredOnceAndConsumedOnlyForMatchingName() {
+        val token = "pass-token"
+        val phone = "01012345678"
+        assertTrue(passAdapter.saveForToken(token, phone, "홍길동", 30))
+        assertFalse(passAdapter.saveForToken(token, phone, "홍길동", 30))
+        assertFalse(passAdapter.consume(phone, "다른 이름") != null)
+
+        val proof = passAdapter.consume(phone, "홍길동")
+
+        assertEquals(phone, proof?.phoneNumber)
+        assertEquals("홍길동", proof?.name)
+        assertFalse(passAdapter.consume(phone, "홍길동") != null)
+    }
+
+    @Test
+    fun passProofSupportsPreviousHmacKeyDuringRotation() {
+        val oldAdapter = RedisPassProofStoreAdapter(
+            redisTemplate = template,
+            personalDataEncryptor = encryptor,
+            namespace = NAMESPACE,
+            currentKey = "old-proof-key",
+            previousKey = "",
+        )
+        val rotatedAdapter = RedisPassProofStoreAdapter(
+            redisTemplate = template,
+            personalDataEncryptor = encryptor,
+            namespace = NAMESPACE,
+            currentKey = "new-proof-key",
+            previousKey = "old-proof-key",
+        )
+        assertTrue(oldAdapter.saveForToken("rotation-token", "01098765432", "김철수", 30))
+
+        val proof = rotatedAdapter.consume("01098765432", "김철수")
+
+        assertEquals("김철수", proof?.name)
+    }
+
     private companion object {
         const val REDIS_IMAGE = "redis:7.4-alpine"
         const val REDIS_PORT = 6379
@@ -115,15 +156,18 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
         lateinit var connectionFactory: LettuceConnectionFactory
         lateinit var template: StringRedisTemplate
         lateinit var adapter: RedisRefreshTokenRotationAdapter
+        lateinit var passAdapter: RedisPassProofStoreAdapter
+        lateinit var encryptor: PersonalDataEncryptor
         var redisStarted = false
 
         @JvmStatic
         @BeforeClass
         fun startRedis() {
-            assumeTrue(
-                "Docker daemon is required for Redis integration tests",
-                DockerClientFactory.instance().isDockerAvailable,
-            )
+            val available = DockerClientFactory.instance().isDockerAvailable
+            if (!available && IntegrationTestGate.isRequired()) {
+                error("Docker daemon is required for Redis integration tests")
+            }
+            assumeTrue("Docker daemon is required for Redis integration tests", available)
             redis = GenericContainer<Nothing>(DockerImageName.parse(REDIS_IMAGE))
                 .withExposedPorts(REDIS_PORT)
             redis.start()
@@ -140,6 +184,16 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
                 clock = Clock.systemUTC(),
                 namespace = NAMESPACE,
                 issuer = ISSUER,
+            )
+            encryptor = AesGcmPersonalDataEncryptor(
+                keyBase64 = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=",
+            )
+            passAdapter = RedisPassProofStoreAdapter(
+                redisTemplate = template,
+                personalDataEncryptor = encryptor,
+                namespace = NAMESPACE,
+                currentKey = "current-proof-key",
+                previousKey = "",
             )
         }
 

@@ -72,7 +72,7 @@ class JwtFilter(
         } catch (exception: RefreshTokenStoreUnavailableException) {
             SecurityContextHolder.clearContext()
             logger.warn("Redis unavailable while validating access token", exception)
-            response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE)
+            RedisUnavailableResponseWriter.write(response)
         }
     }
 

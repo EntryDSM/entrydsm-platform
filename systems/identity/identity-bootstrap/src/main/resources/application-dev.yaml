@@ -6,20 +6,50 @@ spring:
     url: ${DB_URL:jdbc:mysql://localhost:3306/identity_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:password}
-    driver-class-name: com.mysql.cj.jdbc.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update
-      open-in-view: false
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
-
-auth:
-  jwt:
-    secret: ${JWT_SECRET:dev-development-jwt-secret-change-me-32}
-
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:2s}
+      client-name: ${REDIS_CLIENT_NAME:identity}
+server:
+  port: ${SERVER_PORT:8080}
+identity:
+  redis:
+    namespace: ${REDIS_KEY_NAMESPACE:identity}
+    durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED:false}
 security:
   cookies:
     secure: ${COOKIE_SECURE:false}
+  cors:
+    allowed-origins: ${IDENTITY_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  pii:
+    login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY:dev-login-id-hash-key}
+    encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+auth:
+  password:
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
+  password-reset:
+    enabled: ${AUTH_PASSWORD_RESET_ENABLED:false}
+    max-attempts: ${AUTH_PASSWORD_RESET_MAX_ATTEMPTS:5}
+    window-seconds: ${AUTH_PASSWORD_RESET_WINDOW_SECONDS:900}
+    max-tracked-login-ids: ${AUTH_PASSWORD_RESET_MAX_TRACKED_LOGIN_IDS:10000}
+  jwt:
+    secret: ${JWT_SECRET:dev-development-jwt-secret-change-me-32}
+    issuer: ${JWT_ISSUER:entrydsm-identity}
+pass:
+  target: ${PASS_TARGET:TEST}
+  cp-code: ${PASS_CP_CODE:}
+  license: ${PASS_LICENSE:}
+  license-file-url: ${PASS_LICENSE_FILE_URL:}
+  license-file-path: ${PASS_LICENSE_FILE_PATH:/tmp/V61290000000_IDS_01_PROD_AES_license.dat}
+  base-url: ${BASE_URL:http://localhost:3000}
+  site-name: ${SITE_NAME:EntryDSM}
+  site-url: ${SITE_URL:http://localhost:3000}
+  popup-url: ${PASS_POPUP_URL:http://localhost:3000/mock/pass}
+  proof-ttl-seconds: ${PASS_PROOF_TTL_SECONDS:300}
+  connect-timeout-ms: ${PASS_CONNECT_TIMEOUT_MS:5000}
+  read-timeout-ms: ${PASS_READ_TIMEOUT_MS:10000}
+  allowed-redirect-origins: ${PASS_ALLOWED_REDIRECT_ORIGINS:http://localhost:3000}
+  proof-key-current: ${PASS_PROOF_KEY_CURRENT:dev-proof-key}
+  proof-key-previous: ${PASS_PROOF_KEY_PREVIOUS:}

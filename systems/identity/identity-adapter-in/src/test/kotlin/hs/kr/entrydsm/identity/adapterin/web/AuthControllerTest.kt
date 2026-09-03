@@ -11,7 +11,6 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.AccountResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
-import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
 import hs.kr.entrydsm.identity.application.port.`in`.result.ProfileResult
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
@@ -76,6 +75,19 @@ class AuthControllerTest {
     }
 
     @Test
+    fun cookieSecureAttributeFollowsEnvironmentSetting() {
+        val response = AuthController(FakeAuthPort(), false)
+            .login(LoginRequest(loginId = "entry", password = "password123!"))
+
+        assertTrue(response.headers[HttpHeaders.SET_COOKIE].orEmpty().none { it.contains("Secure") })
+
+        val secureResponse = AuthController(FakeAuthPort(), true)
+            .login(LoginRequest(loginId = "entry", password = "password123!"))
+
+        assertTrue(secureResponse.headers[HttpHeaders.SET_COOKIE].orEmpty().all { it.contains("Secure") })
+    }
+
+    @Test
     fun logoutUsesValidatedPrincipalAndExpiresCookies() {
         val authPort = FakeAuthPort()
         val controller = AuthController(authPort)
@@ -115,7 +127,7 @@ class AuthControllerTest {
     @Test
     fun passwordResetMapsAllSensitiveFieldsToCommand() {
         val authPort = FakeAuthPort()
-        val controller = PasswordResetController(authPort, PasswordResetOwnershipVerifier { true })
+        val controller = PasswordResetController(authPort)
         val birthdate = LocalDate.parse("2009-03-15")
 
         controller.resetPassword(
@@ -134,12 +146,10 @@ class AuthControllerTest {
         assertEquals("new-password", command.newPassword)
     }
 
-    @Test(expected = hs.kr.entrydsm.identity.domain.exception.IdentityDomainException::class)
-    fun passwordResetRejectsRequestWithoutOwnershipProof() {
-        val controller = PasswordResetController(
-            FakeAuthPort(),
-            PasswordResetOwnershipVerifier { false },
-        )
+    @Test
+    fun passwordResetDelegatesOwnershipVerificationToApplicationService() {
+        val authPort = FakeAuthPort()
+        val controller = PasswordResetController(authPort)
 
         controller.resetPassword(
             hs.kr.entrydsm.identity.adapterin.web.dto.request.PasswordResetRequest(
@@ -149,6 +159,8 @@ class AuthControllerTest {
                 newPassword = "new-password",
             )
         )
+
+        assertEquals("entry", requireNotNull(authPort.resetPasswordCommand).loginId)
     }
 
     @Test

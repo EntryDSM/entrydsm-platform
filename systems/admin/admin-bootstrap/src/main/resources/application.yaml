@@ -1,8 +1,6 @@
 spring:
   application:
     name: admin
-  profiles:
-    default: local
   main:
     lazy-initialization: true
   datasource:

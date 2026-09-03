@@ -1,12 +1,26 @@
 spring:
   application:
     name: notification
-  profiles:
-    default: local
   main:
     lazy-initialization: true
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
 server:
+  port: ${SERVER_PORT}
   shutdown: graceful
+
 management:
   endpoints:
     web:
@@ -16,6 +30,7 @@ management:
     health:
       probes:
         enabled: true
+
 logging:
   level:
     root: INFO
