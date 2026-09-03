@@ -3,8 +3,34 @@ spring:
     name: admin
   main:
     lazy-initialization: true
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/admin_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
 server:
   shutdown: graceful
+admin:
+  admission-year: ${ADMISSION_YEAR:2027}
+  screening:
+    first-quota: ${FIRST_SCREENING_QUOTA:80}
+    final-quota: ${FINAL_SCREENING_QUOTA:72}
+  quota:
+    by-type:
+      GENERAL: ${GENERAL_QUOTA:20}
+      MEISTER: ${MEISTER_QUOTA:10}
+      SOCIAL: ${SOCIAL_QUOTA:10}
+  storage:
+    # 리전, 엔드포인트, 자격 증명은 AWS 표준 환경변수(AWS_REGION, AWS_ENDPOINT_URL_S3 등)를 따른다.
+    bucket: ${STORAGE_BUCKET:entrydsm-admin}
+    download-url-expires-seconds: ${DOWNLOAD_URL_EXPIRES_SECONDS:900}
 management:
   endpoints:
     web:
