@@ -1,0 +1,130 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: entrydsm-redis
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: gateway
+    container_name: entrydsm-gateway
+    env_file:
+      - ./systems/gateway/.env
+    environment:
+      SERVER_PORT: "8080"
+      GATEWAY_SERVICES_IDENTITY: http://identity:8080
+      GATEWAY_SERVICES_APPLICATION: http://application:8080
+      GATEWAY_SERVICES_ADMIN: http://admin:8080
+      GATEWAY_SERVICES_NOTIFICATION: http://notification:8080
+      GATEWAY_SERVICES_OBSERVABILITY: http://observability:8080
+      GATEWAY_SERVICES_CONFIGURATION: http://configuration:8080
+      GATEWAY_RESILIENCE_REDIS_URI: redis://redis:6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - identity
+      - application
+      - notification
+      - configuration
+      - admin
+      - observability
+    restart: unless-stopped
+
+  identity:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: identity
+    container_name: entrydsm-identity
+    env_file:
+      - ./systems/identity/.env
+    environment:
+      SERVER_PORT: "8080"
+      REDIS_URL: redis://redis:6379
+      PASS_LICENSE_FILE_PATH: /run/secrets/pass-license.dat
+    ports:
+      - "8081:8080"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  application:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: application
+    container_name: entrydsm-application
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+    ports:
+      - "8082:8080"
+    restart: unless-stopped
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: admin
+    container_name: entrydsm-admin
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+    ports:
+      - "8083:8080"
+    restart: unless-stopped
+
+  notification:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: notification
+    container_name: entrydsm-notification
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+    ports:
+      - "8084:8080"
+    restart: unless-stopped
+
+  observability:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: observability
+    container_name: entrydsm-observability
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+    ports:
+      - "8085:8080"
+    restart: unless-stopped
+
+  configuration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SERVICE: configuration
+    container_name: entrydsm-configuration
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SERVER_PORT: "8080"
+      GRPC_PORT: "9090"
+    ports:
+      - "8086:8080"
+      - "9096:9090"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: entrydsm-network
