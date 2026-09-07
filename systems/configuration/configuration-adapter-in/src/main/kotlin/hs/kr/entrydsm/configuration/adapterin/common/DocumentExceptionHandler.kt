@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.configuration.adapterin.common
 
+import hs.kr.entrydsm.configuration.adapterin.document.InvalidDownloadFormatException
 import hs.kr.entrydsm.configuration.adapterin.document.InvalidFileReferenceIdException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
@@ -38,6 +39,7 @@ class DocumentExceptionHandler {
     @ExceptionHandler(
         InvalidFileNameException::class,
         InvalidFileReferenceIdException::class,
+        InvalidDownloadFormatException::class,
         MissingServletRequestParameterException::class,
         MethodArgumentNotValidException::class,
         MethodArgumentTypeMismatchException::class,
