@@ -159,6 +159,62 @@ class AdminPolicyTest {
     }
 
     @Test
+    fun `개별 최종 산출은 정원 안에 든 지원자만 합격시킨다`() {
+        val first = applicant(
+            receiptNumber = 1,
+            examineeNumber = "100001",
+            totalScore = 95.0,
+            status = ApplicantStatus.FIRST_PASS,
+        )
+        val second = applicant(
+            receiptNumber = 2,
+            examineeNumber = "100002",
+            totalScore = 80.0,
+            status = ApplicantStatus.FIRST_PASS,
+        )
+        val cohort = listOf(first, second)
+
+        assertEquals(
+            ApplicantStatus.FINAL_PASS,
+            ScreeningPolicy.evaluateFinal(first, cohort, quota = 1),
+        )
+        assertEquals(
+            ApplicantStatus.FINAL_FAIL,
+            ScreeningPolicy.evaluateFinal(second, cohort, quota = 1),
+        )
+    }
+
+    @Test
+    fun `개별 최종 산출에서 산출되지 않은 지원자는 불합격 처리한다`() {
+        val notFirstPass = applicant(
+            receiptNumber = 1,
+            examineeNumber = "100001",
+            totalScore = 99.0,
+        )
+        val noScore = applicant(
+            receiptNumber = 2,
+            examineeNumber = "100002",
+            totalScore = null,
+            status = ApplicantStatus.FIRST_PASS,
+        )
+        val notSubmitted = applicant(
+            receiptNumber = 3,
+            isSubmitted = false,
+            examineeNumber = "100003",
+            totalScore = 99.0,
+            status = ApplicantStatus.FIRST_PASS,
+        )
+        val cohort = listOf(notFirstPass, noScore, notSubmitted)
+
+        cohort.forEach {
+            assertEquals(
+                ApplicantStatus.FINAL_FAIL,
+                ScreeningPolicy.evaluateFinal(it, cohort, quota = 10),
+            )
+        }
+    }
+
+    @Test
     fun `정상 흐름을 벗어나는 상태 전이는 거부한다`() {
         assertTrue(ApplicantStatus.PENDING.canTransitionTo(ApplicantStatus.FIRST_PASS))
         assertTrue(ApplicantStatus.FIRST_PASS.canTransitionTo(ApplicantStatus.FINAL_PASS))

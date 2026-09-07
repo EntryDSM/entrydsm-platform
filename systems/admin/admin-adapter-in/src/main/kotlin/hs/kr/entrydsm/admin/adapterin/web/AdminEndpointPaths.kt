@@ -19,7 +19,7 @@ object AdminEndpointPaths {
     const val EXAMINEE_NUMBER_ISSUE = "$BASE/examinee-numbers/issue"
     const val SCORE_POLICY = "$BASE/score-policy"
     const val FIRST_SCREENING_RESULTS = "$BASE/screenings/first/results"
-    const val FINAL_SCREENING_RESULTS = "$BASE/screenings/final/results"
+    const val FINAL_SCREENING_RESULT = "$BASE/screenings/final/results/{applicantId}"
     const val STATISTICS = "$BASE/statistics"
     const val EXPORTS = "$BASE/exports"
     const val EXPORT = "$EXPORTS/{exportJobId}"

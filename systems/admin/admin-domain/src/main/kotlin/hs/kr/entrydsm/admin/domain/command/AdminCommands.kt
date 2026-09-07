@@ -39,7 +39,7 @@ data class UpdateScorePolicyCommand(
 )
 
 /**
- * 합격자를 일괄 산출합니다.
+ * 1차 합격자를 일괄 산출합니다.
  *
  * @property dryRun true이면 상태를 저장하지 않고 산출 결과만 돌려준다
  */

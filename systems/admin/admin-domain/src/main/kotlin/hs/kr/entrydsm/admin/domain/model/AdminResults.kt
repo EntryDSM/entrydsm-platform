@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.admin.domain.model
 
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
 import java.time.Instant
 import java.time.LocalDate
@@ -15,13 +16,24 @@ data class ExamineeNumberIssueResult(
 )
 
 /**
- * 합격자 일괄 산출 결과입니다.
+ * 1차 합격자 일괄 산출 결과입니다.
  */
 data class ScreeningResult(
     val dryRun: Boolean,
     val passCount: Int,
     val failCount: Int,
     val excludedCount: Int,
+    val processedAt: Instant,
+)
+
+/**
+ * 지원자 한 명의 최종 합격 산출 결과입니다.
+ *
+ * @property status 산출된 최종 상태. 산출되지 않으면 `FINAL_FAIL`
+ */
+data class FinalScreeningResult(
+    val applicantId: Long,
+    val status: ApplicantStatus,
     val processedAt: Instant,
 )
 

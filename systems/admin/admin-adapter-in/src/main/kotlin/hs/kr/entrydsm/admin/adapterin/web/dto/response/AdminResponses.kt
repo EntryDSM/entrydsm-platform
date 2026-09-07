@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.admin.adapterin.web.dto.response
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
 import java.time.Instant
@@ -24,6 +25,12 @@ data class ScreeningResultResponse(
     val passCount: Int,
     val failCount: Int,
     val excludedCount: Int,
+    val processedAt: Instant,
+)
+
+data class FinalScreeningResultResponse(
+    val applicantId: Long,
+    val status: ApplicantStatus,
     val processedAt: Instant,
 )
 

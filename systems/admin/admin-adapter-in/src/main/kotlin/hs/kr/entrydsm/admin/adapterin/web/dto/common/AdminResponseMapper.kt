@@ -2,6 +2,7 @@ package hs.kr.entrydsm.admin.adapterin.web.dto.common
 
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.CreateExportResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExportJobResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.response.FinalScreeningResultResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.NoticeResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.QuestionAnswerResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScorePolicyResponse
@@ -12,6 +13,7 @@ import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.ExportJobView
+import hs.kr.entrydsm.admin.domain.model.FinalScreeningResult
 import hs.kr.entrydsm.admin.domain.model.Notice
 import hs.kr.entrydsm.admin.domain.model.QuestionAnswer
 import hs.kr.entrydsm.admin.domain.model.ScorePolicy
@@ -34,6 +36,12 @@ fun ScreeningResult.toResponse(): ScreeningResultResponse = ScreeningResultRespo
     passCount = passCount,
     failCount = failCount,
     excludedCount = excludedCount,
+    processedAt = processedAt,
+)
+
+fun FinalScreeningResult.toResponse(): FinalScreeningResultResponse = FinalScreeningResultResponse(
+    applicantId = applicantId,
+    status = status,
     processedAt = processedAt,
 )
 
