@@ -9,5 +9,5 @@ enum class GatewayService(
     ADMIN("admin", "/api/admin"),
     NOTIFICATION("notification", "/api/notification"),
     OBSERVABILITY("observability", "/api/observability"),
-    CONFIGURATION("configuration", "/api/configuration"),
+    CONFIGURATION("configuration", "/api/document"),
 }

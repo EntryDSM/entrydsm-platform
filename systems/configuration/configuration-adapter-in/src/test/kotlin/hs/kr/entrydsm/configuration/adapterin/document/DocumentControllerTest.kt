@@ -110,7 +110,7 @@ class DocumentControllerTest {
                     .param("format", "jpg"),
             )
             .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error.code").value("INVALID_FILE_FORMAT"))
+            .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
     }
 
     @Test

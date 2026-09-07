@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.configuration.adapterin.common
 
 import hs.kr.entrydsm.configuration.adapterin.document.FileReferenceId
+import hs.kr.entrydsm.configuration.adapterin.document.InvalidDownloadFormatException
 import hs.kr.entrydsm.configuration.adapterin.document.InvalidFileReferenceIdException
 import hs.kr.entrydsm.configuration.adapterin.document.dto.DownloadUrlResponse
 import hs.kr.entrydsm.configuration.adapterin.document.dto.UploadFileResponse
@@ -117,6 +118,10 @@ class DocumentApiContractTest {
         assertMapped(
             ErrorCode.INVALID_REQUEST_PARAM,
             handler.handleInvalidRequestParam(MissingServletRequestParameterException("receiptCode", "String")),
+        )
+        assertMapped(
+            ErrorCode.INVALID_REQUEST_PARAM,
+            handler.handleInvalidRequestParam(InvalidDownloadFormatException("jpg", FileCategory.APPLICATION)),
         )
     }
 
