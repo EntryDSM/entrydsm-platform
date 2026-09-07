@@ -5,7 +5,7 @@ services:
     restart: always
 
   gateway:
-    image: ghcr.io/EntryDSM/entrydsm-gateway:latest
+    image: ghcr.io/entrydsm/entrydsm-gateway:latest
     container_name: entrydsm-gateway
     env_file:
       - ./.env.gateway
@@ -22,7 +22,7 @@ services:
     restart: always
 
   identity:
-    image: ghcr.io/EntryDSM/entrydsm-identity:latest
+    image: ghcr.io/entrydsm/entrydsm-identity:latest
     container_name: entrydsm-identity
     env_file:
       - ./.env.identity
@@ -33,35 +33,35 @@ services:
     restart: always
 
   application:
-    image: ghcr.io/EntryDSM/entrydsm-application:latest
+    image: ghcr.io/entrydsm/entrydsm-application:latest
     container_name: entrydsm-application
     env_file:
       - ./.env.application
     restart: always
 
   notification:
-    image: ghcr.io/EntryDSM/entrydsm-notification:latest
+    image: ghcr.io/entrydsm/entrydsm-notification:latest
     container_name: entrydsm-notification
     env_file:
       - ./.env.notification
     restart: always
 
   configuration:
-    image: ghcr.io/EntryDSM/entrydsm-configuration:latest
+    image: ghcr.io/entrydsm/entrydsm-configuration:latest
     container_name: entrydsm-configuration
     env_file:
       - ./.env.configuration
     restart: always
 
   admin:
-    image: ghcr.io/EntryDSM/entrydsm-admin:latest
+    image: ghcr.io/entrydsm/entrydsm-admin:latest
     container_name: entrydsm-admin
     env_file:
       - ./.env.admin
     restart: always
 
   observability:
-    image: ghcr.io/EntryDSM/entrydsm-observability:latest
+    image: ghcr.io/entrydsm/entrydsm-observability:latest
     container_name: entrydsm-observability
     env_file:
       - ./.env.observability
