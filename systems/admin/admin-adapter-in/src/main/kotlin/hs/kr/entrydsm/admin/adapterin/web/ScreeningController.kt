@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.common.ApiResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.EvaluateScreeningRequest
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.UpdateScorePolicyRequest
+import hs.kr.entrydsm.admin.adapterin.web.dto.response.FinalScreeningResultResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScorePolicyResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScreeningResultResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.StatisticsResponse
@@ -19,6 +20,7 @@ import hs.kr.entrydsm.admin.domain.port.`in`.UpdateScorePolicyUseCase
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -72,16 +74,12 @@ class ScreeningController(
             ),
         )
 
-    @PostMapping(AdminEndpointPaths.FINAL_SCREENING_RESULTS)
+    @PostMapping(AdminEndpointPaths.FINAL_SCREENING_RESULT)
     fun evaluateFinal(
-        @RequestBody(required = false) request: EvaluateScreeningRequest?,
-    ): ResponseEntity<ApiResponse<ScreeningResultResponse>> =
+        @PathVariable applicantId: Long,
+    ): ResponseEntity<ApiResponse<FinalScreeningResultResponse>> =
         ResponseEntity.ok(
-            ApiResponse(
-                data = evaluateFinalScreeningUseCase
-                    .evaluateFinal(EvaluateScreeningCommand(dryRun = request?.dryRun ?: false))
-                    .toResponse(),
-            ),
+            ApiResponse(data = evaluateFinalScreeningUseCase.evaluateFinal(applicantId).toResponse()),
         )
 
     @GetMapping(AdminEndpointPaths.STATISTICS)

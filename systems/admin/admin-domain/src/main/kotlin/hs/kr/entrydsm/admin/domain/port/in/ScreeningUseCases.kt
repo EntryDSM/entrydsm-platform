@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.domain.command.EvaluateScreeningCommand
 import hs.kr.entrydsm.admin.domain.command.UpdateScorePolicyCommand
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
+import hs.kr.entrydsm.admin.domain.model.FinalScreeningResult
 import hs.kr.entrydsm.admin.domain.model.ScorePolicy
 import hs.kr.entrydsm.admin.domain.model.ScreeningResult
 
@@ -20,7 +21,7 @@ interface EvaluateFirstScreeningUseCase {
 }
 
 interface EvaluateFinalScreeningUseCase {
-    fun evaluateFinal(command: EvaluateScreeningCommand): ScreeningResult
+    fun evaluateFinal(applicantId: Long): FinalScreeningResult
 }
 
 interface ReadStatisticsUseCase {
