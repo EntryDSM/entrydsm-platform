@@ -15,7 +15,7 @@ class GatewayDomainRulesTest {
                 "admin" to "/api/admin",
                 "notification" to "/api/notification",
                 "observability" to "/api/observability",
-                "configuration" to "/api/configuration",
+                "configuration" to "/api/document",
             ),
             GatewayService.entries.associate { it.routeId to it.pathPrefix },
         )
