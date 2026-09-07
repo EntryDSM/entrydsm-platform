@@ -4,6 +4,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
 import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
+import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
@@ -38,6 +39,15 @@ class AccountService(
             applicantStatus = application.applicantStatus,
             createdAt = account.createdAt,
             updatedAt = application.updatedAt,
+        )
+    }
+
+    override fun getAuthority(command: ReadAccountCommand): UserSummaryResult {
+        val account = resolveAccount(command.userId)
+        return UserSummaryResult(
+            userId = account.userId,
+            role = account.role,
+            status = account.status,
         )
     }
 

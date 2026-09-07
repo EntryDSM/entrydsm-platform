@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity.adapterin.web
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ApiResponse
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.identity.adapterin.web.dto.response.BasicInfoResponse
+import hs.kr.entrydsm.identity.adapterin.web.dto.response.UserSummaryResponse
 import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
 import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
@@ -37,6 +38,17 @@ class AccountController(
         @AuthenticationPrincipal authenticatedUser: AuthenticatedUser? = null,
     ): ApiResponse<BasicInfoResponse> {
         val result = accountPort.getBasicInfo(
+            ReadAccountCommand(authorization = authorization, userId = authenticatedUser?.userId),
+        )
+        return ApiResponse(data = result.toResponse())
+    }
+
+    @GetMapping("/me/authority")
+    fun getMyAuthority(
+        @RequestHeader(HttpHeaders.AUTHORIZATION, required = false) authorization: String?,
+        @AuthenticationPrincipal authenticatedUser: AuthenticatedUser? = null,
+    ): ApiResponse<UserSummaryResponse> {
+        val result = accountPort.getAuthority(
             ReadAccountCommand(authorization = authorization, userId = authenticatedUser?.userId),
         )
         return ApiResponse(data = result.toResponse())
