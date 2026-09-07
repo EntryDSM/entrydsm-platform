@@ -2,26 +2,13 @@ services:
   redis:
     image: redis:7-alpine
     container_name: entrydsm-redis
-    restart: unless-stopped
+    restart: always
 
   gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE: gateway
+    image: ghcr.io/EntryDSM/entrydsm-gateway:latest
     container_name: entrydsm-gateway
     env_file:
-      - ./systems/gateway/.env
-    environment:
-      SERVER_PORT: "8080"
-      GATEWAY_SERVICES_IDENTITY: http://identity:8080
-      GATEWAY_SERVICES_APPLICATION: http://application:8080
-      GATEWAY_SERVICES_ADMIN: http://admin:8080
-      GATEWAY_SERVICES_NOTIFICATION: http://notification:8080
-      GATEWAY_SERVICES_OBSERVABILITY: http://observability:8080
-      GATEWAY_SERVICES_CONFIGURATION: http://configuration:8080
-      GATEWAY_RESILIENCE_REDIS_URI: redis://redis:6379
+      - ./.env.gateway
     ports:
       - "8080:8080"
     depends_on:
@@ -32,99 +19,50 @@ services:
       - configuration
       - admin
       - observability
-    restart: unless-stopped
+    restart: always
 
   identity:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE: identity
+    image: ghcr.io/EntryDSM/entrydsm-identity:latest
     container_name: entrydsm-identity
     env_file:
-      - ./systems/identity/.env
-    environment:
-      SERVER_PORT: "8080"
-      REDIS_URL: redis://redis:6379
-      PASS_LICENSE_FILE_PATH: /run/secrets/pass-license.dat
-    ports:
-      - "8081:8080"
+      - ./.env.identity
+    volumes:
+      - ./secrets/pass-license.dat:/run/secrets/pass-license.dat:ro
     depends_on:
       - redis
-    restart: unless-stopped
+    restart: always
 
   application:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE: application
+    image: ghcr.io/EntryDSM/entrydsm-application:latest
     container_name: entrydsm-application
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: "8080"
-    ports:
-      - "8082:8080"
-    restart: unless-stopped
-
-  admin:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE: admin
-    container_name: entrydsm-admin
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: "8080"
-    ports:
-      - "8083:8080"
-    restart: unless-stopped
+    env_file:
+      - ./.env.application
+    restart: always
 
   notification:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE: notification
+    image: ghcr.io/EntryDSM/entrydsm-notification:latest
     container_name: entrydsm-notification
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: "8080"
-    ports:
-      - "8084:8080"
-    restart: unless-stopped
-
-  observability:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE: observability
-    container_name: entrydsm-observability
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: "8080"
-    ports:
-      - "8085:8080"
-    restart: unless-stopped
+    env_file:
+      - ./.env.notification
+    restart: always
 
   configuration:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        SERVICE: configuration
+    image: ghcr.io/EntryDSM/entrydsm-configuration:latest
     container_name: entrydsm-configuration
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
-      SERVER_PORT: "8080"
-      GRPC_PORT: "9090"
-    ports:
-      - "8086:8080"
-      - "9096:9090"
-    restart: unless-stopped
+    env_file:
+      - ./.env.configuration
+    restart: always
 
-networks:
-  default:
-    name: entrydsm-network
+  admin:
+    image: ghcr.io/EntryDSM/entrydsm-admin:latest
+    container_name: entrydsm-admin
+    env_file:
+      - ./.env.admin
+    restart: always
+
+  observability:
+    image: ghcr.io/EntryDSM/entrydsm-observability:latest
+    container_name: entrydsm-observability
+    env_file:
+      - ./.env.observability
+    restart: always
