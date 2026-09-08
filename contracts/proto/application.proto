@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package entrydsm.application.v1;
+
+option java_package = "hs.kr.entrydsm.application.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "ApplicationProto";
+
+service ApplicationService {
+    rpc CreateApplication(CreateApplicationRequest) returns (ApplicationResponse);
+    rpc GetApplication(GetApplicationRequest) returns (ApplicationResponse);
+    rpc CancelApplication(CancelApplicationRequest) returns (ApplicationResponse);
+}
+
+message CreateApplicationRequest {
+    int64 user_id = 1;
+}
+
+message GetApplicationRequest {
+    int64 user_id = 1;
+}
+
+message CancelApplicationRequest {
+    int64 user_id = 1;
+    optional string reason = 2;
+}
+
+message ApplicationResponse {
+    int64 user_id = 1;
+    ApplicantStatus applicant_status = 2;
+    optional int64 submitted_at_epoch_millis = 3;
+    int64 updated_at_epoch_millis = 4;
+    PassStatus pass_status = 5;
+    optional int64 announced_at_epoch_millis = 6;
+}
+
+enum ApplicantStatus {
+    APPLICANT_STATUS_UNSPECIFIED = 0;
+    APPLICANT_STATUS_NONE = 1;
+    APPLICANT_STATUS_DRAFT = 2;
+    APPLICANT_STATUS_SUBMITTED = 3;
+    APPLICANT_STATUS_REVIEWING = 4;
+    APPLICANT_STATUS_COMPLETED = 5;
+    APPLICANT_STATUS_CANCELED = 6;
+}
+
+enum PassStatus {
+    PASS_STATUS_UNSPECIFIED = 0;
+    PASS_STATUS_NOT_ANNOUNCED = 1;
+    PASS_STATUS_PASSED = 2;
+    PASS_STATUS_FAILED = 3;
+}
