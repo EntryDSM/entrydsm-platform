@@ -4,7 +4,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 
 @ConfigurationProperties(prefix = "gateway")
 data class GatewayRuntimeProperties(
-    var cors: Cors = Cors(),
     var request: Request = Request(),
     var resilience: Resilience = Resilience(),
 ) {
@@ -16,9 +15,6 @@ data class GatewayRuntimeProperties(
     fun validateAfterBinding() = validate()
 
     private fun validate() {
-        require(cors.maxAgeSeconds >= 0) {
-            "gateway.cors.max-age-seconds must not be negative: ${cors.maxAgeSeconds}"
-        }
         require(request.maxBodyBytes > 0) {
             "gateway.request.max-body-bytes must be greater than zero: ${request.maxBodyBytes}"
         }
@@ -45,18 +41,6 @@ data class GatewayRuntimeProperties(
             "gateway.resilience.state-store must be redis or memory: ${resilience.stateStore}"
         }
     }
-    data class Cors(
-        var allowedOrigins: List<String> = listOf("http://localhost:3000"),
-        var allowedMethods: List<String> = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"),
-        var allowedHeaders: List<String> = listOf(
-            "Authorization",
-            "Content-Type",
-            "X-Trace-Id",
-            "X-XSRF-TOKEN",
-        ),
-        var maxAgeSeconds: Long = 3600,
-    )
-
     data class Request(
         var maxBodyBytes: Long = 10 * 1024 * 1024,
     )

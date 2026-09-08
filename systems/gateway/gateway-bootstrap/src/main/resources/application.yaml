@@ -12,7 +12,15 @@ spring:
       server:
         webflux:
           globalcors:
-            enabled: false
+            add-to-simple-url-handler-mapping: true
+            cors-configurations:
+              '[/**]':
+                allowedOrigins: ${GATEWAY_CORS_ALLOWED_ORIGINS}
+                allowedMethods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+                allowedHeaders: Authorization,Content-Type,X-Trace-Id,X-XSRF-TOKEN
+                exposedHeaders: X-Trace-Id
+                allowCredentials: true
+                maxAge: 3600
           httpclient:
             connect-timeout: ${gateway.downstream.connect-timeout-millis}
             response-timeout: ${gateway.downstream.response-timeout-millis}ms
@@ -50,11 +58,6 @@ gateway:
     notification: ${GATEWAY_SERVICES_NOTIFICATION}
     observability: ${GATEWAY_SERVICES_OBSERVABILITY}
     configuration: ${GATEWAY_SERVICES_CONFIGURATION}
-  cors:
-    allowed-origins: ${GATEWAY_CORS_ALLOWED_ORIGINS}
-    allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-    allowed-headers: Authorization,Content-Type,X-Trace-Id,X-XSRF-TOKEN
-    max-age-seconds: 3600
   request:
     max-body-bytes: ${GATEWAY_REQUEST_MAX_BODY_BYTES}
   resilience:
