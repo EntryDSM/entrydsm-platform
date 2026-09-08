@@ -100,6 +100,17 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun passPopupRequestDoesNotRequireCsrf() {
+        val response = mockMvc.perform(
+            post("/api/identity/v11/auth/pass/popup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"),
+        ).andReturn().response
+
+        assertEquals(400, response.status)
+    }
+
+    @Test
     fun publicAuthRequestRemainsPublicAfterCsrfValidation() {
         val csrfResponse = mockMvc.perform(
             get("/actuator/health"),
