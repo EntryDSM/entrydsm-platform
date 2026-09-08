@@ -21,8 +21,6 @@ identity:
 security:
   cookies:
     secure: ${COOKIE_SECURE:false}
-  cors:
-    allowed-origins: ${IDENTITY_CORS_ALLOWED_ORIGINS:http://localhost:3000}
   pii:
     login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY:dev-login-id-hash-key}
     encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}

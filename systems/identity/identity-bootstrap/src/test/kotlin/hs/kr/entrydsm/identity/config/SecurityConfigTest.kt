@@ -20,7 +20,6 @@ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delet
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options
 import org.springframework.web.context.WebApplicationContext
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
@@ -37,7 +36,6 @@ import org.springframework.security.web.FilterChainProxy
         "security.pii.encryption-key-base64=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=",
         "pass.proof-key-current=test-pass-proof-key",
         "spring.main.lazy-initialization=true",
-        "security.cors.allowed-origins=https://frontend.example",
         "spring.autoconfigure.exclude=" +
             "org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration," +
             "org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfiguration," +
@@ -136,42 +134,20 @@ class SecurityConfigTest {
     }
 
     @Test
-    fun configuredOriginCanUseCredentialedCorsPreflight() {
+    fun identityDoesNotEmitCorsHeaders() {
         val response = mockMvc.perform(
-            options("/api/identity/v11/auth/login")
-                .header("Origin", "https://frontend.example")
-                .header("Access-Control-Request-Method", "POST")
-                .header("Access-Control-Request-Headers", "content-type,x-xsrf-token"),
+            get("/actuator/health")
+                .header("Origin", "https://frontend.example"),
         ).andReturn().response
 
-        assertEquals("https://frontend.example", response.getHeader("Access-Control-Allow-Origin"))
-        assertEquals("true", response.getHeader("Access-Control-Allow-Credentials"))
+        assertEquals(null, response.getHeader("Access-Control-Allow-Origin"))
     }
 
     @Test
-    fun productionSecurityRejectsInsecureCookiesAndWildcardOrigins() {
+    fun productionSecurityRejectsInsecureCookies() {
         assertThrows(IllegalArgumentException::class.java) {
             SecurityConfigurationValidator.validate(
                 secureCookies = false,
-                allowedCorsOrigins = "https://frontend.example",
-                production = true,
-            )
-        }
-        assertThrows(IllegalArgumentException::class.java) {
-            SecurityConfigurationValidator.validate(
-                secureCookies = true,
-                allowedCorsOrigins = "*",
-                production = true,
-            )
-        }
-    }
-
-    @Test
-    fun productionSecurityRejectsEmptyCorsOrigins() {
-        assertThrows(IllegalArgumentException::class.java) {
-            SecurityConfigurationValidator.validate(
-                secureCookies = true,
-                allowedCorsOrigins = "",
                 production = true,
             )
         }
