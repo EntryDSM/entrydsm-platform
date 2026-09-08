@@ -11,6 +11,8 @@ enum class ErrorCode(
     val message: String,
 ) {
     INVALID_REQUEST_BODY(400, "요청 본문이 올바르지 않습니다."),
+    INVALID_BIRTHDATE(400, "생년월일은 미래 날짜일 수 없습니다."),
+    SIGNUP_AGE_RESTRICTION(403, "만 14세 미만은 회원가입할 수 없습니다."),
     AUTH_UNAUTHORIZED(401, "인증이 필요합니다."),
     ACCESS_DENIED(403, "접근 권한이 없습니다."),
     INVALID_CREDENTIALS(401, "로그인 식별자 또는 비밀번호가 일치하지 않습니다."),

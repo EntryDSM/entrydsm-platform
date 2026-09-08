@@ -1,5 +1,7 @@
 package hs.kr.entrydsm.identity.application.port.out
 
+import java.time.LocalDate
+
 interface PassProviderPort {
     fun generatePopup(redirectUrl: String): String
 
@@ -9,6 +11,7 @@ interface PassProviderPort {
 data class PassIdentity(
     val phoneNumber: String,
     val name: String,
+    val birthdate: LocalDate,
 )
 
 class PassProviderException(

@@ -100,6 +100,72 @@ class AuthServiceTest {
     }
 
     @Test
+    fun signupRejectsInvalidAgeBeforeConsumingProofOrSavingAccount() {
+        val proofVerifier = mock(SignupOwnershipVerifier::class.java)
+        val registration = mock(AccountRegistrationPort::class.java)
+        val service = service(registration = registration, signupOwnershipVerifier = proofVerifier)
+        val cases =
+            listOf(
+                LocalDate.of(2026, 6, 12) to ErrorCode.INVALID_BIRTHDATE,
+                LocalDate.of(2026, 6, 11) to ErrorCode.SIGNUP_AGE_RESTRICTION,
+                LocalDate.of(2012, 6, 12) to ErrorCode.SIGNUP_AGE_RESTRICTION,
+            )
+        for (signupType in SignupType.values()) {
+            for ((birthdate, errorCode) in cases) {
+                val exception =
+                    assertThrows(IdentityDomainException::class.java) {
+                        service.signup(SignupCommand("password123!", "홍길동", "01012345678", birthdate, signupType))
+                    }
+                assertEquals(errorCode, exception.errorCode)
+            }
+        }
+        org.mockito.Mockito.verifyNoInteractions(proofVerifier, registration, queryPort, commandPort, passwordHasher)
+    }
+
+    @Test
+    fun signupAllowsFourteenthBirthdayAndOlderForEverySignupType() {
+        val registeredBirthdates = mutableListOf<LocalDate>()
+        val service =
+            service(
+                registration =
+                    AccountRegistrationPort { registration, _ ->
+                        registeredBirthdates.add(registration.profile.birthdate)
+                        account()
+                    },
+            )
+        `when`(passwordHasher.hash("password123!")).thenReturn(PASSWORD_HASH)
+        val birthdates = listOf(LocalDate.of(2012, 6, 11), LocalDate.of(2012, 6, 10))
+        for (signupType in SignupType.values()) {
+            for (birthdate in birthdates) {
+                service.signup(SignupCommand("password123!", "홍길동", "01012345678", birthdate, signupType))
+            }
+        }
+        assertEquals(birthdates + birthdates, registeredBirthdates)
+    }
+
+    @Test
+    fun signupUsesKoreanMidnightAndHandlesLeapDayBirthdays() {
+        val cases =
+            listOf(
+                Triple("2026-06-11T14:59:59Z", "2012-06-12", false),
+                Triple("2026-06-11T15:00:00Z", "2012-06-12", true),
+                Triple("2026-02-28T03:00:00Z", "2012-02-29", false),
+                Triple("2026-03-01T03:00:00Z", "2012-02-29", true),
+            )
+        `when`(passwordHasher.hash("password123!")).thenReturn(PASSWORD_HASH)
+        for ((instant, birthdate, allowed) in cases) {
+            val service = service(clock = Clock.fixed(Instant.parse(instant), ZoneOffset.ofHours(-10)))
+            val command = SignupCommand("password123!", "홍길동", "01012345678", LocalDate.parse(birthdate), SignupType.SELF)
+            if (allowed) {
+                assertEquals(123L, service.signup(command).userId)
+            } else {
+                val exception = assertThrows(IdentityDomainException::class.java) { service.signup(command) }
+                assertEquals(ErrorCode.SIGNUP_AGE_RESTRICTION, exception.errorCode)
+            }
+        }
+    }
+
+    @Test
     fun signupMapsProofStoreFailureToServiceUnavailable() {
         val thrown = try {
             service(
@@ -332,6 +398,7 @@ class AuthServiceTest {
 
     private fun service(
         registration: AccountRegistrationPort = AccountRegistrationPort { _, _ -> account() },
+        clock: Clock = this.clock,
         signupOwnershipVerifier: SignupOwnershipVerifier = SignupOwnershipVerifier { true },
         passwordResetOwnershipVerifier: PasswordResetOwnershipVerifier = PasswordResetOwnershipVerifier { true },
         revocationStore: RefreshTokenRevocationStore = object : RefreshTokenRevocationStore {

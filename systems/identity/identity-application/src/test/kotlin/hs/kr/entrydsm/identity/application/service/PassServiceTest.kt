@@ -10,13 +10,14 @@ import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.time.LocalDate
 
 class PassServiceTest {
     @Test
     fun savesVerifiedIdentityAsATemporaryProof() {
         val store = RecordingProofStore()
         val service = PassService(
-            provider = provider(PassIdentity("01012345678", "홍길동")),
+            provider = provider(PassIdentity("01012345678", "홍길동", BIRTHDATE)),
             proofStore = store,
             proofTtlSeconds = 300,
             allowedRedirectOrigins = "https://auth.entrydsm.kr",
@@ -25,8 +26,9 @@ class PassServiceTest {
         val result = service.verify("model-token")
 
         assertEquals("01012345678", result.phoneNumber)
+        assertEquals(BIRTHDATE, result.birthdate)
         assertEquals(
-            StoredProof("model-token", "01012345678", "홍길동", 300),
+            StoredProof("model-token", "01012345678", "홍길동", BIRTHDATE, 300),
             store.saved,
         )
     }
@@ -34,7 +36,7 @@ class PassServiceTest {
     @Test
     fun rejectsRedirectUrlFromAnUntrustedOrigin() {
         val service = PassService(
-            provider = provider(PassIdentity("01012345678", "홍길동")),
+            provider = provider(PassIdentity("01012345678", "홍길동", BIRTHDATE)),
             proofStore = RecordingProofStore(),
             proofTtlSeconds = 300,
             allowedRedirectOrigins = "https://auth.entrydsm.kr",
@@ -73,7 +75,7 @@ class PassServiceTest {
     @Test
     fun rejectsAProviderTokenThatWasAlreadyClaimed() {
         val service = PassService(
-            provider = provider(PassIdentity("01012345678", "홍길동")),
+            provider = provider(PassIdentity("01012345678", "홍길동", BIRTHDATE)),
             proofStore = RejectingProofStore,
             proofTtlSeconds = 300,
             allowedRedirectOrigins = "https://auth.entrydsm.kr",
@@ -89,7 +91,7 @@ class PassServiceTest {
     @Test
     fun mapsProofStoreFailureToServiceUnavailable() {
         val service = PassService(
-            provider = provider(PassIdentity("01012345678", "홍길동")),
+            provider = provider(PassIdentity("01012345678", "홍길동", BIRTHDATE)),
             proofStore = ThrowingProofStore,
             proofTtlSeconds = 300,
             allowedRedirectOrigins = "https://auth.entrydsm.kr",
@@ -111,32 +113,55 @@ class PassServiceTest {
     private class RecordingProofStore : PassProofStore {
         var saved: StoredProof? = null
 
-        override fun saveForToken(token: String, phoneNumber: String, name: String, ttlSeconds: Long): Boolean {
-            saved = StoredProof(token, phoneNumber, name, ttlSeconds)
+        override fun saveForToken(
+            token: String,
+            phoneNumber: String,
+            name: String,
+            birthdate: LocalDate,
+            ttlSeconds: Long,
+        ): Boolean {
+            saved = StoredProof(token, phoneNumber, name, birthdate, ttlSeconds)
             return true
         }
 
-        override fun consume(phoneNumber: String, name: String): PassVerificationProof? = null
+        override fun consume(phoneNumber: String, name: String, birthdate: LocalDate): PassVerificationProof? = null
     }
 
     private object ThrowingProofStore : PassProofStore {
-        override fun saveForToken(token: String, phoneNumber: String, name: String, ttlSeconds: Long): Boolean {
+        override fun saveForToken(
+            token: String,
+            phoneNumber: String,
+            name: String,
+            birthdate: LocalDate,
+            ttlSeconds: Long,
+        ): Boolean {
             throw IllegalStateException("redis unavailable")
         }
 
-        override fun consume(phoneNumber: String, name: String): PassVerificationProof? = null
+        override fun consume(phoneNumber: String, name: String, birthdate: LocalDate): PassVerificationProof? = null
     }
 
     private data class StoredProof(
         val token: String,
         val phoneNumber: String,
         val name: String,
+        val birthdate: LocalDate,
         val ttlSeconds: Long,
     )
 
     private object RejectingProofStore : PassProofStore {
-        override fun saveForToken(token: String, phoneNumber: String, name: String, ttlSeconds: Long): Boolean = false
+        override fun saveForToken(
+            token: String,
+            phoneNumber: String,
+            name: String,
+            birthdate: LocalDate,
+            ttlSeconds: Long,
+        ): Boolean = false
 
-        override fun consume(phoneNumber: String, name: String): PassVerificationProof? = null
+        override fun consume(phoneNumber: String, name: String, birthdate: LocalDate): PassVerificationProof? = null
+    }
+
+    private companion object {
+        val BIRTHDATE: LocalDate = LocalDate.of(2009, 3, 15)
     }
 }

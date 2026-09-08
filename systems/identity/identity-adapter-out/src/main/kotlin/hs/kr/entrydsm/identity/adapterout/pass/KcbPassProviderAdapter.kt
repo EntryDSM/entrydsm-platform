@@ -8,6 +8,9 @@ import kcb.module.v3.exception.OkCertException
 import kcb.org.json.JSONObject
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 /** KCB OkCert v3 adapter based on the popup flow used by Casper-User. */
 @Component
@@ -49,10 +52,11 @@ class KcbPassProviderAdapter(
         }
         val phoneNumber = result.optString(PHONE_NUMBER)
         val name = result.optString(RESULT_NAME)
+        val birthdate = parseKcbBirthdate(result.optString(RESULT_BIRTHDAY))
         if (phoneNumber.isBlank() || name.isBlank()) {
             throw PassProviderException(PassProviderException.Reason.INVALID_RESPONSE)
         }
-        return PassIdentity(phoneNumber, name)
+        return PassIdentity(phoneNumber, name, birthdate)
     }
 
     private fun call(serviceName: String, request: String): JSONObject = try {
@@ -131,10 +135,18 @@ class KcbPassProviderAdapter(
         const val RESULT_MESSAGE = "RSLT_MSG"
         const val MODEL_TOKEN = "MDL_TKN"
         const val RESULT_NAME = "RSLT_NAME"
+        const val RESULT_BIRTHDAY = "RSLT_BIRTHDAY"
         const val PHONE_NUMBER = "TEL_NO"
         const val CERT_CHOICE_COMMAND = "kcb.oknm.online.safehscert.popup.cmd.P931_CertChoiceCmd"
     }
 }
+
+fun parseKcbBirthdate(value: String): LocalDate =
+    try {
+        LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE)
+    } catch (exception: DateTimeParseException) {
+        throw PassProviderException(PassProviderException.Reason.INVALID_RESPONSE, exception)
+    }
 
 fun popupModelToken(resultCode: String, modelToken: String): String? {
     if (resultCode == "B000" && modelToken.isBlank()) {

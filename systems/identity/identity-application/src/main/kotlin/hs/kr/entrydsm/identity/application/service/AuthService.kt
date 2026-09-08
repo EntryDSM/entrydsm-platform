@@ -29,6 +29,8 @@ import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 class AuthService(
     private val accountQueryPort: AccountQueryPort,
@@ -45,6 +47,13 @@ class AuthService(
 ) : AuthPort {
     override fun signup(command: SignupCommand): AccountResult {
         requireValidSignup(command)
+        val today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul")))
+        if (command.birthdate.isAfter(today)) {
+            throw IdentityDomainException(ErrorCode.INVALID_BIRTHDATE)
+        }
+        if (command.birthdate.isAfter(today.minusYears(14))) {
+            throw IdentityDomainException(ErrorCode.SIGNUP_AGE_RESTRICTION)
+        }
         try {
             if (!signupOwnershipVerifier.verify(command)) {
                 throw IdentityDomainException(ErrorCode.PASS_PROOF_NOT_FOUND)

@@ -46,6 +46,22 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    fun mapsSignupBirthdateErrorsToClientResponses() {
+        val cases =
+            listOf(
+                ErrorCode.INVALID_BIRTHDATE to 400,
+                ErrorCode.SIGNUP_AGE_RESTRICTION to 403,
+            )
+        for ((errorCode, status) in cases) {
+            val response = handler.handleIdentityException(IdentityDomainException(errorCode))
+            assertEquals(status, response.statusCode.value())
+            assertEquals(false, response.body?.success)
+            assertEquals(errorCode.name, response.body?.error?.code)
+            assertEquals(errorCode.message, response.body?.error?.message)
+        }
+    }
+
+    @Test
     fun mapsValidationExceptionsToBadRequestResponse() {
         val responses = listOf(
             handler.handleInvalidRequest(BindException(this, "request")),

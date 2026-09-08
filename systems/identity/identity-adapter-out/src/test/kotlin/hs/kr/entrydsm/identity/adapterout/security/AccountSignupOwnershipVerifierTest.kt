@@ -4,31 +4,31 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.out.PassProofStore
 import hs.kr.entrydsm.identity.application.port.out.PassVerificationProof
 import hs.kr.entrydsm.identity.domain.enum.SignupType
-import java.time.LocalDate
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
+import java.time.LocalDate
 
 class AccountSignupOwnershipVerifierTest {
     @Test
-    fun consumesProofBoundToPhoneAndName() {
+    fun consumesProofBoundToPhoneNameAndBirthdate() {
         val store = mock(PassProofStore::class.java)
-        `when`(store.consume("01012345678", "홍길동"))
-            .thenReturn(PassVerificationProof("01012345678", "홍길동"))
+        `when`(store.consume("01012345678", "홍길동", BIRTHDATE))
+            .thenReturn(PassVerificationProof("01012345678", "홍길동", BIRTHDATE))
 
         val result = verifier(store).verify(command("01012345678", "홍길동"))
 
         assertTrue(result)
-        verify(store).consume("01012345678", "홍길동")
+        verify(store).consume("01012345678", "홍길동", BIRTHDATE)
     }
 
     @Test
     fun rejectsProofForAnotherIdentity() {
         val store = mock(PassProofStore::class.java)
-        `when`(store.consume("01012345678", "다른 이름")).thenReturn(null)
+        `when`(store.consume("01012345678", "다른 이름", BIRTHDATE)).thenReturn(null)
 
         assertFalse(verifier(store).verify(command("01012345678", "다른 이름")))
     }
@@ -39,7 +39,11 @@ class AccountSignupOwnershipVerifierTest {
         password = "password123!",
         name = name,
         phone = phone,
-        birthdate = LocalDate.of(2009, 3, 15),
+        birthdate = BIRTHDATE,
         signupType = SignupType.SELF,
     )
+
+    private companion object {
+        val BIRTHDATE: LocalDate = LocalDate.of(2009, 3, 15)
+    }
 }

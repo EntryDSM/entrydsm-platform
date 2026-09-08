@@ -8,6 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
+import java.time.LocalDate
 
 class PassControllerTest {
     @Test
@@ -28,6 +29,7 @@ class PassControllerTest {
         assertEquals(HttpStatus.OK, response.statusCode)
         assertEquals("01012345678", response.body?.data?.phoneNumber)
         assertEquals("홍길동", response.body?.data?.name)
+        assertEquals(LocalDate.of(2009, 3, 15), response.body?.data?.birthdate)
         assertEquals("no-store, no-cache, must-revalidate", response.headers.getFirst(HttpHeaders.CACHE_CONTROL))
         assertEquals("no-cache", response.headers.getFirst(HttpHeaders.PRAGMA))
         assertEquals("no-referrer", response.headers.getFirst("Referrer-Policy"))
@@ -56,7 +58,7 @@ class PassControllerTest {
         override fun verify(token: String): PassVerificationResult {
             modelToken = token
             verifyCalled = true
-            return PassVerificationResult("01012345678", "홍길동")
+            return PassVerificationResult("01012345678", "홍길동", LocalDate.of(2009, 3, 15))
         }
     }
 }
