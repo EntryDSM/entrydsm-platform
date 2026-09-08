@@ -5,7 +5,6 @@ import hs.kr.entrydsm.gateway.adapterin.error.DownstreamFailureGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayGlobalExceptionHandler
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
 import hs.kr.entrydsm.gateway.adapterin.filter.GatewayAccessGlobalFilter
-import hs.kr.entrydsm.gateway.adapterin.filter.GatewayCorsGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.filter.RequestSizeGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayCircuitBreakerGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayResilienceConfiguration
@@ -43,7 +42,6 @@ import java.time.Duration
     properties = [
         "gateway.request.max-body-bytes=10",
         "gateway.resilience.state-store=memory",
-        "spring.cloud.gateway.server.webflux.globalcors.enabled=false",
         "spring.cloud.gateway.server.webflux.httpclient.response-timeout=2s",
     ],
 )
@@ -141,15 +139,7 @@ class GatewayProxyIntegrationTest {
     }
 
     @Test
-    fun appliesCorsAndRequestSizePolicies() {
-        client.get()
-            .uri("/api/identity/users")
-            .header("Origin", "http://localhost:3000")
-            .exchange()
-            .expectStatus().isOk
-            .expectHeader().valueEquals("Access-Control-Allow-Origin", "http://localhost:3000")
-            .expectHeader().valueEquals("Access-Control-Expose-Headers", "X-Trace-Id")
-
+    fun appliesRequestSizePolicy() {
         client.post()
             .uri("/api/identity/users")
             .bodyValue("12345678901")
@@ -193,7 +183,6 @@ class GatewayProxyIntegrationTest {
     @Import(
         GatewayRouteConfiguration::class,
         GatewayRuntimeConfiguration::class,
-        GatewayCorsGlobalFilter::class,
         TraceMdcConfiguration::class,
         TraceIdGlobalFilter::class,
         GatewayResilienceConfiguration::class,
