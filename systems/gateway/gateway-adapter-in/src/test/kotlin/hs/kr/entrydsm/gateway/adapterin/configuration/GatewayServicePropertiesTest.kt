@@ -1,7 +1,7 @@
 package hs.kr.entrydsm.gateway.adapterin.configuration
 
 import hs.kr.entrydsm.gateway.adapterin.route.GatewayRouteConfiguration
-import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeConfiguration
+import hs.kr.entrydsm.gateway.domain.GatewayService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -33,10 +33,15 @@ class GatewayServicePropertiesTest {
     @Test
     fun registersRoutesForEveryService() {
         val routes = routeLocator.routes.collectList().block().orEmpty()
+        val routesById = routes.associateBy { it.id }
 
-        assertEquals(6, routes.size)
-        assertEquals(URI("http://localhost:8081"), routes.first { it.id == "identity" }.uri)
-        assertEquals(URI("http://localhost:8086"), routes.first { it.id == "configuration" }.uri)
+        assertEquals(GatewayService.entries.size, routes.size)
+        assertEquals(GatewayService.entries.map { it.routeId }.toSet(), routesById.keys)
+        assertEquals(URI("http://localhost:8081"), routesById.getValue("identity").uri)
+        assertEquals(URI("http://localhost:8082"), routesById.getValue("application").uri)
+        assertEquals(URI("http://localhost:8082"), routesById.getValue("evaluation").uri)
+        assertEquals(URI("http://localhost:8086"), routesById.getValue("configuration").uri)
+        assertEquals(URI("http://localhost:8086"), routesById.getValue("schedule").uri)
         assertFalse(routes.any { it.id.isBlank() })
     }
 
