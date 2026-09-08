@@ -1,0 +1,62 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/identity_test?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: identity
+    password: identity
+  data:
+    redis:
+      url: redis://localhost:6379
+      connect-timeout: 2s
+      timeout: 2s
+      client-name: identity-test
+
+server:
+  port: 0
+
+identity:
+  redis:
+    namespace: identity-test
+    durability-check-enabled: false
+
+security:
+  cookies:
+    secure: false
+  cors:
+    allowed-origins: http://localhost:3000
+  pii:
+    login-id-hash-key: test-login-id-hash-key
+    encryption-key-base64: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+
+auth:
+  password:
+    bcrypt-strength: 4
+  password-reset:
+    enabled: false
+    max-attempts: 5
+    window-seconds: 900
+    max-tracked-login-ids: 10000
+  jwt:
+    secret: 01234567890123456789012345678901
+    issuer: entrydsm-identity
+
+pass:
+  target: TEST
+  cp-code: test-cp-code
+  license: test-license
+  license-file-url: ""
+  license-file-path: /tmp/identity-test-license.dat
+  base-url: http://localhost:3000
+  site-name: EntryDSM
+  site-url: http://localhost:3000
+  popup-url: http://localhost:3000/mock/pass
+  proof-ttl-seconds: 300
+  connect-timeout-ms: 5000
+  read-timeout-ms: 10000
+  allowed-redirect-origins: http://localhost:3000
+  proof-key-current: test-proof-key
+  proof-key-previous: ""
+
+management:
+  health:
+    redis:
+      enabled: false
