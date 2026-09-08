@@ -137,7 +137,7 @@ class RedisGatewayCircuitStateStoreIntegrationTest {
                 .block(Duration.ofSeconds(2))
         } catch (error: Exception) {
             redisFactory.destroy()
-            throw AssertionError(
+            GatewayIntegrationTestGate.unavailable(
                 "Redis is required. Configure GATEWAY_TEST_REDIS_HOST/GATEWAY_TEST_REDIS_PORT or gateway.test.redis.*",
                 error,
             )
