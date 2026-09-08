@@ -21,8 +21,6 @@ identity:
 security:
   cookies:
     secure: false
-  cors:
-    allowed-origins: http://localhost:3000
   pii:
     login-id-hash-key: test-login-id-hash-key
     encryption-key-base64: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=

@@ -3,6 +3,7 @@ package hs.kr.entrydsm.identity
 import java.nio.charset.StandardCharsets
 import java.time.Clock
 import hs.kr.entrydsm.identity.config.ClockConfig
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -19,7 +20,7 @@ class IdentityBootstrapConfigurationTest {
         assertTrue(configuration.contains("open-in-view: false"))
         assertTrue(configuration.contains("\${DB_URL}"))
         assertTrue(configuration.contains("secure: \${COOKIE_SECURE}"))
-        assertTrue(configuration.contains("allowed-origins: \${IDENTITY_CORS_ALLOWED_ORIGINS}"))
+        assertFalse(configuration.contains("IDENTITY_CORS_ALLOWED_ORIGINS"))
         assertTrue(configuration.contains("proof-key-previous: \${PASS_PROOF_KEY_PREVIOUS:}"))
     }
 

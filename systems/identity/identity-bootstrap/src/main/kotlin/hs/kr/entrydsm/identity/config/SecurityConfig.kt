@@ -31,9 +31,6 @@ import org.springframework.security.web.csrf.CsrfFilter
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.security.web.csrf.CsrfToken
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
-import org.springframework.web.cors.CorsConfiguration
-import org.springframework.web.cors.CorsConfigurationSource
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 import java.time.Instant
 import java.time.LocalDate
 
@@ -42,9 +39,6 @@ import java.time.LocalDate
 class SecurityConfig {
     @Value("\${security.cookies.secure:true}")
     private var secureCookies: Boolean = true
-
-    @Value("\${security.cors.allowed-origins:}")
-    private var allowedCorsOrigins: String = ""
 
     private val publicRequestMatchers = arrayOf(
         "/actuator/health",
@@ -80,23 +74,9 @@ class SecurityConfig {
     fun accessDeniedHandler(objectMapper: ObjectMapper): JwtAuthorizationDeniedHandler =
         JwtAuthorizationDeniedHandler(objectMapper)
 
-    @Bean
-    fun corsConfigurationSource(environment: Environment): CorsConfigurationSource =
-        UrlBasedCorsConfigurationSource().also { source ->
-            validateSecurityConfiguration(environment)
-            source.registerCorsConfiguration("/**", CorsConfiguration().apply {
-                allowedOrigins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
-                allowedMethods = listOf("GET", "POST", "PATCH", "DELETE", "OPTIONS")
-                allowedHeaders = listOf("Authorization", "Content-Type", "X-XSRF-TOKEN", "X-Requested-With")
-                allowCredentials = true
-                maxAge = 3600
-            })
-        }
-
     private fun validateSecurityConfiguration(environment: Environment) {
         SecurityConfigurationValidator.validate(
             secureCookies = secureCookies,
-            allowedCorsOrigins = allowedCorsOrigins,
             production = environment.acceptsProfiles(Profiles.of("prod")),
         )
     }
@@ -107,6 +87,7 @@ class SecurityConfig {
         jwtFilter: JwtFilter,
         authenticationEntryPoint: JwtAuthenticationEntryPoint,
         accessDeniedHandler: JwtAuthorizationDeniedHandler,
+        environment: Environment,
     ): SecurityFilterChain =
         CookieCsrfTokenRepository.withHttpOnlyFalse().also {
             it.setCookieCustomizer { cookie ->
@@ -116,50 +97,44 @@ class SecurityConfig {
                     .path("/")
             }
         }.let { csrfTokenRepository ->
-        http
-            .csrf {
-                it
-                    .csrfTokenRepository(csrfTokenRepository)
-                    // This service exposes the token through a non-HttpOnly cookie for SPA clients.
-                    // The request header must therefore contain the same token value as the cookie.
-                    .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
-            }
-            .cors { }
-            .formLogin { it.disable() }
-            .httpBasic { it.disable() }
-            .sessionManagement {
-                it.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            }
-            .exceptionHandling {
-                it.authenticationEntryPoint(authenticationEntryPoint)
-                it.accessDeniedHandler(accessDeniedHandler)
-            }
-            .authorizeHttpRequests {
-                it
-                    .requestMatchers(
-                        *publicRequestMatchers,
-                    ).permitAll()
-                    .anyRequest().authenticated()
-            }
-            .addFilterAfter(CsrfCookieResponseFilter(), CsrfFilter::class.java)
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
-            .build()
+            validateSecurityConfiguration(environment)
+            http
+                .csrf {
+                    it
+                        .csrfTokenRepository(csrfTokenRepository)
+                        // This service exposes the token through a non-HttpOnly cookie for SPA clients.
+                        // The request header must therefore contain the same token value as the cookie.
+                        .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
+                }
+                .formLogin { it.disable() }
+                .httpBasic { it.disable() }
+                .sessionManagement {
+                    it.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                }
+                .exceptionHandling {
+                    it.authenticationEntryPoint(authenticationEntryPoint)
+                    it.accessDeniedHandler(accessDeniedHandler)
+                }
+                .authorizeHttpRequests {
+                    it
+                        .requestMatchers(
+                            *publicRequestMatchers,
+                        ).permitAll()
+                        .anyRequest().authenticated()
+                }
+                .addFilterAfter(CsrfCookieResponseFilter(), CsrfFilter::class.java)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
+                .build()
         }
 }
 
 object SecurityConfigurationValidator {
     fun validate(
         secureCookies: Boolean,
-        allowedCorsOrigins: String,
         production: Boolean,
     ) {
-        val origins = allowedCorsOrigins.split(',').map(String::trim).filter(String::isNotEmpty)
-        require(origins.none { it == "*" }) {
-            "Wildcard CORS origins are not allowed when credentials are enabled"
-        }
         if (production) {
             require(secureCookies) { "Secure cookies must be enabled in the prod profile" }
-            require(origins.isNotEmpty()) { "CORS origins must be configured in the prod profile" }
         }
     }
 }
