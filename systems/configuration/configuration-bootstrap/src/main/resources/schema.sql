@@ -22,3 +22,13 @@ CREATE TABLE IF NOT EXISTS files (
     PRIMARY KEY (id),
     UNIQUE KEY uk_files_object_key (object_key)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+
+CREATE TABLE IF NOT EXISTS schedule (
+    id       BIGINT       NOT NULL AUTO_INCREMENT,
+    title    VARCHAR(100) NOT NULL,
+    start_at DATETIME(6)  NOT NULL,
+    end_at   DATETIME(6)  NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_schedule_title (title),
+    CONSTRAINT chk_schedule_period CHECK (start_at <= end_at)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
