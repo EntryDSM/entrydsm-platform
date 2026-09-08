@@ -6,10 +6,6 @@ import hs.kr.entrydsm.identity.application.port.out.PassProofStore
 import hs.kr.entrydsm.identity.application.port.out.PassVerificationProof
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
-import java.time.Clock
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,6 +13,10 @@ import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
+import java.time.Clock
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 
 class AccountPasswordResetOwnershipVerifierTest {
     @Test
@@ -140,10 +140,10 @@ class AccountPasswordResetOwnershipVerifierTest {
         windowSeconds: Long,
         clock: Clock,
         maxTrackedLoginIds: Int = 10_000,
-        proof: PassVerificationProof? = PassVerificationProof("known", "홍길동"),
+        proof: PassVerificationProof? = PassVerificationProof("known", "홍길동", BIRTHDATE),
     ): AccountPasswordResetOwnershipVerifier {
         val proofStore = mock(PassProofStore::class.java)
-        `when`(proofStore.consume("known", "홍길동"))
+        `when`(proofStore.consume("known", "홍길동", BIRTHDATE))
             .thenReturn(proof)
         return AccountPasswordResetOwnershipVerifier(
             queryPort,

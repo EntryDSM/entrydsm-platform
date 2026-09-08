@@ -4,15 +4,16 @@ import hs.kr.entrydsm.identity.application.port.out.PassProofStore
 import hs.kr.entrydsm.identity.application.port.out.PassProofStoreUnavailableException
 import hs.kr.entrydsm.identity.application.port.out.PassVerificationProof
 import hs.kr.entrydsm.identity.application.port.out.PersonalDataEncryptor
-import java.nio.charset.StandardCharsets.UTF_8
-import java.security.MessageDigest
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.dao.DataAccessException
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.redis.core.script.DefaultRedisScript
 import org.springframework.stereotype.Component
+import java.nio.charset.StandardCharsets.UTF_8
+import java.security.MessageDigest
+import java.time.LocalDate
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 /** Atomically stores encrypted PASS proof and consumes it only for a matching identity. */
 @Component
@@ -30,11 +31,17 @@ class RedisPassProofStoreAdapter(
         require(namespace.isNotBlank()) { "Redis key namespace must not be blank." }
     }
 
-    override fun saveForToken(token: String, phoneNumber: String, name: String, ttlSeconds: Long): Boolean {
+    override fun saveForToken(
+        token: String,
+        phoneNumber: String,
+        name: String,
+        birthdate: LocalDate,
+        ttlSeconds: Long,
+    ): Boolean {
         require(token.isNotBlank() && phoneNumber.isNotBlank() && name.isNotBlank())
         require(ttlSeconds > 0) { "PASS proof TTL must be positive." }
         return redis {
-            val serialized = serialize(phoneNumber, name, currentSecret)
+            val serialized = serialize(phoneNumber, name, birthdate, currentSecret)
             redisTemplate.execute(
                 SAVE_SCRIPT,
                 listOf(callbackKey(token), proofKey(phoneNumber, currentSecret)),
@@ -44,18 +51,19 @@ class RedisPassProofStoreAdapter(
         }
     }
 
-    override fun consume(phoneNumber: String, name: String): PassVerificationProof? = redis {
+    override fun consume(phoneNumber: String, name: String, birthdate: LocalDate): PassVerificationProof? = redis {
         require(phoneNumber.isNotBlank() && name.isNotBlank())
-        consumeWithKey(phoneNumber, name, currentSecret)
-            ?: previousSecret?.let { consumeWithKey(phoneNumber, name, it) }
+        consumeWithKey(phoneNumber, name, birthdate, currentSecret)
+            ?: previousSecret?.let { consumeWithKey(phoneNumber, name, birthdate, it) }
     }
 
     private fun consumeWithKey(
         phoneNumber: String,
         name: String,
+        birthdate: LocalDate,
         secret: SecretKeySpec,
     ): PassVerificationProof? {
-        val expectedTag = bindingTag(phoneNumber, name, secret)
+        val expectedTag = bindingTag(phoneNumber, name, birthdate, secret)
         val stored = redisTemplate.execute(
             CONSUME_SCRIPT,
             listOf(proofKey(phoneNumber, secret)),
@@ -65,22 +73,25 @@ class RedisPassProofStoreAdapter(
         return try {
             val firstSeparator = stored.indexOf(VALUE_SEPARATOR)
             val secondSeparator = stored.indexOf(VALUE_SEPARATOR, firstSeparator + 1)
-            if (firstSeparator <= 0 || secondSeparator <= firstSeparator) return null
+            val thirdSeparator = stored.indexOf(VALUE_SEPARATOR, secondSeparator + 1)
+            if (firstSeparator <= 0 || secondSeparator <= firstSeparator || thirdSeparator <= secondSeparator) return null
             PassVerificationProof(
                 phoneNumber = personalDataEncryptor.decrypt(
                     stored.substring(firstSeparator + 1, secondSeparator),
                 ),
-                name = personalDataEncryptor.decrypt(stored.substring(secondSeparator + 1)),
-            ).takeIf { it.phoneNumber == phoneNumber && it.name == name }
+                name = personalDataEncryptor.decrypt(stored.substring(secondSeparator + 1, thirdSeparator)),
+                birthdate = LocalDate.parse(personalDataEncryptor.decrypt(stored.substring(thirdSeparator + 1))),
+            ).takeIf { it.phoneNumber == phoneNumber && it.name == name && it.birthdate == birthdate }
         } catch (_: RuntimeException) {
             null
         }
     }
 
-    private fun serialize(phoneNumber: String, name: String, secret: SecretKeySpec): String = listOf(
-        bindingTag(phoneNumber, name, secret),
+    private fun serialize(phoneNumber: String, name: String, birthdate: LocalDate, secret: SecretKeySpec): String = listOf(
+        bindingTag(phoneNumber, name, birthdate, secret),
         personalDataEncryptor.encrypt(phoneNumber),
         personalDataEncryptor.encrypt(name),
+        personalDataEncryptor.encrypt(birthdate.toString()),
     ).joinToString(VALUE_SEPARATOR)
 
     private fun proofKey(phoneNumber: String, secret: SecretKeySpec): String =
@@ -89,8 +100,8 @@ class RedisPassProofStoreAdapter(
     private fun callbackKey(token: String): String =
         "$namespace:identity:pass-callback:${sha256(token)}"
 
-    private fun bindingTag(phoneNumber: String, name: String, secret: SecretKeySpec): String =
-        hmac("$phoneNumber$BINDING_SEPARATOR$name", secret)
+    private fun bindingTag(phoneNumber: String, name: String, birthdate: LocalDate, secret: SecretKeySpec): String =
+        hmac("$phoneNumber$BINDING_SEPARATOR$name$BINDING_SEPARATOR$birthdate", secret)
 
     private fun hmac(value: String, secret: SecretKeySpec): String = Mac
         .getInstance(HMAC_ALGORITHM)

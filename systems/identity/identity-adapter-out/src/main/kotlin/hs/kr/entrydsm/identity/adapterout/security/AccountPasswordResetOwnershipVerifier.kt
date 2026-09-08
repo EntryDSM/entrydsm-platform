@@ -2,14 +2,14 @@ package hs.kr.entrydsm.identity.adapterout.security
 
 import hs.kr.entrydsm.identity.application.port.`in`.command.PasswordResetCommand
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
-import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
 import hs.kr.entrydsm.identity.application.port.out.PassProofStore
+import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.stereotype.Component
 
 /**
  * Verifies the identity data supplied by the PASS flow and limits repeated attempts.
@@ -36,7 +36,7 @@ class AccountPasswordResetOwnershipVerifier(
         if (!allowAttempt(command.loginId)) return false
         val account = accountQueryPort.findByLoginId(command.loginId) ?: return false
         if (account.profile.name != command.name || account.profile.birthdate != command.birthdate) return false
-        return passProofStore.consume(command.loginId, command.name) != null
+        return passProofStore.consume(command.loginId, command.name, command.birthdate) != null
     }
 
     private fun allowAttempt(loginId: String): Boolean {

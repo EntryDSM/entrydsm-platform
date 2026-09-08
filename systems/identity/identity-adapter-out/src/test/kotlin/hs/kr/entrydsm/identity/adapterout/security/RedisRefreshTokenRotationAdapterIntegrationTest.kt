@@ -1,19 +1,12 @@
 package hs.kr.entrydsm.identity.adapterout.security
 
-import hs.kr.entrydsm.identity.test.IntegrationTestGate
-import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
 import hs.kr.entrydsm.identity.application.port.out.PersonalDataEncryptor
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.util.UUID
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
+import hs.kr.entrydsm.identity.test.IntegrationTestGate
 import org.junit.AfterClass
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -25,6 +18,14 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDate
+import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 class RedisRefreshTokenRotationAdapterIntegrationTest {
     @Before
@@ -109,18 +110,20 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
     }
 
     @Test
-    fun passProofIsStoredOnceAndConsumedOnlyForMatchingName() {
+    fun passProofIsStoredOnceAndConsumedOnlyForMatchingIdentity() {
         val token = "pass-token"
         val phone = "01012345678"
-        assertTrue(passAdapter.saveForToken(token, phone, "홍길동", 30))
-        assertFalse(passAdapter.saveForToken(token, phone, "홍길동", 30))
-        assertFalse(passAdapter.consume(phone, "다른 이름") != null)
+        assertTrue(passAdapter.saveForToken(token, phone, "홍길동", BIRTHDATE, 30))
+        assertFalse(passAdapter.saveForToken(token, phone, "홍길동", BIRTHDATE, 30))
+        assertFalse(passAdapter.consume(phone, "다른 이름", BIRTHDATE) != null)
+        assertFalse(passAdapter.consume(phone, "홍길동", BIRTHDATE.plusDays(1)) != null)
 
-        val proof = passAdapter.consume(phone, "홍길동")
+        val proof = passAdapter.consume(phone, "홍길동", BIRTHDATE)
 
         assertEquals(phone, proof?.phoneNumber)
         assertEquals("홍길동", proof?.name)
-        assertFalse(passAdapter.consume(phone, "홍길동") != null)
+        assertEquals(BIRTHDATE, proof?.birthdate)
+        assertFalse(passAdapter.consume(phone, "홍길동", BIRTHDATE) != null)
     }
 
     @Test
@@ -139,9 +142,9 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
             currentKey = "new-proof-key",
             previousKey = "old-proof-key",
         )
-        assertTrue(oldAdapter.saveForToken("rotation-token", "01098765432", "김철수", 30))
+        assertTrue(oldAdapter.saveForToken("rotation-token", "01098765432", "김철수", BIRTHDATE, 30))
 
-        val proof = rotatedAdapter.consume("01098765432", "김철수")
+        val proof = rotatedAdapter.consume("01098765432", "김철수", BIRTHDATE)
 
         assertEquals("김철수", proof?.name)
     }
@@ -151,6 +154,7 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
         const val REDIS_PORT = 6379
         const val NAMESPACE = "integration"
         const val ISSUER = "entrydsm-identity"
+        val BIRTHDATE: LocalDate = LocalDate.of(2009, 3, 15)
         val KEY_PREFIX = "$NAMESPACE:$ISSUER:identity:auth:refresh:"
         lateinit var redis: GenericContainer<Nothing>
         lateinit var connectionFactory: LettuceConnectionFactory
