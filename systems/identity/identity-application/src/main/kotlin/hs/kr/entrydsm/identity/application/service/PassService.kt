@@ -52,7 +52,14 @@ class PassService(
             throw IdentityDomainException(ErrorCode.INVALID_PASS)
         }
         try {
-            if (!proofStore.saveForToken(token, identity.phoneNumber, identity.name, proofTtlSeconds)) {
+            if (!proofStore.saveForToken(
+                    token,
+                    identity.phoneNumber,
+                    identity.name,
+                    identity.birthdate,
+                    proofTtlSeconds,
+                )
+            ) {
                 throw IdentityDomainException(ErrorCode.INVALID_PASS)
             }
         } catch (exception: IdentityDomainException) {
@@ -96,7 +103,7 @@ class PassService(
         else -> 80
     }
 
-    private fun PassIdentity.toResult() = PassVerificationResult(phoneNumber, name)
+    private fun PassIdentity.toResult() = PassVerificationResult(phoneNumber, name, birthdate)
 
     private fun PassProviderException.toIdentityException(): IdentityDomainException =
         IdentityDomainException(

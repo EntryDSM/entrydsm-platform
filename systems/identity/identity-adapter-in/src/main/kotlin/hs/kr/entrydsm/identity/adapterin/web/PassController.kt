@@ -40,7 +40,7 @@ class PassController(
         .body(
             ApiResponse(
                 data = passPort.verify(token).let {
-                    PassVerificationResponse(it.phoneNumber, it.name)
+                    PassVerificationResponse(it.phoneNumber, it.name, it.birthdate)
                 },
             ),
         )
