@@ -70,6 +70,32 @@ class AccountServiceTest {
         assertEquals(APPLICATION_UPDATED_AT, result.updatedAt)
     }
 
+    @Test
+    fun getAuthorityReturnsOnlyRoleAndStatus() {
+        val service = AccountService(
+            FakeAccountQueryPort(account()),
+            FakeAccountCommandPort(),
+            FakeApplicationDataPort(),
+            fixedClock,
+        )
+
+        val result = service.getAuthority(ReadAccountCommand("Bearer access-token", USER_ID))
+
+        assertEquals(USER_ID, result.userId)
+        assertEquals(Role.STUDENT, result.role)
+        assertEquals(AccountStatus.ACTIVE, result.status)
+    }
+
+    @Test(expected = IdentityDomainException::class)
+    fun getAuthorityRejectsMissingAuthenticatedUser() {
+        AccountService(
+            FakeAccountQueryPort(account()),
+            FakeAccountCommandPort(),
+            FakeApplicationDataPort(),
+            fixedClock,
+        ).getAuthority(ReadAccountCommand(null))
+    }
+
     @Test(expected = IdentityDomainException::class)
     fun missingAuthenticatedUserIsRejected() {
         AccountService(

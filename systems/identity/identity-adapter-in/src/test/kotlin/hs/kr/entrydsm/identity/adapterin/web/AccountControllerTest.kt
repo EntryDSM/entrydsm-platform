@@ -4,6 +4,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
 import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
+import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.Role
@@ -29,6 +30,20 @@ class AccountControllerTest {
     }
 
     @Test
+    fun getMyAuthorityReturnsRoleWithoutPersonalData() {
+        val accountPort = FakeAccountPort()
+        val controller = AccountController(accountPort)
+
+        val response = controller.getMyAuthority("Bearer access-token")
+
+        val command = requireNotNull(accountPort.authorityCommand)
+        assertEquals("Bearer access-token", command.authorization)
+        assertEquals("user_123", response.data?.userId)
+        assertEquals("STUDENT", response.data?.role)
+        assertEquals(AccountStatus.ACTIVE, response.data?.status)
+    }
+
+    @Test
     fun deleteMePassesAuthorizationToAccountPort() {
         val accountPort = FakeAccountPort()
         val controller = AccountController(accountPort)
@@ -42,6 +57,7 @@ class AccountControllerTest {
     private class FakeAccountPort : AccountPort {
         var readAccountCommand: ReadAccountCommand? = null
         var deleteAccountCommand: DeleteAccountCommand? = null
+        var authorityCommand: ReadAccountCommand? = null
 
         override fun deleteAccount(command: DeleteAccountCommand) {
             deleteAccountCommand = command
@@ -60,6 +76,15 @@ class AccountControllerTest {
                 applicantStatus = ApplicantStatus.SUBMITTED,
                 createdAt = NOW,
                 updatedAt = NOW,
+            )
+        }
+
+        override fun getAuthority(command: ReadAccountCommand): UserSummaryResult {
+            authorityCommand = command
+            return UserSummaryResult(
+                userId = 123L,
+                role = Role.STUDENT,
+                status = AccountStatus.ACTIVE,
             )
         }
     }
