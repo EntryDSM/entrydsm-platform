@@ -17,6 +17,7 @@ import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.PasswordHash
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
+import hs.kr.entrydsm.identity.test.IntegrationTestGate
 import java.time.Instant
 import java.time.LocalDate
 import java.util.concurrent.CountDownLatch
@@ -258,9 +259,13 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         @JvmStatic
         @BeforeClass
         fun checkDocker() {
+            val available = DockerClientFactory.instance().isDockerAvailable
+            if (!available && IntegrationTestGate.isRequired()) {
+                error("Docker daemon is required for JPA integration tests")
+            }
             assumeTrue(
                 "Docker daemon is required for JPA integration tests",
-                DockerClientFactory.instance().isDockerAvailable,
+                available,
             )
         }
 
@@ -276,7 +281,8 @@ class JpaAccountRepositoryAdapterIntegrationTest {
             mysql.start()
             mysqlStarted = true
             registry.add("spring.datasource.url") {
-                "jdbc:mysql://${mysql.host}:${mysql.getMappedPort(MYSQL_PORT)}/$DATABASE?useSSL=false&serverTimezone=UTC"
+                "jdbc:mysql://${mysql.host}:${mysql.getMappedPort(MYSQL_PORT)}/$DATABASE" +
+                    "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
             }
             registry.add("spring.datasource.username") { "identity" }
             registry.add("spring.datasource.password") { "identity" }

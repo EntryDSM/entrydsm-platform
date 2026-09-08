@@ -8,10 +8,11 @@ import hs.kr.entrydsm.gateway.adapterin.error.GatewayGlobalExceptionHandlerTest
 import hs.kr.entrydsm.gateway.adapterin.filter.GatewayCorsGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.integration.GatewayProxyIntegrationTest
 import hs.kr.entrydsm.gateway.adapterin.filter.RequestSizeGlobalFilterTest
-import hs.kr.entrydsm.gateway.adapterin.resilience.RedisGatewayCircuitStateStoreIntegrationTest
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayCircuitBreakerGlobalFilterTest
+import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayIntegrationTestGateTest
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayResilienceConfigurationTest
 import hs.kr.entrydsm.gateway.adapterin.resilience.InMemoryGatewayCircuitStateStoreTest
+import hs.kr.entrydsm.gateway.adapterin.resilience.RedisGatewayCircuitStateStoreIntegrationTest
 import hs.kr.entrydsm.gateway.adapterin.trace.TraceIdGlobalFilterTest
 import org.junit.platform.engine.discovery.DiscoverySelectors.selectClass
 import org.junit.platform.launcher.LauncherDiscoveryRequest
@@ -34,6 +35,7 @@ fun main() {
             selectClass(GatewayProxyIntegrationTest::class.java),
             selectClass(RequestSizeGlobalFilterTest::class.java),
             selectClass(RedisGatewayCircuitStateStoreIntegrationTest::class.java),
+            selectClass(GatewayIntegrationTestGateTest::class.java),
             selectClass(GatewayCircuitBreakerGlobalFilterTest::class.java),
             selectClass(GatewayResilienceConfigurationTest::class.java),
             selectClass(InMemoryGatewayCircuitStateStoreTest::class.java),

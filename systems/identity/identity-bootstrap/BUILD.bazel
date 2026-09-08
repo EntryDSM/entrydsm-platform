@@ -25,7 +25,10 @@ kt_jvm_test(
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     plugins = ["//:spring_allopen"],
-    resources = glob(["src/main/resources/**"]),
+    resources = glob([
+        "src/main/resources/**",
+        "src/test/resources/**",
+    ]),
     test_class = "hs.kr.entrydsm.identity.IdentityBootstrapModuleTest",
     deps = [":main"] + MODULE_DEPS + TEST_DEPS + [
         "//systems/identity/identity-test-support:main",

@@ -13,6 +13,7 @@ import hs.kr.entrydsm.gateway.adapterin.resilience.InMemoryGatewayCircuitStateSt
 import hs.kr.entrydsm.gateway.adapterin.route.GatewayRouteConfiguration
 import hs.kr.entrydsm.gateway.adapterin.trace.TraceIdGlobalFilter
 import hs.kr.entrydsm.gateway.adapterin.trace.TraceMdcConfiguration
+import hs.kr.entrydsm.gateway.domain.GatewayService
 
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -68,11 +69,10 @@ class GatewayProxyIntegrationTest {
 
     @Test
     fun proxiesAllServicesAndPreservesRequestDetails() {
-        val services = listOf("identity", "application", "admin", "notification", "observability", "configuration")
-
-        services.forEach { service ->
+        GatewayService.entries.forEach { service ->
+            val requestUri = "${service.pathPrefix}/users?role=admin"
             val response = client.get()
-                .uri("/api/$service/users?role=admin")
+                .uri(requestUri)
                 .header("X-Trace-Id", "integration-trace")
                 .exchange()
                 .expectStatus().isOk
@@ -81,7 +81,7 @@ class GatewayProxyIntegrationTest {
                 .returnResult()
                 .responseBody
 
-            assertEquals("GET /api/$service/users?role=admin", response)
+            assertEquals("GET $requestUri", response)
         }
     }
 
@@ -103,11 +103,9 @@ class GatewayProxyIntegrationTest {
 
     @Test
     fun forwardsAuthorizationToEveryDownstreamServiceWithoutGatewayValidation() {
-        val services = listOf("identity", "application", "admin", "notification", "observability", "configuration")
-
-        services.forEach { service ->
+        GatewayService.entries.forEach { service ->
             client.get()
-                .uri("/api/$service/protected")
+                .uri("${service.pathPrefix}/protected")
                 .header("Authorization", "Bearer identity-test-token")
                 .exchange()
                 .expectStatus().isOk
@@ -244,8 +242,10 @@ class GatewayProxyIntegrationTest {
                 .bindNow()
                 .also { downstream = it }
             val uri = "http://127.0.0.1:${server.port()}"
-            listOf("identity", "application", "admin", "notification", "observability", "configuration")
-                .forEach { service -> registry.add("gateway.services.$service") { uri } }
+            GatewayService.entries
+                .map { service -> service.downstreamKey }
+                .distinct()
+                .forEach { downstream -> registry.add("gateway.services.${downstream.propertyKey}") { uri } }
         }
 
         @JvmStatic

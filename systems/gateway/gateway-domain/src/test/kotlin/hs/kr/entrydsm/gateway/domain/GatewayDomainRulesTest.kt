@@ -8,17 +8,22 @@ class GatewayDomainRulesTest {
     @Test
     fun validatesTraceIdAndDefinesAllServices() {
         assertEquals("trace-01", TraceId.from("trace-01").value)
+        assertEquals(GatewayService.entries.size, GatewayService.entries.map { it.routeId }.toSet().size)
+        assertEquals(GatewayService.entries.size, GatewayService.entries.map { it.pathPrefix }.toSet().size)
         assertEquals(
             mapOf(
-                "identity" to "/api/identity",
-                "application" to "/api/application",
-                "admin" to "/api/admin",
-                "notification" to "/api/notification",
-                "observability" to "/api/observability",
-                "configuration" to "/api/document",
+                "identity" to (GatewayDownstream.IDENTITY to "/api/identity"),
+                "application" to (GatewayDownstream.APPLICATION to "/api/application"),
+                "evaluation" to (GatewayDownstream.APPLICATION to "/api/evaluation"),
+                "admin" to (GatewayDownstream.ADMIN to "/api/v11/admin"),
+                "notification" to (GatewayDownstream.NOTIFICATION to "/api/notification"),
+                "observability" to (GatewayDownstream.OBSERVABILITY to "/api/observability"),
+                "configuration" to (GatewayDownstream.CONFIGURATION to "/api/document"),
+                "schedule" to (GatewayDownstream.CONFIGURATION to "/api/schedule"),
             ),
-            GatewayService.entries.associate { it.routeId to it.pathPrefix },
+            GatewayService.entries.associate { it.routeId to (it.downstreamKey to it.pathPrefix) },
         )
+        GatewayService.validateDefinitions()
         assertThrows(IllegalArgumentException::class.java) { TraceId.from("trace id") }
     }
 }

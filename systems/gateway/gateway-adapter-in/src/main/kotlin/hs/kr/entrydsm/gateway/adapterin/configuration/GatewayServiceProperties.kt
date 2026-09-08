@@ -1,7 +1,8 @@
 package hs.kr.entrydsm.gateway.adapterin.configuration
 
-import org.springframework.boot.context.properties.ConfigurationProperties
+import hs.kr.entrydsm.gateway.domain.GatewayDownstream
 import hs.kr.entrydsm.gateway.domain.GatewayService
+import org.springframework.boot.context.properties.ConfigurationProperties
 import java.net.URI
 
 @ConfigurationProperties(prefix = "gateway.services")
@@ -14,26 +15,38 @@ data class GatewayServiceProperties(
     var configuration: URI = URI("http://localhost:8086"),
 ) {
     init {
-        serviceUris.forEach(::validate)
+        validate()
     }
 
     @jakarta.annotation.PostConstruct
     fun validateAfterBinding() {
-        serviceUris.forEach(::validate)
+        validate()
     }
 
     val serviceUris: Map<GatewayService, URI>
+        get() = GatewayService.entries.associateWith { service -> downstreamUris.getValue(service.downstreamKey) }
+
+    private val downstreamUris: Map<GatewayDownstream, URI>
         get() = mapOf(
-            GatewayService.IDENTITY to identity,
-            GatewayService.APPLICATION to application,
-            GatewayService.ADMIN to admin,
-            GatewayService.NOTIFICATION to notification,
-            GatewayService.OBSERVABILITY to observability,
-            GatewayService.CONFIGURATION to configuration,
+            GatewayDownstream.IDENTITY to identity,
+            GatewayDownstream.APPLICATION to application,
+            GatewayDownstream.ADMIN to admin,
+            GatewayDownstream.NOTIFICATION to notification,
+            GatewayDownstream.OBSERVABILITY to observability,
+            GatewayDownstream.CONFIGURATION to configuration,
         )
 
-    private fun validate(entry: Map.Entry<GatewayService, URI>) {
-        val serviceName = entry.key.routeId
+    private fun validate() {
+        GatewayService.validateDefinitions()
+        val uris = downstreamUris
+        require(uris.keys == GatewayDownstream.entries.toSet()) {
+            "Every gateway downstream must have exactly one configured URI"
+        }
+        uris.forEach(::validate)
+    }
+
+    private fun validate(entry: Map.Entry<GatewayDownstream, URI>) {
+        val serviceName = entry.key.propertyKey
         val uri = entry.value
         require(uri.scheme in SUPPORTED_SCHEMES && !uri.host.isNullOrBlank() && !uri.isOpaque) {
             "gateway.services.$serviceName must be an absolute HTTP(S) URI without path, query or fragment: $uri"
