@@ -9,6 +9,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameExc
 import hs.kr.entrydsm.configuration.domain.document.exception.PresignFailedException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUploadFailedException
+import hs.kr.entrydsm.configuration.domain.schedule.ScheduleNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -36,6 +37,10 @@ class DocumentExceptionHandler {
     fun handleFileNotFound(e: FileDocumentNotFoundException) =
         respond(ErrorCode.FILE_NOT_FOUND, e)
 
+    @ExceptionHandler(ScheduleNotFoundException::class)
+    fun handleScheduleNotFound(e: ScheduleNotFoundException) =
+        respond(ErrorCode.SCHEDULE_NOT_FOUND, e)
+
     @ExceptionHandler(
         InvalidFileNameException::class,
         InvalidFileReferenceIdException::class,
@@ -44,6 +49,7 @@ class DocumentExceptionHandler {
         MethodArgumentNotValidException::class,
         MethodArgumentTypeMismatchException::class,
         HttpMessageNotReadableException::class,
+        IllegalArgumentException::class,
     )
     fun handleInvalidRequestParam(e: Exception) =
         respond(ErrorCode.INVALID_REQUEST_PARAM, e)
