@@ -1,9 +1,11 @@
 package hs.kr.entrydsm.admin.adapterin.web.dto.response
 
 import com.fasterxml.jackson.annotation.JsonProperty
+import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.Region
 import java.time.Instant
 
 data class ScorePolicyResponse(
@@ -18,6 +20,12 @@ data class ScoreWeightsResponse(
     val subject: Double,
     val attendance: Double,
     val volunteer: Double,
+)
+
+data class AdmissionQuotaResponse(
+    val quotas: Map<Region, Map<AdmissionType, Int>>,
+    val updatedAt: Instant,
+    val updatedBy: String,
 )
 
 data class ScreeningResultResponse(

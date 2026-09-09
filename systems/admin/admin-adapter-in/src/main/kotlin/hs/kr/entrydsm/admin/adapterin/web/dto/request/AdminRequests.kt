@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.Region
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -29,6 +30,14 @@ data class ScoreWeightsRequest(
     val attendance: Double?,
     @field:NotNull
     val volunteer: Double?,
+)
+
+/**
+ * 지역 × 전형 정원 전체. 조합 누락·음수 검증은 도메인 모델이 한다.
+ */
+data class UpdateAdmissionQuotaRequest(
+    @field:NotNull
+    val quotas: Map<Region, Map<AdmissionType, Int>>?,
 )
 
 data class EvaluateScreeningRequest(
