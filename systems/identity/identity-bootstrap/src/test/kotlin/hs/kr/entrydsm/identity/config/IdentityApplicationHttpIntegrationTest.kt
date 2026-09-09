@@ -236,6 +236,7 @@ class IdentityApplicationHttpIntegrationTest {
             }
             registry.add("auth.jwt.secret") { "01234567890123456789012345678901" }
             registry.add("auth.jwt.issuer") { "entrydsm-identity" }
+            registry.add("auth.password-reset.enabled") { "false" }
             registry.add("security.cookies.secure") { "false" }
             registry.add("security.pii.login-id-hash-key") { "integration-test-login-id-hash-key" }
             registry.add("security.pii.encryption-key-base64") {

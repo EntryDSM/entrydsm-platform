@@ -14,6 +14,7 @@ KOTLIN_DEPS = [
 ]
 
 TEST_DEPS = [
+    "@maven//:org_jetbrains_kotlin_kotlin_reflect",
     "@maven//:junit_junit",
     "@maven//:org_testcontainers_testcontainers",
     "@maven//:org_springframework_boot_spring_boot_persistence",
