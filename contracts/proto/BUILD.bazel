@@ -1,6 +1,12 @@
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
 proto_library(
+    name = "entrydsm_application_v1_proto",
+    srcs = ["application.proto"],
+    visibility = ["//visibility:public"],
+)
+
+proto_library(
     name = "entrydsm_configuration_v1_proto",
     srcs = ["configuration.proto"],
     visibility = ["//visibility:public"],
