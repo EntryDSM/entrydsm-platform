@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.CookieValue
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -37,7 +38,7 @@ class AuthController(
     @Value("\${security.cookies.secure:true}") private val secureCookies: Boolean = true,
 ) {
     @GetMapping(AuthEndpointPaths.CSRF_PATH)
-    fun csrf(csrfToken: CsrfToken): ApiResponse<CsrfTokenResponse> =
+    fun csrf(@RequestAttribute("_csrf") csrfToken: CsrfToken): ApiResponse<CsrfTokenResponse> =
         ApiResponse(data = CsrfTokenResponse(csrfToken.token))
 
     @PostMapping(AuthEndpointPaths.SIGNUP_PATH)
