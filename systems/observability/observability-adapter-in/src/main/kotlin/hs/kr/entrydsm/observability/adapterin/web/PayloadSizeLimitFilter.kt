@@ -1,6 +1,6 @@
 package hs.kr.entrydsm.observability.adapterin.web
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import tools.jackson.databind.ObjectMapper
 import hs.kr.entrydsm.observability.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.observability.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.observability.domain.enum.ErrorCode
@@ -27,6 +27,7 @@ class PayloadSizeLimitFilter(
         val contentLength = request.contentLengthLong
         if (contentLength > maxBytes || contentLength < 0) {
             response.status = ErrorCode.PAYLOAD_TOO_LARGE.status
+            response.characterEncoding = Charsets.UTF_8.name()
             response.contentType = MediaType.APPLICATION_JSON_VALUE
             objectMapper.writeValue(response.writer, ErrorResponse(error = ErrorDetail.from(ErrorCode.PAYLOAD_TOO_LARGE)))
             return

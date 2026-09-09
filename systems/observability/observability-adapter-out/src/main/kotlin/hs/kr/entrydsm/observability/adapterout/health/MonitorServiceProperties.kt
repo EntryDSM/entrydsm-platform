@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component
 @Component
 @ConfigurationProperties(prefix = "monitor")
 data class MonitorServiceProperties(
-    val services: Map<String, ServiceEndpoint> = emptyMap(),
+    var services: Map<String, ServiceEndpoint> = emptyMap(),
 ) {
     data class ServiceEndpoint(val baseUrl: String)
 }
