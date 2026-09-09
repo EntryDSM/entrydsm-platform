@@ -7,6 +7,7 @@ import hs.kr.entrydsm.configuration.domain.document.FileExtension
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
+import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
@@ -35,6 +36,10 @@ class FileDocumentService(
         }
 
         val objectKey = command.category.objectKeyOf(command.fileName)
+        val existing = fileDocumentRepository.findByObjectKey(objectKey)
+        if (command.ownerUserId != null && existing != null && existing.ownerUserId != command.ownerUserId) {
+            throw DocumentAccessDeniedException()
+        }
         // 같은 키를 덮어쓴 경우 보상 삭제가 이전 파일까지 지우면 안 된다.
         val replacedExistingObject = storagePort.exists(objectKey)
         val stored = storagePort.upload(objectKey, extension.contentType, command.sizeBytes, content)
