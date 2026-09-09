@@ -1,11 +1,17 @@
 package hs.kr.entrydsm.observability.adapterin
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import hs.kr.entrydsm.observability.adapterin.web.ClientIpResolverTest
+import hs.kr.entrydsm.observability.adapterin.web.exception.GlobalExceptionHandlerTest
+import hs.kr.entrydsm.observability.adapterin.web.security.JwtAuthInterceptorTest
+import hs.kr.entrydsm.observability.adapterin.web.sse.SseConnectionLimiterTest
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class ObservabilityAdapterInModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    ClientIpResolverTest::class,
+    GlobalExceptionHandlerTest::class,
+    JwtAuthInterceptorTest::class,
+    SseConnectionLimiterTest::class,
+)
+class ObservabilityAdapterInModuleTest

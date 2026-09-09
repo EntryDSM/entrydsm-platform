@@ -1,7 +1,16 @@
-KOTLIN_DEPS = []
+KOTLIN_DEPS = [
+    "@maven//:org_springframework_boot_spring_boot_starter_web",
+    "@maven//:org_springframework_boot_spring_boot_starter_validation",
+    "@maven//:io_jsonwebtoken_jjwt_api",
+    "@maven//:io_jsonwebtoken_jjwt_impl",
+    "@maven//:io_jsonwebtoken_jjwt_jackson",
+    "//systems/observability/observability-application:main",
+    "//systems/observability/observability-domain:main",
+]
 
 TEST_DEPS = [
     "@maven//:junit_junit",
+    "@maven//:org_springframework_boot_spring_boot_starter_test",
 ]
 
 MODULE_DEPS = KOTLIN_DEPS
