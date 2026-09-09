@@ -68,7 +68,7 @@ class AuthService(
         val registration = AccountRegistration(
             loginId = command.phone,
             passwordHash = passwordHasher.hash(command.password),
-            role = Role.USER,
+            role = Role.STUDENT,
             status = AccountStatus.ACTIVE,
             profile = StudentProfile(
                 name = command.name,
