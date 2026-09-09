@@ -44,6 +44,7 @@ class SecurityConfig {
         "/actuator/health",
         "/actuator/info",
         *AuthEndpointPaths.PUBLIC.toTypedArray(),
+        AuthEndpointPaths.LOGOUT,
     )
 
     @Bean
@@ -105,7 +106,7 @@ class SecurityConfig {
                         // This service exposes the token through a non-HttpOnly cookie for SPA clients.
                         // The request header must therefore contain the same token value as the cookie.
                         .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers(AuthEndpointPaths.PASS_POPUP)
+                        .ignoringRequestMatchers(AuthEndpointPaths.PASS_POPUP, AuthEndpointPaths.LOGOUT)
                 }
                 .formLogin { it.disable() }
                 .httpBasic { it.disable() }

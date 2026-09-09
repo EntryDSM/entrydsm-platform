@@ -123,6 +123,16 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun unauthenticatedLogoutSucceedsWithoutCsrf() {
+        val response = mockMvc.perform(
+            post("/api/identity/v11/auth/logout"),
+        ).andReturn().response
+
+        assertEquals(200, response.status)
+        assertTrue(response.getHeaders("Set-Cookie").any { it.contains("access_token=") })
+    }
+
+    @Test
     fun publicAuthRequestRemainsPublicAfterCsrfValidation() {
         val csrfResponse = mockMvc.perform(
             get("/actuator/health"),

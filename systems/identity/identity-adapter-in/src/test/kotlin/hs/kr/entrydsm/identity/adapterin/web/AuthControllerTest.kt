@@ -106,12 +106,15 @@ class AuthControllerTest {
         assertTrue(cookies.any { it.contains("refresh_token=") && it.contains("Max-Age=0") })
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun logoutRejectsRawStringPrincipal() {
+    @Test
+    fun logoutWithoutValidatedPrincipalSucceedsQuietly() {
         val authPort = FakeAuthPort()
         val controller = AuthController(authPort)
 
-        controller.logout(UsernamePasswordAuthenticationToken("user_123", null))
+        val response = controller.logout(null)
+
+        assertEquals(HttpStatus.OK, response.statusCode)
+        assertEquals(null, authPort.logoutCommand)
     }
 
     @Test
