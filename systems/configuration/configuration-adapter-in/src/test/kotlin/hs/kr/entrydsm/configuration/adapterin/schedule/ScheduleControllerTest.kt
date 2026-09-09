@@ -5,18 +5,28 @@ import hs.kr.entrydsm.configuration.domain.schedule.Schedule
 import hs.kr.entrydsm.configuration.domain.schedule.port.`in`.ScheduleUseCase
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import java.time.LocalDateTime
 import java.time.ZoneId
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 
 class ScheduleControllerTest {
     private val useCase = StubScheduleUseCase()
+    private val jsonConverter = JacksonJsonHttpMessageConverter(jacksonMapperBuilder().build())
     private val mvc = MockMvcBuilders.standaloneSetup(ScheduleController(useCase))
+        .setMessageConverters(jsonConverter)
+        .setControllerAdvice(DocumentExceptionHandler())
+        .build()
+    private val securedMvc = MockMvcBuilders.standaloneSetup(ScheduleController(useCase))
+        .setMessageConverters(jsonConverter)
+        .addInterceptors(ScheduleAdminInterceptor())
         .setControllerAdvice(DocumentExceptionHandler())
         .build()
 
@@ -49,6 +59,52 @@ class ScheduleControllerTest {
     }
 
     @Test
+    fun `관리자는 일정을 추가할 수 있다`() {
+        securedMvc.perform(
+            post("/api/schedule/v11/schedules")
+                .header("X-User-Id", "1")
+                .header("X-User-Role", "ADMIN")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """{"title":"원서 접수","startAt":{"year":2026,"month":4,"day":5,"dayOfWeek":"SUN","hour":21,"minute":5,"second":34},"endAt":{"year":2026,"month":5,"day":5,"dayOfWeek":"TUE","hour":21,"minute":5,"second":34}}""",
+                ),
+        )
+            .andExpect(status().isCreated)
+            .andExpect(jsonPath("$.status").value("SUCCESS"))
+            .andExpect(jsonPath("$.data.title").value("원서 접수"))
+    }
+
+    @Test
+    fun `인증 정보가 없는 일정 쓰기 요청은 거부한다`() {
+        securedMvc.perform(
+            post("/api/schedule/v11/schedules")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"),
+        )
+            .andExpect(status().isUnauthorized)
+            .andExpect(jsonPath("$.error.code").value("AUTH_UNAUTHORIZED"))
+    }
+
+    @Test
+    fun `관리자가 아닌 일정 쓰기 요청은 거부한다`() {
+        securedMvc.perform(
+            patch("/api/schedule/v11/schedules/bulk")
+                .header("X-User-Id", "1")
+                .header("X-User-Role", "APPLICANT")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"),
+        )
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"))
+    }
+
+    @Test
+    fun `일정 조회 요청은 인증 없이 허용한다`() {
+        securedMvc.perform(get("/api/schedule/v11/schedules"))
+            .andExpect(status().isOk)
+    }
+
+    @Test
     fun `날짜와 요일이 다르면 400으로 거부한다`() {
         mvc.perform(
             patch("/api/schedule/v11/schedules/bulk")
@@ -73,6 +129,9 @@ class ScheduleControllerTest {
     private class StubScheduleUseCase : ScheduleUseCase {
         var requestedYear: Int? = null
         var updatedStartAt: LocalDateTime? = null
+
+        override fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule =
+            Schedule(2, title, startAt, endAt)
 
         override fun findByYear(year: Int): List<Schedule> {
             requestedYear = year
