@@ -34,7 +34,8 @@ class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
 ) : ApplicationPort {
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
-        return CreateApplicantResult(createApplicant(requireUserId(command.userId)).id)
+        val applicant = createApplicant(requireUserId(command.userId))
+        return CreateApplicantResult(applicant.id, applicant.toSnapshot())
     }
 
     override fun updateType(command: UpdateTypeCommand) {
