@@ -22,7 +22,9 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
+import org.springframework.security.web.csrf.CsrfToken
 import org.springframework.web.bind.annotation.CookieValue
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -34,6 +36,10 @@ class AuthController(
     private val authPort: AuthPort,
     @Value("\${security.cookies.secure:true}") private val secureCookies: Boolean = true,
 ) {
+    @GetMapping(AuthEndpointPaths.CSRF_PATH)
+    fun csrf(csrfToken: CsrfToken): ApiResponse<CsrfTokenResponse> =
+        ApiResponse(data = CsrfTokenResponse(csrfToken.token))
+
     @PostMapping(AuthEndpointPaths.SIGNUP_PATH)
     fun signup(
         @Valid @RequestBody request: SignupRequest,
