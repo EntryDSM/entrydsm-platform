@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.ReadApplicationComm
 import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationResultResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationStatusResult
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
+import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
@@ -19,17 +20,12 @@ class ApplicationService(
     override fun getApplicationStatus(command: ReadApplicationCommand): ApplicationStatusResult {
         val userId = resolveUserId(command.userId)
         return applicationDataPort.findByUserId(userId)?.toStatusResult()
-            ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
+            ?: ApplicationStatusResult(ApplicantStatus.NONE, null, now())
     }
 
     override fun getApplicationResult(command: ReadApplicationCommand): ApplicationResultResult {
-        val userId = resolveUserId(command.userId)
-        val application = applicationDataPort.findByUserId(userId)
-            ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
-        if (application.passStatus == PassStatus.NOT_ANNOUNCED) {
-            throw IdentityDomainException(ErrorCode.APPLICATION_RESULT_NOT_AVAILABLE)
-        }
-        return ApplicationResultResult(application.passStatus, application.announcedAt)
+        resolveUserId(command.userId)
+        return ApplicationResultResult(PassStatus.NOT_ANNOUNCED, null)
     }
 
     override fun cancelApplication(command: CancelApplicationCommand): ApplicationStatusResult {

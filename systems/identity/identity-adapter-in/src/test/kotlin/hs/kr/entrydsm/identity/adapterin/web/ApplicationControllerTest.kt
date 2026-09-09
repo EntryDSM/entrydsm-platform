@@ -45,7 +45,7 @@ class ApplicationControllerTest {
         val command = requireNotNull(applicationPort.resultApplicationCommand)
         assertEquals("Bearer access-token", command.authorization)
         assertEquals(123L, command.userId)
-        assertEquals(PassStatus.PASSED, response.data?.passStatus)
+        assertEquals("PASSED", response.data?.passStatus)
         assertEquals(NOW, response.data?.announcedAt)
     }
 
