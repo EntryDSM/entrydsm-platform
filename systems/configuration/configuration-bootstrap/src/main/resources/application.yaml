@@ -27,6 +27,7 @@ aws:
     presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS}
 
 server:
+  port: ${SERVER_PORT}
   shutdown: graceful
 
 grpc:
