@@ -5,6 +5,7 @@ import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
+import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.http.HttpStatus
@@ -44,6 +45,14 @@ class GlobalExceptionHandler {
             status = HttpStatus.UNAUTHORIZED,
             code = "AUTHENTICATION_REQUIRED",
             message = exception.message ?: "authentication is required",
+        )
+
+    @ExceptionHandler(SensitiveConsentRequiredException::class)
+    fun handleSensitiveConsentRequired(exception: SensitiveConsentRequiredException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.FORBIDDEN,
+            code = "SENSITIVE_CONSENT_REQUIRED",
+            message = exception.message ?: "sensitive information consent is required",
         )
 
     @ExceptionHandler(
