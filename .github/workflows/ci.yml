@@ -34,11 +34,6 @@ jobs:
       - name: Build
         run: bazel build //...
 
-      # 제외된 4개 타깃은 CI 도입 이전부터 실패 중입니다. 수정되면 제외 목록을 지워주세요. (#94)
       - name: Test
         run: |
-          bazel test --test_output=errors -- //... \
-            -//systems/gateway/gateway-adapter-in:test \
-            -//systems/gateway/gateway-bootstrap:test \
-            -//systems/identity/identity-bootstrap:test \
-            -//systems/identity/identity-adapter-out:test
+          bazel test --test_output=errors -- //...
