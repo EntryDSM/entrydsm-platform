@@ -105,6 +105,7 @@ class SecurityConfig {
                         // This service exposes the token through a non-HttpOnly cookie for SPA clients.
                         // The request header must therefore contain the same token value as the cookie.
                         .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
+                        .ignoringRequestMatchers(AuthEndpointPaths.PASS_POPUP)
                 }
                 .formLogin { it.disable() }
                 .httpBasic { it.disable() }
