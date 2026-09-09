@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.identity.adapterout
 
+import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapterTest
 import hs.kr.entrydsm.identity.adapterout.security.BCryptPasswordHasher
 import hs.kr.entrydsm.identity.adapterout.security.AesGcmPersonalDataEncryptor
 import hs.kr.entrydsm.identity.adapterout.security.AccountPasswordResetOwnershipVerifierTest
@@ -39,6 +40,7 @@ import javax.crypto.AEADBadTagException
     KcbLicenseFileInitializerTest::class,
     KcbPassProviderAdapterTest::class,
     PersistenceProfileContractTest::class,
+    GrpcApplicationDataAdapterTest::class,
 )
 class IdentityAdapterOutModuleTest
 

@@ -26,6 +26,11 @@ identity:
   redis:
     namespace: ${REDIS_KEY_NAMESPACE}
     durability-check-enabled: ${REDIS_DURABILITY_CHECK_ENABLED}
+application:
+  grpc:
+    host: ${APPLICATION_GRPC_HOST}
+    port: ${APPLICATION_GRPC_PORT}
+    deadline-ms: ${APPLICATION_GRPC_DEADLINE_MS:3000}
 security:
   cookies:
     secure: ${COOKIE_SECURE}

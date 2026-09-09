@@ -32,5 +32,6 @@ enum class ErrorCode(
     APPLICATION_SUBMIT_NOT_ALLOWED(409, "현재 상태에서는 원서 제출을 할 수 없습니다."),
     APPLICATION_RESULT_ANNOUNCE_NOT_ALLOWED(409, "현재 상태에서는 합격 결과를 발표할 수 없습니다."),
     APPLICATION_CANCEL_NOT_ALLOWED(409, "현재 상태에서는 원서 제출을 취소할 수 없습니다."),
+    APPLICATION_SERVICE_UNAVAILABLE(503, "원서 서비스를 일시적으로 사용할 수 없습니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다."),
 }

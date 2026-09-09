@@ -2,6 +2,7 @@ package hs.kr.entrydsm.identity.adapterout.persistence
 
 import hs.kr.entrydsm.identity.adapterout.entity.ApplicationProjectionJpaEntity
 import hs.kr.entrydsm.identity.adapterout.entity.IdentityOutboxJpaEntity
+import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapter
 import hs.kr.entrydsm.identity.adapterout.repository.ApplicationProjectionJpaRepository
 import hs.kr.entrydsm.identity.adapterout.repository.IdentityOutboxJpaRepository
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
@@ -27,17 +28,17 @@ import org.springframework.transaction.annotation.Transactional
 class AccountApplicationDataPersistenceAdapter(
     private val projectionRepository: ApplicationProjectionJpaRepository,
     private val outboxRepository: IdentityOutboxJpaRepository,
+    private val remoteApplicationDataAdapter: GrpcApplicationDataAdapter,
 ) : ApplicationDataPort, ApplicationEventConsumer, ApplicationOutboxPort {
     @Transactional
-    override fun create(userId: Long, updatedAt: Instant): ApplicationSnapshot =
-        projectionRepository.findById(userId).orElseGet {
-            projectionRepository.save(
-                ApplicationProjectionJpaEntity(
-                    userId = userId,
-                    stateUpdatedAt = updatedAt,
-                ),
-            )
-        }.toSnapshot()
+    override fun create(userId: Long, updatedAt: Instant): ApplicationSnapshot {
+        val remote = remoteApplicationDataAdapter.create(userId, updatedAt)
+        val projection = projectionRepository.findById(userId).orElseGet {
+            ApplicationProjectionJpaEntity(userId = userId)
+        }
+        projection.apply(remote)
+        return projectionRepository.save(projection).toSnapshot()
+    }
 
     @Transactional(readOnly = true)
     override fun findByUserId(userId: Long): ApplicationSnapshot? =
@@ -55,8 +56,8 @@ class AccountApplicationDataPersistenceAdapter(
             throw IdentityDomainException(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED)
         }
 
-        projection.applicantStatus = ApplicantStatus.CANCELED
-        projection.stateUpdatedAt = updatedAt
+        val remote = remoteApplicationDataAdapter.cancel(userId, reason, updatedAt)
+        projection.apply(remote)
         projection.sourceVersion += 1
         projectionRepository.save(projection)
         outboxRepository.save(
@@ -127,6 +128,14 @@ class AccountApplicationDataPersistenceAdapter(
         passStatus = passStatus,
         announcedAt = announcedAt,
     )
+
+    private fun ApplicationProjectionJpaEntity.apply(snapshot: ApplicationSnapshot) {
+        applicantStatus = snapshot.applicantStatus
+        submittedAt = snapshot.submittedAt
+        passStatus = snapshot.passStatus
+        announcedAt = snapshot.announcedAt
+        stateUpdatedAt = snapshot.updatedAt
+    }
 
     private fun IdentityOutboxJpaEntity.toOutboxEvent(): ApplicationOutboxEvent = ApplicationOutboxEvent(
         eventId = eventId,
