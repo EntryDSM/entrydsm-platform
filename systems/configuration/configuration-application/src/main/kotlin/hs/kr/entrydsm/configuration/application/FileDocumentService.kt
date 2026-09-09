@@ -48,6 +48,7 @@ class FileDocumentService(
                     contentType = extension.contentType,
                     sizeBytes = command.sizeBytes,
                     checksum = stored.checksum,
+                    ownerUserId = command.ownerUserId,
                 )
             )
         } catch (e: RuntimeException) {

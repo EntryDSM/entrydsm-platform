@@ -146,7 +146,8 @@ class FileDocumentServiceTest {
         originalName: String = "지원서.pdf",
         fileName: String = "application_1001.pdf",
         sizeBytes: Long = 1024,
-    ) = UploadFileCommand(category, originalName, fileName, sizeBytes)
+        ownerUserId: Long? = null,
+    ) = UploadFileCommand(category, originalName, fileName, sizeBytes, ownerUserId)
 
     private fun content(): InputStream = ByteArrayInputStream(ByteArray(4))
 

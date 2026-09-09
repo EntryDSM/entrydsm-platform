@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS files (
     content_type  VARCHAR(100) NOT NULL,
     size_bytes    BIGINT       NOT NULL,
     checksum      VARCHAR(64)  NOT NULL,
+    owner_user_id BIGINT       NULL,
     created_at    DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_files_object_key (object_key)
