@@ -1,8 +1,6 @@
 spring:
   application:
     name: notification
-  main:
-    lazy-initialization: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
