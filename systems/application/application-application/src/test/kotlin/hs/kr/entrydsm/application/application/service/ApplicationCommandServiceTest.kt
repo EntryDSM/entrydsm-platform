@@ -1,7 +1,9 @@
 package hs.kr.entrydsm.application.application.service
 
+import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
@@ -10,11 +12,47 @@ import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApplicationCommandServiceTest {
+    @Test
+    fun submitAndCancelPersistLifecycle() {
+        val repository = FakeApplicantRepository(
+            Applicant(
+                id = 1L,
+                accountId = 10L,
+                admissionType = AdmissionType.REGULAR,
+                name = "홍길동",
+                guardianName = "보호자",
+                introduction = "소개",
+                studyPlan = "학업 계획",
+            ),
+        )
+        val service = ApplicationCommandService(repository)
+
+        service.submit(userId = 10L)
+        assertEquals(ApplicantStatus.SUBMITTED, repository.savedApplicant?.status)
+        assertNotNull(repository.savedApplicant?.submittedAt)
+
+        val canceled = service.cancel(10L, "개인 사유")
+        assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
+        assertEquals("개인 사유", repository.savedApplicant?.cancelReason)
+    }
+
+    @Test
+    fun cancelRejectsDraftApplication() {
+        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)))
+
+        assertThrows(ApplicationCancelNotAllowedException::class.java) {
+            service.cancel(10L, null)
+        }
+    }
+
     @Test
     fun updateTypeClearsMiddleSchoolInfoAndSubjectGradesWhenChangedToGed() {
         val repository = FakeApplicantRepository(

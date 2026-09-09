@@ -1,10 +1,13 @@
 package hs.kr.entrydsm.application.adapterout.entity
 
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.GuardianRelation
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.ResultType
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
@@ -33,7 +36,7 @@ open class ApplicantJpaEntity(
     @Column(name = "id")
     var id: Long? = null,
 
-    @Column(name = "account_id", nullable = false)
+    @Column(name = "account_id", nullable = false, unique = true)
     var accountId: Long = 0,
 
     @Column(name = "photo_file_id")
@@ -106,6 +109,16 @@ open class ApplicantJpaEntity(
     @Column(name = "total_score_updated_at")
     var totalScoreUpdatedAt: LocalDateTime? = null,
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 16)
+    var status: ApplicantStatus = ApplicantStatus.DRAFT,
+
+    @Column(name = "submitted_at")
+    var submittedAt: LocalDateTime? = null,
+
+    @Column(name = "cancel_reason", length = 500)
+    var cancelReason: String? = null,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
 
@@ -121,8 +134,9 @@ open class ApplicantJpaEntity(
     @OneToMany(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true)
     open var passResults: MutableList<PassResultJpaEntity> = mutableListOf(),
 ) {
-    fun toDomain(): Applicant =
-        Applicant(
+    fun toDomain(): Applicant {
+        val finalResult = passResults.firstOrNull { it.id.resultType == ResultType.FINAL }
+        return Applicant(
             id = requireNotNull(id),
             accountId = accountId,
             photoFileId = photoFileId,
@@ -148,9 +162,15 @@ open class ApplicantJpaEntity(
             academicRecord = academicRecord?.toDomain(),
             totalScore = totalScore,
             totalScoreUpdatedAt = totalScoreUpdatedAt,
+            status = status,
+            submittedAt = submittedAt,
+            cancelReason = cancelReason,
+            passStatus = finalResult?.result ?: PassResultStatus.PENDING,
+            announcedAt = finalResult?.processedAt,
             createdAt = createdAt,
             updatedAt = updatedAt,
         )
+    }
 
     fun updateFrom(domain: Applicant) {
         accountId = domain.accountId
@@ -175,6 +195,9 @@ open class ApplicantJpaEntity(
         studyPlan = domain.studyPlan
         totalScore = domain.totalScore
         totalScoreUpdatedAt = domain.totalScoreUpdatedAt
+        status = domain.status
+        submittedAt = domain.submittedAt
+        cancelReason = domain.cancelReason
         updatedAt = domain.updatedAt
         updateMiddleSchoolInfo(domain.middleSchoolInfo)
         updateAcademicRecord(domain.academicRecord)

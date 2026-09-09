@@ -1,8 +1,12 @@
 package hs.kr.entrydsm.identity.config
 
 import hs.kr.entrydsm.identity.IdentityBootstrapApplication
+import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapter
 import hs.kr.entrydsm.identity.application.port.out.AccountRepository
+import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
+import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import hs.kr.entrydsm.identity.test.IntegrationTestGate
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -15,6 +19,9 @@ import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyLong
+import org.mockito.Mockito.`when`
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.HttpHeaders
@@ -24,6 +31,7 @@ import org.springframework.security.web.FilterChainProxy
 import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
@@ -50,6 +58,12 @@ class IdentityApplicationHttpIntegrationTest {
     @Autowired
     private lateinit var accountRepository: AccountRepository
 
+    @Autowired
+    private lateinit var applicationDataPort: ApplicationDataPort
+
+    @MockitoBean
+    private lateinit var remoteApplicationDataAdapter: GrpcApplicationDataAdapter
+
     private lateinit var mockMvc: MockMvc
 
     @Before
@@ -57,6 +71,10 @@ class IdentityApplicationHttpIntegrationTest {
         val builder: DefaultMockMvcBuilder = MockMvcBuilders.webAppContextSetup(webApplicationContext)
         builder.addFilters<DefaultMockMvcBuilder>(filterChainProxy)
         mockMvc = builder.build()
+        `when`(remoteApplicationDataAdapter.create(anyLong(), any(Instant::class.java)))
+            .thenAnswer { applicationSnapshot(it.getArgument(0), ApplicantStatus.SUBMITTED, SUBMITTED_AT) }
+        `when`(remoteApplicationDataAdapter.cancel(anyLong(), any(), any(Instant::class.java)))
+            .thenAnswer { applicationSnapshot(it.getArgument(0), ApplicantStatus.CANCELED, SUBMITTED_AT) }
     }
 
     @Test
@@ -118,9 +136,9 @@ class IdentityApplicationHttpIntegrationTest {
         assertEquals(200, cancellationResponse.status)
         assertTrue(cancellationResponse.contentAsString.contains("\"applicantStatus\":\"CANCELED\""))
 
-        val persistedAccount = requireNotNull(accountRepository.findByUserId(account.userId))
-        assertEquals(ApplicantStatus.CANCELED, persistedAccount.profile.applicantStatus)
-        assertEquals(SUBMITTED_AT, persistedAccount.profile.submittedAt)
+        val persistedApplication = requireNotNull(applicationDataPort.findByUserId(account.userId))
+        assertEquals(ApplicantStatus.CANCELED, persistedApplication.applicantStatus)
+        assertEquals(SUBMITTED_AT, persistedApplication.submittedAt)
 
         val canceledStatusResponse = mockMvc.perform(
             get("/api/identity/v11/applications/status")
@@ -152,6 +170,19 @@ class IdentityApplicationHttpIntegrationTest {
         private lateinit var mysql: GenericContainer<Nothing>
         private lateinit var redis: GenericContainer<Nothing>
         private var containersStarted = false
+
+        private fun applicationSnapshot(
+            userId: Long,
+            status: ApplicantStatus,
+            submittedAt: Instant?,
+        ) = ApplicationSnapshot(
+            userId = userId,
+            applicantStatus = status,
+            submittedAt = submittedAt,
+            updatedAt = Instant.parse("2026-09-09T00:00:00Z"),
+            passStatus = PassStatus.NOT_ANNOUNCED,
+            announcedAt = null,
+        )
 
         @JvmStatic
         @BeforeClass

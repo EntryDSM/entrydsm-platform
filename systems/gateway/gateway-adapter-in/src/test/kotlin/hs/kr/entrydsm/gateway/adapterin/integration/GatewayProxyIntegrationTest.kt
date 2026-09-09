@@ -100,7 +100,7 @@ class GatewayProxyIntegrationTest {
     }
 
     @Test
-    fun forwardsAuthorizationToEveryDownstreamServiceWithoutGatewayValidation() {
+    fun validatesAuthorizationAndInjectsTrustedUserHeaders() {
         GatewayService.entries.forEach { service ->
             client.get()
                 .uri("${service.pathPrefix}/protected")
@@ -111,10 +111,65 @@ class GatewayProxyIntegrationTest {
         }
 
         client.get()
+            .uri("/api/v11/admin/protected")
+            .header("Authorization", "Bearer identity-test-token")
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().valueEquals("X-Downstream-User-Id", "123")
+            .expectHeader().valueEquals("X-Downstream-User-Role", "ADMIN")
+            .expectHeader().valueEquals("X-Downstream-Application-User-Id", "123")
+
+        client.get()
             .uri("/api/identity/login")
             .exchange()
             .expectStatus().isOk
             .expectHeader().valueEquals("X-Downstream-Authorization", "missing")
+    }
+
+    @Test
+    fun stripsClientSuppliedTrustedUserHeaders() {
+        client.get()
+            .uri("/api/v11/admin/applicants")
+            .header("X-User-Id", "attacker")
+            .header("X-User-Role", "ADMIN")
+            .header("user-id", "999")
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().valueEquals("X-Downstream-User-Id", "missing")
+            .expectHeader().valueEquals("X-Downstream-User-Role", "missing")
+            .expectHeader().valueEquals("X-Downstream-Application-User-Id", "missing")
+    }
+
+    @Test
+    fun rejectsInvalidAccessToken() {
+        client.get()
+            .uri("/api/v11/admin/applicants")
+            .header("Authorization", "Bearer invalid-token")
+            .exchange()
+            .expectStatus().isUnauthorized
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("AUTH_UNAUTHORIZED")
+    }
+
+    @Test
+    fun requiresCsrfForCookieAuthenticatedWriteRequest() {
+        client.post()
+            .uri("/api/application/v11/applicants")
+            .cookie("access_token", "identity-test-token")
+            .cookie("XSRF-TOKEN", "csrf-token")
+            .exchange()
+            .expectStatus().isForbidden
+            .expectBody()
+            .jsonPath("$.error").isEqualTo("CSRF_INVALID")
+
+        client.post()
+            .uri("/api/application/v11/applicants")
+            .cookie("access_token", "identity-test-token")
+            .cookie("XSRF-TOKEN", "csrf-token")
+            .header("X-XSRF-TOKEN", "csrf-token")
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().valueEquals("X-Downstream-User-Id", "123")
     }
 
     @Test
@@ -208,14 +263,25 @@ class GatewayProxyIntegrationTest {
                 .port(0)
                 .runOn(LoopResources.create("gateway-review-downstream", 1, true).also { downstreamLoops = it })
                 .handle { request, response ->
-                    val body = "${request.method().name()} ${request.uri()}"
+                    val isAuthorityRequest = request.uri() == "/api/identity/v11/accounts/me/authority"
+                    val invalidToken = request.requestHeaders().get("Authorization") == "Bearer invalid-token"
+                    val body = if (isAuthorityRequest && !invalidToken) {
+                        """{"success":true,"data":{"userId":"user_123","role":"ADMIN","status":"ACTIVE"}}"""
+                    } else {
+                        "${request.method().name()} ${request.uri()}"
+                    }
                     val bodyPublisher = if (request.uri().contains("/timeout")) {
                         Mono.just(body).delaySubscription(Duration.ofSeconds(3))
                     } else {
                         Mono.just(body)
                     }
-                    response.status(if (request.uri().contains("/failure")) 500 else 200)
-                        .addHeader("Content-Type", "text/plain")
+                    val status = when {
+                        isAuthorityRequest && invalidToken -> 401
+                        request.uri().contains("/failure") -> 500
+                        else -> 200
+                    }
+                    response.status(status)
+                        .addHeader("Content-Type", if (isAuthorityRequest) "application/json" else "text/plain")
                         .addHeader("Content-Length", body.toByteArray().size.toString())
                         .addHeader(
                             "X-Downstream-Authorization",
@@ -224,6 +290,18 @@ class GatewayProxyIntegrationTest {
                         .addHeader(
                             "X-Downstream-Cookie",
                             request.requestHeaders().get("Cookie") ?: "missing",
+                        )
+                        .addHeader(
+                            "X-Downstream-User-Id",
+                            request.requestHeaders().get("X-User-Id") ?: "missing",
+                        )
+                        .addHeader(
+                            "X-Downstream-User-Role",
+                            request.requestHeaders().get("X-User-Role") ?: "missing",
+                        )
+                        .addHeader(
+                            "X-Downstream-Application-User-Id",
+                            request.requestHeaders().get("user-id") ?: "missing",
                         )
                         .sendString(bodyPublisher)
                         .then()

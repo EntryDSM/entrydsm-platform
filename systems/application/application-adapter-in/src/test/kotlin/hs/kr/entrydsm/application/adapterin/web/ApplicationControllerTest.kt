@@ -10,6 +10,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleScho
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import java.time.LocalDateTime
@@ -58,6 +59,8 @@ class ApplicationControllerTest {
         override fun updateStudyPlan(command: UpdateStudyPlanCommand) = Unit
         override fun submit(command: SubmitApplicationCommand) = Unit
         override fun getLanding(accountId: Long?): LandingResult = LandingResult(applicantName = "홍길동")
+        override fun findByUserId(userId: Long): ApplicationSnapshotResult? = null
+        override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
     }
 
     private companion object {
