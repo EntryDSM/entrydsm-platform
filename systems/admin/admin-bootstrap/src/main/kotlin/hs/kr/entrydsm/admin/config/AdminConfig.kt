@@ -2,9 +2,7 @@ package hs.kr.entrydsm.admin.config
 
 import hs.kr.entrydsm.admin.adapterin.web.AdminAuthorizationInterceptor
 import hs.kr.entrydsm.admin.adapterin.web.AdminEndpointPaths
-import hs.kr.entrydsm.admin.application.AdmissionQuotaProperties
 import java.time.Clock
-import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.EnableAsync
@@ -19,7 +17,6 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner
  */
 @Configuration(proxyBeanMethods = false)
 @EnableAsync
-@EnableConfigurationProperties(AdmissionQuotaProperties::class)
 class AdminConfig(
     private val adminAuthorizationInterceptor: AdminAuthorizationInterceptor,
 ) : WebMvcConfigurer {
