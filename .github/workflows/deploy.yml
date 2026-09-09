@@ -1,0 +1,134 @@
+name: Deploy
+
+# ══════════════════════════════════════════════════════════════════════════
+# 배포 전 설정이 필요합니다. 아래 값이 비어 있으면 deploy 잡은 자동으로
+# 건너뛰므로, 설정 전까지 main 푸시가 실패하지는 않습니다.
+# (이미지 빌드/푸시는 설정 없이도 동작합니다.)
+#
+# Settings → Secrets and variables → Actions → Secrets
+#   DEPLOY_SSH_KEY      EC2 접속용 SSH private key 전체 내용
+#   DEPLOY_KNOWN_HOSTS  `ssh-keyscan <host>` 출력을 EC2 3대분 합친 값
+#                       (비워두면 호스트 검증 없이 접속을 시도하지 않고 실패합니다)
+#
+# Settings → Secrets and variables → Actions → Variables
+#   DEPLOY_HOSTS        배포 대상 EC2 호스트 JSON 배열
+#                       예) ["10.0.1.10", "10.0.1.11", "10.0.1.12"]
+#   DEPLOY_USER         SSH 사용자명            예) ubuntu
+#   DEPLOY_PATH         EC2에서 docker-compose.yml이 있는 디렉터리
+#                       예) /opt/entrydsm
+#   HEALTHCHECK_URL     (선택) 헬스체크 URL. 미설정 시 아래 기본값 사용
+#                       기본) http://localhost:8080/actuator/health
+# ══════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - gateway
+          - identity
+          - application
+          - notification
+          - configuration
+          - admin
+          - observability
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # :latest 는 docker-compose.yml이 참조하는 태그, :<sha> 는 롤백/추적용
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            SERVICE=${{ matrix.service }}
+          tags: ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:latest
+          tags: |
+            ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:latest
+            ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    needs: build
+    # DEPLOY_HOSTS 미설정 시 배포를 건너뜁니다.
+    if: vars.DEPLOY_HOSTS != ''
+
+    strategy:
+      fail-fast: false
+      matrix:
+        host: ${{ fromJSON(vars.DEPLOY_HOSTS || '[]') }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH 키 준비
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "DEPLOY_SSH_KEY 또는 DEPLOY_KNOWN_HOSTS 시크릿이 설정되지 않았습니다."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: 이미지 pull 및 재시작
+        env:
+          HOST: ${{ matrix.host }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+        run: |
+          ssh -i ~/.ssh/id_deploy "$DEPLOY_USER@$HOST" \
+            "cd '$DEPLOY_PATH' && docker compose pull && docker compose up -d && docker image prune -f"
+
+      # 컨테이너가 뜨는 데 시간이 걸리므로 최대 150초까지 재시도합니다.
+      - name: 헬스체크
+        env:
+          HOST: ${{ matrix.host }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          HEALTHCHECK_URL: ${{ vars.HEALTHCHECK_URL || 'http://localhost:8080/actuator/health' }}
+        run: |
+          for i in $(seq 1 30); do
+            if ssh -i ~/.ssh/id_deploy "$DEPLOY_USER@$HOST" \
+                 "curl -fsS '$HEALTHCHECK_URL'" | grep -q '"status":"UP"'; then
+              echo "$HOST 정상"
+              exit 0
+            fi
+            echo "$HOST 기동 대기 중... ($i/30)"
+            sleep 5
+          done
+          echo "$HOST 헬스체크 실패"
+          exit 1
