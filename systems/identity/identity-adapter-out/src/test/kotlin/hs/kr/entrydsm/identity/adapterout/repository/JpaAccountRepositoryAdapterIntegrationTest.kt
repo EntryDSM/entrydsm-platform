@@ -39,6 +39,7 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Import
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.context.junit4.SpringRunner
@@ -47,6 +48,7 @@ import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
 
 @RunWith(SpringRunner::class)
+@ActiveProfiles("integration")
 @SpringBootTest(classes = [JpaAccountRepositoryAdapterIntegrationTest.JpaTestApplication::class])
 class JpaAccountRepositoryAdapterIntegrationTest {
     @Autowired
