@@ -30,6 +30,18 @@ class ScheduleServiceTest {
         assertEquals(endAt, updated.endAt)
     }
 
+    @Test
+    fun `새 일정을 저장한다`() {
+        val startAt = LocalDateTime.of(2026, 4, 5, 21, 5, 34)
+        val endAt = LocalDateTime.of(2026, 5, 5, 21, 5, 34)
+
+        service.create("원서 접수", startAt, endAt)
+
+        assertEquals("원서 접수", repository.savedSchedule?.title)
+        assertEquals(startAt, repository.savedSchedule?.startAt)
+        assertEquals(endAt, repository.savedSchedule?.endAt)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun `종료보다 늦은 시작 시각은 거부한다`() {
         service.update(
@@ -48,6 +60,7 @@ class ScheduleServiceTest {
         )
         var rangeStart: LocalDateTime? = null
         var rangeEnd: LocalDateTime? = null
+        var savedSchedule: Schedule? = null
 
         override fun findByStartAtBetween(startAt: LocalDateTime, endAt: LocalDateTime): List<Schedule> {
             rangeStart = startAt
@@ -57,6 +70,9 @@ class ScheduleServiceTest {
 
         override fun findByTitle(title: String): Schedule? = schedule.takeIf { it.title == title }
 
-        override fun save(schedule: Schedule): Schedule = schedule.also { this.schedule = it }
+        override fun save(schedule: Schedule): Schedule = schedule.also {
+            this.schedule = it
+            savedSchedule = it
+        }
     }
 }

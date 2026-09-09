@@ -21,6 +21,10 @@ class ScheduleService(
         )
 
     @Transactional
+    override fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule =
+        scheduleRepository.save(Schedule(title = title, startAt = startAt, endAt = endAt))
+
+    @Transactional
     override fun update(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule {
         val schedule = scheduleRepository.findByTitle(title) ?: throw ScheduleNotFoundException(title)
         return scheduleRepository.save(schedule.copy(startAt = startAt, endAt = endAt))

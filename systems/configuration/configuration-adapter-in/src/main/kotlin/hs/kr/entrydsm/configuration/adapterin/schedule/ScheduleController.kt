@@ -4,9 +4,12 @@ import hs.kr.entrydsm.configuration.domain.schedule.Schedule
 import hs.kr.entrydsm.configuration.domain.schedule.port.`in`.ScheduleUseCase
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import org.springframework.http.HttpStatus
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -22,6 +25,21 @@ class ScheduleController(
         val schedules = scheduleUseCase.findByYear(LocalDateTime.now(SEOUL).year).map(ScheduleResponse::from)
         return ScheduleApiResponse(200, "일정 목록 조회 성공", schedules)
     }
+
+    @PostMapping("/schedules")
+    @ResponseStatus(HttpStatus.CREATED)
+    fun create(@RequestBody request: ScheduleRequest): ScheduleApiResponse<ScheduleResponse> =
+        ScheduleApiResponse(
+            "SUCCESS",
+            "일정 추가가 완료되었습니다.",
+            ScheduleResponse.from(
+                scheduleUseCase.create(
+                    request.title,
+                    request.startAt.toLocalDateTime(),
+                    request.endAt.toLocalDateTime(),
+                ),
+            ),
+        )
 
     @PatchMapping("/schedules/bulk")
     fun update(@RequestBody request: ScheduleRequest): ScheduleApiResponse<ScheduleResponse> =
