@@ -34,6 +34,9 @@ class FileDocumentJpaEntity(
     @Column(name = "checksum", nullable = false, length = 64)
     val checksum: String,
 
+    @Column(name = "owner_user_id")
+    val ownerUserId: Long? = null,
+
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant,
 ) {
@@ -45,6 +48,7 @@ class FileDocumentJpaEntity(
         contentType = contentType,
         sizeBytes = sizeBytes,
         checksum = checksum,
+        ownerUserId = ownerUserId,
         createdAt = createdAt,
     )
 
@@ -57,6 +61,7 @@ class FileDocumentJpaEntity(
             contentType = domain.contentType,
             sizeBytes = domain.sizeBytes,
             checksum = domain.checksum,
+            ownerUserId = domain.ownerUserId,
             createdAt = domain.createdAt ?: Instant.now(),
         )
     }

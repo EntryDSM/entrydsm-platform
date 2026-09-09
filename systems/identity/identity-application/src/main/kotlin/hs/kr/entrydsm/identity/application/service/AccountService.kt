@@ -27,7 +27,7 @@ class AccountService(
 
     override fun getBasicInfo(command: ReadAccountCommand): BasicInfoResult {
         val account = resolveAccount(command.userId)
-        val application = applicationDataPort.findApplication(account)
+        val application = applicationDataPort.findByUserId(account.userId)
         return BasicInfoResult(
             userId = account.userId,
             role = account.role,
@@ -36,9 +36,9 @@ class AccountService(
             phone = account.profile.phone,
             birthdate = account.profile.birthdate,
             signupType = account.profile.signupType,
-            applicantStatus = application.applicantStatus,
+            applicantStatus = application?.applicantStatus ?: account.profile.applicantStatus,
             createdAt = account.createdAt,
-            updatedAt = application.updatedAt,
+            updatedAt = application?.updatedAt ?: account.updatedAt,
         )
     }
 
@@ -48,6 +48,7 @@ class AccountService(
             userId = account.userId,
             role = account.role,
             status = account.status,
+            isSensitiveAgree = account.isSensitiveAgree,
         )
     }
 

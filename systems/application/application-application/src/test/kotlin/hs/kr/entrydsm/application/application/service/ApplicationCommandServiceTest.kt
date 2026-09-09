@@ -1,6 +1,8 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
+import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
+import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
@@ -87,6 +89,22 @@ class ApplicationCommandServiceTest {
         val savedApplicant = requireNotNull(repository.savedApplicant)
         assertNull(savedApplicant.middleSchoolInfo)
         assertTrue(savedApplicant.academicRecord?.subjectGrades?.isEmpty() == true)
+    }
+
+    @Test
+    fun socialAdmissionRequiresSensitiveConsent() {
+        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)))
+        val command = UpdateTypeCommand(
+            applicantId = 1L,
+            userId = 10L,
+            admissionType = AdmissionType.SOCIAL,
+            region = Region.DAEJEON,
+            graduationType = GraduationType.GED,
+            graduationDate = null,
+            isSensitiveAgree = false,
+        )
+
+        assertThrows(SensitiveConsentRequiredException::class.java) { service.updateType(command) }
     }
 
     private class FakeApplicantRepository(

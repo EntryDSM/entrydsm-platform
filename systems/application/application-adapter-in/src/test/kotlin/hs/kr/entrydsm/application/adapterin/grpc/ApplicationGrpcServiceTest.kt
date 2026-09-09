@@ -65,6 +65,7 @@ class ApplicationGrpcServiceTest {
         assertFalse(found.hasSubmittedAtEpochMillis())
         assertEquals(hs.kr.entrydsm.application.grpc.ApplicantStatus.APPLICANT_STATUS_CANCELED, canceled.applicantStatus)
         assertEquals("개인 사유", port.cancelReason)
+        assertEquals(2, port.findCount)
     }
 
     @Test
@@ -83,13 +84,17 @@ class ApplicationGrpcServiceTest {
     private class FakeApplicationPort : ApplicationPort {
         private var snapshot: ApplicationSnapshotResult? = null
         var cancelReason: String? = null
+        var findCount = 0
 
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
             snapshot = snapshot(command.userId ?: error("userId is required"), ApplicantStatus.DRAFT)
-            return CreateApplicantResult(1L)
+            return CreateApplicantResult(1L, requireNotNull(snapshot))
         }
 
-        override fun findByUserId(userId: Long): ApplicationSnapshotResult? = snapshot?.takeIf { it.userId == userId }
+        override fun findByUserId(userId: Long): ApplicationSnapshotResult? {
+            findCount += 1
+            return snapshot?.takeIf { it.userId == userId }
+        }
 
         override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason

@@ -5,6 +5,7 @@ import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.StoredObject
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
+import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
@@ -13,6 +14,7 @@ import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentReposit
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
@@ -72,6 +74,15 @@ class FileDocumentServiceTest {
         runCatching { service.upload(command(), content()) }
 
         assertTrue(storage.deleted.isEmpty())
+    }
+
+    @Test
+    fun `학생은 다른 사용자의 파일을 덮어쓸 수 없다`() {
+        service.upload(command(ownerUserId = 10L), content())
+
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.upload(command(ownerUserId = 11L), content())
+        }
     }
 
     @Test
@@ -146,7 +157,8 @@ class FileDocumentServiceTest {
         originalName: String = "지원서.pdf",
         fileName: String = "application_1001.pdf",
         sizeBytes: Long = 1024,
-    ) = UploadFileCommand(category, originalName, fileName, sizeBytes)
+        ownerUserId: Long? = null,
+    ) = UploadFileCommand(category, originalName, fileName, sizeBytes, ownerUserId)
 
     private fun content(): InputStream = ByteArrayInputStream(ByteArray(4))
 

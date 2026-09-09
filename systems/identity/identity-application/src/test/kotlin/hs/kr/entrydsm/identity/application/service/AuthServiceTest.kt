@@ -52,7 +52,7 @@ class AuthServiceTest {
 
     @Test
     fun signupCreatesAccountThroughRegistrationPort() {
-        val savedAccount = account()
+        val savedAccount = account(role = Role.STUDENT)
         var registration: AccountRegistration? = null
         `when`(queryPort.findByLoginId("01012345678")).thenReturn(null)
         `when`(passwordHasher.hash("password123!")).thenReturn(PASSWORD_HASH)
@@ -70,11 +70,14 @@ class AuthServiceTest {
                 phone = "01012345678",
                 birthdate = BIRTHDATE,
                 signupType = SignupType.SELF,
+                isSensitiveAgree = true,
             )
         )
 
         assertEquals(123L, result.userId)
-        assertEquals(Role.USER, result.role)
+        assertEquals(Role.STUDENT, result.role)
+        assertEquals(Role.STUDENT, registration?.role)
+        assertTrue(registration?.isSensitiveAgree == true)
         assertEquals("01012345678", registration?.loginId)
         assertEquals(PASSWORD_HASH, registration?.passwordHash)
     }
@@ -424,12 +427,12 @@ class AuthServiceTest {
         signupOwnershipVerifier = signupOwnershipVerifier,
     )
 
-    private fun account(status: AccountStatus = AccountStatus.ACTIVE): Account {
+    private fun account(status: AccountStatus = AccountStatus.ACTIVE, role: Role = Role.USER): Account {
         return Account.create(
             userId = 123L,
             loginId = "entry",
             passwordHash = PASSWORD_HASH,
-            role = Role.USER,
+            role = role,
             status = status,
             profile = StudentProfile(
                 name = "홍길동",

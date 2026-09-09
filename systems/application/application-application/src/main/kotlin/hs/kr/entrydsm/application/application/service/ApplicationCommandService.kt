@@ -4,6 +4,7 @@ import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedExc
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
+import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
@@ -34,10 +35,14 @@ class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
 ) : ApplicationPort {
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
-        return CreateApplicantResult(createApplicant(requireUserId(command.userId)).id)
+        val applicant = createApplicant(requireUserId(command.userId))
+        return CreateApplicantResult(applicant.id, applicant.toSnapshot())
     }
 
     override fun updateType(command: UpdateTypeCommand) {
+        if (command.admissionType == AdmissionType.SOCIAL && !command.isSensitiveAgree) {
+            throw SensitiveConsentRequiredException()
+        }
         updateType(
             applicantId = command.applicantId,
             userId = command.userId,

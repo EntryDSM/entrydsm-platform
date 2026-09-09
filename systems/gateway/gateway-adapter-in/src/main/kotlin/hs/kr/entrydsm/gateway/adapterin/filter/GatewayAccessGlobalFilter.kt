@@ -60,6 +60,7 @@ class GatewayAccessGlobalFilter(
                                     headers.set(USER_ID_HEADER, result.userId.toString())
                                     headers.set(USER_ROLE_HEADER, result.role)
                                     headers.set(APPLICATION_USER_ID_HEADER, result.userId.toString())
+                                    headers.set(SENSITIVE_AGREE_HEADER, result.isSensitiveAgree.toString())
                                 }
                                 .build(),
                         )
@@ -100,6 +101,7 @@ class GatewayAccessGlobalFilter(
         AuthorityData(
             userId = data.path("userId").asText(),
             role = data.path("role").asText(),
+            isSensitiveAgree = data.path("isSensitiveAgree").asBoolean(false),
         ).toAuthenticationResult()
     }.getOrDefault(AuthenticationResult.Unavailable)
 
@@ -108,7 +110,7 @@ class GatewayAccessGlobalFilter(
             ?.takeIf { it > 0 }
             ?: return AuthenticationResult.Unavailable
         if (role.isBlank()) return AuthenticationResult.Unavailable
-        return AuthenticationResult.Success(id, role)
+        return AuthenticationResult.Success(id, role, isSensitiveAgree)
     }
 
     private fun hasValidCsrfToken(exchange: ServerWebExchange): Boolean {
@@ -120,7 +122,7 @@ class GatewayAccessGlobalFilter(
     private fun requiresCsrf(method: HttpMethod): Boolean = method !in SAFE_METHODS
 
     private sealed interface AuthenticationResult {
-        data class Success(val userId: Long, val role: String) : AuthenticationResult
+        data class Success(val userId: Long, val role: String, val isSensitiveAgree: Boolean) : AuthenticationResult
 
         data object Unauthorized : AuthenticationResult
 
@@ -130,6 +132,7 @@ class GatewayAccessGlobalFilter(
     private data class AuthorityData(
         val userId: String = "",
         val role: String = "",
+        val isSensitiveAgree: Boolean = false,
     )
 
     private companion object {
@@ -142,7 +145,13 @@ class GatewayAccessGlobalFilter(
         const val USER_ID_HEADER = "X-User-Id"
         const val USER_ROLE_HEADER = "X-User-Role"
         const val APPLICATION_USER_ID_HEADER = "user-id"
-        val TRUSTED_HEADERS = setOf(USER_ID_HEADER, USER_ROLE_HEADER, APPLICATION_USER_ID_HEADER)
+        const val SENSITIVE_AGREE_HEADER = "X-Sensitive-Agree"
+        val TRUSTED_HEADERS = setOf(
+            USER_ID_HEADER,
+            USER_ROLE_HEADER,
+            APPLICATION_USER_ID_HEADER,
+            SENSITIVE_AGREE_HEADER,
+        )
         val SAFE_METHODS = setOf(HttpMethod.GET, HttpMethod.HEAD, HttpMethod.OPTIONS, HttpMethod.TRACE)
     }
 }

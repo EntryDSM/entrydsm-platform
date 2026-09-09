@@ -52,6 +52,7 @@ class AuthController(
                 phone = request.phone,
                 birthdate = request.birthdate,
                 signupType = request.signupType,
+                isSensitiveAgree = request.isSensitiveAgree,
             )
         )
         return ResponseEntity
@@ -78,11 +79,11 @@ class AuthController(
 
     @PostMapping(AuthEndpointPaths.LOGOUT_PATH)
     fun logout(
-        authentication: Authentication,
+        authentication: Authentication?,
     ): ResponseEntity<ApiResponse<Unit>> {
-        val principal = authentication.principal as? AuthenticatedUser
-            ?: throw IllegalArgumentException("Authenticated principal is not validated.")
-        authPort.logout(LogoutCommand(userId = principal.userId))
+        (authentication?.principal as? AuthenticatedUser)?.let {
+            authPort.logout(LogoutCommand(userId = it.userId))
+        }
         return ResponseEntity
             .ok()
             .header(HttpHeaders.SET_COOKIE, expiredCookie("access_token").toString())
@@ -134,6 +135,7 @@ class AuthController(
             userId = "${JwtTokenGenerator.USER_PRINCIPAL_PREFIX}$userId",
             role = role.name,
             status = status,
+            isSensitiveAgree = false,
         )
 
 }

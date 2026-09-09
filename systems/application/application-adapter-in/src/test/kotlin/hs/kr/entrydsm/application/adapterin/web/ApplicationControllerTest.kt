@@ -13,9 +13,15 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeComman
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.junit.Assert.assertThrows
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.mock.web.MockHttpServletResponse
+import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedException
 
 class ApplicationControllerTest {
     @Test
@@ -43,12 +49,38 @@ class ApplicationControllerTest {
         assertEquals(resultAnnouncedAt, response.data?.schedule?.resultAnnouncedAt)
     }
 
+    @Test
+    fun applicationApiAllowsOnlyStudentRole() {
+        val interceptor = ApplicationAuthorizationInterceptor()
+        val request = MockHttpServletRequest().apply {
+            addHeader("X-User-Id", "10")
+            addHeader("X-User-Role", "STUDENT")
+        }
+
+        assertEquals(true, interceptor.preHandle(request, MockHttpServletResponse(), Any()))
+        request.removeHeader("X-User-Role")
+        request.addHeader("X-User-Role", "ADMIN")
+        assertThrows(ApplicationAccessDeniedException::class.java) {
+            interceptor.preHandle(request, MockHttpServletResponse(), Any())
+        }
+    }
+
     private class FakeApplicationPort : ApplicationPort {
         var createApplicantCommand: CreateApplicantCommand? = null
 
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
             createApplicantCommand = command
-            return CreateApplicantResult(applicantId = 1L)
+            return CreateApplicantResult(
+                applicantId = 1L,
+                snapshot = ApplicationSnapshotResult(
+                    userId = requireNotNull(command.userId),
+                    applicantStatus = ApplicantStatus.DRAFT,
+                    submittedAt = null,
+                    updatedAt = applicationStartAt,
+                    passStatus = PassResultStatus.PENDING,
+                    announcedAt = null,
+                ),
+            )
         }
 
         override fun updateType(command: UpdateTypeCommand) = Unit

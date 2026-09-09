@@ -5,6 +5,7 @@ import hs.kr.entrydsm.configuration.adapterin.document.InvalidFileReferenceIdExc
 import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleAccessDeniedException
 import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleUnauthorizedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
+import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameException
@@ -49,6 +50,10 @@ class DocumentExceptionHandler {
 
     @ExceptionHandler(ScheduleAccessDeniedException::class)
     fun handleAccessDenied(e: ScheduleAccessDeniedException) =
+        respond(ErrorCode.ACCESS_DENIED, e)
+
+    @ExceptionHandler(DocumentAccessDeniedException::class)
+    fun handleDocumentAccessDenied(e: DocumentAccessDeniedException) =
         respond(ErrorCode.ACCESS_DENIED, e)
 
     @ExceptionHandler(

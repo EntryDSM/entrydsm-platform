@@ -1,0 +1,2 @@
+ALTER TABLE accounts
+    ADD COLUMN is_sensitive_agree BOOLEAN NOT NULL DEFAULT FALSE AFTER role;

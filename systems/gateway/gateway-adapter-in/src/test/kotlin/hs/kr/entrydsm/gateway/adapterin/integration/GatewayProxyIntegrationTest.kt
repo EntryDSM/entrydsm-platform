@@ -118,6 +118,7 @@ class GatewayProxyIntegrationTest {
             .expectHeader().valueEquals("X-Downstream-User-Id", "123")
             .expectHeader().valueEquals("X-Downstream-User-Role", "ADMIN")
             .expectHeader().valueEquals("X-Downstream-Application-User-Id", "123")
+            .expectHeader().valueEquals("X-Downstream-Sensitive-Agree", "true")
 
         client.get()
             .uri("/api/identity/login")
@@ -133,11 +134,13 @@ class GatewayProxyIntegrationTest {
             .header("X-User-Id", "attacker")
             .header("X-User-Role", "ADMIN")
             .header("user-id", "999")
+            .header("X-Sensitive-Agree", "true")
             .exchange()
             .expectStatus().isOk
             .expectHeader().valueEquals("X-Downstream-User-Id", "missing")
             .expectHeader().valueEquals("X-Downstream-User-Role", "missing")
             .expectHeader().valueEquals("X-Downstream-Application-User-Id", "missing")
+            .expectHeader().valueEquals("X-Downstream-Sensitive-Agree", "missing")
     }
 
     @Test
@@ -266,7 +269,7 @@ class GatewayProxyIntegrationTest {
                     val isAuthorityRequest = request.uri() == "/api/identity/v11/accounts/me/authority"
                     val invalidToken = request.requestHeaders().get("Authorization") == "Bearer invalid-token"
                     val body = if (isAuthorityRequest && !invalidToken) {
-                        """{"success":true,"data":{"userId":"user_123","role":"ADMIN","status":"ACTIVE"}}"""
+                        """{"success":true,"data":{"userId":"user_123","role":"ADMIN","status":"ACTIVE","isSensitiveAgree":true}}"""
                     } else {
                         "${request.method().name()} ${request.uri()}"
                     }
@@ -302,6 +305,10 @@ class GatewayProxyIntegrationTest {
                         .addHeader(
                             "X-Downstream-Application-User-Id",
                             request.requestHeaders().get("user-id") ?: "missing",
+                        )
+                        .addHeader(
+                            "X-Downstream-Sensitive-Agree",
+                            request.requestHeaders().get("X-Sensitive-Agree") ?: "missing",
                         )
                         .sendString(bodyPublisher)
                         .then()

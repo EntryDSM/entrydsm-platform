@@ -29,10 +29,7 @@ class ApplicationGrpcService(
     ) = responseObserver.respond {
         request.userId.validate()
         applicationPort.findByUserId(request.userId)
-            ?: run {
-                applicationPort.createApplicant(CreateApplicantCommand(request.userId))
-                requireNotNull(applicationPort.findByUserId(request.userId))
-            }
+            ?: applicationPort.createApplicant(CreateApplicantCommand(request.userId)).snapshot
     }
 
     override fun getApplication(
