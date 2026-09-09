@@ -4,6 +4,8 @@ import org.springframework.http.HttpStatus
 
 enum class ErrorCode(val status: HttpStatus, val message: String) {
     INVALID_REQUEST_PARAM(HttpStatus.BAD_REQUEST, "요청 파라미터가 올바르지 않습니다."),
+    AUTH_UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "관리자 권한이 없습니다."),
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."),
     INVALID_FILE_FORMAT(HttpStatus.BAD_REQUEST, "지원하지 않는 파일 형식입니다."),
     FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "파일을 찾을 수 없습니다."),
