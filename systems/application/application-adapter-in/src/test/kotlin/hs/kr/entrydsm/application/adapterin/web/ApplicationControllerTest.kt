@@ -49,6 +49,22 @@ class ApplicationControllerTest {
         assertEquals(resultAnnouncedAt, response.data?.schedule?.resultAnnouncedAt)
     }
 
+    @Test
+    fun applicationApiAllowsOnlyStudentRole() {
+        val interceptor = ApplicationAuthorizationInterceptor()
+        val request = MockHttpServletRequest().apply {
+            addHeader("X-User-Id", "10")
+            addHeader("X-User-Role", "STUDENT")
+        }
+
+        assertEquals(true, interceptor.preHandle(request, MockHttpServletResponse(), Any()))
+        request.removeHeader("X-User-Role")
+        request.addHeader("X-User-Role", "ADMIN")
+        assertThrows(ApplicationAccessDeniedException::class.java) {
+            interceptor.preHandle(request, MockHttpServletResponse(), Any())
+        }
+    }
+
     private class FakeApplicationPort : ApplicationPort {
         var createApplicantCommand: CreateApplicantCommand? = null
 
