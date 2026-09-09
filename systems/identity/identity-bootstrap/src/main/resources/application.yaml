@@ -1,8 +1,6 @@
 spring:
   application:
     name: identity
-  main:
-    lazy-initialization: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
