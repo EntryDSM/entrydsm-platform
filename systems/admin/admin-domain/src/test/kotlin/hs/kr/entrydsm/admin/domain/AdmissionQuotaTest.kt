@@ -32,6 +32,24 @@ class AdmissionQuotaTest {
     }
 
     @Test
+    fun `배수를 곱한 정원은 올림한다`() {
+        val quota = quota(
+            mapOf(
+                Region.DAEJEON to mapOf(AdmissionType.GENERAL to 20, AdmissionType.MEISTER to 10, AdmissionType.SOCIAL to 5),
+                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 14, AdmissionType.MEISTER to 20, AdmissionType.SOCIAL to 0),
+            ),
+        )
+
+        assertEquals(
+            mapOf(
+                Region.DAEJEON to mapOf(AdmissionType.GENERAL to 30, AdmissionType.MEISTER to 15, AdmissionType.SOCIAL to 8),
+                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 21, AdmissionType.MEISTER to 30, AdmissionType.SOCIAL to 0),
+            ),
+            quota.scaled(1.5),
+        )
+    }
+
+    @Test
     fun `지역이 빠지면 정원을 거부한다`() {
         val exception = runCatching {
             quota(

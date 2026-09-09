@@ -4,7 +4,6 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
-import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantScore
 import hs.kr.entrydsm.admin.domain.policy.ExamineeNumberPolicy
@@ -24,14 +23,16 @@ class AdminPolicyTest {
         examineeNumber: String? = null,
         totalScore: Double? = null,
         status: ApplicantStatus = ApplicantStatus.PENDING,
+        region: Region = Region.DAEJEON,
+        admissionType: AdmissionType = AdmissionType.MEISTER,
     ) = Applicant(
         id = receiptNumber.toLong(),
         receiptNumber = receiptNumber,
         name = "지원자$receiptNumber",
         birthDate = LocalDate.of(2010, 3, 15),
         phoneNumber = "010-0000-0000",
-        region = Region.DAEJEON,
-        admissionType = AdmissionType.MEISTER,
+        region = region,
+        admissionType = admissionType,
         graduationStatus = GraduationStatus.EXPECTED,
         schoolName = "대전중학교",
         examineeNumber = examineeNumber,
@@ -80,13 +81,39 @@ class AdminPolicyTest {
         assertEquals(listOf("100001"), result.issued.map { it.examineeNumber })
     }
 
-    @Test(expected = AdminDomainException::class)
-    fun `정원이 음수면 산출을 거부한다`() {
-        ScreeningPolicy.evaluate(
-            listOf(applicant(receiptNumber = 1, examineeNumber = "100001", totalScore = 90.0)),
+    /** 모든 지역 × 전형 묶음에 같은 정원을 준다. */
+    private fun quotas(quota: Int): Map<Region, Map<AdmissionType, Int>> =
+        Region.entries.associateWith { AdmissionType.entries.associateWith { quota } }
+
+    @Test
+    fun `합격자는 지역과 전형 묶음별로 따로 순위를 매겨 정원까지 뽑는다`() {
+        val outcome = ScreeningPolicy.evaluate(
+            listOf(
+                applicant(receiptNumber = 1, examineeNumber = "100001", totalScore = 95.0),
+                applicant(receiptNumber = 2, examineeNumber = "100002", totalScore = 90.0),
+                applicant(
+                    receiptNumber = 3,
+                    examineeNumber = "100003",
+                    totalScore = 60.0,
+                    region = Region.NATIONWIDE,
+                    admissionType = AdmissionType.GENERAL,
+                ),
+                applicant(
+                    receiptNumber = 4,
+                    examineeNumber = "100004",
+                    totalScore = 99.0,
+                    admissionType = AdmissionType.SOCIAL,
+                ),
+            ),
             stage = ScreeningStage.FIRST,
-            quota = -1,
+            quotas = mapOf(
+                Region.DAEJEON to mapOf(AdmissionType.MEISTER to 1),
+                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 1),
+            ),
         )
+
+        assertEquals(setOf(1, 3), outcome.passed.map { it.receiptNumber }.toSet())
+        assertEquals(setOf(2, 4), outcome.failed.map { it.receiptNumber }.toSet())
     }
 
     @Test
@@ -98,7 +125,7 @@ class AdminPolicyTest {
                 applicant(receiptNumber = 3, examineeNumber = "100003", totalScore = 90.0),
             ),
             stage = ScreeningStage.FIRST,
-            quota = 2,
+            quotas = quotas(2),
         )
 
         assertEquals(listOf(2, 3), outcome.passed.map { it.receiptNumber })
@@ -115,7 +142,7 @@ class AdminPolicyTest {
                 applicant(receiptNumber = 4, examineeNumber = "100004", totalScore = 90.0),
             ),
             stage = ScreeningStage.FIRST,
-            quota = 1,
+            quotas = quotas(1),
         )
 
         assertEquals(listOf(4), outcome.passed.map { it.receiptNumber })
@@ -131,7 +158,7 @@ class AdminPolicyTest {
                 applicant(receiptNumber = 4, examineeNumber = "100004", totalScore = 70.0),
             ),
             stage = ScreeningStage.FIRST,
-            quota = 10,
+            quotas = quotas(10),
         )
 
         assertEquals(listOf(1, 2, 3), outcome.excluded.map { it.receiptNumber })
@@ -151,7 +178,7 @@ class AdminPolicyTest {
                 ),
             ),
             stage = ScreeningStage.FINAL,
-            quota = 10,
+            quotas = quotas(10),
         )
 
         assertEquals(listOf(2), outcome.passed.map { it.receiptNumber })
@@ -176,11 +203,11 @@ class AdminPolicyTest {
 
         assertEquals(
             ApplicantStatus.FINAL_PASS,
-            ScreeningPolicy.evaluateFinal(first, cohort, quota = 1),
+            ScreeningPolicy.evaluateFinal(first, cohort, quotas = quotas(1)),
         )
         assertEquals(
             ApplicantStatus.FINAL_FAIL,
-            ScreeningPolicy.evaluateFinal(second, cohort, quota = 1),
+            ScreeningPolicy.evaluateFinal(second, cohort, quotas = quotas(1)),
         )
     }
 
@@ -209,7 +236,7 @@ class AdminPolicyTest {
         cohort.forEach {
             assertEquals(
                 ApplicantStatus.FINAL_FAIL,
-                ScreeningPolicy.evaluateFinal(it, cohort, quota = 10),
+                ScreeningPolicy.evaluateFinal(it, cohort, quotas = quotas(10)),
             )
         }
     }
