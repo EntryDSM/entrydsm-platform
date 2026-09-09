@@ -48,6 +48,7 @@ class AccountService(
             userId = account.userId,
             role = account.role,
             status = account.status,
+            isSensitiveAgree = account.isSensitiveAgree,
         )
     }
 

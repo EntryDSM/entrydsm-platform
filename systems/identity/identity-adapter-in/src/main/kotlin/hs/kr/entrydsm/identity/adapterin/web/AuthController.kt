@@ -134,6 +134,7 @@ class AuthController(
             userId = "${JwtTokenGenerator.USER_PRINCIPAL_PREFIX}$userId",
             role = role.name,
             status = status,
+            isSensitiveAgree = false,
         )
 
 }

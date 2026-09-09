@@ -7,4 +7,5 @@ data class UserSummaryResult(
     val userId: Long,
     val role: Role,
     val status: AccountStatus,
+    val isSensitiveAgree: Boolean = false,
 )

@@ -18,6 +18,7 @@ fun UserSummaryResult.toResponse(): UserSummaryResponse =
         userId = userId.toExternalUserId(),
         role = role.name,
         status = status,
+        isSensitiveAgree = isSensitiveAgree,
     )
 
 fun AccountResult.toResponse(): AccountResponse =

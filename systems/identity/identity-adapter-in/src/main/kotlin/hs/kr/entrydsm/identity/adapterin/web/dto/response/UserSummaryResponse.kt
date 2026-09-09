@@ -6,4 +6,5 @@ data class UserSummaryResponse(
     val userId: String,
     val role: String,
     val status: AccountStatus,
+    val isSensitiveAgree: Boolean = false,
 )
