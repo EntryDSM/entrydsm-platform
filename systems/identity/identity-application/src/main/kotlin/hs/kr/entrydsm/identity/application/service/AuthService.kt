@@ -70,6 +70,7 @@ class AuthService(
             passwordHash = passwordHasher.hash(command.password),
             role = Role.STUDENT,
             status = AccountStatus.ACTIVE,
+            isSensitiveAgree = command.isSensitiveAgree,
             profile = StudentProfile(
                 name = command.name,
                 phone = command.phone,

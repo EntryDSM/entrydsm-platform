@@ -43,6 +43,7 @@ class AuthControllerTest {
                 phone = "01012345678",
                 birthdate = birthdate,
                 signupType = SignupType.SELF,
+                isSensitiveAgree = true,
             )
         )
 
@@ -52,6 +53,7 @@ class AuthControllerTest {
         assertEquals("01012345678", command.phone)
         assertEquals(birthdate, command.birthdate)
         assertEquals(SignupType.SELF, command.signupType)
+        assertTrue(command.isSensitiveAgree)
         assertEquals(HttpStatus.CREATED, response.statusCode)
         assertEquals("/api/identity/v11/accounts/me", response.headers.location.toString())
         assertEquals("홍길동", response.body?.data?.profile?.name)

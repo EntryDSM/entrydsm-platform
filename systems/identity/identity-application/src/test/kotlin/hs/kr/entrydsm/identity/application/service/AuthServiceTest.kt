@@ -70,12 +70,14 @@ class AuthServiceTest {
                 phone = "01012345678",
                 birthdate = BIRTHDATE,
                 signupType = SignupType.SELF,
+                isSensitiveAgree = true,
             )
         )
 
         assertEquals(123L, result.userId)
         assertEquals(Role.STUDENT, result.role)
         assertEquals(Role.STUDENT, registration?.role)
+        assertTrue(registration?.isSensitiveAgree == true)
         assertEquals("01012345678", registration?.loginId)
         assertEquals(PASSWORD_HASH, registration?.passwordHash)
     }

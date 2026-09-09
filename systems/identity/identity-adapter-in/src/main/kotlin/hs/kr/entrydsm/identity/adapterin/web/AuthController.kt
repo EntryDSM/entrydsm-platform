@@ -51,6 +51,7 @@ class AuthController(
                 phone = request.phone,
                 birthdate = request.birthdate,
                 signupType = request.signupType,
+                isSensitiveAgree = request.isSensitiveAgree,
             )
         )
         return ResponseEntity

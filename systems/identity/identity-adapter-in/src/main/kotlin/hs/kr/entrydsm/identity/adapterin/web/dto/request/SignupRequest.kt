@@ -25,4 +25,5 @@ data class SignupRequest @JsonCreator(mode = JsonCreator.Mode.PROPERTIES) constr
     @JsonProperty("birthdate") val birthdate: LocalDate,
     @field:NotNull
     @JsonProperty("signupType") val signupType: SignupType,
+    @JsonProperty("is_sensitive_agree") val isSensitiveAgree: Boolean = false,
 )
