@@ -1,9 +1,11 @@
 package hs.kr.entrydsm.application.domain.model
 
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.GuardianRelation
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
@@ -38,6 +40,11 @@ data class Applicant(
     var academicRecord: AcademicRecord? = null,
     var totalScore: Double? = null,
     var totalScoreUpdatedAt: LocalDateTime? = null,
+    var status: ApplicantStatus = ApplicantStatus.DRAFT,
+    var submittedAt: LocalDateTime? = null,
+    var cancelReason: String? = null,
+    var passStatus: PassResultStatus = PassResultStatus.PENDING,
+    var announcedAt: LocalDateTime? = null,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 ) {
