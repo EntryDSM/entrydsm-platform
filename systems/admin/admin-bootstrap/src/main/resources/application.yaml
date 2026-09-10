@@ -16,6 +16,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
 server:
+  port: ${SERVER_PORT}
   shutdown: graceful
 admin:
   admission-year: ${ADMISSION_YEAR:2027}
