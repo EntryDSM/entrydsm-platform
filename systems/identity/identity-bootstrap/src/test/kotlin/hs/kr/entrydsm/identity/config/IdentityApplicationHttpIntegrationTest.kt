@@ -224,7 +224,8 @@ class IdentityApplicationHttpIntegrationTest {
             }
 
             registry.add("spring.datasource.url") {
-                "jdbc:mysql://${mysql.host}:${mysql.getMappedPort(MYSQL_PORT)}/$DATABASE?useSSL=false&serverTimezone=UTC"
+                "jdbc:mysql://${mysql.host}:${mysql.getMappedPort(MYSQL_PORT)}/$DATABASE" +
+                    "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
             }
             registry.add("spring.datasource.username") { "identity" }
             registry.add("spring.datasource.password") { "identity" }
