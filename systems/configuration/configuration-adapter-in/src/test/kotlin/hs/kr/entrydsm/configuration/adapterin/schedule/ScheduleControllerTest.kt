@@ -43,19 +43,46 @@ class ScheduleControllerTest {
     }
 
     @Test
-    fun `일정 수정 요청은 제목과 기간을 전달한다`() {
+    fun `여러 일정을 한 요청으로 수정한다`() {
         mvc.perform(
             patch("/api/schedule/v11/schedules/bulk")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    """{"title":"원서 접수","startAt":{"year":2026,"month":4,"day":5,"dayOfWeek":"SUN","hour":21,"minute":5,"second":34},"endAt":{"year":2026,"month":5,"day":5,"dayOfWeek":"TUE","hour":21,"minute":5,"second":34}}""",
+                    """[{"title":"원서 접수","startAt":{"year":2026,"month":4,"day":5,"dayOfWeek":"SUN","hour":21,"minute":5,"second":34},"endAt":{"year":2026,"month":5,"day":5,"dayOfWeek":"TUE","hour":21,"minute":5,"second":34}},{"title":"1차 발표","startAt":{"year":2026,"month":4,"day":5,"dayOfWeek":"SUN","hour":21,"minute":5,"second":34},"endAt":{"year":2026,"month":5,"day":5,"dayOfWeek":"TUE","hour":21,"minute":5,"second":34}}]""",
                 ),
         )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.status").value("SUCCESS"))
-            .andExpect(jsonPath("$.data.title").value("원서 접수"))
+            .andExpect(jsonPath("$.data.length()").value(2))
+            .andExpect(jsonPath("$.data[0].title").value("원서 접수"))
+            .andExpect(jsonPath("$.data[1].title").value("1차 발표"))
 
+        assertEquals(listOf("원서 접수", "1차 발표"), useCase.updatedTitles)
         assertEquals(LocalDateTime.of(2026, 4, 5, 21, 5, 34), useCase.updatedStartAt)
+    }
+
+    @Test
+    fun `빈 배열 수정 요청은 400으로 거부한다`() {
+        mvc.perform(
+            patch("/api/schedule/v11/schedules/bulk")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("[]"),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
+    }
+
+    @Test
+    fun `시작이 종료보다 늦으면 400으로 거부한다`() {
+        mvc.perform(
+            patch("/api/schedule/v11/schedules/bulk")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """[{"title":"원서 접수","startAt":{"year":2026,"month":5,"day":5,"dayOfWeek":"TUE","hour":21,"minute":5,"second":34},"endAt":{"year":2026,"month":4,"day":5,"dayOfWeek":"SUN","hour":21,"minute":5,"second":34}}]""",
+                ),
+        )
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
     }
 
     @Test
@@ -92,7 +119,7 @@ class ScheduleControllerTest {
                 .header("X-User-Id", "1")
                 .header("X-User-Role", "APPLICANT")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"),
+                .content("[]"),
         )
             .andExpect(status().isForbidden)
             .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"))
@@ -110,7 +137,7 @@ class ScheduleControllerTest {
             patch("/api/schedule/v11/schedules/bulk")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
-                    """{"title":"원서 접수","startAt":{"year":2026,"month":4,"day":5,"dayOfWeek":"MON","hour":21,"minute":5,"second":34},"endAt":{"year":2026,"month":5,"day":5,"dayOfWeek":"TUE","hour":21,"minute":5,"second":34}}""",
+                    """[{"title":"원서 접수","startAt":{"year":2026,"month":4,"day":5,"dayOfWeek":"MON","hour":21,"minute":5,"second":34},"endAt":{"year":2026,"month":5,"day":5,"dayOfWeek":"TUE","hour":21,"minute":5,"second":34}}]""",
                 ),
         )
             .andExpect(status().isBadRequest)
@@ -129,6 +156,7 @@ class ScheduleControllerTest {
     private class StubScheduleUseCase : ScheduleUseCase {
         var requestedYear: Int? = null
         var updatedStartAt: LocalDateTime? = null
+        var updatedTitles: List<String> = emptyList()
 
         override fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule =
             Schedule(2, title, startAt, endAt)
@@ -145,9 +173,10 @@ class ScheduleControllerTest {
             )
         }
 
-        override fun update(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule {
-            updatedStartAt = startAt
-            return Schedule(1, title, startAt, endAt)
+        override fun updateAll(schedules: List<Schedule>): List<Schedule> {
+            updatedTitles = schedules.map(Schedule::title)
+            updatedStartAt = schedules.first().startAt
+            return schedules.mapIndexed { index, schedule -> schedule.copy(id = index + 1L) }
         }
     }
 }

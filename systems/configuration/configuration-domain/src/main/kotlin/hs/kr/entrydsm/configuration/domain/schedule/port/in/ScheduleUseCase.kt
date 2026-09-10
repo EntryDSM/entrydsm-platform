@@ -8,5 +8,5 @@ interface ScheduleUseCase {
 
     fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule
 
-    fun update(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule
+    fun updateAll(schedules: List<Schedule>): List<Schedule>
 }

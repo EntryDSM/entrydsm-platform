@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.configuration.application
 
 import hs.kr.entrydsm.configuration.domain.schedule.Schedule
+import hs.kr.entrydsm.configuration.domain.schedule.ScheduleNotFoundException
 import hs.kr.entrydsm.configuration.domain.schedule.port.out.ScheduleRepository
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -19,15 +20,20 @@ class ScheduleServiceTest {
     }
 
     @Test
-    fun `제목에 해당하는 일정의 기간을 수정한다`() {
+    fun `여러 제목의 일정 기간을 한 번에 수정한다`() {
         val startAt = LocalDateTime.of(2026, 4, 5, 21, 5, 34)
         val endAt = LocalDateTime.of(2026, 5, 5, 21, 5, 34)
 
-        val updated = service.update("원서 접수", startAt, endAt)
+        val updated = service.updateAll(
+            listOf(
+                Schedule(title = "원서 접수", startAt = startAt, endAt = endAt),
+                Schedule(title = "1차 발표", startAt = startAt, endAt = endAt),
+            ),
+        )
 
-        assertEquals(1L, updated.id)
-        assertEquals(startAt, updated.startAt)
-        assertEquals(endAt, updated.endAt)
+        assertEquals(listOf(1L, 2L), updated.map(Schedule::id))
+        assertEquals(listOf(startAt, startAt), updated.map(Schedule::startAt))
+        assertEquals(listOf(endAt, endAt), updated.map(Schedule::endAt))
     }
 
     @Test
@@ -42,22 +48,28 @@ class ScheduleServiceTest {
         assertEquals(endAt, repository.savedSchedule?.endAt)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun `종료보다 늦은 시작 시각은 거부한다`() {
-        service.update(
-            "원서 접수",
-            LocalDateTime.of(2026, 5, 6, 0, 0),
-            LocalDateTime.of(2026, 5, 5, 0, 0),
+    @Test(expected = ScheduleNotFoundException::class)
+    fun `없는 제목이 하나라도 있으면 수정을 중단한다`() {
+        val startAt = LocalDateTime.of(2026, 4, 5, 21, 5, 34)
+        val endAt = LocalDateTime.of(2026, 5, 5, 21, 5, 34)
+
+        service.updateAll(
+            listOf(
+                Schedule(title = "원서 접수", startAt = startAt, endAt = endAt),
+                Schedule(title = "없는 일정", startAt = startAt, endAt = endAt),
+            ),
         )
     }
 
     private class FakeScheduleRepository : ScheduleRepository {
-        private var schedule = Schedule(
-            1,
-            "원서 접수",
-            LocalDateTime.of(2025, 1, 1, 0, 0),
-            LocalDateTime.of(2025, 1, 2, 0, 0),
-        )
+        private val schedules = listOf("원서 접수", "1차 발표").mapIndexed { index, title ->
+            title to Schedule(
+                index + 1L,
+                title,
+                LocalDateTime.of(2025, 1, 1, 0, 0),
+                LocalDateTime.of(2025, 1, 2, 0, 0),
+            )
+        }.toMap().toMutableMap()
         var rangeStart: LocalDateTime? = null
         var rangeEnd: LocalDateTime? = null
         var savedSchedule: Schedule? = null
@@ -65,13 +77,13 @@ class ScheduleServiceTest {
         override fun findByStartAtBetween(startAt: LocalDateTime, endAt: LocalDateTime): List<Schedule> {
             rangeStart = startAt
             rangeEnd = endAt
-            return listOf(schedule)
+            return schedules.values.toList()
         }
 
-        override fun findByTitle(title: String): Schedule? = schedule.takeIf { it.title == title }
+        override fun findByTitle(title: String): Schedule? = schedules[title]
 
         override fun save(schedule: Schedule): Schedule = schedule.also {
-            this.schedule = it
+            schedules[it.title] = it
             savedSchedule = it
         }
     }
