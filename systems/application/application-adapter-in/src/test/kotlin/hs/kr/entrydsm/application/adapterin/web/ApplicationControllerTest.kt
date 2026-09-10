@@ -17,6 +17,7 @@ import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.Assert.assertThrows
 import org.springframework.mock.web.MockHttpServletRequest
@@ -47,6 +48,16 @@ class ApplicationControllerTest {
         assertEquals(applicationStartAt, response.data?.schedule?.applicationPeriod?.startAt)
         assertEquals(applicationEndAt, response.data?.schedule?.applicationPeriod?.endAt)
         assertEquals(resultAnnouncedAt, response.data?.schedule?.resultAnnouncedAt)
+    }
+
+    @Test
+    fun getLandingAllowsMissingResultAnnouncementSchedule() {
+        val schedule = LandingScheduleProperties(applicationStartAt, applicationEndAt, null)
+        val controller = ApplicationController(FakeApplicationPort(), schedule)
+
+        val response = controller.getLanding(10L)
+
+        assertNull(response.data?.schedule?.resultAnnouncedAt)
     }
 
     @Test

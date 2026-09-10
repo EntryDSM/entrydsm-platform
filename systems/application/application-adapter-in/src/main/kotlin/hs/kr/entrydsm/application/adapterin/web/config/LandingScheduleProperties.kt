@@ -13,5 +13,5 @@ class LandingScheduleProperties(
     val applicationEndAt: LocalDateTime,
 
     @Value("\${entrydsm.application.schedule.result-announced-at}")
-    val resultAnnouncedAt: LocalDateTime,
+    val resultAnnouncedAt: LocalDateTime?,
 )
