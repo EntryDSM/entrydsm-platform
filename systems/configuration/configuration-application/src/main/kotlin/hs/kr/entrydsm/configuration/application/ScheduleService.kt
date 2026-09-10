@@ -25,8 +25,11 @@ class ScheduleService(
         scheduleRepository.save(Schedule(title = title, startAt = startAt, endAt = endAt))
 
     @Transactional
-    override fun update(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule {
-        val schedule = scheduleRepository.findByTitle(title) ?: throw ScheduleNotFoundException(title)
-        return scheduleRepository.save(schedule.copy(startAt = startAt, endAt = endAt))
+    override fun updateAll(schedules: List<Schedule>): List<Schedule> = schedules.map { requested ->
+        // ponytail: 제목별 단건 조회라 요청 개수만큼 쿼리가 나간다. 연간 일정이 수십 건 수준이라 감수하고,
+        // 늘어나면 ScheduleRepository에 findAllByTitleIn을 추가한다.
+        val schedule = scheduleRepository.findByTitle(requested.title)
+            ?: throw ScheduleNotFoundException(requested.title)
+        scheduleRepository.save(schedule.copy(startAt = requested.startAt, endAt = requested.endAt))
     }
 }

@@ -42,18 +42,14 @@ class ScheduleController(
         )
 
     @PatchMapping("/schedules/bulk")
-    fun update(@RequestBody request: ScheduleRequest): ScheduleApiResponse<ScheduleResponse> =
-        ScheduleApiResponse(
+    fun updateAll(@RequestBody request: List<ScheduleRequest>): ScheduleApiResponse<List<ScheduleResponse>> {
+        require(request.isNotEmpty()) { "수정할 일정이 없습니다." }
+        return ScheduleApiResponse(
             "SUCCESS",
             "일정 수정이 완료되었습니다.",
-            ScheduleResponse.from(
-                scheduleUseCase.update(
-                    request.title,
-                    request.startAt.toLocalDateTime(),
-                    request.endAt.toLocalDateTime(),
-                ),
-            ),
+            scheduleUseCase.updateAll(request.map(ScheduleRequest::toDomain)).map(ScheduleResponse::from),
         )
+    }
 
     @GetMapping("/time")
     fun currentTime(): ScheduleApiResponse<CurrentTimeResponse> = ScheduleApiResponse(
@@ -73,7 +69,13 @@ data class ScheduleRequest(
     val title: String,
     val startAt: DateTimeRequest,
     val endAt: DateTimeRequest,
-)
+) {
+    fun toDomain() = Schedule(
+        title = title,
+        startAt = startAt.toLocalDateTime(),
+        endAt = endAt.toLocalDateTime(),
+    )
+}
 
 data class DateTimeRequest(
     val year: Int,
