@@ -41,6 +41,9 @@ class ConfigurationWebConfiguration(
     private val authorizationInterceptor: ConfigurationAuthorizationInterceptor,
 ) : WebMvcConfigurer {
     override fun addInterceptors(registry: InterceptorRegistry) {
-        registry.addInterceptor(authorizationInterceptor).addPathPatterns("/api/**")
+        registry
+            .addInterceptor(authorizationInterceptor)
+            .addPathPatterns("/api/**")
+            .excludePathPatterns("/api/schedule/**")
     }
 }
