@@ -27,8 +27,6 @@ auth:
     secret: ${JWT_SECRET}
     issuer: ${JWT_ISSUER:entrydsm}
 monitor:
-  # 신뢰하는 프록시(로드밸런서) IP 목록. 비어 있으면 X-Forwarded-For를 신뢰하지 않는다.
-  trusted-proxies: ${MONITOR_TRUSTED_PROXIES:}
   services:
     identity:
       base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
