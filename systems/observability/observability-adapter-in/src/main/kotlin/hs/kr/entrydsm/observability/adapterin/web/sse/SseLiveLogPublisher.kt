@@ -3,12 +3,14 @@ package hs.kr.entrydsm.observability.adapterin.web.sse
 import hs.kr.entrydsm.observability.adapterin.web.dto.response.LiveLogEventResponse
 import hs.kr.entrydsm.observability.application.port.out.ClientLogInput
 import hs.kr.entrydsm.observability.application.port.out.LiveLogPublisherPort
+import java.util.concurrent.ThreadPoolExecutor
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.redis.connection.RedisConnectionFactory
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.redis.listener.ChannelTopic
 import org.springframework.data.redis.listener.RedisMessageListenerContainer
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.stereotype.Component
 import tools.jackson.databind.ObjectMapper
 
@@ -48,9 +50,25 @@ class LiveLogSubscriptionConfig {
         objectMapper: ObjectMapper,
     ) = RedisMessageListenerContainer().apply {
         setConnectionFactory(connectionFactory)
+        // 기본 실행기는 메시지마다 스레드를 만들어 오류가 몰릴 때 느린 구독자 앞에 스레드가 쌓인다.
+        // 한 스레드로 순서대로 보내고 큐가 차면 버린다. 실시간 표시만 빠질 뿐 로그는 목록 API에 남는다.
+        setTaskExecutor(
+            ThreadPoolTaskExecutor().apply {
+                maxPoolSize = 1
+                queueCapacity = LIVE_LOG_QUEUE_CAPACITY
+                setRejectedExecutionHandler(ThreadPoolExecutor.DiscardPolicy())
+                setThreadNamePrefix("live-log-")
+                setDaemon(true)
+                initialize()
+            },
+        )
         addMessageListener(
             { message, _ -> sseBroadcaster.publishLog(objectMapper.readTree(message.body)) },
             ChannelTopic(SseLiveLogPublisher.CHANNEL),
         )
+    }
+
+    companion object {
+        private const val LIVE_LOG_QUEUE_CAPACITY = 1000
     }
 }
