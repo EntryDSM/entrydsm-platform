@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.notification.application.service
 
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
+import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
 import hs.kr.entrydsm.notification.application.port.out.FaqRepository
@@ -223,6 +224,8 @@ class NotificationServiceTest {
         }
 
         override fun findById(id: Long): Notice? = notices.firstOrNull { it.id == id }
+
+        override fun create(command: CreateNoticeCommand): Notice = error("unused")
     }
 
     private inner class FakeFaqRepository(
