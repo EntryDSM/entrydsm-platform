@@ -34,3 +34,19 @@ java_grpc_library(
     srcs = [":configuration_proto"],
     deps = [":configuration_java_proto"],
 )
+
+alias(
+    name = "notification_proto",
+    actual = "//contracts/proto:entrydsm_notification_v1_proto",
+)
+
+java_proto_library(
+    name = "notification_java_proto",
+    deps = [":notification_proto"],
+)
+
+java_grpc_library(
+    name = "notification_grpc_java",
+    srcs = [":notification_proto"],
+    deps = [":notification_java_proto"],
+)
