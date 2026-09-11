@@ -28,12 +28,14 @@ class GatewayAccessGlobalFilter(
 
     override fun filter(exchange: ServerWebExchange, chain: GatewayFilterChain): Mono<Void> {
         val request = exchange.request
+        // X-Forwarded-For도 지우므로 지우기 전에 판정한다.
+        val clientIp = clientIp(request)
         val sanitizedExchange = exchange.mutate()
             .request(
                 request.mutate()
                     .headers { headers ->
                         TRUSTED_HEADERS.forEach(headers::remove)
-                        clientIp(request)?.let { headers.set(CLIENT_IP_HEADER, it) }
+                        clientIp?.let { headers.set(CLIENT_IP_HEADER, it) }
                     }
                     .build(),
             )
@@ -128,7 +130,7 @@ class GatewayAccessGlobalFilter(
     private fun requiresCsrf(method: HttpMethod): Boolean = method !in SAFE_METHODS
 
     /**
-     * 게이트웨이는 X-Forwarded-*를 다운스트림에 넘기지 않으므로(trusted-proxies 미설정) 판정한 클라이언트 IP를 X-Real-IP로 따로 넘긴다.
+     * 다운스트림에는 X-Forwarded-For를 지우고 판정한 클라이언트 IP만 X-Real-IP로 넘긴다(trusted-proxies 미설정이라 SCG도 X-Forwarded-*를 지운다).
      * 직접 붙은 상대가 내부 주소(ALB 같은 프록시)일 때만 X-Forwarded-For를 오른쪽부터 읽어 내부 주소가 아닌 첫 값을 쓴다.
      * 그 왼쪽 값과 공인 IP로 직접 붙은 요청의 X-Forwarded-For는 클라이언트가 위조할 수 있어 쓰지 않는다.
      * ponytail: 사설 IPv4·루프백·링크로컬만 내부 프록시로 본다. 공인 IP 프록시(CloudFront 등)가 앞에 붙으면 신뢰 목록 설정을 추가한다.
@@ -176,6 +178,7 @@ class GatewayAccessGlobalFilter(
             APPLICATION_USER_ID_HEADER,
             SENSITIVE_AGREE_HEADER,
             CLIENT_IP_HEADER,
+            FORWARDED_FOR_HEADER,
         )
         val SAFE_METHODS = setOf(HttpMethod.GET, HttpMethod.HEAD, HttpMethod.OPTIONS, HttpMethod.TRACE)
     }
