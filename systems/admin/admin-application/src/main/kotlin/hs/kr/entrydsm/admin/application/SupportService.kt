@@ -25,6 +25,7 @@ class SupportService(
             Notice(
                 title = command.title,
                 content = command.content,
+                division = command.division,
                 isPinned = command.isPinned,
                 attachmentIds = command.attachmentIds,
             ),

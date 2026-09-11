@@ -61,6 +61,9 @@ data class CreateNoticeRequest(
     val title: String,
     @field:NotBlank
     val content: String,
+    /** 공지 분류. notification 공지 목록의 category 값(ADMISSION_NOTICE, PROSPECTIVE_STUDENT)과 같다. */
+    @field:NotBlank
+    val division: String = "ADMISSION_NOTICE",
     @param:JsonProperty("isPinned")
     @get:JsonProperty("isPinned")
     val isPinned: Boolean = false,
