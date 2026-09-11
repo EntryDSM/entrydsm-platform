@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component
 
 /**
  * 동시접속 최대·평균은 표본이 쌓여야 나온다.
- * 인스턴스마다 돌면 표본 수만 인스턴스 수만큼 늘 뿐, 모두 같은 Redis 값을 재므로 최대·평균은 달라지지 않는다.
+ * 인스턴스마다 돌지만 5초 구간마다 한 인스턴스의 표본만 기록된다(RedisSessionStoreAdapter).
  */
 @Component
 class ConcurrencySampler(
