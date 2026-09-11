@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.observability.application
 
 import hs.kr.entrydsm.observability.application.port.`in`.GetDashboardSnapshotUseCase
+import hs.kr.entrydsm.observability.application.port.`in`.SampleConcurrencyUseCase
 import hs.kr.entrydsm.observability.application.port.`in`.result.ApiStatsResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.BusinessStatsResult
 import hs.kr.entrydsm.observability.application.port.`in`.result.ClientLogCountResult
@@ -36,7 +37,7 @@ class MonitorDashboardService(
     private val storageUsagePort: StorageUsagePort,
     private val roundPort: RoundPort,
     private val clock: Clock,
-) : GetDashboardSnapshotUseCase {
+) : GetDashboardSnapshotUseCase, SampleConcurrencyUseCase {
 
     override fun getSnapshot(round: String?): DashboardSnapshotResult {
         val currentRound = roundPort.current()
@@ -110,6 +111,11 @@ class MonitorDashboardService(
                 measuredAt = storage.measuredAt,
             ),
         )
+    }
+
+    /** 대시보드의 현재 동시접속과 같은 창으로 재야 최대·평균과 비교할 수 있다. */
+    override fun sampleConcurrency() {
+        sessionStorePort.sampleConcurrency(Instant.now(clock), WINDOW_SECONDS)
     }
 
     private fun ratio(count: Long, total: Long): Double = if (total == 0L) 0.0 else count.toDouble() / total
