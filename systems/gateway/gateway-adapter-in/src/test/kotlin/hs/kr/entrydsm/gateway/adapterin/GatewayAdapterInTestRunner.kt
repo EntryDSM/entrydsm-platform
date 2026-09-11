@@ -6,6 +6,7 @@ import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimePropertiesTe
 import hs.kr.entrydsm.gateway.adapterin.error.DownstreamFailureGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayGlobalExceptionHandlerTest
 import hs.kr.entrydsm.gateway.adapterin.integration.GatewayProxyIntegrationTest
+import hs.kr.entrydsm.gateway.adapterin.filter.GatewayAccessGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.filter.RequestSizeGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayCircuitBreakerGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayIntegrationTestGateTest
@@ -31,6 +32,7 @@ fun main() {
             selectClass(DownstreamFailureGlobalFilterTest::class.java),
             selectClass(GatewayGlobalExceptionHandlerTest::class.java),
             selectClass(GatewayProxyIntegrationTest::class.java),
+            selectClass(GatewayAccessGlobalFilterTest::class.java),
             selectClass(RequestSizeGlobalFilterTest::class.java),
             selectClass(RedisGatewayCircuitStateStoreIntegrationTest::class.java),
             selectClass(GatewayIntegrationTestGateTest::class.java),
