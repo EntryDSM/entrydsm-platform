@@ -13,7 +13,9 @@ service NotificationService {
 message CreateNoticeRequest {
     string title = 1;
     string content = 2;
-    // NoticeCategory 이름: ADMISSION_NOTICE, PROSPECTIVE_STUDENT
+    // NoticeCategory 이름(ADMISSION_NOTICE, PROSPECTIVE_STUDENT).
+    // 한글 이름(입학 공지사항, 예비 신입생 안내)과
+    // Notion 명세의 영문 이름(Admissions Notice, Prospective Students Notice)도 받는다.
     string category = 3;
     string author = 4;
     bool is_pinned = 5;

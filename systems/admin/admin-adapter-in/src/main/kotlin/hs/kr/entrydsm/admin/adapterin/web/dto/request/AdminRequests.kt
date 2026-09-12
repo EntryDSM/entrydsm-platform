@@ -61,7 +61,12 @@ data class CreateNoticeRequest(
     val title: String,
     @field:NotBlank
     val content: String,
-    /** 공지 분류. notification 공지 목록의 category 값(ADMISSION_NOTICE, PROSPECTIVE_STUDENT)과 같다. */
+    /**
+     * 공지 분류. notification 공지 목록의 category 값(ADMISSION_NOTICE, PROSPECTIVE_STUDENT)과 같다.
+     *
+     * 한글 이름(입학 공지사항, 예비 신입생 안내)과 Notion 명세의 영문 이름
+     * (Admissions Notice, Prospective Students Notice)도 같은 값으로 치환해 받는다.
+     */
     @field:NotBlank
     val division: String = "ADMISSION_NOTICE",
     @param:JsonProperty("isPinned")

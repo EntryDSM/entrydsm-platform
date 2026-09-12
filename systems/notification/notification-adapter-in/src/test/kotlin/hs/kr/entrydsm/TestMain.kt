@@ -48,12 +48,36 @@ class NotificationAdapterInModuleTest {
         )
     }
 
+    /** Notion 명세가 예시로 쓰는 영문 이름도 같은 분류로 치환해 받는다. */
+    @Test
+    fun grpcCreateNoticeAcceptsSpecCategoryNames() {
+        val port = RecordingNotificationPort()
+
+        NotificationGrpcService(port)
+            .createNotice(noticeRequest(category = "Admissions Notice"), RecordingObserver())
+        assertEquals(NoticeCategory.ADMISSION_NOTICE, port.created?.category)
+
+        NotificationGrpcService(port)
+            .createNotice(noticeRequest(category = "Prospective Students Notice"), RecordingObserver())
+        assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, port.created?.category)
+    }
+
+    @Test
+    fun grpcCreateNoticeAcceptsKoreanCategoryNames() {
+        val port = RecordingNotificationPort()
+
+        NotificationGrpcService(port)
+            .createNotice(noticeRequest(category = "예비 신입생 안내"), RecordingObserver())
+
+        assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, port.created?.category)
+    }
+
     @Test
     fun grpcCreateNoticeRejectsUnknownCategory() {
         val port = RecordingNotificationPort()
         val observer = RecordingObserver()
 
-        NotificationGrpcService(port).createNotice(noticeRequest(category = "Admissions Notice"), observer)
+        NotificationGrpcService(port).createNotice(noticeRequest(category = "Graduation Notice"), observer)
 
         assertNull(port.created)
         assertEquals(Status.Code.INVALID_ARGUMENT, Status.fromThrowable(observer.error).code)
