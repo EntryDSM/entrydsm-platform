@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.notification.application.port.`in`
 
+import hs.kr.entrydsm.notification.application.port.`in`.command.AnswerQuestionCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
@@ -16,6 +17,7 @@ interface NotificationPort {
     fun createNotice(command: CreateNoticeCommand): NoticeDetailResult
     fun getFaqs(command: ReadFaqPageCommand): PageResult<FaqSummaryResult>
     fun getFaq(id: Long): FaqDetailResult
+    fun answerQuestion(command: AnswerQuestionCommand): FaqDetailResult
     fun getRecruitmentGuideline(): RecruitmentGuidelineResult
 }
 

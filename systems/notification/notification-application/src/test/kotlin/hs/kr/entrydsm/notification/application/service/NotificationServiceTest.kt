@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.notification.application.service
 
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
+import hs.kr.entrydsm.notification.application.port.`in`.command.AnswerQuestionCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
@@ -155,6 +156,32 @@ class NotificationServiceTest {
     }
 
     @Test
+    fun answerQuestionReplacesAnswerAndRecordsAnswerer() {
+        val service = service(faqs = listOf(faq(id = 7L, question = "기숙사가 있나요?", answer = "준비 중입니다")))
+
+        val result = service.answerQuestion(
+            AnswerQuestionCommand(questionId = 7L, content = "전원 기숙사 생활입니다", answeredBy = "admin"),
+        )
+
+        assertEquals(7L, result.faqId)
+        assertEquals("기숙사가 있나요?", result.question)
+        assertEquals("전원 기숙사 생활입니다", result.answer)
+        assertEquals(answeredAt, result.answeredAt)
+    }
+
+    @Test(expected = NotificationNotFoundException::class)
+    fun answerQuestionThrowsWhenQuestionDoesNotExist() {
+        service().answerQuestion(
+            AnswerQuestionCommand(questionId = 1L, content = "답변", answeredBy = "admin"),
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun answerQuestionRejectsBlankContent() {
+        AnswerQuestionCommand(questionId = 1L, content = " ", answeredBy = "admin")
+    }
+
+    @Test
     fun getRecruitmentGuidelineReturnsCurrentGuideline() {
         val guideline = RecruitmentGuideline(
             id = 1L,
@@ -240,6 +267,14 @@ class NotificationServiceTest {
         }
 
         override fun findById(id: Long): Faq? = faqs.firstOrNull { it.id == id }
+
+        override fun answer(command: AnswerQuestionCommand): Faq? =
+            faqs.firstOrNull { it.id == command.questionId }?.copy(
+                answer = command.content,
+                answeredBy = command.answeredBy,
+                answeredAt = answeredAt,
+                updatedAt = answeredAt,
+            )
     }
 
     private class FakeRecruitmentGuidelineRepository(
@@ -320,5 +355,6 @@ class NotificationServiceTest {
 
     private companion object {
         val now: LocalDateTime = LocalDateTime.parse("2026-08-17T09:00:00")
+        val answeredAt: LocalDateTime = LocalDateTime.parse("2026-09-12T10:00:00")
     }
 }

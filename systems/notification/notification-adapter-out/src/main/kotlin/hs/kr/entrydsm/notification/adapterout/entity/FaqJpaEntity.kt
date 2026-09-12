@@ -34,6 +34,12 @@ open class FaqJpaEntity(
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: LocalDateTime = LocalDateTime.now(),
+
+    @Column(name = "answered_by", length = 50)
+    var answeredBy: String? = null,
+
+    @Column(name = "answered_at")
+    var answeredAt: LocalDateTime? = null,
 ) {
     fun toDomain(): Faq =
         Faq(
@@ -44,6 +50,8 @@ open class FaqJpaEntity(
             viewCount = viewCount,
             createdAt = createdAt,
             updatedAt = updatedAt,
+            answeredBy = answeredBy,
+            answeredAt = answeredAt,
         )
 }
 
