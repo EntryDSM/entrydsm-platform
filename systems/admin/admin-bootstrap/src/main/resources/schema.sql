@@ -63,13 +63,3 @@ CREATE TABLE IF NOT EXISTS export_job (
     PRIMARY KEY (id),
     UNIQUE KEY uk_export_job_id (export_job_id)
 );
-
-CREATE TABLE IF NOT EXISTS question_answer (
-    id          BIGINT      NOT NULL AUTO_INCREMENT,
-    question_id BIGINT      NOT NULL,
-    content     TEXT        NOT NULL,
-    answered_by VARCHAR(50) NOT NULL,
-    answered_at DATETIME(6) NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_question_answer_question_id (question_id)
-);
