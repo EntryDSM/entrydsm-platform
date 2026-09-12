@@ -8,6 +8,7 @@ option java_outer_classname = "NotificationProto";
 
 service NotificationService {
     rpc CreateNotice(CreateNoticeRequest) returns (CreateNoticeResponse);
+    rpc AnswerQuestion(AnswerQuestionRequest) returns (AnswerQuestionResponse);
 }
 
 message CreateNoticeRequest {
@@ -25,4 +26,16 @@ message CreateNoticeRequest {
 message CreateNoticeResponse {
     int64 notice_id = 1;
     int64 created_at_epoch_millis = 2;
+}
+
+// 관리자가 등록한 답변을 질문(notification 의 faqs 행)에 붙인다.
+message AnswerQuestionRequest {
+    int64 question_id = 1;
+    string content = 2;
+    string answered_by = 3;
+}
+
+message AnswerQuestionResponse {
+    int64 question_id = 1;
+    int64 answered_at_epoch_millis = 2;
 }
