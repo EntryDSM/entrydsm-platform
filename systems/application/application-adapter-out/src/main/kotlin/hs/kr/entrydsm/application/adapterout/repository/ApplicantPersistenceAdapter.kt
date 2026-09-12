@@ -31,4 +31,8 @@ class ApplicantPersistenceAdapter(
     @Transactional(readOnly = true)
     override fun findByAccountId(accountId: Long): Applicant? =
         applicantJpaRepository.findByAccountId(accountId)?.toDomain()
+
+    @Transactional(readOnly = true)
+    override fun existingIds(ids: Collection<Long>): Set<Long> =
+        if (ids.isEmpty()) emptySet() else applicantJpaRepository.findExistingIds(ids).toSet()
 }

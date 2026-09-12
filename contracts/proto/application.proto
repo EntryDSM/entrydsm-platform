@@ -10,6 +10,8 @@ service ApplicationService {
     rpc CreateApplication(CreateApplicationRequest) returns (ApplicationResponse);
     rpc GetApplication(GetApplicationRequest) returns (ApplicationResponse);
     rpc CancelApplication(CancelApplicationRequest) returns (ApplicationResponse);
+    // 전형 결과 발표. 결과의 소유자는 application 이고 admin 은 산출한 결과를 위임한다.
+    rpc AnnouncePassResults(AnnouncePassResultsRequest) returns (AnnouncePassResultsResponse);
 }
 
 message CreateApplicationRequest {
@@ -49,4 +51,27 @@ enum PassStatus {
     PASS_STATUS_NOT_ANNOUNCED = 1;
     PASS_STATUS_PASSED = 2;
     PASS_STATUS_FAILED = 3;
+}
+
+message AnnouncePassResultsRequest {
+    repeated PassResultEntry entries = 1;
+}
+
+message PassResultEntry {
+    int64 applicant_id = 1;
+    ResultType result_type = 2;
+    // 발표 결과. PASS_STATUS_NOT_ANNOUNCED 는 발표가 아니므로 거부한다.
+    PassStatus result = 3;
+    optional int64 processed_by = 4;
+    int64 processed_at_epoch_millis = 5;
+}
+
+message AnnouncePassResultsResponse {
+    int32 applied_count = 1;
+}
+
+enum ResultType {
+    RESULT_TYPE_UNSPECIFIED = 0;
+    RESULT_TYPE_DOCUMENT = 1;
+    RESULT_TYPE_FINAL = 2;
 }

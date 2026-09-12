@@ -1,6 +1,8 @@
 package hs.kr.entrydsm.application.adapterin.grpc
 
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
+import hs.kr.entrydsm.application.application.port.`in`.PassResultPort
+import hs.kr.entrydsm.application.application.port.`in`.command.AnnouncePassResultsCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateFamilyCommand
@@ -14,10 +16,14 @@ import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantRe
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
+import hs.kr.entrydsm.application.domain.enum.ResultType
+import hs.kr.entrydsm.application.domain.model.PassResult
+import hs.kr.entrydsm.application.grpc.AnnouncePassResultsRequest
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
+import hs.kr.entrydsm.application.grpc.PassResultEntry
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Server
@@ -34,6 +40,7 @@ import org.junit.Test
 
 class ApplicationGrpcServiceTest {
     private lateinit var port: FakeApplicationPort
+    private lateinit var passResultPort: FakePassResultPort
     private lateinit var server: Server
     private lateinit var channel: ManagedChannel
     private lateinit var stub: ApplicationServiceGrpc.ApplicationServiceBlockingStub
@@ -41,7 +48,8 @@ class ApplicationGrpcServiceTest {
     @Before
     fun setUp() {
         port = FakeApplicationPort()
-        server = ServerBuilder.forPort(0).addService(ApplicationGrpcService(port)).build().start()
+        passResultPort = FakePassResultPort()
+        server = ServerBuilder.forPort(0).addService(ApplicationGrpcService(port, passResultPort)).build().start()
         channel = ManagedChannelBuilder.forAddress("127.0.0.1", server.port).usePlaintext().build()
         stub = ApplicationServiceGrpc.newBlockingStub(channel)
     }
@@ -79,6 +87,65 @@ class ApplicationGrpcServiceTest {
 
         assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
+    }
+
+    @Test
+    fun announcesPassResults() {
+        val response = stub.announcePassResults(
+            AnnouncePassResultsRequest.newBuilder()
+                .addEntries(passEntry(USER_ID, hs.kr.entrydsm.application.grpc.ResultType.RESULT_TYPE_DOCUMENT))
+                .addEntries(passEntry(USER_ID + 1, hs.kr.entrydsm.application.grpc.ResultType.RESULT_TYPE_FINAL))
+                .build(),
+        )
+
+        assertEquals(2, response.appliedCount)
+        assertEquals(
+            listOf(ResultType.DOCUMENT, ResultType.FINAL),
+            passResultPort.announced.map { it.resultType },
+        )
+        assertEquals(PassResultStatus.PASS, passResultPort.announced.first().result)
+        assertEquals(ADMIN_ID, passResultPort.announced.first().processedBy)
+    }
+
+    @Test
+    fun rejectsUnannouncedPassResult() {
+        val rejected = assertThrows(StatusRuntimeException::class.java) {
+            stub.announcePassResults(
+                AnnouncePassResultsRequest.newBuilder()
+                    .addEntries(
+                        PassResultEntry.newBuilder()
+                            .setApplicantId(USER_ID)
+                            .setResultType(hs.kr.entrydsm.application.grpc.ResultType.RESULT_TYPE_FINAL)
+                            .setResult(hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_NOT_ANNOUNCED)
+                            .setProcessedAtEpochMillis(0)
+                            .build(),
+                    )
+                    .build(),
+            )
+        }
+
+        assertEquals(Status.Code.INVALID_ARGUMENT, rejected.status.code)
+        assertEquals(0, passResultPort.announced.size)
+    }
+
+    private fun passEntry(
+        applicantId: Long,
+        resultType: hs.kr.entrydsm.application.grpc.ResultType,
+    ): PassResultEntry = PassResultEntry.newBuilder()
+        .setApplicantId(applicantId)
+        .setResultType(resultType)
+        .setResult(hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_PASSED)
+        .setProcessedBy(ADMIN_ID)
+        .setProcessedAtEpochMillis(0)
+        .build()
+
+    private class FakePassResultPort : PassResultPort {
+        val announced = mutableListOf<PassResult>()
+
+        override fun announce(command: AnnouncePassResultsCommand): Int {
+            announced += command.results
+            return command.results.size
+        }
     }
 
     private class FakeApplicationPort : ApplicationPort {
@@ -122,5 +189,6 @@ class ApplicationGrpcServiceTest {
 
     private companion object {
         const val USER_ID = 10L
+        const val ADMIN_ID = 77L
     }
 }

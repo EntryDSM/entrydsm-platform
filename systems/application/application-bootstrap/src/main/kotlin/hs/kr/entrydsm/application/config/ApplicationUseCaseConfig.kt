@@ -2,9 +2,12 @@ package hs.kr.entrydsm.application.config
 
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
+import hs.kr.entrydsm.application.application.port.`in`.PassResultPort
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.application.port.out.PassResultRepository
 import hs.kr.entrydsm.application.application.service.ApplicationCommandService
 import hs.kr.entrydsm.application.application.service.EvaluationCommandService
+import hs.kr.entrydsm.application.application.service.PassResultCommandService
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -24,4 +27,10 @@ class ApplicationUseCaseConfig {
         applicantRepository: ApplicantRepository,
         scoreCalculator: ScoreCalculator,
     ): EvaluationPort = EvaluationCommandService(applicantRepository, scoreCalculator)
+
+    @Bean
+    fun passResultService(
+        applicantRepository: ApplicantRepository,
+        passResultRepository: PassResultRepository,
+    ): PassResultPort = PassResultCommandService(applicantRepository, passResultRepository)
 }
