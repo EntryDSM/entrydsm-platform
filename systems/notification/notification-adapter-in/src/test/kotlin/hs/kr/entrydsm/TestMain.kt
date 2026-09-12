@@ -18,7 +18,7 @@ import hs.kr.entrydsm.notification.grpc.CreateNoticeResponse
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import java.time.LocalDateTime
-import java.time.ZoneId
+import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -47,7 +47,7 @@ class NotificationAdapterInModuleTest {
         assertEquals(listOf("doc_1", "doc_2"), created.attachmentIds)
         assertEquals(1L, observer.value?.noticeId)
         assertEquals(
-            CREATED_AT.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            CREATED_AT.toInstant(ZoneOffset.UTC).toEpochMilli(),
             observer.value?.createdAtEpochMillis,
         )
     }
@@ -64,6 +64,10 @@ class NotificationAdapterInModuleTest {
         NotificationGrpcService(port)
             .createNotice(noticeRequest(category = "Prospective Students Notice"), RecordingObserver())
         assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, port.created?.category)
+
+        NotificationGrpcService(port)
+            .createNotice(noticeRequest(category = "  admissions NOTICE  "), RecordingObserver())
+        assertEquals(NoticeCategory.ADMISSION_NOTICE, port.created?.category)
     }
 
     @Test
@@ -100,20 +104,33 @@ class NotificationAdapterInModuleTest {
         assertEquals("admin", answered.answeredBy)
         assertEquals(7L, observer.value?.questionId)
         assertEquals(
-            ANSWERED_AT.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+            ANSWERED_AT.toInstant(ZoneOffset.UTC).toEpochMilli(),
             observer.value?.answeredAtEpochMillis,
         )
     }
 
     @Test
     fun grpcAnswerQuestionReportsMissingQuestionAsNotFound() {
-        val port = RecordingNotificationPort(questionExists = false)
+        val port = RecordingNotificationPort(NotificationNotFoundException("faq not found: id=404"))
         val observer = RecordingObserver<AnswerQuestionResponse>()
 
         NotificationGrpcService(port).answerQuestion(answerRequest(questionId = 404L), observer)
 
         assertNull(observer.value)
         assertEquals(Status.Code.NOT_FOUND, Status.fromThrowable(observer.error).code)
+    }
+
+    /** INTERNAL 설명은 호출자에게 그대로 전달되므로 저장소 예외 메시지를 싣지 않는다. */
+    @Test
+    fun grpcAnswerQuestionHidesInternalFailureDetail() {
+        val port = RecordingNotificationPort(RuntimeException("Table 'notification_db.faqs' doesn't exist"))
+        val observer = RecordingObserver<AnswerQuestionResponse>()
+
+        NotificationGrpcService(port).answerQuestion(answerRequest(questionId = 7L), observer)
+
+        val status = Status.fromThrowable(observer.error)
+        assertEquals(Status.Code.INTERNAL, status.code)
+        assertEquals("internal server error", status.description)
     }
 
     @Test
@@ -179,7 +196,7 @@ class NotificationAdapterInModuleTest {
             .build()
 
     private class RecordingNotificationPort(
-        private val questionExists: Boolean = true,
+        private val answerFailure: RuntimeException? = null,
     ) : NotificationPort {
         var created: CreateNoticeCommand? = null
         var answered: AnswerQuestionCommand? = null
@@ -190,9 +207,7 @@ class NotificationAdapterInModuleTest {
         }
 
         override fun answerQuestion(command: AnswerQuestionCommand): FaqDetailResult {
-            if (!questionExists) {
-                throw NotificationNotFoundException("faq not found: id=${command.questionId}")
-            }
+            answerFailure?.let { throw it }
             answered = command
             return FaqDetailResult(
                 faqId = command.questionId,

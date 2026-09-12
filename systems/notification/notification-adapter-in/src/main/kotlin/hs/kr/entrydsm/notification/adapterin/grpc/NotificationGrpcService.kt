@@ -13,7 +13,7 @@ import hs.kr.entrydsm.notification.grpc.NotificationServiceGrpc
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import java.time.LocalDateTime
-import java.time.ZoneId
+import java.time.ZoneOffset
 import org.springframework.stereotype.Component
 
 @Component
@@ -71,13 +71,19 @@ class NotificationGrpcService(
         }
     }
 
+    /** 컨테이너 기본 시간대에 기대지 않는다. application gRPC 와 같은 규칙이다. */
     private fun LocalDateTime.toEpochMillis(): Long =
-        atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        toInstant(ZoneOffset.UTC).toEpochMilli()
 
     private fun Exception.toStatusException() =
         when (this) {
-            is IllegalArgumentException -> Status.INVALID_ARGUMENT
-            is NotificationNotFoundException -> Status.NOT_FOUND
-            else -> Status.INTERNAL
-        }.withDescription(message).withCause(this).asRuntimeException()
+            is IllegalArgumentException -> Status.INVALID_ARGUMENT.withDescription(message)
+            is NotificationNotFoundException -> Status.NOT_FOUND.withDescription(message)
+            // 설명은 호출자에게 그대로 전달된다. 저장소 예외 메시지를 싣지 않는다.
+            else -> Status.INTERNAL.withDescription(INTERNAL_ERROR_DESCRIPTION)
+        }.withCause(this).asRuntimeException()
+
+    private companion object {
+        const val INTERNAL_ERROR_DESCRIPTION = "internal server error"
+    }
 }
