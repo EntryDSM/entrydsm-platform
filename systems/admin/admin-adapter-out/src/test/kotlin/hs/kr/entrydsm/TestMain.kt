@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.adapterout
 
+import hs.kr.entrydsm.admin.adapterout.grpc.GrpcApplicantDataAdapterTest
 import hs.kr.entrydsm.admin.adapterout.grpc.GrpcNoticeAdapterTest
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -10,6 +11,7 @@ import org.junit.runners.Suite
 @Suite.SuiteClasses(
     AdminAdapterOutSmokeTest::class,
     GrpcNoticeAdapterTest::class,
+    GrpcApplicantDataAdapterTest::class,
 )
 class AdminAdapterOutModuleTest
 

@@ -6,6 +6,9 @@ private const val SCHOOL_NAME = "대덕소프트웨어마이스터고등학교"
 private const val PRINCIPAL_LINE = "대덕소프트웨어마이스터고등학교장"
 private const val UNISSUED_EXAMINEE_NUMBER = "미발급"
 
+/** 원서에 아직 채워지지 않은 칸. 빈 칸으로 두면 인쇄물에서 누락과 구분되지 않는다. */
+private const val MISSING_VALUE = "-"
+
 /**
  * 수험표 레이아웃을 XHTML 문자열로 만듭니다.
  *
@@ -18,9 +21,9 @@ object AdmissionTicketHtml {
         val rows = listOf(
             "수험번호" to (ticket.examineeNumber ?: UNISSUED_EXAMINEE_NUMBER),
             "성명" to ticket.name,
-            "출신 중학교" to ticket.schoolName,
-            "지역" to ticket.region.label,
-            "전형 유형" to ticket.admissionType.label,
+            "출신 중학교" to (ticket.schoolName ?: MISSING_VALUE),
+            "지역" to (ticket.region?.label ?: MISSING_VALUE),
+            "전형 유형" to (ticket.admissionType?.label ?: MISSING_VALUE),
             "접수 번호" to ticket.receiptNumber.toString(),
         )
 

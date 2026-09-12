@@ -19,4 +19,29 @@ data class ApplicantFilter(
     val graduationStatuses: Set<GraduationStatus> = emptySet(),
     val isSubmitted: Boolean? = null,
     val statuses: Set<ApplicantStatus> = emptySet(),
-)
+) {
+    /**
+     * 지원자가 이 조건에 걸리는지 봅니다.
+     *
+     * 값이 비어 있는 원서는 해당 조건을 건 검색에서 빠집니다. "대전으로 좁혀 봤더니
+     * 지역 미기재 원서가 섞여 나오는" 쪽이 더 헷갈리기 때문입니다.
+     */
+    fun matches(applicant: Applicant): Boolean =
+        matchesKeyword(applicant) &&
+            regions.accepts(applicant.region) &&
+            admissionTypes.accepts(applicant.admissionType) &&
+            graduationStatuses.accepts(applicant.graduationStatus) &&
+            statuses.accepts(applicant.status) &&
+            (isSubmitted == null || applicant.isSubmitted == isSubmitted)
+
+    private fun <T> Set<T>.accepts(value: T?): Boolean =
+        isEmpty() || (value != null && contains(value))
+
+    private fun matchesKeyword(applicant: Applicant): Boolean {
+        val needle = keyword?.trim()?.lowercase()
+        if (needle.isNullOrEmpty()) return true
+
+        return applicant.name.lowercase().contains(needle) ||
+            applicant.examineeNumber?.lowercase()?.contains(needle) == true
+    }
+}

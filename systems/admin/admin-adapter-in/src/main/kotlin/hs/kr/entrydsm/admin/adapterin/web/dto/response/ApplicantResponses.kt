@@ -13,12 +13,12 @@ import java.time.LocalDate
  * 명세의 필드명을 유지하려면 이름을 명시해야 합니다.
  */
 data class ApplicantSummaryResponse(
-    val applicantId: Long?,
+    val applicantId: Long,
     val receiptNumber: Int,
     val name: String,
-    val region: Region,
-    val admissionType: AdmissionType,
-    val graduationStatus: GraduationStatus,
+    val region: Region?,
+    val admissionType: AdmissionType?,
+    val graduationStatus: GraduationStatus?,
     val examineeNumber: String?,
     @get:JsonProperty("isSubmitted")
     val isSubmitted: Boolean,
@@ -26,14 +26,14 @@ data class ApplicantSummaryResponse(
 )
 
 data class ApplicantDetailResponse(
-    val applicantId: Long?,
+    val applicantId: Long,
     val receiptNumber: Int,
     val name: String,
-    val birthDate: LocalDate,
+    val birthDate: LocalDate?,
     val phoneNumber: String,
-    val region: Region,
-    val admissionType: AdmissionType,
-    val graduationStatus: GraduationStatus,
+    val region: Region?,
+    val admissionType: AdmissionType?,
+    val graduationStatus: GraduationStatus?,
     val schoolName: String,
     val examineeNumber: String?,
     @get:JsonProperty("isSubmitted")

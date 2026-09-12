@@ -11,7 +11,9 @@ import hs.kr.entrydsm.admin.domain.policy.ScreeningStage
 import hs.kr.entrydsm.admin.domain.port.`in`.EvaluateFinalScreeningUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.EvaluateFirstScreeningUseCase
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
+import hs.kr.entrydsm.admin.domain.port.out.AnnouncedPassResult
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
+import hs.kr.entrydsm.admin.domain.port.out.PassResultAnnouncementPort
 import java.time.Clock
 import java.time.Instant
 import org.springframework.beans.factory.annotation.Value
@@ -23,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional
 class ScreeningService(
     private val applicantRepository: ApplicantRepository,
     private val admissionQuotaRepository: AdmissionQuotaRepository,
+    private val passResultAnnouncementPort: PassResultAnnouncementPort,
     private val clock: Clock,
     @Value("\${admin.screening.first-pass-multiplier}") private val firstPassMultiplier: Double,
 ) : EvaluateFirstScreeningUseCase,
@@ -47,9 +50,9 @@ class ScreeningService(
         val now = Instant.now(clock)
 
         if (!command.dryRun) {
-            applicantRepository.saveAll(
-                (outcome.passed + outcome.failed).map { it.copy(updatedAt = now) },
-            )
+            val decided = (outcome.passed + outcome.failed).map { it.copy(updatedAt = now) }
+            applicantRepository.saveAll(decided)
+            announce(decided.map { AnnouncedPassResult(it.id, it.status) }, now)
         }
 
         return ScreeningResult(
@@ -78,12 +81,23 @@ class ScreeningService(
         val now = Instant.now(clock)
 
         applicantRepository.save(applicant.copy(status = status, updatedAt = now))
+        announce(listOf(AnnouncedPassResult(applicantId, status)), now)
 
         return FinalScreeningResult(
             applicantId = applicantId,
             status = status,
             processedAt = now,
         )
+    }
+
+    /**
+     * 산출 결과를 원본에 반영합니다.
+     *
+     * admin DB 에만 적으면 수험생이 보는 합격 조회에 나타나지 않습니다. 반영에 실패하면
+     * 예외가 올라가 admin 쪽 저장도 함께 되돌아가, 두 시스템의 판단이 갈리지 않습니다.
+     */
+    private fun announce(results: List<AnnouncedPassResult>, processedAt: Instant) {
+        passResultAnnouncementPort.announce(results, processedAt)
     }
 
     private fun currentQuota(): AdmissionQuota =

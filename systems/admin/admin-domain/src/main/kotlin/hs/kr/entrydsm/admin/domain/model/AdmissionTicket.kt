@@ -6,6 +6,8 @@ import hs.kr.entrydsm.admin.domain.enum.Region
 /**
  * 수험표에 인쇄되는 값만 추린 모델입니다.
  *
+ * 원서에 아직 없는 값은 null 로 두고 인쇄할 때 빈 칸 표시로 대체합니다.
+ *
  * @property admissionYear 입학 학년도. 지원자 정보가 아니라 전형 설정에서 주입한다
  * @property photoDataUri 증명사진. 없으면 사진 칸을 빈 칸으로 인쇄한다
  */
@@ -14,9 +16,9 @@ data class AdmissionTicket(
     val receiptNumber: Int,
     val examineeNumber: String?,
     val name: String,
-    val schoolName: String,
-    val region: Region,
-    val admissionType: AdmissionType,
+    val schoolName: String?,
+    val region: Region?,
+    val admissionType: AdmissionType?,
     val photoDataUri: String? = null,
 ) {
     companion object {
@@ -32,7 +34,7 @@ data class AdmissionTicket(
             receiptNumber = applicant.receiptNumber,
             examineeNumber = applicant.examineeNumber,
             name = applicant.name,
-            schoolName = applicant.schoolName,
+            schoolName = applicant.schoolName.ifBlank { null },
             region = applicant.region,
             admissionType = applicant.admissionType,
             photoDataUri = photoDataUri,
