@@ -1,7 +1,9 @@
 package hs.kr.entrydsm.notification.application.service
 
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
+import hs.kr.entrydsm.notification.application.port.`in`.CreateNoticeUseCase
 import hs.kr.entrydsm.notification.application.port.`in`.NotificationPort
+import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqDetailResult
@@ -16,19 +18,31 @@ import hs.kr.entrydsm.notification.application.port.out.NoticeRepository
 import hs.kr.entrydsm.notification.application.port.out.RecruitmentGuidelineRepository
 import hs.kr.entrydsm.notification.application.port.out.data.PageData
 import hs.kr.entrydsm.notification.domain.model.Faq
+import hs.kr.entrydsm.notification.domain.model.NewNotice
 import hs.kr.entrydsm.notification.domain.model.Notice
 
 class NotificationService(
     private val noticeRepository: NoticeRepository,
     private val faqRepository: FaqRepository,
     private val recruitmentGuidelineRepository: RecruitmentGuidelineRepository,
-) : NotificationPort {
+) : NotificationPort,
+    CreateNoticeUseCase {
     override fun getNotices(command: ReadNotificationPageCommand): PageResult<NoticeSummaryResult> =
         noticeRepository.findPage(command).toResult { it.toSummaryResult() }
 
     override fun getNotice(id: Long): NoticeDetailResult =
         noticeRepository.findById(id)?.toDetailResult()
             ?: throw NotificationNotFoundException("notice not found: id=$id")
+
+    override fun createNotice(command: CreateNoticeCommand): NoticeDetailResult =
+        noticeRepository.save(
+            NewNotice(
+                title = command.title,
+                content = command.content,
+                category = command.category,
+                author = command.author,
+            ),
+        ).toDetailResult()
 
     override fun getFaqs(command: ReadFaqPageCommand): PageResult<FaqSummaryResult> =
         faqRepository.findPage(command).toResult { it.toSummaryResult() }
@@ -67,6 +81,7 @@ class NotificationService(
             noticeId = id,
             title = title,
             content = content,
+            category = category,
             author = author,
             viewCount = viewCount,
             createdAt = createdAt,

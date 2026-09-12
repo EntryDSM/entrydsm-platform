@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.notification.application.service
 
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
+import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
 import hs.kr.entrydsm.notification.application.port.out.FaqRepository
@@ -9,6 +10,7 @@ import hs.kr.entrydsm.notification.application.port.out.RecruitmentGuidelineRepo
 import hs.kr.entrydsm.notification.application.port.out.data.PageData
 import hs.kr.entrydsm.notification.domain.model.Faq
 import hs.kr.entrydsm.notification.domain.model.FaqCategory
+import hs.kr.entrydsm.notification.domain.model.NewNotice
 import hs.kr.entrydsm.notification.domain.model.Notice
 import hs.kr.entrydsm.notification.domain.model.NoticeCategory
 import hs.kr.entrydsm.notification.domain.model.RecruitmentGuideline
@@ -17,6 +19,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -191,6 +194,42 @@ class NotificationServiceTest {
         assertTrue(result.last)
     }
 
+    @Test
+    fun createNoticeMakesTheNoticeVisibleInTheListAndDetail() {
+        val service = service()
+
+        val created = service.createNotice(
+            CreateNoticeCommand(
+                title = "2027 입학 전형 안내",
+                content = "본문",
+                category = NoticeCategory.ADMISSION_NOTICE,
+                author = "admin",
+            ),
+        )
+
+        assertEquals("2027 입학 전형 안내", created.title)
+        assertEquals(NoticeCategory.ADMISSION_NOTICE, created.category)
+        assertEquals("admin", created.author)
+
+        val listed = service.getNotices(ReadNotificationPageCommand(page = 0, size = 10))
+        assertEquals(1, listed.content.size)
+        assertEquals(created.noticeId, listed.content.first().noticeId)
+        assertEquals(created.noticeId, service.getNotice(created.noticeId).noticeId)
+    }
+
+    @Test
+    fun createNoticeRejectsBlankRequiredFields() {
+        assertThrows(IllegalArgumentException::class.java) {
+            CreateNoticeCommand("  ", "본문", NoticeCategory.ADMISSION_NOTICE, "admin")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CreateNoticeCommand("제목", "  ", NoticeCategory.ADMISSION_NOTICE, "admin")
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            CreateNoticeCommand("제목", "본문", NoticeCategory.ADMISSION_NOTICE, "  ")
+        }
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun commandRejectsNegativePage() {
         ReadNotificationPageCommand(page = -1, size = 10)
@@ -213,8 +252,10 @@ class NotificationServiceTest {
         )
 
     private inner class FakeNoticeRepository(
-        private val notices: List<Notice> = emptyList(),
+        seed: List<Notice> = emptyList(),
     ) : NoticeRepository {
+        private val notices: MutableList<Notice> = seed.toMutableList()
+
         override fun findPage(command: ReadNotificationPageCommand): PageData<Notice> {
             val sorted = notices
                 .filter { command.category == null || it.category == command.category }
@@ -223,6 +264,18 @@ class NotificationServiceTest {
         }
 
         override fun findById(id: Long): Notice? = notices.firstOrNull { it.id == id }
+
+        override fun save(notice: NewNotice): Notice =
+            Notice(
+                id = notices.size + 1L,
+                title = notice.title,
+                content = notice.content,
+                category = notice.category,
+                author = notice.author,
+                viewCount = 0,
+                createdAt = now,
+                updatedAt = now,
+            ).also(notices::add)
     }
 
     private inner class FakeFaqRepository(

@@ -27,6 +27,7 @@ fun NoticeDetailResult.toResponse(): NoticeDetailResponse =
         noticeId = noticeId,
         title = title,
         content = content,
+        category = category,
         author = author,
         viewCount = viewCount,
         createdAt = createdAt,

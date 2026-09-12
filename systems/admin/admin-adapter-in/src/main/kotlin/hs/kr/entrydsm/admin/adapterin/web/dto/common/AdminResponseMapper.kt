@@ -113,7 +113,8 @@ fun ExportJobView.toResponse(): ExportJobResponse = ExportJobResponse(
 fun Notice.toResponse(): NoticeResponse = NoticeResponse(
     noticeId = id,
     title = title,
-    isPinned = isPinned,
+    category = category,
+    author = author,
     createdAt = createdAt,
 )
 

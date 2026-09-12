@@ -15,6 +15,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
 
+grpc:
+  # 기본값을 둡니다. 환경변수 미설정만으로 notification 기동이 막히지 않게 합니다.
+  port: ${GRPC_PORT:9090}
+
 server:
   port: ${SERVER_PORT}
   shutdown: graceful
