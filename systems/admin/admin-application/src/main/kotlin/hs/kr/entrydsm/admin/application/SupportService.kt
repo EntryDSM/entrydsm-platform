@@ -9,28 +9,30 @@ import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.out.NoticeRepository
 import hs.kr.entrydsm.admin.domain.port.out.QuestionAnswerRepository
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
 
+/**
+ * 공지와 질문 답변은 notification 이 소유합니다.
+ *
+ * 두 저장소 모두 gRPC 로 나가고 admin DB 를 건드리지 않아 트랜잭션을 열지 않는다.
+ */
 @Service
-@Transactional(readOnly = true)
 class SupportService(
     private val noticeRepository: NoticeRepository,
     private val questionAnswerRepository: QuestionAnswerRepository,
 ) : CreateNoticeUseCase,
     AnswerQuestionUseCase {
 
-    @Transactional
     override fun create(command: CreateNoticeCommand): Notice =
         noticeRepository.save(
             Notice(
                 title = command.title,
                 content = command.content,
+                division = command.division,
                 isPinned = command.isPinned,
                 attachmentIds = command.attachmentIds,
             ),
         )
 
-    @Transactional
     override fun answer(command: AnswerQuestionCommand): QuestionAnswer =
         questionAnswerRepository.save(
             QuestionAnswer(

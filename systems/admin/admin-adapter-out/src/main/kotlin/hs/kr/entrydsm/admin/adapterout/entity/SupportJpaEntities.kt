@@ -3,8 +3,6 @@ package hs.kr.entrydsm.admin.adapterout.entity
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.ExportJob
-import hs.kr.entrydsm.admin.domain.model.Notice
-import hs.kr.entrydsm.admin.domain.model.QuestionAnswer
 import hs.kr.entrydsm.admin.domain.model.ScorePolicy
 import hs.kr.entrydsm.admin.domain.model.ScoreWeights
 import jakarta.persistence.Column
@@ -16,8 +14,6 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
-
-private const val ATTACHMENT_ID_DELIMITER = ","
 
 @Entity
 @Table(name = "score_policy")
@@ -123,93 +119,5 @@ class ExportJobJpaEntity(
             createdAt = job.createdAt,
             completedAt = job.completedAt,
         )
-    }
-}
-
-@Entity
-@Table(name = "notice")
-class NoticeJpaEntity(
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    val id: Long? = null,
-
-    @Column(name = "title", nullable = false, length = 200)
-    val title: String,
-
-    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
-    val content: String,
-
-    @Column(name = "is_pinned", nullable = false)
-    val isPinned: Boolean = false,
-
-    @Column(name = "attachment_ids", length = 500)
-    val attachmentIds: String? = null,
-
-    @Column(name = "created_at", nullable = false)
-    val createdAt: Instant,
-) {
-    fun toDomain(): Notice = Notice(
-        id = id,
-        title = title,
-        content = content,
-        isPinned = isPinned,
-        attachmentIds = attachmentIds?.takeIf { it.isNotBlank() }
-            ?.split(ATTACHMENT_ID_DELIMITER)
-            ?: emptyList(),
-        createdAt = createdAt,
-    )
-
-    companion object {
-        fun from(notice: Notice, createdAt: Instant): NoticeJpaEntity = NoticeJpaEntity(
-            id = notice.id,
-            title = notice.title,
-            content = notice.content,
-            isPinned = notice.isPinned,
-            attachmentIds = notice.attachmentIds
-                .takeIf { it.isNotEmpty() }
-                ?.joinToString(ATTACHMENT_ID_DELIMITER),
-            createdAt = notice.createdAt ?: createdAt,
-        )
-    }
-}
-
-@Entity
-@Table(name = "question_answer")
-class QuestionAnswerJpaEntity(
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
-    val id: Long? = null,
-
-    @Column(name = "question_id", nullable = false)
-    val questionId: Long,
-
-    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
-    val content: String,
-
-    @Column(name = "answered_by", nullable = false, length = 50)
-    val answeredBy: String,
-
-    @Column(name = "answered_at", nullable = false)
-    val answeredAt: Instant,
-) {
-    fun toDomain(): QuestionAnswer = QuestionAnswer(
-        id = id,
-        questionId = questionId,
-        content = content,
-        answeredBy = answeredBy,
-        answeredAt = answeredAt,
-    )
-
-    companion object {
-        fun from(answer: QuestionAnswer, answeredAt: Instant): QuestionAnswerJpaEntity =
-            QuestionAnswerJpaEntity(
-                id = answer.id,
-                questionId = answer.questionId,
-                content = answer.content,
-                answeredBy = answer.answeredBy,
-                answeredAt = answer.answeredAt ?: answeredAt,
-            )
     }
 }

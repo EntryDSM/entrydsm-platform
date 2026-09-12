@@ -36,6 +36,13 @@ open class NoticeJpaEntity(
     @Column(name = "view_count", nullable = false)
     var viewCount: Int = 0,
 
+    @Column(name = "is_pinned", nullable = false)
+    var isPinned: Boolean = false,
+
+    /** 파일관리 시스템의 첨부 문서 식별자를 쉼표로 이어 붙인 값 */
+    @Column(name = "attachment_ids", columnDefinition = "TEXT")
+    var attachmentIds: String? = null,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
 

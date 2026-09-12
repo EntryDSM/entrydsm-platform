@@ -17,5 +17,7 @@ data class FaqDetailResult(
     val viewCount: Int,
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime,
+    /** 답변 등록 시각. 공개 조회 응답에는 넣지 않고 답변 등록 결과에만 쓴다. */
+    val answeredAt: LocalDateTime? = null,
 )
 

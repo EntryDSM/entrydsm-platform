@@ -11,3 +11,9 @@ proto_library(
     srcs = ["configuration.proto"],
     visibility = ["//visibility:public"],
 )
+
+proto_library(
+    name = "entrydsm_notification_v1_proto",
+    srcs = ["notification.proto"],
+    visibility = ["//visibility:public"],
+)

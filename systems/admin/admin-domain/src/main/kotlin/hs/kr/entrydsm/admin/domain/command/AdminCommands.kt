@@ -71,6 +71,7 @@ data class CreateExportCommand(
 data class CreateNoticeCommand(
     val title: String,
     val content: String,
+    val division: String,
     val isPinned: Boolean = false,
     val attachmentIds: List<String> = emptyList(),
 )
