@@ -4,7 +4,6 @@ import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
-import hs.kr.entrydsm.admin.domain.model.Notice
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.model.QuestionAnswer
@@ -40,10 +39,6 @@ interface ExportJobRepository {
     fun findByExportJobId(exportJobId: String): ExportJob?
 
     fun save(exportJob: ExportJob): ExportJob
-}
-
-interface NoticeRepository {
-    fun save(notice: Notice): Notice
 }
 
 interface QuestionAnswerRepository {

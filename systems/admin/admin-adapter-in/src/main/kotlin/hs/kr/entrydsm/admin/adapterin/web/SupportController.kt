@@ -57,16 +57,20 @@ class SupportController(
     ): ResponseEntity<ApiResponse<ExportJobResponse>> =
         ResponseEntity.ok(ApiResponse(data = readExportUseCase.findById(exportJobId).toResponse()))
 
+    /**
+     * 공지사항을 등록합니다. 저장은 공지를 소유한 notification 시스템이 합니다.
+     */
     @PostMapping(AdminEndpointPaths.NOTICES)
     fun createNotice(
+        @RequestHeader(USER_ID_HEADER) userId: String,
         @Valid @RequestBody request: CreateNoticeRequest,
     ): ResponseEntity<ApiResponse<NoticeResponse>> {
         val notice = createNoticeUseCase.create(
             CreateNoticeCommand(
                 title = request.title,
                 content = request.content,
-                isPinned = request.isPinned,
-                attachmentIds = request.attachmentIds,
+                category = request.category!!,
+                author = userId,
             ),
         )
         return ResponseEntity.status(201).body(ApiResponse(data = notice.toResponse()))

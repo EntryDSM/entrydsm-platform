@@ -1,13 +1,25 @@
 package hs.kr.entrydsm.notification.adapterin
 
+import hs.kr.entrydsm.notification.adapterin.grpc.NotificationGrpcServerTest
+import hs.kr.entrydsm.notification.adapterin.grpc.NotificationGrpcServiceTest
 import hs.kr.entrydsm.notification.adapterin.web.exception.GlobalExceptionHandler
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 import org.springframework.http.HttpStatus
 
-class NotificationAdapterInModuleTest {
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    NotificationAdapterInSmokeTest::class,
+    NotificationGrpcServiceTest::class,
+    NotificationGrpcServerTest::class,
+)
+class NotificationAdapterInModuleTest
+
+class NotificationAdapterInSmokeTest {
     @Test
     fun moduleLoads() {
         assertTrue(true)

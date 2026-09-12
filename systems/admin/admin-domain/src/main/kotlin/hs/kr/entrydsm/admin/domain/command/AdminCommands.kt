@@ -3,6 +3,7 @@ package hs.kr.entrydsm.admin.domain.command
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.NoticeCategory
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ScoreWeights
@@ -71,8 +72,8 @@ data class CreateExportCommand(
 data class CreateNoticeCommand(
     val title: String,
     val content: String,
-    val isPinned: Boolean = false,
-    val attachmentIds: List<String> = emptyList(),
+    val category: NoticeCategory,
+    val author: String,
 )
 
 /**

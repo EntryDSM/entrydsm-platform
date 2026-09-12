@@ -1,10 +1,10 @@
 package hs.kr.entrydsm.admin.adapterin.web.dto.response
 
-import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.NoticeCategory
 import hs.kr.entrydsm.admin.domain.enum.Region
 import java.time.Instant
 
@@ -63,11 +63,11 @@ data class ExportJobResponse(
 )
 
 data class NoticeResponse(
-    val noticeId: Long?,
+    val noticeId: Long,
     val title: String,
-    @get:JsonProperty("isPinned")
-    val isPinned: Boolean,
-    val createdAt: Instant?,
+    val category: NoticeCategory,
+    val author: String,
+    val createdAt: Instant,
 )
 
 data class QuestionAnswerResponse(

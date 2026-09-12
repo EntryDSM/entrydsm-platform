@@ -15,6 +15,12 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+notification:
+  grpc:
+    # 공지사항은 notification 이 소유한다. admin 은 등록만 위임한다.
+    host: ${NOTIFICATION_GRPC_HOST:localhost}
+    port: ${NOTIFICATION_GRPC_PORT:9090}
+    deadline-ms: ${NOTIFICATION_GRPC_DEADLINE_MS:3000}
 server:
   port: ${SERVER_PORT}
   shutdown: graceful

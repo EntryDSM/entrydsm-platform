@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.notification.adapterout.entity
 
+import hs.kr.entrydsm.notification.domain.model.NewNotice
 import hs.kr.entrydsm.notification.domain.model.Notice
 import hs.kr.entrydsm.notification.domain.model.NoticeCategory
 import jakarta.persistence.Column
@@ -53,5 +54,21 @@ open class NoticeJpaEntity(
             createdAt = createdAt,
             updatedAt = updatedAt,
         )
-}
 
+    companion object {
+        /**
+         * 신규 등록용 엔티티입니다. 조회수는 0 에서 시작하고 생성·수정 시각은 같은 값으로 둡니다.
+         */
+        fun from(notice: NewNotice, now: LocalDateTime): NoticeJpaEntity =
+            NoticeJpaEntity(
+                id = null,
+                title = notice.title,
+                content = notice.content,
+                category = notice.category,
+                author = notice.author,
+                viewCount = 0,
+                createdAt = now,
+                updatedAt = now,
+            )
+    }
+}

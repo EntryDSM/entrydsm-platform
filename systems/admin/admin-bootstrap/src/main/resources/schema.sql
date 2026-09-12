@@ -64,16 +64,6 @@ CREATE TABLE IF NOT EXISTS export_job (
     UNIQUE KEY uk_export_job_id (export_job_id)
 );
 
-CREATE TABLE IF NOT EXISTS notice (
-    id             BIGINT       NOT NULL AUTO_INCREMENT,
-    title          VARCHAR(200) NOT NULL,
-    content        TEXT         NOT NULL,
-    is_pinned      BIT(1)       NOT NULL,
-    attachment_ids VARCHAR(500) NULL,
-    created_at     DATETIME(6)  NOT NULL,
-    PRIMARY KEY (id)
-);
-
 CREATE TABLE IF NOT EXISTS question_answer (
     id          BIGINT      NOT NULL AUTO_INCREMENT,
     question_id BIGINT      NOT NULL,
