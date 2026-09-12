@@ -36,7 +36,7 @@ class StatisticsService(
      */
     override fun collect(metrics: Set<StatisticsMetric>): ApplicantStatistics {
         val applicants by lazy { applicantRepository.findAll() }
-        val countByType by lazy { applicants.countBy { it.admissionType } }
+        val countByType by lazy { applicants.countByPresent { it.admissionType } }
 
         return ApplicantStatistics(
             generatedAt = Instant.now(clock),
@@ -47,7 +47,7 @@ class StatisticsService(
                 competitionRate(countByType)
             },
             regionDistribution = metrics.ifRequested(StatisticsMetric.REGION_DISTRIBUTION) {
-                applicants.countBy { it.region }
+                applicants.countByPresent { it.region }
             },
             typeDistribution = metrics.ifRequested(StatisticsMetric.TYPE_DISTRIBUTION) {
                 countByType
@@ -75,8 +75,12 @@ class StatisticsService(
                     .toDouble()
             }
 
-    private fun <K> List<Applicant>.countBy(key: (Applicant) -> K): Map<K, Long> =
-        groupingBy(key).eachCount().mapValues { it.value.toLong() }
+    /**
+     * 값이 비어 있는 원서는 세지 않습니다. 지역·전형 분포에 "미기재" 묶음을 만들면
+     * 경쟁률 계산의 분자가 정원과 맞지 않게 됩니다.
+     */
+    private fun <K : Any> List<Applicant>.countByPresent(key: (Applicant) -> K?): Map<K, Long> =
+        mapNotNull(key).groupingBy { it }.eachCount().mapValues { it.value.toLong() }
 
     private fun <T> Set<StatisticsMetric>.ifRequested(
         metric: StatisticsMetric,

@@ -108,5 +108,7 @@ class PassResultCommandServiceTest {
         override fun findByAccountId(accountId: Long): Applicant? = null
         override fun existingIds(ids: Collection<Long>): Set<Long> =
             ids.filterTo(mutableSetOf()) { it in this.ids }
+
+        override fun findAllSubmitted(): List<Applicant> = emptyList()
     }
 }

@@ -12,6 +12,8 @@ service ApplicationService {
     rpc CancelApplication(CancelApplicationRequest) returns (ApplicationResponse);
     // 전형 결과 발표. 결과의 소유자는 application 이고 admin 은 산출한 결과를 위임한다.
     rpc AnnouncePassResults(AnnouncePassResultsRequest) returns (AnnouncePassResultsResponse);
+    // 제출된 원서 전체. 지원자 원본의 소유자는 application 이고 admin 은 조회만 한다.
+    rpc ListApplicants(ListApplicantsRequest) returns (ListApplicantsResponse);
 }
 
 message CreateApplicationRequest {
@@ -74,4 +76,57 @@ enum ResultType {
     RESULT_TYPE_UNSPECIFIED = 0;
     RESULT_TYPE_DOCUMENT = 1;
     RESULT_TYPE_FINAL = 2;
+}
+
+message ListApplicantsRequest {}
+
+message ListApplicantsResponse {
+    repeated ApplicantSummary items = 1;
+}
+
+// admin 이 전형을 진행하는 데 필요한 만큼의 원서 정보다.
+// 제출 시점에 채워지지 않을 수 있는 값은 optional 로 둔다.
+message ApplicantSummary {
+    int64 applicant_id = 1;
+    int64 user_id = 2;
+    string name = 3;
+    optional string birth_date = 4;
+    string phone_number = 5;
+    Region region = 6;
+    AdmissionType admission_type = 7;
+    GraduationType graduation_type = 8;
+    string school_name = 9;
+    ApplicantStatus applicant_status = 10;
+    optional int64 submitted_at_epoch_millis = 11;
+    // 성적이 아직 산출되지 않았으면 비어 있다.
+    optional ScoreBreakdown score = 12;
+    int64 updated_at_epoch_millis = 13;
+}
+
+// 항목 점수는 전형별 반영 비율을 곱하기 전의 원점수이고, 총점은 지원자가 고른 전형 기준이다.
+message ScoreBreakdown {
+    double subject_score = 1;
+    double attendance_score = 2;
+    double volunteer_score = 3;
+    double total_score = 4;
+}
+
+enum Region {
+    REGION_UNSPECIFIED = 0;
+    REGION_DAEJEON = 1;
+    REGION_NATIONAL = 2;
+}
+
+enum AdmissionType {
+    ADMISSION_TYPE_UNSPECIFIED = 0;
+    ADMISSION_TYPE_REGULAR = 1;
+    ADMISSION_TYPE_MEISTER = 2;
+    ADMISSION_TYPE_SOCIAL = 3;
+}
+
+enum GraduationType {
+    GRADUATION_TYPE_UNSPECIFIED = 0;
+    GRADUATION_TYPE_PROSPECTIVE = 1;
+    GRADUATION_TYPE_GRADUATED = 2;
+    GRADUATION_TYPE_GED = 3;
 }

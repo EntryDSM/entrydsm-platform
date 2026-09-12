@@ -1,10 +1,12 @@
 package hs.kr.entrydsm.application.config
 
+import hs.kr.entrydsm.application.application.port.`in`.ApplicantQueryPort
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
 import hs.kr.entrydsm.application.application.port.`in`.PassResultPort
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.PassResultRepository
+import hs.kr.entrydsm.application.application.service.ApplicantQueryService
 import hs.kr.entrydsm.application.application.service.ApplicationCommandService
 import hs.kr.entrydsm.application.application.service.EvaluationCommandService
 import hs.kr.entrydsm.application.application.service.PassResultCommandService
@@ -33,4 +35,10 @@ class ApplicationUseCaseConfig {
         applicantRepository: ApplicantRepository,
         passResultRepository: PassResultRepository,
     ): PassResultPort = PassResultCommandService(applicantRepository, passResultRepository)
+
+    @Bean
+    fun applicantQueryService(
+        applicantRepository: ApplicantRepository,
+        scoreCalculator: ScoreCalculator,
+    ): ApplicantQueryPort = ApplicantQueryService(applicantRepository, scoreCalculator)
 }

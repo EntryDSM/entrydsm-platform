@@ -61,6 +61,8 @@ class EvaluationCommandServiceTest {
 
         override fun existingIds(ids: Collection<Long>): Set<Long> =
             ids.filterTo(mutableSetOf()) { it == applicant.id }
+
+        override fun findAllSubmitted(): List<Applicant> = listOf(applicant)
     }
 
     private companion object {

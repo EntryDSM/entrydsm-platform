@@ -21,6 +21,12 @@ notification:
     host: ${NOTIFICATION_GRPC_HOST:localhost}
     port: ${NOTIFICATION_GRPC_PORT:9090}
     deadline-ms: ${NOTIFICATION_GRPC_DEADLINE_MS:3000}
+application:
+  grpc:
+    # 원서 원본은 application 이 소유한다. admin 은 조회하고 전형 결과만 되돌려 준다.
+    host: ${APPLICATION_GRPC_HOST:localhost}
+    port: ${APPLICATION_GRPC_PORT:9090}
+    deadline-ms: ${APPLICATION_GRPC_DEADLINE_MS:5000}
 server:
   port: ${SERVER_PORT}
   shutdown: graceful
