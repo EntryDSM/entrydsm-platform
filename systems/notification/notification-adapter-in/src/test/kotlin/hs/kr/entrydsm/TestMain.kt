@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.notification.adapterin
 
+import hs.kr.entrydsm.notification.adapterin.grpc.NotificationGrpcServerTest
 import hs.kr.entrydsm.notification.adapterin.grpc.NotificationGrpcServiceTest
 import hs.kr.entrydsm.notification.adapterin.web.exception.GlobalExceptionHandler
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus
 @Suite.SuiteClasses(
     NotificationAdapterInSmokeTest::class,
     NotificationGrpcServiceTest::class,
+    NotificationGrpcServerTest::class,
 )
 class NotificationAdapterInModuleTest
 

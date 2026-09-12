@@ -69,10 +69,14 @@ class GrpcNoticeAdapterTest {
         service.failWith = Status.INVALID_ARGUMENT
         val invalid = assertThrows(AdminDomainException::class.java) { adapter.create(command()) }
 
+        service.failWith = Status.DEADLINE_EXCEEDED
+        val deadline = assertThrows(AdminDomainException::class.java) { adapter.create(command()) }
+
         service.failWith = Status.INTERNAL
         val internal = assertThrows(AdminDomainException::class.java) { adapter.create(command()) }
 
         assertEquals(ErrorCode.NOTIFICATION_SERVICE_UNAVAILABLE, unavailable.errorCode)
+        assertEquals(ErrorCode.NOTIFICATION_SERVICE_UNAVAILABLE, deadline.errorCode)
         assertEquals(ErrorCode.INVALID_REQUEST_BODY, invalid.errorCode)
         assertEquals(ErrorCode.NOTICE_CREATION_FAILED, internal.errorCode)
     }
