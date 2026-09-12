@@ -108,6 +108,53 @@ class NotificationServiceTest {
     }
 
     @Test
+    fun createNoticePassesCommandToRepositoryAndMapsCreatedNotice() {
+        val noticeRepository = FakeNoticeRepository()
+        val service = NotificationService(
+            noticeRepository = noticeRepository,
+            faqRepository = FakeFaqRepository(),
+            recruitmentGuidelineRepository = FakeRecruitmentGuidelineRepository(),
+        )
+
+        val result = service.createNotice(
+            CreateNoticeCommand(
+                title = "원서 접수 안내",
+                content = "10월 19일부터 접수합니다",
+                category = NoticeCategory.PROSPECTIVE_STUDENT,
+                author = "관리자",
+                isPinned = true,
+                attachmentIds = listOf("doc_1", "doc_2"),
+            ),
+        )
+
+        val created = noticeRepository.created!!
+        assertEquals("원서 접수 안내", created.title)
+        assertEquals("10월 19일부터 접수합니다", created.content)
+        assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, created.category)
+        assertEquals("관리자", created.author)
+        assertTrue(created.isPinned)
+        assertEquals(listOf("doc_1", "doc_2"), created.attachmentIds)
+
+        assertEquals(CREATED_NOTICE_ID, result.noticeId)
+        assertEquals("원서 접수 안내", result.title)
+        assertEquals("10월 19일부터 접수합니다", result.content)
+        assertEquals("관리자", result.author)
+        assertEquals(0, result.viewCount)
+        assertEquals(now, result.createdAt)
+        assertEquals(now, result.updatedAt)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun createNoticeRejectsBlankTitle() {
+        CreateNoticeCommand(
+            title = " ",
+            content = "내용",
+            category = NoticeCategory.ADMISSION_NOTICE,
+            author = "관리자",
+        )
+    }
+
+    @Test
     fun getFaqsReturnsPagedFaqsOrderedById() {
         val service = service(
             faqs = listOf(
@@ -243,6 +290,8 @@ class NotificationServiceTest {
     private inner class FakeNoticeRepository(
         private val notices: List<Notice> = emptyList(),
     ) : NoticeRepository {
+        var created: CreateNoticeCommand? = null
+
         override fun findPage(command: ReadNotificationPageCommand): PageData<Notice> {
             val sorted = notices
                 .filter { command.category == null || it.category == command.category }
@@ -252,7 +301,19 @@ class NotificationServiceTest {
 
         override fun findById(id: Long): Notice? = notices.firstOrNull { it.id == id }
 
-        override fun create(command: CreateNoticeCommand): Notice = error("unused")
+        override fun create(command: CreateNoticeCommand): Notice {
+            created = command
+            return Notice(
+                id = CREATED_NOTICE_ID,
+                title = command.title,
+                content = command.content,
+                category = command.category,
+                author = command.author,
+                viewCount = 0,
+                createdAt = now,
+                updatedAt = now,
+            )
+        }
     }
 
     private inner class FakeFaqRepository(
@@ -356,5 +417,6 @@ class NotificationServiceTest {
     private companion object {
         val now: LocalDateTime = LocalDateTime.parse("2026-08-17T09:00:00")
         val answeredAt: LocalDateTime = LocalDateTime.parse("2026-09-12T10:00:00")
+        const val CREATED_NOTICE_ID = 1L
     }
 }
