@@ -28,11 +28,14 @@ data class ApplicantFilter(
      */
     fun matches(applicant: Applicant): Boolean =
         matchesKeyword(applicant) &&
-            (regions.isEmpty() || applicant.region in regions) &&
-            (admissionTypes.isEmpty() || applicant.admissionType in admissionTypes) &&
-            (graduationStatuses.isEmpty() || applicant.graduationStatus in graduationStatuses) &&
-            (statuses.isEmpty() || applicant.status in statuses) &&
+            regions.accepts(applicant.region) &&
+            admissionTypes.accepts(applicant.admissionType) &&
+            graduationStatuses.accepts(applicant.graduationStatus) &&
+            statuses.accepts(applicant.status) &&
             (isSubmitted == null || applicant.isSubmitted == isSubmitted)
+
+    private fun <T> Set<T>.accepts(value: T?): Boolean =
+        isEmpty() || (value != null && contains(value))
 
     private fun matchesKeyword(applicant: Applicant): Boolean {
         val needle = keyword?.trim()?.lowercase()

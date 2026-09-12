@@ -18,6 +18,9 @@ import org.springframework.transaction.annotation.Transactional
  *
  * 필터와 페이지는 메모리에서 처리합니다. 두 저장소에 걸친 조건이라 한쪽 쿼리로 내릴 수
  * 없고, 회차 지원자가 수백 명 수준이라 전체를 받아도 충분하기 때문입니다.
+ *
+ * ponytail: 단건 조회도 회차 전체를 한 번 받아 온다. 수험표 발급처럼 한 명만 필요한
+ * 호출이 잦아지면 계약에 단건 조회 RPC 를 더한다.
  */
 @Component
 class ApplicantRepositoryAdapter(
@@ -44,11 +47,21 @@ class ApplicantRepositoryAdapter(
     override fun findById(applicantId: Long): Applicant? =
         loadAll().firstOrNull { it.id == applicantId }
 
-    override fun save(applicant: Applicant): Applicant = saveAll(listOf(applicant)).first()
+    @Transactional
+    override fun save(applicant: Applicant): Applicant {
+        persist(listOf(applicant))
+        return applicant
+    }
 
     @Transactional
     override fun saveAll(applicants: List<Applicant>): List<Applicant> {
-        if (applicants.isEmpty()) return emptyList()
+        persist(applicants)
+        return applicants
+    }
+
+    /** 원서 본문은 application 이 소유하므로 전형 정보만 남깁니다. */
+    private fun persist(applicants: List<Applicant>) {
+        if (applicants.isEmpty()) return
 
         val existing = screeningRepository.findAllById(applicants.map { it.id })
             .associateBy { it.applicantId }
@@ -57,8 +70,6 @@ class ApplicantRepositoryAdapter(
                 .apply { applyFrom(applicant) }
         }
         screeningRepository.saveAll(entities)
-
-        return applicants
     }
 
     private fun loadAll(): List<Applicant> {
