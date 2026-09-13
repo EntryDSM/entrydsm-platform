@@ -1,6 +1,7 @@
 KOTLIN_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
     "@maven//:org_springframework_boot_spring_boot_starter_validation",
+    "@maven//:org_springframework_boot_spring_boot_starter_data_redis",
     "@maven//:io_jsonwebtoken_jjwt_api",
     "@maven//:io_jsonwebtoken_jjwt_impl",
     "@maven//:io_jsonwebtoken_jjwt_jackson",

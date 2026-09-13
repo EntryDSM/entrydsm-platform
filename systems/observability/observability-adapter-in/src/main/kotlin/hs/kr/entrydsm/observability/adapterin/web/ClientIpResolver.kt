@@ -1,32 +1,26 @@
 package hs.kr.entrydsm.observability.adapterin.web
 
 import jakarta.servlet.http.HttpServletRequest
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 /**
- * rate limit·커넥션 제한의 기준이 되는 클라이언트 IP를 정한다.
- * X-Forwarded-For는 누구나 붙일 수 있으므로 신뢰하는 프록시를 거쳐 들어온 요청에서만 사용한다.
- * monitor.trusted-proxies가 비어 있으면(기본값) 항상 remoteAddr을 쓴다.
+ * rate limit의 기준이 되는 클라이언트 IP를 정한다.
+ * 게이트웨이는 X-Forwarded-For를 지우고, 직접 판정한 IP를 X-Real-IP로 넘긴다(클라이언트가 보낸 X-Real-IP는 게이트웨이가 지운다).
+ * X-User-Id처럼 게이트웨이 헤더를 믿으므로 이 서비스는 게이트웨이 뒤에만 노출되어야 한다.
+ * 게이트웨이를 거치지 않은 요청(로컬 개발)은 remoteAddr을 쓴다.
  */
 @Component
-class ClientIpResolver(
-    @Value("\${monitor.trusted-proxies:}") trustedProxies: String,
-) {
-    private val trusted: Set<String> = trustedProxies.split(",").map { it.trim() }.filterNot { it.isEmpty() }.toSet()
+class ClientIpResolver {
 
-    fun resolve(request: HttpServletRequest): String = resolve(request.remoteAddr, request.getHeader(FORWARDED_FOR))
+    fun resolve(request: HttpServletRequest): String = resolve(request.remoteAddr, request.getHeader(REAL_IP))
 
-    fun resolve(remoteAddr: String?, forwardedFor: String?): String {
-        val peer = remoteAddr?.takeIf { it.isNotBlank() } ?: UNKNOWN
-        if (peer !in trusted) return peer
-        // 오른쪽부터 신뢰 프록시를 걷어낸 첫 값이 실제 클라이언트다. 그 왼쪽은 클라이언트가 위조할 수 있다.
-        val forwarded = forwardedFor?.split(",")?.map { it.trim() }?.filterNot { it.isEmpty() } ?: return peer
-        return forwarded.lastOrNull { it !in trusted } ?: peer
-    }
+    fun resolve(remoteAddr: String?, realIp: String?): String =
+        realIp?.trim()?.takeIf { it.isNotEmpty() }
+            ?: remoteAddr?.takeIf { it.isNotBlank() }
+            ?: UNKNOWN
 
     companion object {
-        private const val FORWARDED_FOR = "X-Forwarded-For"
+        private const val REAL_IP = "X-Real-IP"
         private const val UNKNOWN = "unknown"
     }
 }

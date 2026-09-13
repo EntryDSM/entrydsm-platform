@@ -84,7 +84,10 @@ class RedisSessionStoreAdapter(
         return DeviceType.entries.associateWith { entries[it.name]?.toLongOrNull() ?: 0L }
     }
 
+    /** 인스턴스마다 표본을 뜨지만 5초 구간마다 먼저 온 하나만 기록한다. 배포·재시작으로 인스턴스 수가 바뀌어도 평균의 표본 가중치가 같다. */
     override fun sampleConcurrency(now: Instant, windowSeconds: Long) {
+        val bucket = now.epochSecond / SAMPLE_BUCKET.seconds
+        if (redis.opsForValue().setIfAbsent("$CONCURRENT_SAMPLED_KEY_PREFIX$bucket", "1", SAMPLE_BUCKET.multipliedBy(2)) != true) return
         val current = concurrentUsers(null, now, windowSeconds)
         redis.execute(SET_IF_GREATER, listOf(CONCURRENT_MAX_KEY), current.toString())
         redis.opsForValue().increment(CONCURRENT_SUM_KEY, current.toLong())
@@ -118,6 +121,10 @@ class RedisSessionStoreAdapter(
         private const val CONCURRENT_MAX_KEY = "monitor:concurrent:max"
         private const val CONCURRENT_SUM_KEY = "monitor:concurrent:sum"
         private const val CONCURRENT_SAMPLES_KEY = "monitor:concurrent:samples"
+        private const val CONCURRENT_SAMPLED_KEY_PREFIX = "monitor:concurrent:sampled:"
+
+        /** ConcurrencySampler 주기(5초)보다 짧으면 인스턴스마다 다른 구간에 표본을 남기게 된다. */
+        private val SAMPLE_BUCKET: Duration = Duration.ofSeconds(5)
         private const val ALL_WINDOW_KEY = "monitor:session:window:ALL"
         private const val FIELD_SERVICE = "service"
         private const val FIELD_ENTERED_AT = "enteredAt"

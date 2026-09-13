@@ -20,7 +20,7 @@ class JwtAuthInterceptor : HandlerInterceptor {
     }
 
     companion object {
-        private const val USER_ID_HEADER = "X-User-Id"
+        const val USER_ID_HEADER = "X-User-Id"
         private const val USER_ROLE_HEADER = "X-User-Role"
         private const val MONITOR_ROLE = "MONITOR"
     }

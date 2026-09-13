@@ -4,8 +4,8 @@ import java.util.concurrent.ConcurrentHashMap
 import org.springframework.stereotype.Component
 
 /**
- * ponytail: 단일 인스턴스 가정의 인메모리 카운터. 인증 붙기 전이라 계정 대신 IP 기준으로 제한한다.
- * JWT 인증이 연결되면 계정 단위로 교체한다.
+ * 계정당 SSE 연결 수를 인스턴스별로 제한한다. 목적은 인스턴스 하나의 커넥션 고갈을 막는 것이다.
+ * ponytail: 인메모리 카운터라 전체 한도는 인스턴스 수만큼 늘어난다(3대면 계정당 최대 9개). 전역 한도가 필요해지면 Redis 카운터로 옮긴다.
  */
 @Component
 class SseConnectionLimiter {

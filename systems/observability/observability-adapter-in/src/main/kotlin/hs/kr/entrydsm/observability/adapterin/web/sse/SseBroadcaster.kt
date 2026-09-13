@@ -9,8 +9,8 @@ import org.springframework.stereotype.Component
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 /**
- * ponytail: 커넥션 목록을 인메모리로만 들고 있어 다중 인스턴스에서는 인스턴스별로 브로드캐스트가 갈린다.
- * 수평 확장이 필요해지면 Redis Pub/Sub로 교체한다.
+ * 구독자 목록은 인스턴스마다 메모리에 있고, 각 인스턴스는 자기에게 붙은 구독자에게만 보낸다.
+ * 주기 이벤트는 공용 Redis에서 계산해 어느 인스턴스든 같고, 로그 이벤트는 Redis Pub/Sub으로 모든 인스턴스가 받는다(SseLiveLogPublisher).
  * ponytail: 구독자에게 순차 전송한다. 느린 구독자 하나가 나머지 전송을 지연시킬 수 있다(관리자 대시보드라 동시 구독자가 적다).
  * 구독자가 늘면 커넥션별 bounded 큐와 전용 executor로 분리한다.
  */

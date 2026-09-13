@@ -27,8 +27,7 @@ auth:
     secret: ${JWT_SECRET}
     issuer: ${JWT_ISSUER:entrydsm}
 monitor:
-  # 신뢰하는 프록시(로드밸런서) IP 목록. 비어 있으면 X-Forwarded-For를 신뢰하지 않는다.
-  trusted-proxies: ${MONITOR_TRUSTED_PROXIES:}
+  # 헬스체크 대상. 논리 서비스마다 실제로 처리하는 서비스 주소를 준다. 기본값은 gateway .env.example 의 로컬 포트를 따른다.
   services:
     identity:
       base-url: ${IDENTITY_BASE_URL:http://localhost:8081}
@@ -37,15 +36,13 @@ monitor:
     application:
       base-url: ${APPLICATION_BASE_URL:http://localhost:8082}
     evaluation:
-      base-url: ${EVALUATION_BASE_URL:http://localhost:8083}
+      base-url: ${EVALUATION_BASE_URL:http://localhost:8082}
     document:
-      base-url: ${DOCUMENT_BASE_URL:http://localhost:8084}
+      base-url: ${DOCUMENT_BASE_URL:http://localhost:8086}
     notification:
-      base-url: ${NOTIFICATION_BASE_URL:http://localhost:8085}
+      base-url: ${NOTIFICATION_BASE_URL:http://localhost:8084}
     schedule:
       base-url: ${SCHEDULE_BASE_URL:http://localhost:8086}
-  report:
-    storage-dir: ${MONITOR_REPORT_DIR:/tmp/entrydsm-monitor-reports}
   round:
     name: ${MONITOR_ROUND_NAME:current}
     from: ${MONITOR_ROUND_FROM:2026-01-01T00:00:00+09:00}
