@@ -69,12 +69,10 @@ jobs:
           push: true
           build-args: |
             SERVICE=${{ matrix.service }}
-          tags: ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:latest
           tags: |
             ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:latest
             ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   deploy:
