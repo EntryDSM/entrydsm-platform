@@ -21,6 +21,12 @@ notification:
     host: ${NOTIFICATION_GRPC_HOST:localhost}
     port: ${NOTIFICATION_GRPC_PORT:9090}
     deadline-ms: ${NOTIFICATION_GRPC_DEADLINE_MS:3000}
+application:
+  grpc:
+    # 원서 원본은 application 이 소유한다. admin 은 조회하고 전형 결과만 되돌려 준다.
+    host: ${APPLICATION_GRPC_HOST:localhost}
+    port: ${APPLICATION_GRPC_PORT:9090}
+    deadline-ms: ${APPLICATION_GRPC_DEADLINE_MS:5000}
 server:
   port: ${SERVER_PORT}
   shutdown: graceful
@@ -31,7 +37,9 @@ admin:
     first-pass-multiplier: ${FIRST_PASS_MULTIPLIER:1.5}
   storage:
     # 리전, 엔드포인트, 자격 증명은 AWS 표준 환경변수(AWS_REGION, AWS_ENDPOINT_URL_S3 등)를 따른다.
-    bucket: ${STORAGE_BUCKET:entrydsm-admin}
+    # configuration 과 같은 버킷이어야 한다. 원서 원본은 configuration 이 올리고
+    # admin 이 내려주므로, 버킷이 갈리면 원서 원본 다운로드가 계속 404 가 된다.
+    bucket: ${AWS_S3_BUCKET:entrydsm-document-local}
     download-url-expires-seconds: ${DOWNLOAD_URL_EXPIRES_SECONDS:900}
 management:
   endpoints:

@@ -27,6 +27,8 @@ enum class ErrorCode(
     ADMISSION_TICKET_GENERATION_FAILED(500, "수험표 생성에 실패했습니다."),
     STORAGE_UNAVAILABLE(500, "파일 저장소를 사용할 수 없습니다."),
     NOTICE_CREATION_FAILED(502, "공지사항 등록에 실패했습니다."),
+    PASS_RESULT_ANNOUNCEMENT_FAILED(502, "전형 결과 반영에 실패했습니다."),
     NOTIFICATION_SERVICE_UNAVAILABLE(503, "공지 서비스를 사용할 수 없습니다."),
+    APPLICATION_SERVICE_UNAVAILABLE(503, "원서 서비스를 사용할 수 없습니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다."),
 }

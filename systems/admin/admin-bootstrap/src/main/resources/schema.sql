@@ -2,29 +2,23 @@
 -- ddl-auto 가 validate 이고 마이그레이션 도구가 없으므로 배포 전에 직접 적용한다.
 -- configuration 시스템과 같은 방식이다.
 
-CREATE TABLE IF NOT EXISTS applicant (
-    id                BIGINT       NOT NULL AUTO_INCREMENT,
-    receipt_number    INT          NOT NULL,
-    name              VARCHAR(50)  NOT NULL,
-    birth_date        DATE         NOT NULL,
-    phone_number      VARCHAR(20)  NOT NULL,
-    region            VARCHAR(20)  NOT NULL,
-    admission_type    VARCHAR(20)  NOT NULL,
-    graduation_status VARCHAR(20)  NOT NULL,
-    school_name       VARCHAR(100) NOT NULL,
-    examinee_number   VARCHAR(20)  NULL,
-    is_submitted      BIT(1)       NOT NULL,
-    status            VARCHAR(20)  NOT NULL,
-    subject_score     DOUBLE       NULL,
-    attendance_score  DOUBLE       NULL,
-    volunteer_score   DOUBLE       NULL,
-    total_score       DOUBLE       NULL,
-    submitted_at      DATETIME(6)  NULL,
-    updated_at        DATETIME(6)  NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_applicant_receipt_number (receipt_number),
-    KEY idx_applicant_status (status),
-    KEY idx_applicant_total_score (total_score)
+-- 원서 본문(이름·지역·전형·학적)은 application 시스템이 소유한다. admin 은 gRPC 로
+-- 조회하고, 전형을 진행하며 직접 매기는 값만 여기에 둔다.
+-- 식별자는 application 의 지원자 식별자를 그대로 쓴다.
+CREATE TABLE IF NOT EXISTS applicant_screening (
+    applicant_id      BIGINT      NOT NULL,
+    receipt_number    INT         NOT NULL,
+    examinee_number   VARCHAR(20) NULL,
+    document_received BIT(1)      NOT NULL DEFAULT b'0',
+    status            VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    subject_score     DOUBLE      NULL,
+    attendance_score  DOUBLE      NULL,
+    volunteer_score   DOUBLE      NULL,
+    total_score       DOUBLE      NULL,
+    updated_at        DATETIME(6) NULL,
+    PRIMARY KEY (applicant_id),
+    UNIQUE KEY uk_applicant_screening_receipt_number (receipt_number),
+    KEY idx_applicant_screening_status (status)
 );
 
 CREATE TABLE IF NOT EXISTS score_policy (

@@ -24,8 +24,11 @@ class ApplicationService(
     }
 
     override fun getApplicationResult(command: ReadApplicationCommand): ApplicationResultResult {
-        resolveUserId(command.userId)
-        return ApplicationResultResult(PassStatus.NOT_ANNOUNCED, null)
+        val userId = resolveUserId(command.userId)
+        val application = applicationDataPort.findByUserId(userId)
+            ?: return ApplicationResultResult(PassStatus.NOT_ANNOUNCED, null)
+
+        return ApplicationResultResult(application.passStatus, application.announcedAt)
     }
 
     override fun cancelApplication(command: CancelApplicationCommand): ApplicationStatusResult {

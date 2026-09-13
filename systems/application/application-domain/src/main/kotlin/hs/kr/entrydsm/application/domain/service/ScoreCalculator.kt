@@ -7,16 +7,32 @@ import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.GedScores
+import hs.kr.entrydsm.application.domain.model.ScoreBreakdown
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import kotlin.math.floor
 import kotlin.math.round
 
 class ScoreCalculator {
-    fun calculate(applicant: Applicant): Map<AdmissionType, Double> {
-        val record = applicant.academicRecord ?: return mapOf(
-            AdmissionType.REGULAR to EMPTY_SCORE,
-            AdmissionType.SOCIAL to EMPTY_SCORE,
-            AdmissionType.MEISTER to EMPTY_SCORE,
+    fun calculate(applicant: Applicant): Map<AdmissionType, Double> =
+        breakdown(applicant).totalByAdmissionType
+
+    /**
+     * 총점과 함께 항목별 원점수를 냅니다.
+     *
+     * admin 이 성적 정책의 가중치를 다시 매기려면 합쳐진 총점만으로는 부족해 항목이
+     * 필요합니다. 계산의 소유자는 여기 하나뿐이어야 하므로 admin 이 따로 계산하지 않고
+     * 이 결과를 받아 씁니다.
+     */
+    fun breakdown(applicant: Applicant): ScoreBreakdown {
+        val record = applicant.academicRecord ?: return ScoreBreakdown(
+            subjectScore = EMPTY_SCORE,
+            attendanceScore = EMPTY_SCORE,
+            volunteerScore = EMPTY_SCORE,
+            totalByAdmissionType = mapOf(
+                AdmissionType.REGULAR to EMPTY_SCORE,
+                AdmissionType.SOCIAL to EMPTY_SCORE,
+                AdmissionType.MEISTER to EMPTY_SCORE,
+            ),
         )
 
         val baseSubjectScore = when (applicant.graduationType) {
@@ -48,10 +64,15 @@ class ScoreCalculator {
             maxScore = SPECIAL_FIRST_SCREENING_MAX_SCORE,
         )
 
-        return mapOf(
-            AdmissionType.REGULAR to regularScore,
-            AdmissionType.SOCIAL to specialScore,
-            AdmissionType.MEISTER to specialScore,
+        return ScoreBreakdown(
+            subjectScore = baseSubjectScore,
+            attendanceScore = attendanceScore,
+            volunteerScore = volunteerScore,
+            totalByAdmissionType = mapOf(
+                AdmissionType.REGULAR to regularScore,
+                AdmissionType.SOCIAL to specialScore,
+                AdmissionType.MEISTER to specialScore,
+            ),
         )
     }
 
