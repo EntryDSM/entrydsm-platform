@@ -224,18 +224,21 @@ class IdentityApplicationHttpIntegrationTest {
             }
 
             registry.add("spring.datasource.url") {
-                "jdbc:mysql://${mysql.host}:${mysql.getMappedPort(MYSQL_PORT)}/$DATABASE?useSSL=false&serverTimezone=UTC"
+                "jdbc:mysql://${mysql.host}:${mysql.getMappedPort(MYSQL_PORT)}/$DATABASE" +
+                    "?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true"
             }
             registry.add("spring.datasource.username") { "identity" }
             registry.add("spring.datasource.password") { "identity" }
             registry.add("spring.datasource.driver-class-name") { "com.mysql.cj.jdbc.Driver" }
             registry.add("spring.jpa.hibernate.ddl-auto") { "create-drop" }
             registry.add("spring.jpa.properties.hibernate.dialect") { "org.hibernate.dialect.MySQLDialect" }
+            registry.add("server.port") { "0" }
             registry.add("spring.data.redis.url") {
                 "redis://${redis.host}:${redis.getMappedPort(REDIS_PORT)}"
             }
             registry.add("auth.jwt.secret") { "01234567890123456789012345678901" }
             registry.add("auth.jwt.issuer") { "entrydsm-identity" }
+            registry.add("auth.password-reset.enabled") { "false" }
             registry.add("security.cookies.secure") { "false" }
             registry.add("security.pii.login-id-hash-key") { "integration-test-login-id-hash-key" }
             registry.add("security.pii.encryption-key-base64") {

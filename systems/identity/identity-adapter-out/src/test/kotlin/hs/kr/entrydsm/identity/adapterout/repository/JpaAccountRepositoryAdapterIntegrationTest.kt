@@ -3,10 +3,12 @@ package hs.kr.entrydsm.identity.adapterout.repository
 import hs.kr.entrydsm.identity.adapterout.config.JpaAuditingConfig
 import hs.kr.entrydsm.identity.adapterout.entity.AccountJpaEntity
 import hs.kr.entrydsm.identity.adapterout.entity.StudentProfileJpaEntity
+import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapter
 import hs.kr.entrydsm.identity.adapterout.persistence.AccountApplicationDataPersistenceAdapter
 import hs.kr.entrydsm.identity.adapterout.security.AesGcmPersonalDataEncryptor
 import hs.kr.entrydsm.identity.adapterout.security.HmacLoginIdHasher
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationStateChangedEvent
+import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
@@ -32,6 +34,9 @@ import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyLong
+import org.mockito.Mockito.`when`
 import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.persistence.autoconfigure.EntityScan
@@ -39,14 +44,17 @@ import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Import
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
+import org.springframework.test.context.bean.override.mockito.MockitoBean
 import org.springframework.test.context.junit4.SpringRunner
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.utility.DockerImageName
 
 @RunWith(SpringRunner::class)
+@ActiveProfiles("integration")
 @SpringBootTest(classes = [JpaAccountRepositoryAdapterIntegrationTest.JpaTestApplication::class])
 class JpaAccountRepositoryAdapterIntegrationTest {
     @Autowired
@@ -54,6 +62,9 @@ class JpaAccountRepositoryAdapterIntegrationTest {
 
     @Autowired
     private lateinit var applicationDataAdapter: AccountApplicationDataPersistenceAdapter
+
+    @MockitoBean
+    private lateinit var remoteApplicationDataAdapter: GrpcApplicationDataAdapter
 
     @Autowired
     private lateinit var accountJpaRepository: AccountJpaRepository
@@ -73,6 +84,10 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         applicationProjectionJpaRepository.deleteAll()
         studentProfileJpaRepository.deleteAll()
         accountJpaRepository.deleteAll()
+        `when`(remoteApplicationDataAdapter.create(anyLong(), any(Instant::class.java)))
+            .thenAnswer { applicationSnapshot(it.getArgument(0), ApplicantStatus.SUBMITTED, it.getArgument(1)) }
+        `when`(remoteApplicationDataAdapter.cancel(anyLong(), any(), any(Instant::class.java)))
+            .thenAnswer { applicationSnapshot(it.getArgument(0), ApplicantStatus.CANCELED, it.getArgument(2)) }
     }
 
     @Test
@@ -320,5 +335,18 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         ),
         createdAt = CREATED_AT,
         updatedAt = CREATED_AT,
+    )
+
+    private fun applicationSnapshot(
+        userId: Long,
+        status: ApplicantStatus,
+        updatedAt: Instant,
+    ) = ApplicationSnapshot(
+        userId = userId,
+        applicantStatus = status,
+        submittedAt = CREATED_AT,
+        updatedAt = updatedAt,
+        passStatus = PassStatus.NOT_ANNOUNCED,
+        announcedAt = null,
     )
 }
