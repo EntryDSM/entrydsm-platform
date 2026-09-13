@@ -36,22 +36,19 @@ permissions:
 
 jobs:
   build:
-    strategy:
-      fail-fast: false
-      matrix:
-        service:
-          - gateway
-          - identity
-          - application
-          - notification
-          - configuration
-          - admin
-          - observability
-
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel/entrydsm-platform
+          key: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-${{ github.sha }}
+          restore-keys: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-
+
+      - name: 서비스 빌드
+        run: bash ./prepare-images.sh gateway identity application notification configuration admin observability
 
       - uses: docker/setup-buildx-action@v3
 
@@ -62,18 +59,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # :latest 는 docker-compose.yml이 참조하는 태그, :<sha> 는 롤백/추적용
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: Dockerfile
-          push: true
-          build-args: |
-            SERVICE=${{ matrix.service }}
-          tags: |
-            ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:latest
-            ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: 이미지 빌드 및 푸시
+        run: |
+          for service in gateway identity application notification configuration admin observability; do
+            docker buildx build --push \
+              --build-arg "SERVICE=$service" \
+              --tag "ghcr.io/entrydsm/entrydsm-$service:latest" \
+              --tag "ghcr.io/entrydsm/entrydsm-$service:${{ github.sha }}" \
+              .
+          done
 
   deploy:
     needs: build
