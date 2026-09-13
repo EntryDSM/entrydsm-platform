@@ -21,10 +21,12 @@ enum class ErrorCode(
     ADMISSION_QUOTA_NOT_FOUND(404, "등록된 모집 정원이 없습니다."),
     EXPORT_JOB_NOT_FOUND(404, "Export 작업을 찾을 수 없습니다."),
     APPLICATION_DOCUMENT_NOT_FOUND(404, "제출된 원서 원본이 없습니다."),
+    QUESTION_NOT_FOUND(404, "질문을 찾을 수 없습니다."),
     INVALID_STATUS_TRANSITION(409, "현재 상태에서는 변경할 수 없는 상태입니다."),
     EXAMINEE_NUMBER_NOT_ISSUED(409, "수험 번호가 발급되지 않은 지원자입니다."),
     EXPORT_NOT_COMPLETED(409, "아직 완료되지 않은 Export 작업입니다."),
     ADMISSION_TICKET_GENERATION_FAILED(500, "수험표 생성에 실패했습니다."),
     STORAGE_UNAVAILABLE(500, "파일 저장소를 사용할 수 없습니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다."),
+    NOTIFICATION_SERVICE_UNAVAILABLE(503, "알림 서비스를 일시적으로 사용할 수 없습니다."),
 }

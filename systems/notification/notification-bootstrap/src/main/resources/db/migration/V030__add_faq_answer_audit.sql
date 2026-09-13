@@ -1,0 +1,3 @@
+ALTER TABLE faqs
+    ADD COLUMN answered_by VARCHAR(50) NULL,
+    ADD COLUMN answered_at DATETIME(6) NULL;

@@ -27,6 +27,12 @@ admin:
     # 리전, 엔드포인트, 자격 증명은 AWS 표준 환경변수(AWS_REGION, AWS_ENDPOINT_URL_S3 등)를 따른다.
     bucket: ${STORAGE_BUCKET:entrydsm-admin}
     download-url-expires-seconds: ${DOWNLOAD_URL_EXPIRES_SECONDS:900}
+notification:
+  grpc:
+    # 공지 등록을 notification 에 위임한다. 기본값은 docker compose 서비스 이름과 포트.
+    host: ${NOTIFICATION_GRPC_HOST:notification}
+    port: ${NOTIFICATION_GRPC_PORT:9090}
+    deadline-ms: ${NOTIFICATION_GRPC_DEADLINE_MS:3000}
 management:
   endpoints:
     web:

@@ -65,6 +65,7 @@ class SupportController(
             CreateNoticeCommand(
                 title = request.title,
                 content = request.content,
+                division = request.division,
                 isPinned = request.isPinned,
                 attachmentIds = request.attachmentIds,
             ),
