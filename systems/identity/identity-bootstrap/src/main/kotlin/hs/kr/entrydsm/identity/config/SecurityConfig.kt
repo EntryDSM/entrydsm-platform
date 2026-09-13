@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import hs.kr.entrydsm.identity.config.security.JwtAuthenticationEntryPoint
 import hs.kr.entrydsm.identity.config.security.JwtAuthorizationDeniedHandler
 import hs.kr.entrydsm.identity.config.security.JwtFilter
@@ -57,7 +56,7 @@ class SecurityConfig {
 
     @Bean
     fun objectMapper(): ObjectMapper =
-        jacksonObjectMapper()
+        ObjectMapper()
             .registerModule(
                 SimpleModule().apply {
                     addSerializer(Instant::class.java, InstantJsonSerializer())

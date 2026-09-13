@@ -9,7 +9,7 @@ KOTLIN_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter",
     "@maven//:org_springframework_boot_spring_boot_starter_web",
     "@maven//:org_springframework_boot_spring_boot_starter_validation",
-    "@maven//:com_fasterxml_jackson_module_jackson_module_kotlin",
+    "@maven//:tools_jackson_module_jackson_module_kotlin",
     "//contracts:configuration_grpc_java",
     "//contracts:configuration_java_proto",
     "//systems/configuration/configuration-domain:main",
@@ -18,7 +18,6 @@ KOTLIN_DEPS = [
 TEST_DEPS = [
     "@maven//:junit_junit",
     "@maven//:org_springframework_boot_spring_boot_starter_test",
-    "@maven//:tools_jackson_module_jackson_module_kotlin",
 ]
 
 MODULE_DEPS = KOTLIN_DEPS
