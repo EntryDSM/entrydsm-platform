@@ -2,6 +2,8 @@ package hs.kr.entrydsm.notification.application.service
 
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
 import hs.kr.entrydsm.notification.application.port.`in`.NotificationPort
+import hs.kr.entrydsm.notification.application.port.`in`.command.AnswerQuestionCommand
+import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqDetailResult
@@ -30,12 +32,19 @@ class NotificationService(
         noticeRepository.findById(id)?.toDetailResult()
             ?: throw NotificationNotFoundException("notice not found: id=$id")
 
+    override fun createNotice(command: CreateNoticeCommand): NoticeDetailResult =
+        noticeRepository.create(command).toDetailResult()
+
     override fun getFaqs(command: ReadFaqPageCommand): PageResult<FaqSummaryResult> =
         faqRepository.findPage(command).toResult { it.toSummaryResult() }
 
     override fun getFaq(id: Long): FaqDetailResult =
         faqRepository.findById(id)?.toDetailResult()
             ?: throw NotificationNotFoundException("faq not found: id=$id")
+
+    override fun answerQuestion(command: AnswerQuestionCommand): FaqDetailResult =
+        faqRepository.answer(command)?.toDetailResult()
+            ?: throw NotificationNotFoundException("faq not found: id=${command.questionId}")
 
     override fun getRecruitmentGuideline(): RecruitmentGuidelineResult {
         val guideline = recruitmentGuidelineRepository.findCurrent()
@@ -90,6 +99,7 @@ class NotificationService(
             viewCount = viewCount,
             createdAt = createdAt,
             updatedAt = updatedAt,
+            answeredAt = answeredAt,
         )
 
     private fun <T, R> PageData<T>.toResult(

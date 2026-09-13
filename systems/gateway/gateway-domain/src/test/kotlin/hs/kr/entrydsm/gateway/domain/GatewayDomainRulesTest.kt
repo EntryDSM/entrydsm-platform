@@ -17,7 +17,7 @@ class GatewayDomainRulesTest {
                 "evaluation" to (GatewayDownstream.APPLICATION to "/api/evaluation"),
                 "admin" to (GatewayDownstream.ADMIN to "/api/v11/admin"),
                 "notification" to (GatewayDownstream.NOTIFICATION to "/api/notification"),
-                "observability" to (GatewayDownstream.OBSERVABILITY to "/api/observability"),
+                "observability" to (GatewayDownstream.OBSERVABILITY to "/api/monitor"),
                 "configuration" to (GatewayDownstream.CONFIGURATION to "/api/document"),
                 "schedule" to (GatewayDownstream.CONFIGURATION to "/api/schedule"),
             ),

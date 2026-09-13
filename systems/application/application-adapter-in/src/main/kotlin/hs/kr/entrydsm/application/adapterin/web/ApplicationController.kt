@@ -65,6 +65,7 @@ class ApplicationController(
     @PatchMapping("/{id}/type")
     fun updateType(
         @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(SENSITIVE_AGREE_HEADER, defaultValue = "false") isSensitiveAgree: Boolean,
         @PathVariable id: Long,
         @RequestBody request: UpdateTypeRequest,
     ): ApiResponse<Unit> {
@@ -76,6 +77,7 @@ class ApplicationController(
                 region = request.region,
                 graduationType = request.graduationType,
                 graduationDate = request.graduationDate?.let(YearMonth::parse),
+                isSensitiveAgree = isSensitiveAgree,
             ),
         )
         return ApiResponse(data = null)
@@ -206,5 +208,6 @@ class ApplicationController(
 
     private companion object {
         const val USER_ID_HEADER = "user-id"
+        const val SENSITIVE_AGREE_HEADER = "X-Sensitive-Agree"
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.Region
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -31,6 +32,14 @@ data class ScoreWeightsRequest(
     val volunteer: Double?,
 )
 
+/**
+ * 지역 × 전형 정원 전체. 조합 누락·음수 검증은 도메인 모델이 한다.
+ */
+data class UpdateAdmissionQuotaRequest(
+    @field:NotNull
+    val quotas: Map<Region, Map<AdmissionType, Int>>?,
+)
+
 data class EvaluateScreeningRequest(
     val dryRun: Boolean = false,
 )
@@ -52,6 +61,14 @@ data class CreateNoticeRequest(
     val title: String,
     @field:NotBlank
     val content: String,
+    /**
+     * 공지 분류. notification 공지 목록의 category 값(ADMISSION_NOTICE, PROSPECTIVE_STUDENT)과 같다.
+     *
+     * 한글 이름(입학 공지사항, 예비 신입생 안내)과 Notion 명세의 영문 이름
+     * (Admissions Notice, Prospective Students Notice)도 같은 값으로 치환해 받는다.
+     */
+    @field:NotBlank
+    val division: String = "ADMISSION_NOTICE",
     @param:JsonProperty("isPinned")
     @get:JsonProperty("isPinned")
     val isPinned: Boolean = false,

@@ -10,6 +10,7 @@ data class FileDocument(
     val contentType: String,
     val sizeBytes: Long,
     val checksum: String,
+    val ownerUserId: Long? = null,
     val createdAt: Instant? = null,
 ) {
     val fileName: String

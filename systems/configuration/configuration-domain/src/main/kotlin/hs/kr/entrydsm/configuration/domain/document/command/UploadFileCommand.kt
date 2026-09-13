@@ -7,4 +7,5 @@ data class UploadFileCommand(
     val originalName: String,
     val fileName: String,
     val sizeBytes: Long,
+    val ownerUserId: Long? = null,
 )

@@ -4,6 +4,6 @@ import java.time.LocalDateTime
 
 data class ScheduleResponse(
     val applicationPeriod: PeriodResponse,
-    val resultAnnouncedAt: LocalDateTime,
+    val resultAnnouncedAt: LocalDateTime?,
 )
 

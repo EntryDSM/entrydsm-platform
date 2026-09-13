@@ -10,7 +10,8 @@ data class SignupCommand(
     val phone: String,
     val birthdate: LocalDate,
     val signupType: SignupType,
+    val isSensitiveAgree: Boolean = false,
 ) {
     override fun toString(): String =
-        "SignupCommand(password=$REDACTED, name=$REDACTED, phone=$REDACTED, birthdate=$REDACTED, signupType=$signupType)"
+        "SignupCommand(password=$REDACTED, name=$REDACTED, phone=$REDACTED, birthdate=$REDACTED, signupType=$signupType, isSensitiveAgree=$isSensitiveAgree)"
 }

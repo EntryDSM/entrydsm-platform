@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.adapterin.web.dto.common
 
+import hs.kr.entrydsm.admin.adapterin.web.dto.response.AdmissionQuotaResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.CreateExportResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExportJobResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.FinalScreeningResultResponse
@@ -10,6 +11,7 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreWeightsResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScreeningResultResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.StatisticsResponse
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
+import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.ExportJobView
@@ -28,6 +30,12 @@ fun ScorePolicy.toResponse(): ScorePolicyResponse = ScorePolicyResponse(
     ),
     roundingScale = roundingScale,
     effectiveFrom = effectiveFrom,
+    updatedBy = updatedBy,
+)
+
+fun AdmissionQuota.toResponse(): AdmissionQuotaResponse = AdmissionQuotaResponse(
+    quotas = quotas,
+    updatedAt = updatedAt,
     updatedBy = updatedBy,
 )
 

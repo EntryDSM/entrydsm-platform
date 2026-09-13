@@ -4,3 +4,4 @@ sync --enable_workspace
 
 build --java_runtime_version=remotejdk_21
 build --tool_java_runtime_version=remotejdk_21
+build --disk_cache=~/.cache/bazel/entrydsm-platform

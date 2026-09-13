@@ -40,6 +40,7 @@ class JpaAccountRepositoryAdapter(
                 loginIdEncrypted = personalDataEncryptor.encrypt(account.loginId),
                 passwordHash = account.passwordHash.value,
                 role = account.role,
+                isSensitiveAgree = account.isSensitiveAgree,
                 status = account.status,
             )
         } else {
@@ -77,6 +78,7 @@ class JpaAccountRepositoryAdapter(
                 loginIdEncrypted = personalDataEncryptor.encrypt(registration.loginId),
                 passwordHash = registration.passwordHash.value,
                 role = registration.role,
+                isSensitiveAgree = registration.isSensitiveAgree,
                 status = registration.status,
             ),
         )
@@ -108,6 +110,7 @@ class JpaAccountRepositoryAdapter(
                 .let(personalDataEncryptor::decrypt),
             passwordHash = hs.kr.entrydsm.identity.domain.model.PasswordHash.fromEncoded(passwordHash),
             role = role,
+            isSensitiveAgree = isSensitiveAgree,
             status = status,
             profile = resolvedProfile.toDomain(updatedAt),
             createdAt = createdAt,

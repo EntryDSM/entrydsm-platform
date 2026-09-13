@@ -66,21 +66,27 @@ class IdentityServiceTest {
     }
 
     @Test
-    fun resultIsUnavailableBeforeAnnouncement() {
+    fun resultIsPendingRegardlessOfApplicationState() {
         val (services, applications) = services()
         applications.snapshots[123L] = applications.snapshots.getValue(123L).copy(
             passStatus = PassStatus.NOT_ANNOUNCED,
             announcedAt = null,
         )
 
-        val exception = try {
-            services.application.getApplicationResult(ReadApplicationCommand("Bearer access-token", 123L))
-            null
-        } catch (error: IdentityDomainException) {
-            error
-        }
+        val result = services.application.getApplicationResult(ReadApplicationCommand("Bearer access-token", 123L))
 
-        assertEquals(ErrorCode.APPLICATION_RESULT_NOT_AVAILABLE, exception?.errorCode)
+        assertEquals(PassStatus.NOT_ANNOUNCED, result.passStatus)
+        assertEquals(null, result.announcedAt)
+    }
+
+    @Test
+    fun missingApplicationStatusIsNone() {
+        val (services, applications) = services()
+        applications.snapshots.remove(123L)
+
+        val result = services.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token", 123L))
+
+        assertEquals(ApplicantStatus.NONE, result.applicantStatus)
     }
 
     private fun services(): Pair<ServiceBundle, FakeApplicationDataPort> {

@@ -10,11 +10,19 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleScho
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.Assert.assertThrows
+import org.springframework.mock.web.MockHttpServletRequest
+import org.springframework.mock.web.MockHttpServletResponse
+import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedException
 
 class ApplicationControllerTest {
     @Test
@@ -42,12 +50,48 @@ class ApplicationControllerTest {
         assertEquals(resultAnnouncedAt, response.data?.schedule?.resultAnnouncedAt)
     }
 
+    @Test
+    fun getLandingAllowsMissingResultAnnouncementSchedule() {
+        val schedule = LandingScheduleProperties(applicationStartAt, applicationEndAt, null)
+        val controller = ApplicationController(FakeApplicationPort(), schedule)
+
+        val response = controller.getLanding(10L)
+
+        assertNull(response.data?.schedule?.resultAnnouncedAt)
+    }
+
+    @Test
+    fun applicationApiAllowsOnlyStudentRole() {
+        val interceptor = ApplicationAuthorizationInterceptor()
+        val request = MockHttpServletRequest().apply {
+            addHeader("X-User-Id", "10")
+            addHeader("X-User-Role", "STUDENT")
+        }
+
+        assertEquals(true, interceptor.preHandle(request, MockHttpServletResponse(), Any()))
+        request.removeHeader("X-User-Role")
+        request.addHeader("X-User-Role", "ADMIN")
+        assertThrows(ApplicationAccessDeniedException::class.java) {
+            interceptor.preHandle(request, MockHttpServletResponse(), Any())
+        }
+    }
+
     private class FakeApplicationPort : ApplicationPort {
         var createApplicantCommand: CreateApplicantCommand? = null
 
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
             createApplicantCommand = command
-            return CreateApplicantResult(applicantId = 1L)
+            return CreateApplicantResult(
+                applicantId = 1L,
+                snapshot = ApplicationSnapshotResult(
+                    userId = requireNotNull(command.userId),
+                    applicantStatus = ApplicantStatus.DRAFT,
+                    submittedAt = null,
+                    updatedAt = applicationStartAt,
+                    passStatus = PassResultStatus.PENDING,
+                    announcedAt = null,
+                ),
+            )
         }
 
         override fun updateType(command: UpdateTypeCommand) = Unit
@@ -58,6 +102,8 @@ class ApplicationControllerTest {
         override fun updateStudyPlan(command: UpdateStudyPlanCommand) = Unit
         override fun submit(command: SubmitApplicationCommand) = Unit
         override fun getLanding(accountId: Long?): LandingResult = LandingResult(applicantName = "홍길동")
+        override fun findByUserId(userId: Long): ApplicationSnapshotResult? = null
+        override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
     }
 
     private companion object {

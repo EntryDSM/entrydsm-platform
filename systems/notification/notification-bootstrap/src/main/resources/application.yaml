@@ -1,8 +1,6 @@
 spring:
   application:
     name: notification
-  main:
-    lazy-initialization: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -20,6 +18,10 @@ spring:
 server:
   port: ${SERVER_PORT}
   shutdown: graceful
+
+# admin 이 공지 등록을 위임하는 내부 gRPC 포트
+grpc:
+  port: ${GRPC_PORT:9090}
 
 management:
   endpoints:

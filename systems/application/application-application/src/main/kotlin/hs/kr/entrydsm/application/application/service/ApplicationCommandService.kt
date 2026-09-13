@@ -2,7 +2,9 @@ package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
+import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
+import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
@@ -12,10 +14,12 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleScho
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.GuardianRelation
@@ -24,16 +28,21 @@ import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.YearMonth
 
 class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
 ) : ApplicationPort {
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
-        return CreateApplicantResult(createApplicant(requireUserId(command.userId)).id)
+        val applicant = createApplicant(requireUserId(command.userId))
+        return CreateApplicantResult(applicant.id, applicant.toSnapshot())
     }
 
     override fun updateType(command: UpdateTypeCommand) {
+        if (command.admissionType == AdmissionType.SOCIAL && !command.isSensitiveAgree) {
+            throw SensitiveConsentRequiredException()
+        }
         updateType(
             applicantId = command.applicantId,
             userId = command.userId,
@@ -98,6 +107,19 @@ class ApplicationCommandService(
         return LandingResult(
             applicantName = accountId?.let(applicantRepository::findByAccountId)?.name,
         )
+    }
+
+    override fun findByUserId(userId: Long): ApplicationSnapshotResult? =
+        applicantRepository.findByAccountId(userId)?.toSnapshot()
+
+    override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult {
+        val applicant = getApplicantByUserId(userId)
+        if (applicant.status != ApplicantStatus.SUBMITTED) {
+            throw ApplicationCancelNotAllowedException()
+        }
+        applicant.status = ApplicantStatus.CANCELED
+        applicant.cancelReason = reason?.takeIf(String::isNotBlank)
+        return saveTouched(applicant).toSnapshot()
     }
 
     fun createApplicant(accountId: Long = 0): Applicant {
@@ -238,7 +260,7 @@ class ApplicationCommandService(
         require(!applicant.guardianName.isNullOrBlank()) { "family info is required" }
         require(!applicant.introduction.isNullOrBlank()) { "introduction is required" }
         require(!applicant.studyPlan.isNullOrBlank()) { "studyPlan is required" }
-        saveTouched(applicant)
+        markSubmitted(applicant)
     }
 
     fun submit(userId: Long?) {
@@ -248,7 +270,7 @@ class ApplicationCommandService(
         require(!applicant.guardianName.isNullOrBlank()) { "family info is required" }
         require(!applicant.introduction.isNullOrBlank()) { "introduction is required" }
         require(!applicant.studyPlan.isNullOrBlank()) { "studyPlan is required" }
-        saveTouched(applicant)
+        markSubmitted(applicant)
     }
 
     private fun getApplicant(applicantId: Long, userId: Long? = null): Applicant {
@@ -269,10 +291,25 @@ class ApplicationCommandService(
     private fun requireUserId(userId: Long?): Long =
         userId ?: throw AuthenticationRequiredException()
 
-    private fun saveTouched(applicant: Applicant) {
-        applicant.touch()
-        applicantRepository.save(applicant)
+    private fun markSubmitted(applicant: Applicant) {
+        applicant.status = ApplicantStatus.SUBMITTED
+        applicant.submittedAt = LocalDateTime.now()
+        saveTouched(applicant)
     }
+
+    private fun saveTouched(applicant: Applicant): Applicant {
+        applicant.touch()
+        return applicantRepository.save(applicant)
+    }
+
+    private fun Applicant.toSnapshot(): ApplicationSnapshotResult = ApplicationSnapshotResult(
+        userId = accountId,
+        applicantStatus = status,
+        submittedAt = submittedAt,
+        updatedAt = updatedAt,
+        passStatus = passStatus,
+        announcedAt = announcedAt,
+    )
 
     companion object {
         private const val NEW_APPLICANT_ID = 0L

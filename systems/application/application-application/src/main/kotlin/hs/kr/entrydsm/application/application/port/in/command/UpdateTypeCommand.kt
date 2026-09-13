@@ -12,4 +12,5 @@ data class UpdateTypeCommand(
     val region: Region,
     val graduationType: GraduationType,
     val graduationDate: YearMonth?,
+    val isSensitiveAgree: Boolean = false,
 )

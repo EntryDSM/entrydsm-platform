@@ -8,6 +8,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleScho
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 
@@ -21,5 +22,7 @@ interface ApplicationPort {
     fun updateStudyPlan(command: UpdateStudyPlanCommand)
     fun submit(command: SubmitApplicationCommand)
     fun getLanding(accountId: Long?): LandingResult
+    fun findByUserId(userId: Long): ApplicationSnapshotResult?
+    fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult
 }
 

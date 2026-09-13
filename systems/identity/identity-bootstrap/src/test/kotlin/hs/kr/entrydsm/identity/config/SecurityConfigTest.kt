@@ -100,6 +100,39 @@ class SecurityConfigTest {
     }
 
     @Test
+    fun csrfTokenEndpointReturnsTokenAndCookie() {
+        val response = mockMvc.perform(
+            get("/api/identity/v11/auth/csrf"),
+        ).andReturn().response
+        val cookie = requireNotNull(response.getCookie("XSRF-TOKEN"))
+        val token = java.net.URLDecoder.decode(cookie.value, StandardCharsets.UTF_8)
+
+        assertEquals(200, response.status)
+        assertTrue(response.contentAsString.contains("\"token\":\"$token\""))
+    }
+
+    @Test
+    fun passPopupRequestDoesNotRequireCsrf() {
+        val response = mockMvc.perform(
+            post("/api/identity/v11/auth/pass/popup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"),
+        ).andReturn().response
+
+        assertEquals(400, response.status)
+    }
+
+    @Test
+    fun unauthenticatedLogoutSucceedsWithoutCsrf() {
+        val response = mockMvc.perform(
+            post("/api/identity/v11/auth/logout"),
+        ).andReturn().response
+
+        assertEquals(200, response.status)
+        assertTrue(response.getHeaders("Set-Cookie").any { it.contains("access_token=") })
+    }
+
+    @Test
     fun publicAuthRequestRemainsPublicAfterCsrfValidation() {
         val csrfResponse = mockMvc.perform(
             get("/actuator/health"),

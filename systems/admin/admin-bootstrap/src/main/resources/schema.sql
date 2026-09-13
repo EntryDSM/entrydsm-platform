@@ -40,6 +40,18 @@ CREATE TABLE IF NOT EXISTS score_policy (
     UNIQUE KEY uk_score_policy_version (policy_version)
 );
 
+-- 모집 지역 × 전형 조합별 정원. PUT /admin/admission-quotas 가 전체를 교체한다.
+CREATE TABLE IF NOT EXISTS admission_quota (
+    id             BIGINT      NOT NULL AUTO_INCREMENT,
+    region         VARCHAR(20) NOT NULL,
+    admission_type VARCHAR(20) NOT NULL,
+    quota          INT         NOT NULL,
+    updated_at     DATETIME(6) NOT NULL,
+    updated_by     VARCHAR(50) NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_admission_quota_region_type (region, admission_type)
+);
+
 CREATE TABLE IF NOT EXISTS export_job (
     id            BIGINT      NOT NULL AUTO_INCREMENT,
     export_job_id VARCHAR(40) NOT NULL,
@@ -50,24 +62,4 @@ CREATE TABLE IF NOT EXISTS export_job (
     completed_at  DATETIME(6) NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_export_job_id (export_job_id)
-);
-
-CREATE TABLE IF NOT EXISTS notice (
-    id             BIGINT       NOT NULL AUTO_INCREMENT,
-    title          VARCHAR(200) NOT NULL,
-    content        TEXT         NOT NULL,
-    is_pinned      BIT(1)       NOT NULL,
-    attachment_ids VARCHAR(500) NULL,
-    created_at     DATETIME(6)  NOT NULL,
-    PRIMARY KEY (id)
-);
-
-CREATE TABLE IF NOT EXISTS question_answer (
-    id          BIGINT      NOT NULL AUTO_INCREMENT,
-    question_id BIGINT      NOT NULL,
-    content     TEXT        NOT NULL,
-    answered_by VARCHAR(50) NOT NULL,
-    answered_at DATETIME(6) NOT NULL,
-    PRIMARY KEY (id),
-    KEY idx_question_answer_question_id (question_id)
 );

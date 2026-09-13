@@ -2,9 +2,12 @@ SPRING_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
     "@maven//:org_springframework_boot_spring_boot_starter_data_jpa",
+    "@maven//:org_springframework_boot_spring_boot_starter_flyway",
+    "@maven//:org_flywaydb_flyway_mysql",
 ]
 
 KOTLIN_DEPS = [
+    "@maven//:io_grpc_grpc_netty_shaded",
     "@maven//:org_jetbrains_kotlin_kotlin_reflect",
     "@maven//:com_fasterxml_jackson_module_jackson_module_kotlin",
     "@maven//:com_mysql_mysql_connector_j",

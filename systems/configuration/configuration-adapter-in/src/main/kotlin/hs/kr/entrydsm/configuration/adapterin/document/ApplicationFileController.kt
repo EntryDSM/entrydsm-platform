@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 import java.time.Instant
@@ -33,21 +34,28 @@ class ApplicationFileController(
     fun save(
         @RequestParam("file") file: MultipartFile,
         @RequestParam("receiptCode") receiptCode: String,
+        @RequestHeader("X-User-Id", required = false) userId: Long?,
+        @RequestHeader("X-User-Role") role: String,
     ): ApiResponse<UploadFileResponse> {
         val fileName = FileNaming.applicationFileName(receiptCode, file.requireExtension(CATEGORY))
         val saved = file.inputStream.use {
-            uploadFileUseCase.upload(file.toUploadCommand(CATEGORY, fileName), it)
+            uploadFileUseCase.upload(file.toUploadCommand(CATEGORY, fileName, userId.takeIf { role == "STUDENT" }), it)
         }
         return ApiResponse.success(UploadFileResponse.from(saved))
     }
 
     @GetMapping
-    fun find(@RequestParam("receiptCode") receiptCode: String): ApiResponse<FileMetadataResponse> {
+    fun find(
+        @RequestParam("receiptCode") receiptCode: String,
+        @RequestHeader("X-User-Id", required = false) userId: Long?,
+        @RequestHeader("X-User-Role") role: String,
+    ): ApiResponse<FileMetadataResponse> {
         val stored = FileExtension.documentFormats
             .mapNotNull { extension ->
                 readFileUseCase.findByFileName(CATEGORY, FileNaming.applicationFileName(receiptCode, extension))
             }
             .maxByOrNull { it.createdAt ?: Instant.EPOCH }
+        requireOwner(role, userId, stored)
         if (stored != null) {
             return ApiResponse.success(
                 FileMetadataResponse(key = stored.objectKey, fileName = stored.fileName, exists = true)
@@ -67,9 +75,12 @@ class ApplicationFileController(
     fun download(
         @RequestParam("receiptCode") receiptCode: String,
         @RequestParam("format", defaultValue = "pdf") format: String,
+        @RequestHeader("X-User-Id", required = false) userId: Long?,
+        @RequestHeader("X-User-Role") role: String,
     ): ApiResponse<DownloadUrlResponse> {
         val extension = requireDownloadFormat(format, CATEGORY)
         val fileName = FileNaming.applicationFileName(receiptCode, extension)
+        requireOwner(role, userId, readFileUseCase.findByFileName(CATEGORY, fileName))
         return ApiResponse.success(
             DownloadUrlResponse.from(
                 issueDownloadUrlUseCase.issueByCommand(IssueDownloadUrlCommand(CATEGORY, fileName))

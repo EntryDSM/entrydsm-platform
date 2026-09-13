@@ -11,6 +11,7 @@ import hs.kr.entrydsm.configuration.domain.document.port.`in`.IssueDownloadUrlUs
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.ReadFileUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.UploadFileUseCase
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.MockMvc
@@ -41,7 +42,13 @@ class DocumentControllerTest {
     @Test
     fun `지원서 업로드는 수험번호 기반 파일명으로 저장한다`() {
         mockMvc(applicationController())
-            .perform(multipart("/api/document/v11/application").file(pdf()).param("receiptCode", "1001"))
+            .perform(
+                multipart("/api/document/v11/application")
+                    .file(pdf())
+                    .header("X-User-Id", "10")
+                    .header("X-User-Role", "STUDENT")
+                    .param("receiptCode", "1001"),
+            )
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.fileName").value("application_1001.pdf"))
@@ -50,6 +57,7 @@ class DocumentControllerTest {
         assertEquals(FileCategory.APPLICATION, upload.lastCommand?.category)
         assertEquals("application_1001.pdf", upload.lastCommand?.fileName)
         assertEquals("지원서.pdf", upload.lastCommand?.originalName)
+        assertEquals(10L, upload.lastCommand?.ownerUserId)
     }
 
     @Test
@@ -58,6 +66,7 @@ class DocumentControllerTest {
             .perform(
                 multipart("/api/document/v11/application")
                     .file(MockMultipartFile("file", "지원서.jpg", null, ByteArray(1)))
+                    .header("X-User-Role", "ADMIN")
                     .param("receiptCode", "1001"),
             )
             .andExpect(status().isBadRequest)
@@ -70,7 +79,7 @@ class DocumentControllerTest {
         read.put(stored("dsm_Entry/Backend/application/application_1001.hwp", Instant.parse("2026-02-01T00:00:00Z")))
 
         mockMvc(applicationController())
-            .perform(get("/api/document/v11/application").param("receiptCode", "1001"))
+            .perform(get("/api/document/v11/application").header("X-User-Role", "ADMIN").param("receiptCode", "1001"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.exists").value(true))
             .andExpect(jsonPath("$.data.fileName").value("application_1001.hwp"))
@@ -79,7 +88,7 @@ class DocumentControllerTest {
     @Test
     fun `지원서가 없으면 pdf 기본 파일명과 미존재 표시를 돌려준다`() {
         mockMvc(applicationController())
-            .perform(get("/api/document/v11/application").param("receiptCode", "1001"))
+            .perform(get("/api/document/v11/application").header("X-User-Role", "ADMIN").param("receiptCode", "1001"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.exists").value(false))
             .andExpect(jsonPath("$.data.fileName").value("application_1001.pdf"))
@@ -87,10 +96,50 @@ class DocumentControllerTest {
     }
 
     @Test
+    fun `학생은 본인 소유 지원서만 조회한다`() {
+        read.put(stored("dsm_Entry/Backend/application/application_1001.pdf", Instant.now(), ownerUserId = 10L))
+        val mvc = mockMvc(applicationController())
+
+        mvc.perform(
+            get("/api/document/v11/application")
+                .header("X-User-Id", "10")
+                .header("X-User-Role", "STUDENT")
+                .param("receiptCode", "1001"),
+        ).andExpect(status().isOk)
+
+        mvc.perform(
+            get("/api/document/v11/application")
+                .header("X-User-Id", "11")
+                .header("X-User-Role", "STUDENT")
+                .param("receiptCode", "1001"),
+        ).andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"))
+    }
+
+    @Test
+    fun `configuration API는 관리자와 허용된 학생 경로만 통과시킨다`() {
+        val interceptor = ConfigurationAuthorizationInterceptor()
+        val allowed = org.springframework.mock.web.MockHttpServletRequest("GET", "/api/document/v11/guideline/download").apply {
+            addHeader("X-User-Id", "10")
+            addHeader("X-User-Role", "STUDENT")
+        }
+        val denied = org.springframework.mock.web.MockHttpServletRequest("GET", "/api/schedule/v11").apply {
+            addHeader("X-User-Id", "10")
+            addHeader("X-User-Role", "STUDENT")
+        }
+
+        assertEquals(true, interceptor.preHandle(allowed, org.springframework.mock.web.MockHttpServletResponse(), Any()))
+        assertThrows(hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleAccessDeniedException::class.java) {
+            interceptor.preHandle(denied, org.springframework.mock.web.MockHttpServletResponse(), Any())
+        }
+    }
+
+    @Test
     fun `지원서 다운로드는 요청한 형식의 파일로 URL을 발급한다`() {
         mockMvc(applicationController())
             .perform(
                 get("/api/document/v11/application/download")
+                    .header("X-User-Role", "ADMIN")
                     .param("receiptCode", "1001")
                     .param("format", "hwp"),
             )
@@ -106,6 +155,7 @@ class DocumentControllerTest {
         mockMvc(applicationController())
             .perform(
                 get("/api/document/v11/application/download")
+                    .header("X-User-Role", "ADMIN")
                     .param("receiptCode", "1001")
                     .param("format", "jpg"),
             )
@@ -115,8 +165,8 @@ class DocumentControllerTest {
 
     @Test
     fun `수험표 다운로드는 수험번호 기반 파일명을 사용한다`() {
-        mockMvc(AdmissionTicketController(upload, issue))
-            .perform(get("/api/document/v11/admission-ticket/download").param("receiptCode", "1001"))
+        mockMvc(AdmissionTicketController(upload, issue, read))
+            .perform(get("/api/document/v11/admission-ticket/download").header("X-User-Role", "ADMIN").param("receiptCode", "1001"))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.fileName").value("admission_ticket_1001.pdf"))
 
@@ -125,8 +175,8 @@ class DocumentControllerTest {
 
     @Test
     fun `수험번호에 경로 문자가 들어오면 400으로 거부한다`() {
-        mockMvc(AdmissionTicketController(upload, issue))
-            .perform(get("/api/document/v11/admission-ticket/download").param("receiptCode", "../1001"))
+        mockMvc(AdmissionTicketController(upload, issue, read))
+            .perform(get("/api/document/v11/admission-ticket/download").header("X-User-Role", "ADMIN").param("receiptCode", "../1001"))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
     }
@@ -221,7 +271,7 @@ class DocumentControllerTest {
 
     private fun xlsx() = MockMultipartFile("file", "명단.xlsx", null, ByteArray(1))
 
-    private fun stored(objectKey: String, createdAt: Instant) = FileDocument(
+    private fun stored(objectKey: String, createdAt: Instant, ownerUserId: Long? = null) = FileDocument(
         id = 7,
         originalName = "지원서",
         objectKey = objectKey,
@@ -229,6 +279,7 @@ class DocumentControllerTest {
         contentType = "application/pdf",
         sizeBytes = 7,
         checksum = "abc",
+        ownerUserId = ownerUserId,
         createdAt = createdAt,
     )
 

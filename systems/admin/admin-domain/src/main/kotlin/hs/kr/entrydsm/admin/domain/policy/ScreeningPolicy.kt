@@ -1,45 +1,46 @@
 package hs.kr.entrydsm.admin.domain.policy
 
+import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
-import hs.kr.entrydsm.admin.domain.enum.ErrorCode
-import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
+import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.Applicant
 
 /**
  * 합격자 산출 규칙입니다.
  *
  * 단계별 대상 상태의 지원자만 평가하며, 원서 미도착·수험 번호 미발급·성적 미산출 지원자는
- * 평가에서 제외한다. 합격자는 총점 내림차순으로 정원까지 채우고, 동점이면 접수 번호가
- * 빠른 지원자를 우선한다.
+ * 평가에서 제외한다. 지원자를 모집 지역 × 전형 묶음으로 나눠 묶음 안에서 총점 내림차순으로
+ * 해당 묶음의 정원까지 채우고, 동점이면 접수 번호가 빠른 지원자를 우선한다.
  */
 object ScreeningPolicy {
 
     /**
      * @param applicants 회차에 속한 지원자 전체
      * @param stage 산출 단계
-     * @param quota 해당 단계의 합격 정원
+     * @param quotas 해당 단계의 지역별 → 전형별 합격 정원. 없는 묶음은 정원 0으로 본다
      */
     fun evaluate(
         applicants: List<Applicant>,
         stage: ScreeningStage,
-        quota: Int,
+        quotas: Map<Region, Map<AdmissionType, Int>>,
     ): ScreeningOutcome {
-        if (quota < 0) {
-            throw AdminDomainException(ErrorCode.INVALID_REQUEST_BODY)
-        }
-
         val candidates = applicants.filter { it.status == stage.from }
         val (evaluable, excluded) = candidates.partition(::isEvaluable)
 
-        val ranked = evaluable.sortedWith(
-            compareByDescending<Applicant> { it.score!!.totalScore }.thenBy { it.receiptNumber },
-        )
+        val passed = mutableListOf<Applicant>()
+        val failed = mutableListOf<Applicant>()
+        evaluable
+            .groupBy { it.region to it.admissionType }
+            .forEach { (bucket, group) ->
+                val quota = quotas[bucket.first]?.get(bucket.second) ?: 0
+                val ranked = group.sortedWith(
+                    compareByDescending<Applicant> { it.score!!.totalScore }.thenBy { it.receiptNumber },
+                )
+                passed += ranked.take(quota).map { it.copy(status = stage.pass) }
+                failed += ranked.drop(quota).map { it.copy(status = stage.fail) }
+            }
 
-        return ScreeningOutcome(
-            passed = ranked.take(quota).map { it.copy(status = stage.pass) },
-            failed = ranked.drop(quota).map { it.copy(status = stage.fail) },
-            excluded = excluded,
-        )
+        return ScreeningOutcome(passed = passed, failed = failed, excluded = excluded)
     }
 
     /**
@@ -50,14 +51,14 @@ object ScreeningPolicy {
      *
      * @param applicant 산출 대상 지원자
      * @param applicants 회차에 속한 지원자 전체
-     * @param quota 최종 합격 정원
+     * @param quotas 지역별 → 전형별 최종 합격 정원
      */
     fun evaluateFinal(
         applicant: Applicant,
         applicants: List<Applicant>,
-        quota: Int,
+        quotas: Map<Region, Map<AdmissionType, Int>>,
     ): ApplicantStatus {
-        val passed = evaluate(applicants, ScreeningStage.FINAL, quota).passed
+        val passed = evaluate(applicants, ScreeningStage.FINAL, quotas).passed
         return if (passed.any { it.receiptNumber == applicant.receiptNumber }) {
             ScreeningStage.FINAL.pass
         } else {

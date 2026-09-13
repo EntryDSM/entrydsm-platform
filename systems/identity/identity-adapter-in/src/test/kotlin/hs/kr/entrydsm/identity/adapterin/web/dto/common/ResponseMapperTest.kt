@@ -88,6 +88,6 @@ class ResponseMapperTest {
         assertEquals(null, statusResponse.submittedAt)
         assertEquals(null, resultResponse.announcedAt)
         assertEquals(ApplicantStatus.NONE, statusResponse.applicantStatus)
-        assertEquals(PassStatus.NOT_ANNOUNCED, resultResponse.passStatus)
+        assertEquals("PENDING", resultResponse.passStatus)
     }
 }

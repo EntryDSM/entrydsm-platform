@@ -9,6 +9,7 @@ import hs.kr.entrydsm.identity.application.service.AccountServiceTest
 import hs.kr.entrydsm.identity.application.service.AuthServiceTest
 import hs.kr.entrydsm.identity.application.service.IdentityResultMapperTest
 import hs.kr.entrydsm.identity.application.service.IdentityServiceSupportTest
+import hs.kr.entrydsm.identity.application.service.IdentityServiceTest
 import org.junit.runner.RunWith
 import org.junit.runners.Suite
 
@@ -24,5 +25,6 @@ import org.junit.runners.Suite
     AuthServiceTest::class,
     IdentityResultMapperTest::class,
     IdentityServiceSupportTest::class,
+    IdentityServiceTest::class,
 )
 class AuthIdentityApplicationModuleTest

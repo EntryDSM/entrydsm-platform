@@ -22,9 +22,12 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
+import org.springframework.security.web.csrf.CsrfToken
 import org.springframework.web.bind.annotation.CookieValue
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -34,6 +37,10 @@ class AuthController(
     private val authPort: AuthPort,
     @Value("\${security.cookies.secure:true}") private val secureCookies: Boolean = true,
 ) {
+    @GetMapping(AuthEndpointPaths.CSRF_PATH)
+    fun csrf(@RequestAttribute("_csrf") csrfToken: CsrfToken): ApiResponse<CsrfTokenResponse> =
+        ApiResponse(data = CsrfTokenResponse(csrfToken.token))
+
     @PostMapping(AuthEndpointPaths.SIGNUP_PATH)
     fun signup(
         @Valid @RequestBody request: SignupRequest,
@@ -45,6 +52,7 @@ class AuthController(
                 phone = request.phone,
                 birthdate = request.birthdate,
                 signupType = request.signupType,
+                isSensitiveAgree = request.isSensitiveAgree,
             )
         )
         return ResponseEntity
@@ -71,11 +79,11 @@ class AuthController(
 
     @PostMapping(AuthEndpointPaths.LOGOUT_PATH)
     fun logout(
-        authentication: Authentication,
+        authentication: Authentication?,
     ): ResponseEntity<ApiResponse<Unit>> {
-        val principal = authentication.principal as? AuthenticatedUser
-            ?: throw IllegalArgumentException("Authenticated principal is not validated.")
-        authPort.logout(LogoutCommand(userId = principal.userId))
+        (authentication?.principal as? AuthenticatedUser)?.let {
+            authPort.logout(LogoutCommand(userId = it.userId))
+        }
         return ResponseEntity
             .ok()
             .header(HttpHeaders.SET_COOKIE, expiredCookie("access_token").toString())
@@ -127,6 +135,7 @@ class AuthController(
             userId = "${JwtTokenGenerator.USER_PRINCIPAL_PREFIX}$userId",
             role = role.name,
             status = status,
+            isSensitiveAgree = false,
         )
 
 }

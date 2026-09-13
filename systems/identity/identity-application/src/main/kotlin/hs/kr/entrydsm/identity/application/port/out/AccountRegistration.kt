@@ -11,5 +11,6 @@ data class AccountRegistration(
     val passwordHash: PasswordHash,
     val role: Role,
     val status: AccountStatus,
+    val isSensitiveAgree: Boolean = false,
     val profile: StudentProfile,
 )

@@ -33,6 +33,9 @@ open class AccountJpaEntity(
     @Column(name = "role", nullable = false, length = 20)
     val role: Role = Role.USER,
 
+    @Column(name = "is_sensitive_agree", nullable = false)
+    val isSensitiveAgree: Boolean = false,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
     var status: AccountStatus = AccountStatus.ACTIVE,

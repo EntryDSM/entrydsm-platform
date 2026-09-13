@@ -1,8 +1,10 @@
 package hs.kr.entrydsm.admin.domain.port.`in`
 
 import hs.kr.entrydsm.admin.domain.command.EvaluateScreeningCommand
+import hs.kr.entrydsm.admin.domain.command.UpdateAdmissionQuotaCommand
 import hs.kr.entrydsm.admin.domain.command.UpdateScorePolicyCommand
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
+import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.FinalScreeningResult
 import hs.kr.entrydsm.admin.domain.model.ScorePolicy
@@ -14,6 +16,14 @@ interface ReadScorePolicyUseCase {
 
 interface UpdateScorePolicyUseCase {
     fun update(command: UpdateScorePolicyCommand)
+}
+
+interface ReadAdmissionQuotaUseCase {
+    fun findCurrent(): AdmissionQuota
+}
+
+interface UpdateAdmissionQuotaUseCase {
+    fun update(command: UpdateAdmissionQuotaCommand): AdmissionQuota
 }
 
 interface EvaluateFirstScreeningUseCase {

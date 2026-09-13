@@ -6,5 +6,7 @@ import java.time.LocalDateTime
 interface ScheduleUseCase {
     fun findByYear(year: Int): List<Schedule>
 
-    fun update(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule
+    fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule
+
+    fun updateAll(schedules: List<Schedule>): List<Schedule>
 }

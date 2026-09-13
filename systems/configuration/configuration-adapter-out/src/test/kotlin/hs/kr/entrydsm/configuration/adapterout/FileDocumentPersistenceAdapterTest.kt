@@ -12,6 +12,11 @@ import java.time.Instant
 class FileDocumentPersistenceAdapterTest {
 
     @Test
+    fun `Hibernate가 사용할 기본 생성자가 존재한다`() {
+        FileDocumentJpaEntity::class.java.getDeclaredConstructor()
+    }
+
+    @Test
     fun `같은 객체 키가 이미 있으면 기존 행을 갱신한다`() {
         val saved = mutableListOf<FileDocumentJpaEntity>()
         val adapter = FileDocumentPersistenceAdapter(repository(existing = entity(id = 7L), saved = saved))

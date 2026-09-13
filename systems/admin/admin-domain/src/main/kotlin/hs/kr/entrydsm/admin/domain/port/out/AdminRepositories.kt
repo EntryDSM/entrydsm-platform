@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.domain.port.out
 
+import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
@@ -26,6 +27,13 @@ interface ScorePolicyRepository {
     fun findCurrent(): ScorePolicy?
 
     fun save(scorePolicy: ScorePolicy): ScorePolicy
+}
+
+interface AdmissionQuotaRepository {
+    fun find(): AdmissionQuota?
+
+    /** 지역 × 전형 정원 전체를 교체합니다. */
+    fun save(admissionQuota: AdmissionQuota): AdmissionQuota
 }
 
 interface ExportJobRepository {

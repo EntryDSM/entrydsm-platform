@@ -21,7 +21,7 @@ enum class GatewayService(
     EVALUATION("evaluation", GatewayDownstream.APPLICATION, "/api/evaluation"),
     ADMIN("admin", GatewayDownstream.ADMIN, "/api/v11/admin"),
     NOTIFICATION("notification", GatewayDownstream.NOTIFICATION, "/api/notification"),
-    OBSERVABILITY("observability", GatewayDownstream.OBSERVABILITY, "/api/observability"),
+    OBSERVABILITY("observability", GatewayDownstream.OBSERVABILITY, "/api/monitor"),
     CONFIGURATION("configuration", GatewayDownstream.CONFIGURATION, "/api/document"),
     SCHEDULE("schedule", GatewayDownstream.CONFIGURATION, "/api/schedule"),
     ;

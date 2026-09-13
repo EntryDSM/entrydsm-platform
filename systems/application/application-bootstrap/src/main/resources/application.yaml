@@ -1,8 +1,6 @@
 spring:
   application:
     name: application
-  main:
-    lazy-initialization: true
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
@@ -22,7 +20,7 @@ entrydsm:
     schedule:
       application-start-at: ${APPLICATION_START_AT}
       application-end-at: ${APPLICATION_END_AT}
-      result-announced-at: ${RESULT_ANNOUNCED_AT}
+      result-announced-at: ${RESULT_ANNOUNCED_AT:}
 
 server:
   port: ${SERVER_PORT}

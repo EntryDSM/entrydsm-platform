@@ -1,7 +1,9 @@
 package hs.kr.entrydsm.admin.domain.command
 
+import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ScoreWeights
 
@@ -39,6 +41,14 @@ data class UpdateScorePolicyCommand(
 )
 
 /**
+ * 모집 지역 × 전형별 정원을 한 번에 교체합니다.
+ */
+data class UpdateAdmissionQuotaCommand(
+    val quotas: Map<Region, Map<AdmissionType, Int>>,
+    val updatedBy: String,
+)
+
+/**
  * 1차 합격자를 일괄 산출합니다.
  *
  * @property dryRun true이면 상태를 저장하지 않고 산출 결과만 돌려준다
@@ -61,6 +71,7 @@ data class CreateExportCommand(
 data class CreateNoticeCommand(
     val title: String,
     val content: String,
+    val division: String,
     val isPinned: Boolean = false,
     val attachmentIds: List<String> = emptyList(),
 )

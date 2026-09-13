@@ -18,6 +18,7 @@ fun UserSummaryResult.toResponse(): UserSummaryResponse =
         userId = userId.toExternalUserId(),
         role = role.name,
         status = status,
+        isSensitiveAgree = isSensitiveAgree,
     )
 
 fun AccountResult.toResponse(): AccountResponse =
@@ -62,7 +63,11 @@ fun ApplicationStatusResult.toResponse(): ApplicationStatusResponse =
 
 fun ApplicationResultResult.toResponse(): ApplicationResultResponse =
     ApplicationResultResponse(
-        passStatus = passStatus,
+        passStatus = when (passStatus) {
+            hs.kr.entrydsm.identity.domain.enum.PassStatus.NOT_ANNOUNCED -> "PENDING"
+            hs.kr.entrydsm.identity.domain.enum.PassStatus.PASSED -> "PASSED"
+            hs.kr.entrydsm.identity.domain.enum.PassStatus.FAILED -> "FAILED"
+        },
         announcedAt = announcedAt,
     )
 

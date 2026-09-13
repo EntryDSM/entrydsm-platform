@@ -1,11 +1,18 @@
 package hs.kr.entrydsm.observability.application
 
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.runner.RunWith
+import org.junit.runners.Suite
 
-class ObservabilityApplicationModuleTest {
-    @Test
-    fun moduleLoads() {
-        assertTrue(true)
-    }
-}
+@RunWith(Suite::class)
+@Suite.SuiteClasses(
+    SessionCollectionServiceTest::class,
+    MonitorHealthServiceTest::class,
+    MonitorDashboardServiceTest::class,
+    MetricsSeriesServiceTest::class,
+    ClientLogCollectionServiceTest::class,
+    ClientLogQueryServiceTest::class,
+    ServerLogQueryServiceTest::class,
+    StorageUsageQueryServiceTest::class,
+    ReportServiceTest::class,
+)
+class ObservabilityApplicationModuleTest
