@@ -44,7 +44,7 @@ class AttachmentController(
     fun download(@RequestParam("attachmentId") attachmentId: String): ApiResponse<DownloadUrlResponse> =
         ApiResponse.success(
             DownloadUrlResponse.from(
-                issueDownloadUrlUseCase.issueById(FileReferenceId.parse(CATEGORY, attachmentId))
+                issueDownloadUrlUseCase.issueById(CATEGORY, FileReferenceId.parse(CATEGORY, attachmentId))
             )
         )
 }

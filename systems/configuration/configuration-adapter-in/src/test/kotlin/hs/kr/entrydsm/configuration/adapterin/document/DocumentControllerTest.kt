@@ -311,7 +311,7 @@ class DocumentControllerTest {
             return DownloadUrl(command.fileName, "https://s3/photo", 300)
         }
 
-        override fun issueById(id: Long): DownloadUrl {
+        override fun issueById(category: FileCategory, id: Long): DownloadUrl {
             if (notFound) throw FileDocumentNotFoundException("id=$id")
             return DownloadUrl("file_$id.pdf", "https://s3/id/$id", 300)
         }

@@ -118,17 +118,26 @@ class FileDocumentServiceTest {
         repository.saved += FileDocument(
             id = 1,
             originalName = "첨부.pdf",
-            objectKey = "attachment/abc_첨부.pdf",
+            objectKey = "dsm_Entry/Backend/attachment/abc_첨부.pdf",
             bucket = "entrydsm",
             contentType = "application/pdf",
             sizeBytes = 10,
             checksum = "abc",
         )
 
-        val downloadUrl = service.issueById(1)
+        val downloadUrl = service.issueById(FileCategory.ATTACHMENT, 1)
 
         assertEquals("첨부.pdf", downloadUrl.fileName)
-        assertTrue(downloadUrl.downloadUrl.startsWith("https://s3/attachment/"))
+        assertTrue(downloadUrl.downloadUrl.startsWith("https://s3/dsm_Entry/Backend/attachment/"))
+    }
+
+    @Test
+    fun `ID로 다운로드할 때 다른 종류의 파일은 없는 것으로 본다`() {
+        service.upload(command(), content())
+
+        assertThrows(FileDocumentNotFoundException::class.java) {
+            service.issueById(FileCategory.GUIDELINE, 1)
+        }
     }
 
     @Test(expected = FileDocumentNotFoundException::class)

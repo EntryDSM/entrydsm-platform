@@ -73,8 +73,10 @@ class FileDocumentService(
         )
     }
 
-    override fun issueById(id: Long): DownloadUrl {
-        val fileDocument = findById(id)
+    override fun issueById(category: FileCategory, id: Long): DownloadUrl {
+        // id 는 순번이라 종류를 확인하지 않으면 요강 경로로 원서·지원자 목록까지 내주게 된다.
+        val fileDocument = fileDocumentRepository.findById(id)?.takeIf { category.holds(it.objectKey) }
+            ?: throw FileDocumentNotFoundException("${category.name} id=$id")
         return DownloadUrl(
             fileName = fileDocument.originalName,
             downloadUrl = storagePort.issueDownloadUrl(fileDocument.objectKey, presignExpirySeconds),

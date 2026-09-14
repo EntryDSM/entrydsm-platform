@@ -21,7 +21,7 @@ class GuidelineController(
     fun download(@RequestParam("guidelineId") guidelineId: String): ApiResponse<DownloadUrlResponse> =
         ApiResponse.success(
             DownloadUrlResponse.from(
-                issueDownloadUrlUseCase.issueById(FileReferenceId.parse(CATEGORY, guidelineId))
+                issueDownloadUrlUseCase.issueById(CATEGORY, FileReferenceId.parse(CATEGORY, guidelineId))
             )
         )
 }

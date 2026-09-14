@@ -52,6 +52,12 @@ class DocumentDomainTest {
         )
     }
 
+    @Test
+    fun `카테고리는 자기 prefix 아래의 object key만 담는다`() {
+        assertTrue(FileCategory.GUIDELINE.holds("dsm_Entry/Backend/guideline/a_guide.pdf"))
+        assertFalse(FileCategory.GUIDELINE.holds("dsm_Entry/Backend/application/application_1001.pdf"))
+    }
+
     @Test(expected = InvalidFileNameException::class)
     fun `object key에 상위 경로 참조가 들어오면 거부한다`() {
         FileCategory.APPLICANT_LIST.objectKeyOf("../../etc/passwd")

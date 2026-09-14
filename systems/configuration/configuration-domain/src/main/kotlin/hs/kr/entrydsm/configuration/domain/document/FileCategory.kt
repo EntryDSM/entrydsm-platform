@@ -24,6 +24,8 @@ enum class FileCategory(
     fun objectKeyOf(fileName: String): String =
         "$KEY_ROOT$prefix/${FileNaming.requireSafeFileName(fileName)}"
 
+    fun holds(objectKey: String): Boolean = objectKey.startsWith("$KEY_ROOT$prefix/")
+
     companion object {
         const val KEY_ROOT = "dsm_Entry/Backend/"
     }
