@@ -3,6 +3,7 @@ package hs.kr.entrydsm.admin.domain.port.`in`
 import hs.kr.entrydsm.admin.domain.command.AnswerQuestionCommand
 import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.command.CreateNoticeCommand
+import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.ExportJobView
 import hs.kr.entrydsm.admin.domain.model.Notice
@@ -21,6 +22,14 @@ interface ReadExportUseCase {
 
 interface CreateNoticeUseCase {
     fun create(command: CreateNoticeCommand): Notice
+}
+
+interface UpdateNoticeUseCase {
+    fun update(command: UpdateNoticeCommand)
+}
+
+interface DeleteNoticeUseCase {
+    fun delete(noticeId: Long)
 }
 
 interface AnswerQuestionUseCase {

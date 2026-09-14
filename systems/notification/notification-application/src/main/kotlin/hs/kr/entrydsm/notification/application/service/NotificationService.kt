@@ -6,6 +6,7 @@ import hs.kr.entrydsm.notification.application.port.`in`.command.AnswerQuestionC
 import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
+import hs.kr.entrydsm.notification.application.port.`in`.command.UpdateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqDetailResult
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqSummaryResult
 import hs.kr.entrydsm.notification.application.port.`in`.result.NoticeDetailResult
@@ -34,6 +35,16 @@ class NotificationService(
 
     override fun createNotice(command: CreateNoticeCommand): NoticeDetailResult =
         noticeRepository.create(command).toDetailResult()
+
+    override fun updateNotice(command: UpdateNoticeCommand): NoticeDetailResult =
+        noticeRepository.update(command)?.toDetailResult()
+            ?: throw NotificationNotFoundException("notice not found: id=${command.noticeId}")
+
+    override fun deleteNotice(id: Long) {
+        if (!noticeRepository.deleteById(id)) {
+            throw NotificationNotFoundException("notice not found: id=$id")
+        }
+    }
 
     override fun getFaqs(command: ReadFaqPageCommand): PageResult<FaqSummaryResult> =
         faqRepository.findPage(command).toResult { it.toSummaryResult() }

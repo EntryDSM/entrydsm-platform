@@ -2,10 +2,13 @@ package hs.kr.entrydsm.admin.application
 
 import hs.kr.entrydsm.admin.domain.command.AnswerQuestionCommand
 import hs.kr.entrydsm.admin.domain.command.CreateNoticeCommand
+import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
 import hs.kr.entrydsm.admin.domain.model.Notice
 import hs.kr.entrydsm.admin.domain.model.QuestionAnswer
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.DeleteNoticeUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.UpdateNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.out.NoticeRepository
 import hs.kr.entrydsm.admin.domain.port.out.QuestionAnswerRepository
 import org.springframework.stereotype.Service
@@ -20,6 +23,8 @@ class SupportService(
     private val noticeRepository: NoticeRepository,
     private val questionAnswerRepository: QuestionAnswerRepository,
 ) : CreateNoticeUseCase,
+    UpdateNoticeUseCase,
+    DeleteNoticeUseCase,
     AnswerQuestionUseCase {
 
     override fun create(command: CreateNoticeCommand): Notice =
@@ -32,6 +37,12 @@ class SupportService(
                 attachmentIds = command.attachmentIds,
             ),
         )
+
+    override fun update(command: UpdateNoticeCommand) =
+        noticeRepository.update(command)
+
+    override fun delete(noticeId: Long) =
+        noticeRepository.deleteById(noticeId)
 
     override fun answer(command: AnswerQuestionCommand): QuestionAnswer =
         questionAnswerRepository.save(
