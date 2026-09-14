@@ -4,6 +4,7 @@ import hs.kr.entrydsm.notification.application.port.`in`.command.AnswerQuestionC
 import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
+import hs.kr.entrydsm.notification.application.port.`in`.command.UpdateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqDetailResult
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqSummaryResult
 import hs.kr.entrydsm.notification.application.port.`in`.result.NoticeDetailResult
@@ -15,6 +16,8 @@ interface NotificationPort {
     fun getNotices(command: ReadNotificationPageCommand): PageResult<NoticeSummaryResult>
     fun getNotice(id: Long): NoticeDetailResult
     fun createNotice(command: CreateNoticeCommand): NoticeDetailResult
+    fun updateNotice(command: UpdateNoticeCommand): NoticeDetailResult
+    fun deleteNotice(id: Long)
     fun getFaqs(command: ReadFaqPageCommand): PageResult<FaqSummaryResult>
     fun getFaq(id: Long): FaqDetailResult
     fun answerQuestion(command: AnswerQuestionCommand): FaqDetailResult

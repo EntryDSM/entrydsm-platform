@@ -8,6 +8,7 @@ import hs.kr.entrydsm.notification.application.port.`in`.command.AnswerQuestionC
 import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
+import hs.kr.entrydsm.notification.application.port.`in`.command.UpdateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqDetailResult
 import hs.kr.entrydsm.notification.application.port.`in`.result.NoticeDetailResult
 import hs.kr.entrydsm.notification.domain.model.NoticeCategory
@@ -221,6 +222,8 @@ class NotificationAdapterInModuleTest {
             )
         }
 
+        override fun updateNotice(command: UpdateNoticeCommand) = error("unused")
+        override fun deleteNotice(id: Long) = error("unused")
         override fun getNotices(command: ReadNotificationPageCommand) = error("unused")
         override fun getNotice(id: Long) = error("unused")
         override fun getFaqs(command: ReadFaqPageCommand) = error("unused")

@@ -5,6 +5,7 @@ import hs.kr.entrydsm.notification.application.port.`in`.command.AnswerQuestionC
 import hs.kr.entrydsm.notification.application.port.`in`.command.CreateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadFaqPageCommand
 import hs.kr.entrydsm.notification.application.port.`in`.command.ReadNotificationPageCommand
+import hs.kr.entrydsm.notification.application.port.`in`.command.UpdateNoticeCommand
 import hs.kr.entrydsm.notification.application.port.out.FaqRepository
 import hs.kr.entrydsm.notification.application.port.out.NoticeRepository
 import hs.kr.entrydsm.notification.application.port.out.RecruitmentGuidelineRepository
@@ -155,6 +156,53 @@ class NotificationServiceTest {
     }
 
     @Test
+    fun updateNoticePassesCommandToRepositoryAndMapsUpdatedNotice() {
+        val noticeRepository = FakeNoticeRepository(listOf(notice(id = 3L, title = "old", content = "본문")))
+        val service = NotificationService(
+            noticeRepository = noticeRepository,
+            faqRepository = FakeFaqRepository(),
+            recruitmentGuidelineRepository = FakeRecruitmentGuidelineRepository(),
+        )
+        val command = UpdateNoticeCommand(noticeId = 3L, title = "new", attachmentIds = emptyList())
+
+        val result = service.updateNotice(command)
+
+        assertEquals(command, noticeRepository.updated)
+        assertEquals(3L, result.noticeId)
+        assertEquals("new", result.title)
+        assertEquals("본문", result.content)
+        assertEquals(updatedAt, result.updatedAt)
+    }
+
+    @Test(expected = NotificationNotFoundException::class)
+    fun updateNoticeThrowsWhenNoticeDoesNotExist() {
+        service().updateNotice(UpdateNoticeCommand(noticeId = 1L, title = "제목"))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun updateNoticeRejectsBlankTitle() {
+        UpdateNoticeCommand(noticeId = 1L, title = " ")
+    }
+
+    @Test
+    fun deleteNoticeDeletesExistingNotice() {
+        val noticeRepository = FakeNoticeRepository(listOf(notice(id = 3L)))
+
+        NotificationService(
+            noticeRepository = noticeRepository,
+            faqRepository = FakeFaqRepository(),
+            recruitmentGuidelineRepository = FakeRecruitmentGuidelineRepository(),
+        ).deleteNotice(3L)
+
+        assertEquals(3L, noticeRepository.deletedId)
+    }
+
+    @Test(expected = NotificationNotFoundException::class)
+    fun deleteNoticeThrowsWhenNoticeDoesNotExist() {
+        service().deleteNotice(1L)
+    }
+
+    @Test
     fun getFaqsReturnsPagedFaqsOrderedById() {
         val service = service(
             faqs = listOf(
@@ -291,6 +339,8 @@ class NotificationServiceTest {
         private val notices: List<Notice> = emptyList(),
     ) : NoticeRepository {
         var created: CreateNoticeCommand? = null
+        var updated: UpdateNoticeCommand? = null
+        var deletedId: Long? = null
 
         override fun findPage(command: ReadNotificationPageCommand): PageData<Notice> {
             val sorted = notices
@@ -313,6 +363,23 @@ class NotificationServiceTest {
                 createdAt = now,
                 updatedAt = now,
             )
+        }
+
+        override fun update(command: UpdateNoticeCommand): Notice? {
+            updated = command
+            return notices.firstOrNull { it.id == command.noticeId }?.let {
+                it.copy(
+                    title = command.title ?: it.title,
+                    content = command.content ?: it.content,
+                    category = command.category ?: it.category,
+                    updatedAt = updatedAt,
+                )
+            }
+        }
+
+        override fun deleteById(id: Long): Boolean {
+            deletedId = id
+            return notices.any { it.id == id }
         }
     }
 
@@ -417,6 +484,7 @@ class NotificationServiceTest {
     private companion object {
         val now: LocalDateTime = LocalDateTime.parse("2026-08-17T09:00:00")
         val answeredAt: LocalDateTime = LocalDateTime.parse("2026-09-12T10:00:00")
+        val updatedAt: LocalDateTime = LocalDateTime.parse("2026-09-14T10:00:00")
         const val CREATED_NOTICE_ID = 1L
     }
 }
