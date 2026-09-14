@@ -56,13 +56,13 @@ data class CreateExportRequest(
  */
 data class ExportFilterRequest(
     val keyword: String? = null,
-    val regions: Set<Region> = emptySet(),
-    val admissionTypes: Set<AdmissionType> = emptySet(),
-    val graduationStatuses: Set<GraduationStatus> = emptySet(),
+    val regions: Set<Region>? = null,
+    val admissionTypes: Set<AdmissionType>? = null,
+    val graduationStatuses: Set<GraduationStatus>? = null,
     @param:JsonProperty("isSubmitted")
     @get:JsonProperty("isSubmitted")
     val isSubmitted: Boolean? = null,
-    val statuses: Set<ApplicantStatus> = emptySet(),
+    val statuses: Set<ApplicantStatus>? = null,
 )
 
 data class CreateNoticeRequest(
