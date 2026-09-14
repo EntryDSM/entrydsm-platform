@@ -33,7 +33,7 @@ class ApplicationControllerTest {
     @Test
     fun duplicateAndSaveConflictReturn409() {
         for ((exception, code) in listOf(
-            ApplicantAlreadyExistsException() to "APPLICANT_ALREADY_EXISTS",
+            ApplicantAlreadyExistsException(10L) to "APPLICANT_ALREADY_EXISTS",
             DataIntegrityViolationException("private database details") to "DATA_INTEGRITY_VIOLATION",
         )) {
             val port = object : ApplicationPort by FakeApplicationPort() {

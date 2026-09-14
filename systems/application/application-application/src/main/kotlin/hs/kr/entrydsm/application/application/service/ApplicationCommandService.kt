@@ -124,7 +124,7 @@ class ApplicationCommandService(
     }
 
     fun createApplicant(accountId: Long = 0): Applicant {
-        if (applicantRepository.existsByAccountId(accountId)) throw ApplicantAlreadyExistsException()
+        if (applicantRepository.existsByAccountId(accountId)) throw ApplicantAlreadyExistsException(accountId)
         return applicantRepository.save(
             Applicant(
                 id = NEW_APPLICANT_ID,
