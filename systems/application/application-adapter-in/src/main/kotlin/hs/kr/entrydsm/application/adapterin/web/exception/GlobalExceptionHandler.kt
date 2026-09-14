@@ -3,12 +3,14 @@ package hs.kr.entrydsm.application.adapterin.web.exception
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedException
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -23,6 +25,22 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    @ExceptionHandler(ApplicantAlreadyExistsException::class)
+    fun handleApplicantAlreadyExists(exception: ApplicantAlreadyExistsException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.CONFLICT,
+            code = "APPLICANT_ALREADY_EXISTS",
+            message = exception.message ?: "applicant already exists",
+        )
+
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrityViolation(exception: DataIntegrityViolationException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.CONFLICT,
+            code = "DATA_INTEGRITY_VIOLATION",
+            message = "data integrity conflict",
+        )
 
     @ExceptionHandler(ApplicantNotFoundException::class)
     fun handleApplicantNotFound(exception: ApplicantNotFoundException): ResponseEntity<ErrorResponse> =

@@ -6,4 +6,5 @@ interface ApplicantRepository {
     fun save(applicant: Applicant): Applicant
     fun findById(id: Long): Applicant?
     fun findByAccountId(accountId: Long): Applicant?
+    fun existsByAccountId(accountId: Long): Boolean = findByAccountId(accountId) != null
 }

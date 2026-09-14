@@ -1,4 +1,5 @@
 KOTLIN_DEPS = [
+    "@maven//:org_springframework_spring_tx",
     "@maven//:io_grpc_grpc_protobuf",
     "@maven//:io_grpc_grpc_stub",
     "@maven//:javax_annotation_javax_annotation_api",
