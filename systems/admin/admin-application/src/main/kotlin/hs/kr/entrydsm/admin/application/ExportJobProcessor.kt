@@ -10,6 +10,7 @@ import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
 import hs.kr.entrydsm.admin.domain.port.out.PdfRenderPort
 import hs.kr.entrydsm.admin.domain.port.out.StoragePort
+import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
 import java.io.ByteArrayOutputStream
 import java.time.Clock
 import java.time.Instant
@@ -25,7 +26,27 @@ import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
 private const val ZIP_CONTENT_TYPE = "application/zip"
-private const val CSV_CONTENT_TYPE = "text/csv"
+private const val XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+private const val APPLICANT_LIST_SHEET = "지원자 목록"
+
+/** 지원자 목록 엑셀의 열. 머리글과 값을 한 줄에 두어 순서가 어긋나지 않게 한다. */
+private val APPLICANT_LIST_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = listOf(
+    "접수번호" to { it.receiptNumber },
+    "수험번호" to { it.examineeNumber },
+    "성명" to { it.name },
+    "생년월일" to { it.birthDate },
+    "연락처" to { it.phoneNumber },
+    "지역" to { it.region.label },
+    "전형" to { it.admissionType.label },
+    "학력" to { it.graduationStatus.label },
+    "출신학교" to { it.schoolName },
+    "원서 도착" to { if (it.isSubmitted) "도착" else "미도착" },
+    "상태" to { it.status.label },
+    "교과 점수" to { it.score?.subjectScore },
+    "출결 점수" to { it.score?.attendanceScore },
+    "봉사 점수" to { it.score?.volunteerScore },
+    "총점" to { it.score?.totalScore },
+)
 
 /**
  * 내보내기 산출물을 실제로 만들어 저장소에 올립니다.
@@ -41,6 +62,7 @@ class ExportJobProcessor(
     private val exportJobRepository: ExportJobRepository,
     private val applicantRepository: ApplicantRepository,
     private val pdfRenderPort: PdfRenderPort,
+    private val xlsxRenderPort: XlsxRenderPort,
     private val storagePort: StoragePort,
     private val clock: Clock,
     @Value("\${admin.admission-year}") private val admissionYear: Int,
@@ -99,44 +121,18 @@ class ExportJobProcessor(
         return objectKey
     }
 
-    /**
-     * ponytail: 지원자 목록을 CSV로 낸다. 엑셀 서식이 필요해지면 그때 POI를 붙인다.
-     */
     private fun writeApplicantList(job: ExportJob, applicants: List<Applicant>): String {
         val objectKey = DocumentNaming.applicantListObjectKey(job.exportJobId)
 
-        val csv = buildString {
-            appendLine("접수번호,수험번호,성명,지역,전형,학력,원서도착,상태,총점")
-            applicants.forEach { applicant ->
-                appendLine(
-                    listOf(
-                        applicant.receiptNumber,
-                        applicant.examineeNumber ?: "",
-                        applicant.name,
-                        applicant.region.label,
-                        applicant.admissionType.label,
-                        applicant.graduationStatus.label,
-                        if (applicant.isSubmitted) "도착" else "미도착",
-                        applicant.status.name,
-                        applicant.score?.totalScore ?: "",
-                    ).joinToString(",", transform = ::toCsvField),
-                )
-            }
-        }
+        val xlsx = xlsxRenderPort.render(
+            sheetName = APPLICANT_LIST_SHEET,
+            header = APPLICANT_LIST_COLUMNS.map { (title, _) -> title },
+            rows = applicants.map { applicant ->
+                APPLICANT_LIST_COLUMNS.map { (_, value) -> value(applicant) }
+            },
+        )
 
-        storagePort.upload(objectKey, CSV_CONTENT_TYPE, csv.toByteArray(Charsets.UTF_8))
+        storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
         return objectKey
     }
-}
-
-/**
- * CSV 한 칸을 만듭니다.
- *
- * 항상 큰따옴표로 감싸 쉼표·줄바꿈·따옴표를 그대로 보존하고, 스프레드시트가 수식으로
- * 해석하는 선두 문자는 작은따옴표를 앞에 붙여 무력화합니다.
- */
-fun toCsvField(value: Any?): String {
-    val raw = value?.toString().orEmpty()
-    val safe = if (raw.firstOrNull() in setOf('=', '+', '-', '@')) "'$raw" else raw
-    return "\"" + safe.replace("\"", "\"\"") + "\""
 }
