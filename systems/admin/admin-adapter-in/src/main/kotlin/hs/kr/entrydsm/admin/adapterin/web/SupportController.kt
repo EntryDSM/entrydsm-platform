@@ -51,7 +51,11 @@ class SupportController(
             CreateExportCommand(
                 type = request.type!!,
                 filter = ApplicantFilter(
+                    keyword = request.filter?.keyword,
+                    regions = request.filter?.regions.orEmpty(),
                     admissionTypes = request.filter?.admissionTypes.orEmpty(),
+                    graduationStatuses = request.filter?.graduationStatuses.orEmpty(),
+                    isSubmitted = request.filter?.isSubmitted,
                     statuses = request.filter?.statuses.orEmpty(),
                 ),
             ),

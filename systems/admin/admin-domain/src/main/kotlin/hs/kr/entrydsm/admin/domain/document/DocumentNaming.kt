@@ -17,7 +17,7 @@ object DocumentNaming {
         "application/application_$receiptNumber.pdf"
 
     fun applicantListObjectKey(exportJobId: String): String =
-        "applicant-list/applicants_$exportJobId.csv"
+        "applicant-list/applicants_$exportJobId.xlsx"
 
     fun admissionTicketBundleObjectKey(exportJobId: String): String =
         "admission-ticket/admission_tickets_$exportJobId.zip"
