@@ -72,6 +72,14 @@ class ExportJobPersistenceAdapter(
     override fun findByExportJobId(exportJobId: String): ExportJob? =
         exportJobJpaRepository.findByExportJobId(exportJobId)?.toDomain()
 
+    /**
+     * 필터는 테이블에 컬럼이 없어 엔티티를 거치면 사라집니다. 처리기가 반환값의 필터로
+     * 지원자를 고르므로 넘겨받은 필터를 다시 담아 돌려줍니다.
+     *
+     * ponytail: 필터를 DB 에 남기지 않아 재시작 뒤 작업을 다시 처리할 수 없다. 재처리가
+     * 필요해지면 export_job 에 필터 컬럼을 추가한다.
+     */
     override fun save(exportJob: ExportJob): ExportJob =
         exportJobJpaRepository.save(ExportJobJpaEntity.from(exportJob)).toDomain()
+            .copy(filter = exportJob.filter)
 }
