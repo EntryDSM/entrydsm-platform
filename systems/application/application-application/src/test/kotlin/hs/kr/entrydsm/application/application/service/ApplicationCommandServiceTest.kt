@@ -1,6 +1,8 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
+import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
@@ -22,6 +24,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApplicationCommandServiceTest {
+    @Test
+    fun createRejectsExistingAccountBeforeSavingAndAllowsNewAccount() {
+        val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+        val service = ApplicationCommandService(repository)
+
+        assertThrows(ApplicantAlreadyExistsException::class.java) {
+            service.createApplicant(CreateApplicantCommand(10L))
+        }
+        assertNull(repository.savedApplicant)
+
+        service.createApplicant(CreateApplicantCommand(11L))
+        assertEquals(11L, repository.savedApplicant?.accountId)
+    }
+
     @Test
     fun submitAndCancelPersistLifecycle() {
         val repository = FakeApplicantRepository(

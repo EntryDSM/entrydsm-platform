@@ -1,6 +1,11 @@
 package hs.kr.entrydsm.application.adapterin.web
 
 import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
+import hs.kr.entrydsm.application.adapterin.web.exception.GlobalExceptionHandler
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
@@ -25,6 +30,28 @@ import org.springframework.mock.web.MockHttpServletResponse
 import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedException
 
 class ApplicationControllerTest {
+    @Test
+    fun duplicateAndSaveConflictReturn409() {
+        for ((exception, code) in listOf(
+            ApplicantAlreadyExistsException(10L) to "APPLICANT_ALREADY_EXISTS",
+            DataIntegrityViolationException("private database details") to "DATA_INTEGRITY_VIOLATION",
+        )) {
+            val port = object : ApplicationPort by FakeApplicationPort() {
+                override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult = throw exception
+            }
+            val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port, scheduleProperties()))
+                .setControllerAdvice(GlobalExceptionHandler())
+                .build()
+
+            val response = mvc.perform(post("/api/application/v11/applicants").header("X-User-Id", "10"))
+                .andReturn().response
+
+            assertEquals(409, response.status)
+            org.junit.Assert.assertTrue(response.contentAsString.contains("\"code\":\"$code\""))
+            org.junit.Assert.assertFalse(response.contentAsString.contains("private database details"))
+        }
+    }
+
     @Test
     fun createApplicantPassesAuthenticatedUser() {
         val applicationPort = FakeApplicationPort()

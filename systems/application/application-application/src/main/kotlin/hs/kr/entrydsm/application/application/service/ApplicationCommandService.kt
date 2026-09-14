@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
@@ -123,6 +124,7 @@ class ApplicationCommandService(
     }
 
     fun createApplicant(accountId: Long = 0): Applicant {
+        if (applicantRepository.existsByAccountId(accountId)) throw ApplicantAlreadyExistsException(accountId)
         return applicantRepository.save(
             Applicant(
                 id = NEW_APPLICANT_ID,
