@@ -50,10 +50,16 @@ class SupportController(
         val job = createExportUseCase.create(
             CreateExportCommand(
                 type = request.type!!,
-                filter = ApplicantFilter(
-                    admissionTypes = request.filter?.admissionTypes.orEmpty(),
-                    statuses = request.filter?.statuses.orEmpty(),
-                ),
+                filter = request.filter?.let {
+                    ApplicantFilter(
+                        keyword = it.keyword,
+                        regions = it.regions,
+                        admissionTypes = it.admissionTypes,
+                        graduationStatuses = it.graduationStatuses,
+                        isSubmitted = it.isSubmitted,
+                        statuses = it.statuses,
+                    )
+                } ?: ApplicantFilter(),
             ),
         )
         return ResponseEntity.accepted().body(ApiResponse(data = job.toCreateResponse()))

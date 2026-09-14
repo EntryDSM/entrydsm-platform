@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
@@ -50,8 +51,17 @@ data class CreateExportRequest(
     val filter: ExportFilterRequest? = null,
 )
 
+/**
+ * 지원자 목록 조회(`GET /applicants`)와 같은 조건. 비어 있거나 null 이면 거르지 않는다.
+ */
 data class ExportFilterRequest(
+    val keyword: String? = null,
+    val regions: Set<Region> = emptySet(),
     val admissionTypes: Set<AdmissionType> = emptySet(),
+    val graduationStatuses: Set<GraduationStatus> = emptySet(),
+    @param:JsonProperty("isSubmitted")
+    @get:JsonProperty("isSubmitted")
+    val isSubmitted: Boolean? = null,
     val statuses: Set<ApplicantStatus> = emptySet(),
 )
 
