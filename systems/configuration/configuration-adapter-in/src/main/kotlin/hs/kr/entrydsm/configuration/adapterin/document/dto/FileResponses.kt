@@ -16,6 +16,7 @@ data class UploadFileResponse(
 }
 
 data class UploadPhotoResponse(
+    val fileId: Long,
     val key: String,
     val fileName: String,
     val url: String,

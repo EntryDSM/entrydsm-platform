@@ -33,6 +33,7 @@ class PhotoController(
         )
         return ApiResponse.success(
             UploadPhotoResponse(
+                fileId = requireNotNull(saved.id),
                 key = saved.objectKey,
                 fileName = saved.fileName,
                 url = downloadUrl.downloadUrl,

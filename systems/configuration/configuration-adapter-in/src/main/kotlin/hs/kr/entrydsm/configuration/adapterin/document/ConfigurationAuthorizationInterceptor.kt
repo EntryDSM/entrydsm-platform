@@ -28,6 +28,7 @@ class ConfigurationAuthorizationInterceptor : HandlerInterceptor {
         val STUDENT_ENDPOINTS = setOf(
             "POST /api/document/v11/admission-ticket",
             "POST /api/document/v11/application",
+            "POST /api/document/v11/photo",
             "GET /api/document/v11/admission-ticket/download",
             "GET /api/document/v11/application",
             "GET /api/document/v11/application/download",

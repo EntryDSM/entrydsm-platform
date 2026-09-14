@@ -119,7 +119,7 @@ class DocumentControllerTest {
     @Test
     fun `configuration API는 관리자와 허용된 학생 경로만 통과시킨다`() {
         val interceptor = ConfigurationAuthorizationInterceptor()
-        val allowed = org.springframework.mock.web.MockHttpServletRequest("GET", "/api/document/v11/guideline/download").apply {
+        val allowed = org.springframework.mock.web.MockHttpServletRequest("POST", "/api/document/v11/photo").apply {
             addHeader("X-User-Id", "10")
             addHeader("X-User-Role", "STUDENT")
         }
