@@ -48,6 +48,10 @@ class NoticePersistenceAdapter(
             ),
         ).toDomain()
 
+    /**
+     * ponytail: 버전 검사 없이 행 전체를 다시 쓴다. 같은 공지를 동시에 고치면 서로 다른 필드여도
+     * 나중 요청이 앞 요청을 덮는다. 관리자 동시 편집이 생기면 @Version 으로 낙관적 락을 건다.
+     */
     @Transactional
     override fun update(command: UpdateNoticeCommand): Notice? {
         val entity = noticeJpaRepository.findById(command.noticeId).orElse(null) ?: return null
