@@ -22,7 +22,7 @@ enum class FileCategory(
     fun exceedsMaxSize(sizeBytes: Long): Boolean = sizeBytes > maxSizeBytes
 
     fun objectKeyOf(fileName: String): String =
-        "$KEY_ROOT$prefix/${FileNaming.requireSafeFileName(fileName)}"
+        FileNaming.requireStorableLength("$KEY_ROOT$prefix/${FileNaming.requireSafeFileName(fileName)}")
 
     fun holds(objectKey: String): Boolean = objectKey.startsWith("$KEY_ROOT$prefix/")
 

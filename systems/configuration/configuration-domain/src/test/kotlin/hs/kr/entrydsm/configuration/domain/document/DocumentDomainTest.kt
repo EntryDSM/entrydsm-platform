@@ -59,6 +59,11 @@ class DocumentDomainTest {
     }
 
     @Test(expected = InvalidFileNameException::class)
+    fun `DB에 담을 수 없을 만큼 긴 object key는 거부한다`() {
+        FileCategory.ATTACHMENT.objectKeyOf("a".repeat(FileNaming.MAX_STORED_NAME_LENGTH))
+    }
+
+    @Test(expected = InvalidFileNameException::class)
     fun `object key에 상위 경로 참조가 들어오면 거부한다`() {
         FileCategory.APPLICANT_LIST.objectKeyOf("../../etc/passwd")
     }

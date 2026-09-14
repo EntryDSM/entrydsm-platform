@@ -31,6 +31,7 @@ class FileDocumentService(
 
     override fun upload(command: UploadFileCommand, content: InputStream): FileDocument {
         val extension = resolveExtension(command)
+        FileNaming.requireStorableLength(command.originalName)
         if (command.category.exceedsMaxSize(command.sizeBytes)) {
             throw FileTooLargeException(command.sizeBytes, command.category.maxSizeBytes)
         }

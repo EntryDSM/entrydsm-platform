@@ -2,6 +2,7 @@ package hs.kr.entrydsm.configuration.application
 
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
+import hs.kr.entrydsm.configuration.domain.document.FileNaming
 import hs.kr.entrydsm.configuration.domain.document.StoredObject
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
@@ -55,6 +56,14 @@ class FileDocumentServiceTest {
     @Test(expected = InvalidFileNameException::class)
     fun `파일명에 상위 경로 참조가 들어오면 거부한다`() {
         service.upload(command(fileName = "../../etc/passwd"), content())
+    }
+
+    @Test
+    fun `원본 파일명이 DB에 담을 수 없을 만큼 길면 저장소에 올리기 전에 거부한다`() {
+        assertThrows(InvalidFileNameException::class.java) {
+            service.upload(command(originalName = "a".repeat(FileNaming.MAX_STORED_NAME_LENGTH) + ".pdf"), content())
+        }
+        assertTrue(storage.uploaded.isEmpty())
     }
 
     @Test

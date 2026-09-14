@@ -11,6 +11,9 @@ private val applicantListDate = DateTimeFormatter.ofPattern("yyyyMMdd")
 
 object FileNaming {
 
+    /** files.object_key·original_name 컬럼 길이. 넘으면 S3 에 올린 뒤 DB 저장에서 실패한다. */
+    const val MAX_STORED_NAME_LENGTH = 255
+
     fun applicationFileName(receiptCode: String, extension: FileExtension): String =
         "application_${requireIdentifier(receiptCode)}.${extension.value}"
 
@@ -34,6 +37,11 @@ object FileNaming {
     fun requireSafeFileName(fileName: String): String {
         if (sanitizeOriginalName(fileName) != fileName) throw InvalidFileNameException(fileName)
         return fileName
+    }
+
+    fun requireStorableLength(name: String): String {
+        if (name.length > MAX_STORED_NAME_LENGTH) throw InvalidFileNameException(name)
+        return name
     }
 
     fun sanitizeOriginalName(originalName: String): String {
