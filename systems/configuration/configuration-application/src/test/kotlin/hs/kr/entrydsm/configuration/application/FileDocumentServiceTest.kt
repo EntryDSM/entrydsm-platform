@@ -3,6 +3,7 @@ package hs.kr.entrydsm.configuration.application
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
+import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.StoredObject
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
@@ -20,12 +21,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.InputStream
+import java.time.Instant
 
 class FileDocumentServiceTest {
 
     private val storage = FakeStoragePort()
     private val repository = FakeFileDocumentRepository()
     private val service = FileDocumentService(storage, repository, presignExpirySeconds = 300)
+
+    private val admin = Requester(1, Requester.Role.ADMIN)
 
     @Test
     fun `업로드는 카테고리 키로 저장하고 저장된 메타데이터를 돌려준다`() {
@@ -86,15 +90,6 @@ class FileDocumentServiceTest {
     }
 
     @Test
-    fun `학생은 다른 사용자의 파일을 덮어쓸 수 없다`() {
-        service.upload(command(ownerUserId = 10L), content())
-
-        assertThrows(DocumentAccessDeniedException::class.java) {
-            service.upload(command(ownerUserId = 11L), content())
-        }
-    }
-
-    @Test
     fun `보상 삭제가 실패해도 원래 예외를 그대로 올린다`() {
         repository.failOnSave = true
         storage.failOnDelete = true
@@ -105,11 +100,49 @@ class FileDocumentServiceTest {
     }
 
     @Test
+    fun `학생은 다른 학생이 본인인 수험번호의 원서를 적재할 수 없다`() {
+        service.upload(command(requester = student(10)), content())
+
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.upload(command(requester = student(11)), content())
+        }
+    }
+
+    @Test
+    fun `관리자가 원서를 덮어써도 본인은 그대로 남는다`() {
+        service.upload(command(requester = student(10)), content())
+        service.upload(command(requester = admin), content())
+
+        assertEquals(10L, repository.findByObjectKey("dsm_Entry/Backend/application/application_1001.pdf")?.ownerUserId)
+        service.issueByCommand(IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf", student(10), "1001"))
+    }
+
+    @Test
+    fun `학생은 수험표를 적재할 수 없다`() {
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.upload(admissionTicket(requester = student(10)), content())
+        }
+        assertTrue(storage.uploaded.isEmpty())
+    }
+
+    @Test
+    fun `관리자가 적재한 수험표는 그 수험번호로 원서를 적재한 학생만 받는다`() {
+        service.upload(command(requester = student(10)), content())
+        service.upload(admissionTicket(requester = admin), content())
+
+        val own = IssueDownloadUrlCommand(FileCategory.ADMISSION_TICKET, "admission_ticket_1001.pdf", student(10), "1001")
+        assertEquals("admission_ticket_1001.pdf", service.issueByCommand(own).fileName)
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.issueByCommand(own.copy(requester = student(11)))
+        }
+    }
+
+    @Test
     fun `파일명으로 다운로드 URL을 발급한다`() {
         storage.existingKeys += "dsm_Entry/Backend/application/application_1001.pdf"
 
         val downloadUrl = service.issueByCommand(
-            IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf"),
+            IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf", admin, "1001"),
         )
 
         assertEquals("application_1001.pdf", downloadUrl.fileName)
@@ -119,7 +152,19 @@ class FileDocumentServiceTest {
 
     @Test(expected = FileDocumentNotFoundException::class)
     fun `없는 객체의 다운로드 URL은 발급하지 않는다`() {
-        service.issueByCommand(IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf"))
+        service.issueByCommand(IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf", admin, "1001"))
+    }
+
+    @Test
+    fun `다운로드 권한이 없으면 파일이 있어도 거부한다`() {
+        service.upload(applicantList(), content())
+
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.issueByCommand(IssueDownloadUrlCommand(FileCategory.APPLICANT_LIST, "applicants_20260726.xlsx", student(10)))
+        }
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.issueById(FileCategory.APPLICANT_LIST, 1, student(10))
+        }
     }
 
     @Test
@@ -134,7 +179,7 @@ class FileDocumentServiceTest {
             checksum = "abc",
         )
 
-        val downloadUrl = service.issueById(FileCategory.ATTACHMENT, 1)
+        val downloadUrl = service.issueById(FileCategory.ATTACHMENT, 1, student(10))
 
         assertEquals("첨부.pdf", downloadUrl.fileName)
         assertTrue(downloadUrl.downloadUrl.startsWith("https://s3/dsm_Entry/Backend/attachment/"))
@@ -145,7 +190,7 @@ class FileDocumentServiceTest {
         service.upload(command(), content())
 
         assertThrows(FileDocumentNotFoundException::class.java) {
-            service.issueById(FileCategory.GUIDELINE, 1)
+            service.issueById(FileCategory.GUIDELINE, 1, admin)
         }
     }
 
@@ -155,28 +200,38 @@ class FileDocumentServiceTest {
     }
 
     @Test
-    fun `파일명 조회는 카테고리 키로 찾는다`() {
-        repository.saved += FileDocument(
-            id = 1,
-            originalName = "지원서.pdf",
-            objectKey = "dsm_Entry/Backend/application/application_1001.pdf",
-            bucket = "entrydsm",
-            contentType = "application/pdf",
-            sizeBytes = 10,
-            checksum = "abc",
+    fun `원서 조회는 적재 전이면 null, 적재 후엔 여러 형식 중 최근 것을 본인에게만 돌려준다`() {
+        assertNull(service.findApplication("1001", student(10)))
+
+        service.upload(command(requester = student(10)), content())
+        service.upload(
+            command(originalName = "지원서.hwp", fileName = "application_1001.hwp", requester = student(10)),
+            content(),
         )
 
-        assertEquals(1L, service.findByFileName(FileCategory.APPLICATION, "application_1001.pdf")?.id)
-        assertNull(service.findByFileName(FileCategory.APPLICATION, "application_9999.pdf"))
+        assertEquals("application_1001.hwp", service.findApplication("1001", student(10))?.fileName)
+        assertEquals("application_1001.hwp", service.findApplication("1001", admin)?.fileName)
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.findApplication("1001", student(11))
+        }
     }
 
+    private fun student(userId: Long) = Requester(userId, Requester.Role.STUDENT)
+
     private fun command(
-        category: FileCategory = FileCategory.APPLICATION,
         originalName: String = "지원서.pdf",
         fileName: String = "application_1001.pdf",
         sizeBytes: Long = 1024,
-        ownerUserId: Long? = null,
-    ) = UploadFileCommand(category, originalName, fileName, sizeBytes, ownerUserId)
+        requester: Requester = admin,
+    ) = UploadFileCommand(FileCategory.APPLICATION, originalName, fileName, sizeBytes, requester, receiptCode = "1001")
+
+    private fun admissionTicket(requester: Requester) = UploadFileCommand(
+        FileCategory.ADMISSION_TICKET, "수험표.pdf", "admission_ticket_1001.pdf", 1024, requester, receiptCode = "1001",
+    )
+
+    private fun applicantList() = UploadFileCommand(
+        FileCategory.APPLICANT_LIST, "명단.xlsx", "applicants_20260726.xlsx", 1024, admin,
+    )
 
     private fun content(): InputStream = ByteArrayInputStream(ByteArray(4))
 
@@ -208,15 +263,17 @@ class FileDocumentServiceTest {
         }
     }
 
+    /** 실제 어댑터처럼 같은 object key 는 새 행 대신 기존 행을 갱신한다. */
     private class FakeFileDocumentRepository : FileDocumentRepository {
         val saved = mutableListOf<FileDocument>()
         var failOnSave = false
+        private var clock = 0L
 
         override fun save(fileDocument: FileDocument): FileDocument {
             if (failOnSave) throw IllegalStateException("save failed")
-            val stored = fileDocument.copy(id = saved.size + 1L)
-            saved += stored
-            return stored
+            val id = findByObjectKey(fileDocument.objectKey)?.id ?: (saved.maxOfOrNull { it.id ?: 0L } ?: 0L) + 1
+            saved.removeIf { it.objectKey == fileDocument.objectKey }
+            return fileDocument.copy(id = id, createdAt = Instant.EPOCH.plusSeconds(++clock)).also { saved += it }
         }
 
         override fun findById(id: Long): FileDocument? = saved.firstOrNull { it.id == id }

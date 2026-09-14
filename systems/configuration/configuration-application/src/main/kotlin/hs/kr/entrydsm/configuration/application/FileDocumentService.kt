@@ -5,6 +5,7 @@ import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.FileExtension
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
+import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
@@ -18,6 +19,7 @@ import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentReposit
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.slf4j.LoggerFactory
 import java.io.InputStream
+import java.time.Instant
 
 class FileDocumentService(
     private val storagePort: StoragePort,
@@ -37,10 +39,8 @@ class FileDocumentService(
         }
 
         val objectKey = command.category.objectKeyOf(command.fileName)
-        val existing = fileDocumentRepository.findByObjectKey(objectKey)
-        if (command.ownerUserId != null && existing != null && existing.ownerUserId != command.ownerUserId) {
-            throw DocumentAccessDeniedException()
-        }
+        val ownerUserId = ownerOf(command.receiptCode, objectKey)
+        if (!command.category.canStore(command.requester, ownerUserId)) throw DocumentAccessDeniedException()
         // 같은 키를 덮어쓴 경우 보상 삭제가 이전 파일까지 지우면 안 된다.
         val replacedExistingObject = storagePort.exists(objectKey)
         val stored = storagePort.upload(objectKey, extension.contentType, command.sizeBytes, content)
@@ -54,7 +54,8 @@ class FileDocumentService(
                     contentType = extension.contentType,
                     sizeBytes = command.sizeBytes,
                     checksum = stored.checksum,
-                    ownerUserId = command.ownerUserId,
+                    // 관리자가 덮어써도 본인은 그대로 남긴다.
+                    ownerUserId = ownerUserId ?: command.requester.studentId,
                 )
             )
         } catch (e: RuntimeException) {
@@ -66,6 +67,7 @@ class FileDocumentService(
     override fun issueByCommand(command: IssueDownloadUrlCommand): DownloadUrl {
         val fileName = FileNaming.requireSafeFileName(command.fileName)
         val objectKey = command.category.objectKeyOf(fileName)
+        requireDownloadable(command.category, command.requester, ownerOf(command.receiptCode, objectKey))
         if (!storagePort.exists(objectKey)) throw FileDocumentNotFoundException(objectKey)
         return DownloadUrl(
             fileName = fileName,
@@ -74,10 +76,11 @@ class FileDocumentService(
         )
     }
 
-    override fun issueById(category: FileCategory, id: Long): DownloadUrl {
+    override fun issueById(category: FileCategory, id: Long, requester: Requester): DownloadUrl {
         // id 는 순번이라 종류를 확인하지 않으면 요강 경로로 원서·지원자 목록까지 내주게 된다.
         val fileDocument = fileDocumentRepository.findById(id)?.takeIf { category.holds(it.objectKey) }
             ?: throw FileDocumentNotFoundException("${category.name} id=$id")
+        requireDownloadable(category, requester, fileDocument.ownerUserId)
         return DownloadUrl(
             fileName = fileDocument.originalName,
             downloadUrl = storagePort.issueDownloadUrl(fileDocument.objectKey, presignExpirySeconds),
@@ -88,11 +91,31 @@ class FileDocumentService(
     override fun findById(id: Long): FileDocument =
         fileDocumentRepository.findById(id) ?: throw FileDocumentNotFoundException("id=$id")
 
-    override fun findByFileName(category: FileCategory, fileName: String): FileDocument? =
-        fileDocumentRepository.findByObjectKey(category.objectKeyOf(fileName))
+    override fun findApplication(receiptCode: String, requester: Requester): FileDocument? {
+        val applications = applicationsOf(receiptCode)
+        if (applications.isEmpty()) return null
+        requireDownloadable(FileCategory.APPLICATION, requester, applications.firstNotNullOfOrNull { it.ownerUserId })
+        return applications.maxBy { it.createdAt ?: Instant.EPOCH }
+    }
 
     override fun existsById(id: Long): Boolean =
         fileDocumentRepository.existsById(id)
+
+    /** 원서·수험표의 본인은 그 수험번호로 원서를 적재한 학생이고, 그 밖의 파일은 올린 학생이다. */
+    private fun ownerOf(receiptCode: String?, objectKey: String): Long? =
+        receiptCode?.let { applicationsOf(it).firstNotNullOfOrNull(FileDocument::ownerUserId) }
+            ?: fileDocumentRepository.findByObjectKey(objectKey)?.ownerUserId
+
+    private fun applicationsOf(receiptCode: String): List<FileDocument> =
+        FileExtension.documentFormats.mapNotNull { extension ->
+            fileDocumentRepository.findByObjectKey(
+                FileCategory.APPLICATION.objectKeyOf(FileNaming.applicationFileName(receiptCode, extension))
+            )
+        }
+
+    private fun requireDownloadable(category: FileCategory, requester: Requester, ownerUserId: Long?) {
+        if (!category.canDownload(requester, ownerUserId)) throw DocumentAccessDeniedException()
+    }
 
     private fun resolveExtension(command: UploadFileCommand): FileExtension {
         val extension = FileExtension.fromFileName(command.originalName)
