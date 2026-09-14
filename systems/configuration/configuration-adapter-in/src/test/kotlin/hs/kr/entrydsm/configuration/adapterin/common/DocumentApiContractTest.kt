@@ -11,6 +11,7 @@ import hs.kr.entrydsm.configuration.domain.document.DownloadUrl
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.FileExtension
+import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
@@ -162,11 +163,13 @@ class DocumentApiContractTest {
 
         assertEquals(FileExtension.JPG, file.requireExtension(FileCategory.PHOTO))
 
-        val command = file.toUploadCommand(FileCategory.PHOTO, "photo_1.jpg")
+        val requester = Requester(10, Requester.Role.STUDENT)
+        val command = file.toUploadCommand(FileCategory.PHOTO, "photo_1.jpg", requester)
         assertEquals(FileCategory.PHOTO, command.category)
         assertEquals("증명사진.JPEG", command.originalName)
         assertEquals("photo_1.jpg", command.fileName)
         assertEquals(3L, command.sizeBytes)
+        assertEquals(requester, command.requester)
     }
 
     @Test(expected = InvalidFileFormatException::class)

@@ -52,6 +52,17 @@ class DocumentDomainTest {
         )
     }
 
+    @Test
+    fun `카테고리는 자기 prefix 아래의 object key만 담는다`() {
+        assertTrue(FileCategory.GUIDELINE.holds("dsm_Entry/Backend/guideline/a_guide.pdf"))
+        assertFalse(FileCategory.GUIDELINE.holds("dsm_Entry/Backend/application/application_1001.pdf"))
+    }
+
+    @Test(expected = InvalidFileNameException::class)
+    fun `DB에 담을 수 없을 만큼 긴 object key는 거부한다`() {
+        FileCategory.ATTACHMENT.objectKeyOf("a".repeat(FileNaming.MAX_STORED_NAME_LENGTH))
+    }
+
     @Test(expected = InvalidFileNameException::class)
     fun `object key에 상위 경로 참조가 들어오면 거부한다`() {
         FileCategory.APPLICANT_LIST.objectKeyOf("../../etc/passwd")
@@ -102,4 +113,53 @@ class DocumentDomainTest {
             FileNaming.requireSafeFileName("applicants_20260726.xlsx"),
         )
     }
+
+    @Test
+    fun `수험표·지원자 목록·첨부·요강은 관리자만 적재한다`() {
+        listOf(FileCategory.ADMISSION_TICKET, FileCategory.APPLICANT_LIST, FileCategory.ATTACHMENT, FileCategory.GUIDELINE)
+            .forEach {
+                assertTrue(it.name, it.canStore(admin, ownerUserId = null))
+                assertFalse(it.name, it.canStore(student(10), ownerUserId = null))
+            }
+    }
+
+    @Test
+    fun `원서는 본인이 없으면 처음 적재하는 학생이, 있으면 본인과 관리자만 적재한다`() {
+        val application = FileCategory.APPLICATION
+
+        assertTrue(application.canStore(student(10), ownerUserId = null))
+        assertTrue(application.canStore(student(10), ownerUserId = 10))
+        assertFalse(application.canStore(student(11), ownerUserId = 10))
+        assertTrue(application.canStore(admin, ownerUserId = 10))
+    }
+
+    @Test
+    fun `증명사진은 학생만 적재하고 올린 학생만 받는다`() {
+        assertTrue(FileCategory.PHOTO.canStore(student(10), ownerUserId = null))
+        assertFalse(FileCategory.PHOTO.canStore(admin, ownerUserId = null))
+        assertTrue(FileCategory.PHOTO.canDownload(student(10), ownerUserId = 10))
+        assertFalse(FileCategory.PHOTO.canDownload(student(11), ownerUserId = 10))
+    }
+
+    @Test
+    fun `원서·수험표는 본인 학생과 관리자만 다운로드한다`() {
+        listOf(FileCategory.APPLICATION, FileCategory.ADMISSION_TICKET).forEach {
+            assertTrue(it.name, it.canDownload(student(10), ownerUserId = 10))
+            assertFalse(it.name, it.canDownload(student(11), ownerUserId = 10))
+            assertFalse(it.name, it.canDownload(student(10), ownerUserId = null))
+            assertTrue(it.name, it.canDownload(admin, ownerUserId = null))
+        }
+    }
+
+    @Test
+    fun `첨부·요강은 모든 학생이, 지원자 목록은 관리자만 다운로드한다`() {
+        assertTrue(FileCategory.ATTACHMENT.canDownload(student(10), ownerUserId = null))
+        assertTrue(FileCategory.GUIDELINE.canDownload(student(10), ownerUserId = null))
+        assertFalse(FileCategory.APPLICANT_LIST.canDownload(student(10), ownerUserId = null))
+        assertTrue(FileCategory.APPLICANT_LIST.canDownload(admin, ownerUserId = null))
+    }
+
+    private val admin = Requester(1, Requester.Role.ADMIN)
+
+    private fun student(userId: Long) = Requester(userId, Requester.Role.STUDENT)
 }
