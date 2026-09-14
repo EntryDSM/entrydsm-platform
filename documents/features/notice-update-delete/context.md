@@ -140,7 +140,7 @@ message DeleteNoticeResponse {}
 | `service/NotificationService.kt` | 없으면 `NotificationNotFoundException("notice not found: id=…")` |
 | `repository/NoticePersistenceAdapter.kt` | `update`: 조회 → 값 있는 필드만 대입 → `updatedAt = now` → 저장. `deleteById`: 조회 → 삭제. 첨부 직렬화는 `create` 와 같은 함수 사용 |
 | `grpc/NotificationGrpcService.kt` | `updateNotice`: `hasXxx()` 로 유무 판별. `deleteNotice` |
-| 테스트 | `NotificationServiceTest`(서비스), `NotificationAdapterInModuleTest`(gRPC 필드 유무·상태 매핑) |
+| 테스트 | `NotificationServiceTest`(서비스), `NotificationAdapterInModuleTest`(gRPC 필드 유무·상태 매핑), `NotificationAdapterOutModuleTest`(저장 어댑터의 null·`false`·빈 목록 반영, 가짜 `NoticeJpaRepository`) |
 
 ### admin
 
