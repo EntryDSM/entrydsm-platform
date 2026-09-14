@@ -22,6 +22,7 @@ enum class ErrorCode(
     EXPORT_JOB_NOT_FOUND(404, "Export 작업을 찾을 수 없습니다."),
     APPLICATION_DOCUMENT_NOT_FOUND(404, "제출된 원서 원본이 없습니다."),
     QUESTION_NOT_FOUND(404, "질문을 찾을 수 없습니다."),
+    NOTICE_NOT_FOUND(404, "공지를 찾을 수 없습니다."),
     INVALID_STATUS_TRANSITION(409, "현재 상태에서는 변경할 수 없는 상태입니다."),
     EXAMINEE_NUMBER_NOT_ISSUED(409, "수험 번호가 발급되지 않은 지원자입니다."),
     EXPORT_NOT_COMPLETED(409, "아직 완료되지 않은 Export 작업입니다."),

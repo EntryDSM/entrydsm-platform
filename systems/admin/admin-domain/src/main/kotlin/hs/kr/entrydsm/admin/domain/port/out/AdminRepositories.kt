@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.domain.port.out
 
+import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
@@ -44,6 +45,12 @@ interface ExportJobRepository {
 
 interface NoticeRepository {
     fun save(notice: Notice): Notice
+
+    /** 값이 있는 필드만 바꿉니다. 공지가 없으면 NOTICE_NOT_FOUND 로 실패합니다. */
+    fun update(command: UpdateNoticeCommand)
+
+    /** 공지가 없으면 NOTICE_NOT_FOUND 로 실패합니다. */
+    fun deleteById(noticeId: Long)
 }
 
 interface QuestionAnswerRepository {

@@ -25,5 +25,6 @@ object AdminEndpointPaths {
     const val EXPORTS = "$BASE/exports"
     const val EXPORT = "$EXPORTS/{exportJobId}"
     const val NOTICES = "$BASE/notices"
+    const val NOTICE = "$NOTICES/{noticeId}"
     const val QUESTION_ANSWERS = "$BASE/questions/{questionId}/answers"
 }

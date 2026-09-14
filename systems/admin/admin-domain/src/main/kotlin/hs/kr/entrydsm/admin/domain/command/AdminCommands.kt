@@ -77,6 +77,20 @@ data class CreateNoticeCommand(
 )
 
 /**
+ * 공지사항을 수정합니다. null 인 필드는 바꾸지 않습니다.
+ *
+ * @property attachmentIds 교체할 첨부 문서 식별자 목록. 빈 목록이면 첨부를 모두 뗀다
+ */
+data class UpdateNoticeCommand(
+    val noticeId: Long,
+    val title: String? = null,
+    val content: String? = null,
+    val division: String? = null,
+    val isPinned: Boolean? = null,
+    val attachmentIds: List<String>? = null,
+)
+
+/**
  * 지원자 질문에 답변합니다.
  */
 data class AnswerQuestionCommand(

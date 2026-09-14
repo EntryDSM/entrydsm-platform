@@ -75,6 +75,23 @@ data class CreateNoticeRequest(
     val attachmentIds: List<String> = emptyList(),
 )
 
+/**
+ * 보낸 필드만 바꾸고, 없거나 null 인 필드는 유지한다. 값은 [CreateNoticeRequest] 와 같다.
+ *
+ * 빈 문자열·잘못된 분류는 notification 이 거절한다(400).
+ */
+data class UpdateNoticeRequest(
+    @field:Size(max = 200)
+    val title: String? = null,
+    val content: String? = null,
+    val division: String? = null,
+    @param:JsonProperty("isPinned")
+    @get:JsonProperty("isPinned")
+    val isPinned: Boolean? = null,
+    /** 목록 전체로 교체한다. 빈 목록이면 첨부를 모두 뗀다. */
+    val attachmentIds: List<String>? = null,
+)
+
 data class AnswerQuestionRequest(
     @field:NotBlank
     val content: String,
