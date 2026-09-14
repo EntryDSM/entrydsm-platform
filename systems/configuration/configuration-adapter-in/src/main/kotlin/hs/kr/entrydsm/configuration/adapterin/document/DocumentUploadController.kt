@@ -3,6 +3,7 @@ package hs.kr.entrydsm.configuration.adapterin.document
 import hs.kr.entrydsm.configuration.adapterin.common.ApiResponse
 import hs.kr.entrydsm.configuration.adapterin.document.dto.UploadAttachmentResponse
 import hs.kr.entrydsm.configuration.adapterin.document.dto.UploadFileResponse
+import hs.kr.entrydsm.configuration.adapterin.document.dto.UploadGuidelineResponse
 import hs.kr.entrydsm.configuration.adapterin.document.dto.UploadPhotoResponse
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
@@ -99,6 +100,24 @@ class DocumentUploadController(
         return ApiResponse.success(
             UploadAttachmentResponse(
                 attachmentId = FileReferenceId.of(category, requireNotNull(saved.id)),
+                key = saved.objectKey,
+                fileName = saved.originalName,
+                size = saved.sizeBytes,
+            )
+        )
+    }
+
+    @PostMapping("/guideline")
+    fun uploadGuideline(
+        @RequestParam("file") file: MultipartFile,
+        @RequestAttribute(REQUESTER_ATTRIBUTE) requester: Requester,
+    ): ApiResponse<UploadGuidelineResponse> {
+        val category = FileCategory.GUIDELINE
+        file.requireExtension(category)
+        val saved = file.store(category, FileNaming.attachmentFileName(file.originalFilename.orEmpty()), requester)
+        return ApiResponse.success(
+            UploadGuidelineResponse(
+                guidelineId = FileReferenceId.of(category, requireNotNull(saved.id)),
                 key = saved.objectKey,
                 fileName = saved.originalName,
                 size = saved.sizeBytes,

@@ -29,6 +29,13 @@ data class UploadAttachmentResponse(
     val size: Long,
 )
 
+data class UploadGuidelineResponse(
+    val guidelineId: String,
+    val key: String,
+    val fileName: String,
+    val size: Long,
+)
+
 data class DownloadUrlResponse(
     val fileName: String,
     val downloadUrl: String,

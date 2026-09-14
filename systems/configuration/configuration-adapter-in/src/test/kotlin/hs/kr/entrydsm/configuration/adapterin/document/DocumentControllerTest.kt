@@ -215,6 +215,17 @@ class DocumentControllerTest {
     }
 
     @Test
+    fun `입학요강 적재는 guideline 접두사가 붙은 ID를 돌려준다`() {
+        mvc.perform(multipart("/api/document/v11/guideline").file(pdf("2027_요강.pdf")).with(admin()))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.guidelineId").value("guideline_7"))
+            .andExpect(jsonPath("$.data.fileName").value("2027_요강.pdf"))
+
+        assertEquals(FileCategory.GUIDELINE, upload.lastCommand?.category)
+        assert(upload.lastCommand!!.fileName.matches(Regex("[0-9a-f]{32}_2027___\\.pdf")))
+    }
+
+    @Test
     fun `입학요강 다운로드는 guideline 접두사 ID를 요강 종류로 조회한다`() {
         mvc.perform(get("/api/document/v11/guideline/download").param("guidelineId", "guideline_3").with(student(10)))
             .andExpect(status().isOk)
