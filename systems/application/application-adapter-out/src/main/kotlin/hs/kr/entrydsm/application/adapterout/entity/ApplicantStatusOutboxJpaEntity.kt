@@ -16,7 +16,7 @@ open class ApplicantStatusOutboxJpaEntity(
     @Column(name = "account_id", nullable = false)
     val accountId: Long,
     @Lob
-    @Column(name = "payload", nullable = false)
+    @Column(name = "payload", nullable = false, columnDefinition = "LONGBLOB")
     val payload: ByteArray,
     @Column(name = "created_at", nullable = false)
     val createdAt: LocalDateTime,
