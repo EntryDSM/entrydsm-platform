@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.gateway.adapterin.configuration
 
+import org.springframework.cloud.gateway.config.GlobalCorsProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -11,10 +12,20 @@ import org.springframework.security.web.server.csrf.ServerCsrfTokenRequestAttrib
 import org.springframework.security.web.server.util.matcher.OrServerWebExchangeMatcher
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher
+import org.springframework.web.cors.reactive.CorsWebFilter
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
 
 @Configuration(proxyBeanMethods = false)
 @EnableWebFluxSecurity
 class SecurityWebConfig {
+
+    @Bean
+    fun corsWebFilter(corsProperties: GlobalCorsProperties): CorsWebFilter =
+        CorsWebFilter(
+            UrlBasedCorsConfigurationSource().apply {
+                registerCorsConfiguration("/**", corsProperties.corsConfigurations.getValue("/**"))
+            },
+        )
 
     @Bean
     fun securityWebFilterChain(
