@@ -12,6 +12,8 @@ import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.FileExtension
 import hs.kr.entrydsm.configuration.domain.document.Requester
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantLookupFailedException
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
@@ -103,6 +105,14 @@ class DocumentApiContractTest {
         assertMapped(
             ErrorCode.STORAGE_UNAVAILABLE,
             handler.handleStorageUnavailable(StorageUnavailableException("photo/a.jpg")),
+        )
+        assertMapped(
+            ErrorCode.APPLICANT_NOT_FOUND,
+            handler.handleApplicantNotFound(ApplicantNotFoundException("1001")),
+        )
+        assertMapped(
+            ErrorCode.APPLICANT_LOOKUP_FAILED,
+            handler.handleApplicantLookupFailed(ApplicantLookupFailedException(10)),
         )
     }
 

@@ -9,6 +9,7 @@ import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlComm
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
+import hs.kr.entrydsm.configuration.domain.document.port.`in`.GenerateAdmissionTicketUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.IssueDownloadUrlUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.ReadFileUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.UploadFileUseCase
@@ -32,9 +33,14 @@ class DocumentControllerTest {
     private val upload = RecordingUploadFileUseCase()
     private val issue = StubIssueDownloadUrlUseCase()
     private val read = StubReadFileUseCase()
+    private var generated: Pair<String, Requester>? = null
+    private val generate = GenerateAdmissionTicketUseCase { receiptCode, requester ->
+        generated = receiptCode to requester
+        stored(FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_$receiptCode.pdf"))
+    }
 
     private val mvc: MockMvc =
-        MockMvcBuilders.standaloneSetup(DocumentUploadController(upload, issue), DocumentDownloadController(issue, read))
+        MockMvcBuilders.standaloneSetup(DocumentUploadController(upload, issue, generate), DocumentDownloadController(issue, read))
             .addInterceptors(ConfigurationAuthorizationInterceptor())
             .setControllerAdvice(DocumentExceptionHandler())
             .build()
@@ -142,6 +148,20 @@ class DocumentControllerTest {
         )
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
+    }
+
+    @Test
+    fun `수험표 생성은 수험번호와 요청자를 넘기고 적재된 키를 돌려준다`() {
+        mvc.perform(get("/api/document/v11/admission-ticket").param("receiptCode", "1001").with(student(10)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.key").value("dsm_Entry/Backend/admission-ticket/admission_ticket_1001.pdf"))
+            .andExpect(jsonPath("$.data.fileName").value("admission_ticket_1001.pdf"))
+
+        assertEquals("1001" to Requester(10, Requester.Role.STUDENT), generated)
+
+        mvc.perform(multipart("/api/document/v11/admission-ticket").file(pdf()).param("receiptCode", "1001").with(admin()))
+            .andExpect(status().isMethodNotAllowed)
+            .andExpect(jsonPath("$.error.code").value("METHOD_NOT_ALLOWED"))
     }
 
     @Test

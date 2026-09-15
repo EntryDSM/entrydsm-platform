@@ -13,6 +13,8 @@ interface StoragePort {
 
     fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long): String
 
+    fun download(objectKey: String): ByteArray
+
     fun exists(objectKey: String): Boolean
 
     fun delete(objectKey: String)

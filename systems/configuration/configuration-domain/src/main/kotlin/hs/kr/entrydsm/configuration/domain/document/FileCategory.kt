@@ -22,9 +22,10 @@ enum class FileCategory(
         "application", FileExtension.documentFormats, MAX_DOCUMENT_SIZE_BYTES,
         storers = setOf(ADMIN, OWNER), downloaders = setOf(ADMIN, OWNER),
     ),
+    /** 올리지 않고 서버가 만든다. 만들 수 있는 사람은 받을 수 있는 사람과 같다. */
     ADMISSION_TICKET(
         "admission-ticket", FileExtension.documentFormats, MAX_DOCUMENT_SIZE_BYTES,
-        storers = setOf(ADMIN), downloaders = setOf(ADMIN, OWNER),
+        storers = emptySet(), downloaders = setOf(ADMIN, OWNER),
     ),
     APPLICANT_LIST(
         "applicant-list", setOf(FileExtension.XLSX), MAX_DOCUMENT_SIZE_BYTES,

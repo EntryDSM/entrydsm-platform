@@ -15,6 +15,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleScho
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
@@ -117,6 +118,18 @@ class ApplicationCommandService(
 
     override fun findByUserId(userId: Long): ApplicationSnapshotResult? =
         applicantRepository.findByAccountId(userId)?.toSnapshot()
+
+    override fun findApplicantByUserId(userId: Long): ApplicantResult? =
+        applicantRepository.findByAccountId(userId)?.let {
+            ApplicantResult(
+                userId = it.accountId,
+                name = it.name,
+                schoolName = it.middleSchoolInfo?.schoolName,
+                region = it.region,
+                admissionType = it.admissionType,
+                photoFileId = it.photoFileId,
+            )
+        }
 
     override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult {
         val applicant = getApplicantByUserId(userId)

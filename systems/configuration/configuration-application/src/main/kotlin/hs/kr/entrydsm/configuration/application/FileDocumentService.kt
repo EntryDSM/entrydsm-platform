@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.configuration.application
 
+import hs.kr.entrydsm.configuration.domain.document.AdmissionTicketHtml
 import hs.kr.entrydsm.configuration.domain.document.DownloadUrl
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
@@ -8,24 +9,33 @@ import hs.kr.entrydsm.configuration.domain.document.FileNaming
 import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
+import hs.kr.entrydsm.configuration.domain.document.port.`in`.GenerateAdmissionTicketUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.IssueDownloadUrlUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.ReadFileUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.UploadFileUseCase
+import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
+import hs.kr.entrydsm.configuration.domain.document.port.out.PdfRenderPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.slf4j.LoggerFactory
 import java.io.InputStream
 import java.time.Instant
+import java.util.Base64
 
 class FileDocumentService(
     private val storagePort: StoragePort,
     private val fileDocumentRepository: FileDocumentRepository,
     private val presignExpirySeconds: Long,
+    private val applicantPort: ApplicantPort,
+    private val pdfRenderPort: PdfRenderPort,
+    private val admissionYear: Int,
 ) : UploadFileUseCase,
+    GenerateAdmissionTicketUseCase,
     IssueDownloadUrlUseCase,
     ReadFileUseCase {
 
@@ -41,27 +51,30 @@ class FileDocumentService(
         val objectKey = command.category.objectKeyOf(command.fileName)
         val ownerUserId = ownerOf(command.receiptCode, objectKey)
         if (!command.category.canStore(command.requester, ownerUserId)) throw DocumentAccessDeniedException()
-        // 같은 키를 덮어쓴 경우 보상 삭제가 이전 파일까지 지우면 안 된다.
-        val replacedExistingObject = storagePort.exists(objectKey)
-        val stored = storagePort.upload(objectKey, extension.contentType, command.sizeBytes, content)
+        return store(
+            objectKey, command.originalName, extension, command.sizeBytes, content,
+            // 관리자가 덮어써도 본인은 그대로 남긴다.
+            ownerUserId = ownerUserId ?: command.requester.studentId,
+        )
+    }
 
-        return try {
-            fileDocumentRepository.save(
-                FileDocument(
-                    originalName = command.originalName,
-                    objectKey = stored.objectKey,
-                    bucket = stored.bucket,
-                    contentType = extension.contentType,
-                    sizeBytes = command.sizeBytes,
-                    checksum = stored.checksum,
-                    // 관리자가 덮어써도 본인은 그대로 남긴다.
-                    ownerUserId = ownerUserId ?: command.requester.studentId,
-                )
+    override fun generateAdmissionTicket(receiptCode: String, requester: Requester): FileDocument {
+        val category = FileCategory.ADMISSION_TICKET
+        val fileName = FileNaming.admissionTicketFileName(receiptCode, FileExtension.PDF)
+        val objectKey = category.objectKeyOf(fileName)
+        val ownerUserId = ownerOf(receiptCode, objectKey)
+        // 다운로드처럼 권한을 먼저 봐서, 남의 수험번호는 원서가 없어도 403 이다.
+        requireDownloadable(category, requester, ownerUserId)
+        val applicant = ownerUserId?.let(applicantPort::findByUserId)
+        if (ownerUserId == null || applicant == null) throw ApplicantNotFoundException(receiptCode)
+
+        val pdf = pdfRenderPort.render(
+            AdmissionTicketHtml.render(
+                admissionYear, receiptCode, applicant,
+                photoDataUri = applicant.photoFileId?.let { photoDataUri(it, ownerUserId) },
             )
-        } catch (e: RuntimeException) {
-            if (!replacedExistingObject) deleteOrphan(objectKey)
-            throw e
-        }
+        )
+        return store(objectKey, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), ownerUserId)
     }
 
     override fun issueByCommand(command: IssueDownloadUrlCommand): DownloadUrl {
@@ -112,6 +125,48 @@ class FileDocumentService(
                 FileCategory.APPLICATION.objectKeyOf(FileNaming.applicationFileName(receiptCode, extension))
             )
         }
+
+    private fun store(
+        objectKey: String,
+        originalName: String,
+        extension: FileExtension,
+        sizeBytes: Long,
+        content: InputStream,
+        ownerUserId: Long?,
+    ): FileDocument {
+        // 같은 키를 덮어쓴 경우 보상 삭제가 이전 파일까지 지우면 안 된다.
+        val replacedExistingObject = storagePort.exists(objectKey)
+        val stored = storagePort.upload(objectKey, extension.contentType, sizeBytes, content)
+
+        return try {
+            fileDocumentRepository.save(
+                FileDocument(
+                    originalName = originalName,
+                    objectKey = stored.objectKey,
+                    bucket = stored.bucket,
+                    contentType = extension.contentType,
+                    sizeBytes = sizeBytes,
+                    checksum = stored.checksum,
+                    ownerUserId = ownerUserId,
+                )
+            )
+        } catch (e: RuntimeException) {
+            if (!replacedExistingObject) deleteOrphan(objectKey)
+            throw e
+        }
+    }
+
+    /**
+     * 원서에 적힌 사진 id 는 학생이 보낸 값이라, 그 학생이 올린 사진일 때만 수험표에 넣는다.
+     *
+     * ponytail: webp 사진은 openhtmltopdf(ImageIO)가 읽지 못해 빈 칸으로 찍힌다. 필요해지면 webp 디코더를 붙인다.
+     */
+    private fun photoDataUri(photoFileId: Long, ownerUserId: Long): String? {
+        val photo = fileDocumentRepository.findById(photoFileId)
+            ?.takeIf { FileCategory.PHOTO.holds(it.objectKey) && it.ownerUserId == ownerUserId }
+            ?: return null
+        return "data:${photo.contentType};base64," + Base64.getEncoder().encodeToString(storagePort.download(photo.objectKey))
+    }
 
     private fun requireDownloadable(category: FileCategory, requester: Requester, ownerUserId: Long?) {
         if (!category.canDownload(requester, ownerUserId)) throw DocumentAccessDeniedException()

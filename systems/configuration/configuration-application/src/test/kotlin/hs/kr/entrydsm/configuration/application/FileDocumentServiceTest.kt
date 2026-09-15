@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.configuration.application
 
+import hs.kr.entrydsm.configuration.domain.document.Applicant
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
@@ -7,14 +8,18 @@ import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.StoredObject
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameException
+import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
+import hs.kr.entrydsm.configuration.domain.document.port.out.PdfRenderPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -27,7 +32,12 @@ class FileDocumentServiceTest {
 
     private val storage = FakeStoragePort()
     private val repository = FakeFileDocumentRepository()
-    private val service = FileDocumentService(storage, repository, presignExpirySeconds = 300)
+    private val applicants = mutableMapOf<Long, Applicant>()
+    private val pdf = RecordingPdfRenderPort()
+    private val service = FileDocumentService(
+        storage, repository, presignExpirySeconds = 300,
+        applicantPort = ApplicantPort(applicants::get), pdfRenderPort = pdf, admissionYear = 2027,
+    )
 
     private val admin = Requester(1, Requester.Role.ADMIN)
 
@@ -118,23 +128,43 @@ class FileDocumentServiceTest {
     }
 
     @Test
-    fun `학생은 수험표를 적재할 수 없다`() {
-        assertThrows(DocumentAccessDeniedException::class.java) {
-            service.upload(admissionTicket(requester = student(10)), content())
-        }
-        assertTrue(storage.uploaded.isEmpty())
+    fun `수험표는 수험번호 원서의 본인 정보와 사진으로 만들어 본인이 받게 적재한다`() {
+        service.upload(command(requester = student(10)), content())
+        val photo = service.upload(photo(student(10)), content())
+        applicants[10] = Applicant("홍<길동>", "대덕중학교", Applicant.Region.DAEJEON, Applicant.AdmissionType.MEISTER, photo.id)
+
+        val ticket = service.generateAdmissionTicket("1001", admin)
+
+        assertEquals("dsm_Entry/Backend/admission-ticket/admission_ticket_1001.pdf", ticket.objectKey)
+        assertEquals("application/pdf", ticket.contentType)
+        assertEquals(10L, ticket.ownerUserId)
+        assertTrue(ticket.objectKey in storage.uploaded)
+        listOf("2027학년도", "1001", "홍&lt;길동&gt;", "대덕중학교", "대전", "마이스터전형", "data:image/png;base64,")
+            .forEach { assertTrue(it, it in pdf.lastHtml) }
+        val own = IssueDownloadUrlCommand(FileCategory.ADMISSION_TICKET, ticket.fileName, student(10), "1001")
+        assertEquals(ticket.fileName, service.issueByCommand(own).fileName)
     }
 
     @Test
-    fun `관리자가 적재한 수험표는 그 수험번호로 원서를 적재한 학생만 받는다`() {
+    fun `남의 수험번호 수험표는 원서가 없어도 403이고, 관리자는 원서가 없으면 404다`() {
         service.upload(command(requester = student(10)), content())
-        service.upload(admissionTicket(requester = admin), content())
+        applicants[10] = Applicant("홍길동", null, null, null, null)
 
-        val own = IssueDownloadUrlCommand(FileCategory.ADMISSION_TICKET, "admission_ticket_1001.pdf", student(10), "1001")
-        assertEquals("admission_ticket_1001.pdf", service.issueByCommand(own).fileName)
-        assertThrows(DocumentAccessDeniedException::class.java) {
-            service.issueByCommand(own.copy(requester = student(11)))
-        }
+        assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket("1001", student(11)) }
+        assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket("2002", student(11)) }
+        assertThrows(ApplicantNotFoundException::class.java) { service.generateAdmissionTicket("2002", admin) }
+        assertTrue(storage.uploaded.none { it.contains("admission-ticket") })
+    }
+
+    @Test
+    fun `원서에 다른 학생의 사진 id가 적혀 있으면 수험표에 사진을 넣지 않는다`() {
+        service.upload(command(requester = student(10)), content())
+        val othersPhoto = service.upload(photo(student(11)), content())
+        applicants[10] = Applicant("홍길동", null, null, null, othersPhoto.id)
+
+        service.generateAdmissionTicket("1001", student(10))
+
+        assertFalse("data:" in pdf.lastHtml)
     }
 
     @Test
@@ -225,8 +255,8 @@ class FileDocumentServiceTest {
         requester: Requester = admin,
     ) = UploadFileCommand(FileCategory.APPLICATION, originalName, fileName, sizeBytes, requester, receiptCode = "1001")
 
-    private fun admissionTicket(requester: Requester) = UploadFileCommand(
-        FileCategory.ADMISSION_TICKET, "수험표.pdf", "admission_ticket_1001.pdf", 1024, requester, receiptCode = "1001",
+    private fun photo(requester: Requester) = UploadFileCommand(
+        FileCategory.PHOTO, "사진.png", "photo_${requester.userId}.png", 1024, requester,
     )
 
     private fun applicantList() = UploadFileCommand(
@@ -255,11 +285,22 @@ class FileDocumentServiceTest {
         override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long): String =
             "https://s3/$objectKey?expires=$expiresInSeconds"
 
+        override fun download(objectKey: String): ByteArray = objectKey.toByteArray()
+
         override fun exists(objectKey: String): Boolean = objectKey in existingKeys
 
         override fun delete(objectKey: String) {
             if (failOnDelete) throw IllegalStateException("delete failed")
             deleted += objectKey
+        }
+    }
+
+    private class RecordingPdfRenderPort : PdfRenderPort {
+        var lastHtml = ""
+
+        override fun render(html: String): ByteArray {
+            lastHtml = html
+            return "%PDF-".toByteArray()
         }
     }
 

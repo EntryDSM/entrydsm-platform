@@ -12,8 +12,10 @@ import hs.kr.entrydsm.configuration.domain.document.FileNaming
 import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
+import hs.kr.entrydsm.configuration.domain.document.port.`in`.GenerateAdmissionTicketUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.IssueDownloadUrlUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.UploadFileUseCase
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
@@ -31,6 +33,7 @@ import java.time.LocalDate
 class DocumentUploadController(
     private val uploadFileUseCase: UploadFileUseCase,
     private val issueDownloadUrlUseCase: IssueDownloadUrlUseCase,
+    private val generateAdmissionTicketUseCase: GenerateAdmissionTicketUseCase,
 ) {
 
     @PostMapping("/application")
@@ -44,16 +47,15 @@ class DocumentUploadController(
         return ApiResponse.success(UploadFileResponse.from(file.store(category, fileName, requester, receiptCode)))
     }
 
-    @PostMapping("/admission-ticket")
-    fun uploadAdmissionTicket(
-        @RequestParam("file") file: MultipartFile,
+    /** 수험표는 올리지 않고 서버가 만들어 적재한다. 받을 수 있는 사람(관리자, 본인)이 만든다. */
+    @GetMapping("/admission-ticket")
+    fun generateAdmissionTicket(
         @RequestParam("receiptCode") receiptCode: String,
         @RequestAttribute(REQUESTER_ATTRIBUTE) requester: Requester,
-    ): ApiResponse<UploadFileResponse> {
-        val category = FileCategory.ADMISSION_TICKET
-        val fileName = FileNaming.admissionTicketFileName(receiptCode, file.requireExtension(category))
-        return ApiResponse.success(UploadFileResponse.from(file.store(category, fileName, requester, receiptCode)))
-    }
+    ): ApiResponse<UploadFileResponse> =
+        ApiResponse.success(
+            UploadFileResponse.from(generateAdmissionTicketUseCase.generateAdmissionTicket(receiptCode, requester))
+        )
 
     @PostMapping("/applicant-list")
     fun uploadApplicantList(
