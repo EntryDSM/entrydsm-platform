@@ -56,4 +56,19 @@ class GatewayBootstrapContextTest {
             .expectHeader().valueEquals("Access-Control-Allow-Origin", "https://stag-auth.entrydsm.hs.kr")
             .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
     }
+
+    @Test
+    fun addsCorsHeadersToLocalCsrfEndpoint() {
+        WebTestClient.bindToApplicationContext(applicationContext)
+            .configureClient()
+            .baseUrl("http://gateway.local")
+            .build()
+            .get()
+            .uri("/api/identity/v11/auth/csrf")
+            .header("Origin", "https://stag-auth.entrydsm.hs.kr")
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().valueEquals("Access-Control-Allow-Origin", "https://stag-auth.entrydsm.hs.kr")
+            .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
+    }
 }
