@@ -15,6 +15,8 @@ enum class ErrorCode(
     SIGNUP_AGE_RESTRICTION(403, "만 14세 미만은 회원가입할 수 없습니다."),
     AUTH_UNAUTHORIZED(401, "인증이 필요합니다."),
     ACCESS_DENIED(403, "접근 권한이 없습니다."),
+    API_NOT_FOUND(404, "존재하지 않는 API입니다."),
+    METHOD_NOT_ALLOWED(405, "지원하지 않는 HTTP 메서드입니다."),
     INVALID_CREDENTIALS(401, "로그인 식별자 또는 비밀번호가 일치하지 않습니다."),
     INVALID_PASS(401, "PASS 본인인증에 실패했습니다."),
     INVALID_PASS_REDIRECT_URL(400, "PASS 인증 반환 URL이 허용되지 않습니다."),

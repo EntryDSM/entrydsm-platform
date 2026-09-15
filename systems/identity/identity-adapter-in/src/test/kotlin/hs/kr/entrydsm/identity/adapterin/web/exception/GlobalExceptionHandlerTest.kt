@@ -8,8 +8,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.slf4j.MDC
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.validation.BindException
+import org.springframework.web.HttpRequestMethodNotSupportedException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 class GlobalExceptionHandlerTest {
     private val handler = GlobalExceptionHandler()
@@ -72,6 +75,25 @@ class GlobalExceptionHandlerTest {
             assertEquals(400, response.statusCode.value())
             assertEquals("INVALID_REQUEST_BODY", response.body?.error?.code)
         }
+    }
+
+    @Test
+    fun mapsUnknownPathToNotFoundResponse() {
+        val response = handler.handleApiNotFound(
+            NoResourceFoundException(HttpMethod.GET, "/api/identity/v1/auth", "api/identity/v1/auth"),
+        )
+
+        assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
+        assertEquals("API_NOT_FOUND", response.body?.error?.code)
+    }
+
+    @Test
+    fun mapsUnsupportedMethodToMethodNotAllowedResponseWithAllowHeader() {
+        val response = handler.handleMethodNotAllowed(HttpRequestMethodNotSupportedException("GET", listOf("POST")))
+
+        assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.statusCode)
+        assertEquals("METHOD_NOT_ALLOWED", response.body?.error?.code)
+        assertEquals(setOf(HttpMethod.POST), response.headers.allow)
     }
 
     @Test
