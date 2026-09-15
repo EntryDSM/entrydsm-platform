@@ -62,7 +62,7 @@ class AccountControllerTest {
             userId = 123L,
         )
 
-        val response = controller.getMyAuthority(authenticatedUser)
+        val response = controller.deleteMe(authenticatedUser)
 
         assertNull(response.data)
         assertEquals(123L, requireNotNull(accountPort.deleteAccountCommand).userId)
