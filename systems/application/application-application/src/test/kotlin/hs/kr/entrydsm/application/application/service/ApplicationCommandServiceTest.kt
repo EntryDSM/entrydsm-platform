@@ -17,7 +17,9 @@ import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import java.lang.reflect.Modifier
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -25,6 +27,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApplicationCommandServiceTest {
+    @Test
+    fun transactionalServiceCanBeProxied() {
+        assertFalse(Modifier.isFinal(ApplicationCommandService::class.java.modifiers))
+    }
+
     @Test
     fun createRejectsExistingAccountBeforeSavingAndAllowsNewAccount() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
