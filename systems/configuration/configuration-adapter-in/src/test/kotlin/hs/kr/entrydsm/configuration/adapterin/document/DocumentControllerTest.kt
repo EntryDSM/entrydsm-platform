@@ -158,6 +158,10 @@ class DocumentControllerTest {
             .andExpect(jsonPath("$.data.fileName").value("admission_ticket_1001.pdf"))
 
         assertEquals("1001" to Requester(10, Requester.Role.STUDENT), generated)
+
+        mvc.perform(multipart("/api/document/v11/admission-ticket").file(pdf()).param("receiptCode", "1001").with(admin()))
+            .andExpect(status().isMethodNotAllowed)
+            .andExpect(jsonPath("$.error.code").value("METHOD_NOT_ALLOWED"))
     }
 
     @Test

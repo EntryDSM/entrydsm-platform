@@ -18,6 +18,7 @@ import hs.kr.entrydsm.configuration.domain.schedule.ScheduleNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -78,6 +79,11 @@ class DocumentExceptionHandler {
     )
     fun handleInvalidRequestParam(e: Exception) =
         respond(ErrorCode.INVALID_REQUEST_PARAM, e)
+
+    /** 없앤 API(예: 수험표 업로드 POST)를 부르는 클라이언트를 500 으로 셈하지 않도록 405 로 돌려준다. */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotAllowed(e: HttpRequestMethodNotSupportedException) =
+        respond(ErrorCode.METHOD_NOT_ALLOWED, e)
 
     @ExceptionHandler(StorageUploadFailedException::class)
     fun handleStorageUploadFailed(e: StorageUploadFailedException) =
