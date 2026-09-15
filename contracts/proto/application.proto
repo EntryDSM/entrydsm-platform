@@ -10,6 +10,7 @@ service ApplicationService {
     rpc CreateApplication(CreateApplicationRequest) returns (ApplicationResponse);
     rpc GetApplication(GetApplicationRequest) returns (ApplicationResponse);
     rpc CancelApplication(CancelApplicationRequest) returns (ApplicationResponse);
+    rpc GetApplicant(GetApplicantRequest) returns (ApplicantResponse);
 }
 
 message CreateApplicationRequest {
@@ -32,6 +33,20 @@ message ApplicationResponse {
     int64 updated_at_epoch_millis = 4;
     PassStatus pass_status = 5;
     optional int64 announced_at_epoch_millis = 6;
+}
+
+message GetApplicantRequest {
+    int64 user_id = 1;
+}
+
+// 수험표처럼 원서 내용을 찍는 문서에 쓰는 지원자 정보. 작성 중인 원서면 비어 있을 수 있다.
+message ApplicantResponse {
+    int64 user_id = 1;
+    optional string name = 2;
+    optional string school_name = 3;
+    Region region = 4;
+    AdmissionType admission_type = 5;
+    optional int64 photo_file_id = 6;
 }
 
 message ApplicantStatusChangedEvent {
@@ -60,4 +75,17 @@ enum PassStatus {
     PASS_STATUS_NOT_ANNOUNCED = 1;
     PASS_STATUS_PASSED = 2;
     PASS_STATUS_FAILED = 3;
+}
+
+enum Region {
+    REGION_UNSPECIFIED = 0;
+    REGION_DAEJEON = 1;
+    REGION_NATIONAL = 2;
+}
+
+enum AdmissionType {
+    ADMISSION_TYPE_UNSPECIFIED = 0;
+    ADMISSION_TYPE_REGULAR = 1;
+    ADMISSION_TYPE_MEISTER = 2;
+    ADMISSION_TYPE_SOCIAL = 3;
 }
