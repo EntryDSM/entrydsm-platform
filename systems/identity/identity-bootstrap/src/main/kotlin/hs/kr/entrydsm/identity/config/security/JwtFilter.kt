@@ -38,7 +38,7 @@ class JwtFilter(
     private val signingKey = Keys.hmacShaKeyFor(secretBytes)
     private val jwtParser = Jwts.parser()
         .verifyWith(signingKey)
-        .clock(io.jsonwebtoken.Clock { Date.from(Instant.now(clock)) })
+        .clock({ Date.from(Instant.now(clock)) })
         .build()
 
     override fun doFilterInternal(

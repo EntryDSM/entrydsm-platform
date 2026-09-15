@@ -29,7 +29,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.csrf.CsrfFilter
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository
 import org.springframework.security.web.csrf.CsrfToken
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 import java.time.Instant
 import java.time.LocalDate
 
@@ -93,20 +92,14 @@ class SecurityConfig {
             it.setCookieCustomizer { cookie ->
                 cookie
                     .secure(secureCookies)
+                    .httpOnly(true)
                     .sameSite("Lax")
                     .path("/")
             }
-        }.let { csrfTokenRepository ->
+        }.let {
             validateSecurityConfiguration(environment)
             http
-                .csrf {
-                    it
-                        .csrfTokenRepository(csrfTokenRepository)
-                        // This service exposes the token through a non-HttpOnly cookie for SPA clients.
-                        // The request header must therefore contain the same token value as the cookie.
-                        .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers(AuthEndpointPaths.PASS_POPUP, AuthEndpointPaths.LOGOUT)
-                }
+                .csrf { it.disable() }
                 .formLogin { it.disable() }
                 .httpBasic { it.disable() }
                 .sessionManagement {

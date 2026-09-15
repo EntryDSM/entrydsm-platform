@@ -1,7 +1,7 @@
 package hs.kr.entrydsm.identity.application.service
 
 import hs.kr.entrydsm.identity.application.port.`in`.PassPort
-import hs.kr.entrydsm.identity.application.port.`in`.PassVerificationResult
+import hs.kr.entrydsm.identity.application.port.`in`.result.PassVerificationResult
 import hs.kr.entrydsm.identity.application.port.out.PassIdentity
 import hs.kr.entrydsm.identity.application.port.out.PassProofStore
 import hs.kr.entrydsm.identity.application.port.out.PassProviderException

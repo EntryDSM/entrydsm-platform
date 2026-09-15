@@ -17,11 +17,11 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(AuthEndpointPaths.BASE + AuthEndpointPaths.PASS_PATH)
+@RequestMapping("/api/identity/v11/auth/pass")
 class PassController(
     private val passPort: PassPort,
 ) {
-    @PostMapping(AuthEndpointPaths.PASS_POPUP_PATH, produces = [MediaType.TEXT_HTML_VALUE])
+    @PostMapping("/popup", produces = [MediaType.TEXT_HTML_VALUE])
     fun popup(
         @Valid @RequestBody request: PassPopupRequest,
     ): ResponseEntity<String> = ResponseEntity
@@ -29,7 +29,7 @@ class PassController(
         .contentType(MediaType.TEXT_HTML)
         .body(passPort.generatePopup(request.redirectUrl))
 
-    @GetMapping(AuthEndpointPaths.PASS_INFO_PATH)
+    @GetMapping("/info")
     fun info(
         @RequestParam("mdl_tkn") token: String,
     ): ResponseEntity<ApiResponse<PassVerificationResponse>> = ResponseEntity
