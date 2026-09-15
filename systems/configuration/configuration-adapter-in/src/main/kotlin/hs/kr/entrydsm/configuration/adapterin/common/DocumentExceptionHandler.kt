@@ -14,14 +14,17 @@ import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailable
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUploadFailedException
 import hs.kr.entrydsm.configuration.domain.schedule.ScheduleNotFoundException
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 @RestControllerAdvice
 class DocumentExceptionHandler {
@@ -81,6 +84,15 @@ class DocumentExceptionHandler {
     fun handleStorageUnavailable(e: StorageUnavailableException) =
         respond(ErrorCode.STORAGE_UNAVAILABLE, e)
 
+    // 없는 경로·메서드 요청이 아래 Exception 처리로 빠지면 500과 ERROR 로그가 남고, gateway 서킷 브레이커가 실패로 센다.
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleApiNotFound(e: NoResourceFoundException) =
+        respond(ErrorCode.API_NOT_FOUND, e)
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotAllowed(e: HttpRequestMethodNotSupportedException) =
+        respond(ErrorCode.METHOD_NOT_ALLOWED, e, e.headers)
+
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(e: Exception): ResponseEntity<ApiResponse<Nothing>> {
         log.error("Unhandled exception", e)
@@ -89,8 +101,12 @@ class DocumentExceptionHandler {
             .body(ApiResponse.failure(ErrorCode.INTERNAL_SERVER_ERROR))
     }
 
-    private fun respond(errorCode: ErrorCode, e: Exception): ResponseEntity<ApiResponse<Nothing>> {
+    private fun respond(
+        errorCode: ErrorCode,
+        e: Exception,
+        headers: HttpHeaders = HttpHeaders.EMPTY,
+    ): ResponseEntity<ApiResponse<Nothing>> {
         log.warn("{}: {}", errorCode.name, e.message)
-        return ResponseEntity.status(errorCode.status).body(ApiResponse.failure(errorCode))
+        return ResponseEntity.status(errorCode.status).headers(headers).body(ApiResponse.failure(errorCode))
     }
 }

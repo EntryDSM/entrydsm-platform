@@ -24,10 +24,13 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.mock.web.MockMultipartFile
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 class DocumentApiContractTest {
 
@@ -124,6 +127,19 @@ class DocumentApiContractTest {
             ErrorCode.INVALID_REQUEST_PARAM,
             handler.handleInvalidRequestParam(InvalidDownloadFormatException("jpg", FileCategory.APPLICATION)),
         )
+    }
+
+    @Test
+    fun `없는 경로와 지원하지 않는 메서드는 404와 405로 변환한다`() {
+        assertMapped(
+            ErrorCode.API_NOT_FOUND,
+            handler.handleApiNotFound(
+                NoResourceFoundException(HttpMethod.GET, "/api/document/v1/files", "api/document/v1/files"),
+            ),
+        )
+        val methodNotAllowed = handler.handleMethodNotAllowed(HttpRequestMethodNotSupportedException("DELETE", listOf("GET")))
+        assertMapped(ErrorCode.METHOD_NOT_ALLOWED, methodNotAllowed)
+        assertEquals(setOf(HttpMethod.GET), methodNotAllowed.headers.allow)
     }
 
     @Test
