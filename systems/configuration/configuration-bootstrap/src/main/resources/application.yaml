@@ -33,6 +33,13 @@ server:
 grpc:
   port: ${GRPC_PORT}
 
+application:
+  grpc:
+    # 수험표에 찍을 지원자 정보를 application 에서 읽는다. 기본값은 docker compose 서비스 이름과 포트.
+    host: ${APPLICATION_GRPC_HOST:application}
+    port: ${APPLICATION_GRPC_PORT:9090}
+    deadline-ms: ${APPLICATION_GRPC_DEADLINE_MS:3000}
+
 management:
   endpoints:
     web:

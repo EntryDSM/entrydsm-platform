@@ -255,6 +255,8 @@ class FileDocumentServiceTest {
         override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long): String =
             "https://s3/$objectKey?expires=$expiresInSeconds"
 
+        override fun download(objectKey: String): ByteArray = objectKey.toByteArray()
+
         override fun exists(objectKey: String): Boolean = objectKey in existingKeys
 
         override fun delete(objectKey: String) {

@@ -72,6 +72,18 @@ class S3StorageAdapter(
             throw PresignFailedException(objectKey, e)
         }
 
+    override fun download(objectKey: String): ByteArray =
+        try {
+            s3Client.getObjectAsBytes(
+                GetObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(objectKey)
+                    .build()
+            ).asByteArray()
+        } catch (e: SdkException) {
+            throw StorageUnavailableException(objectKey, e)
+        }
+
     override fun exists(objectKey: String): Boolean =
         try {
             s3Client.headObject(
