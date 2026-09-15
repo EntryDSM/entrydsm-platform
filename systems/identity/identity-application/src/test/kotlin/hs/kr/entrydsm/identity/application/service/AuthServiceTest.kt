@@ -57,7 +57,7 @@ class AuthServiceTest {
         `when`(queryPort.findByLoginId("01012345678")).thenReturn(null)
         `when`(passwordHasher.hash("password123!")).thenReturn(PASSWORD_HASH)
         val service = service(
-            AccountRegistrationPort { accountRegistration, _ ->
+            { accountRegistration, _ ->
                 registration = accountRegistration
                 savedAccount
             }
@@ -113,7 +113,7 @@ class AuthServiceTest {
                 LocalDate.of(2026, 6, 11) to ErrorCode.SIGNUP_AGE_RESTRICTION,
                 LocalDate.of(2012, 6, 12) to ErrorCode.SIGNUP_AGE_RESTRICTION,
             )
-        for (signupType in SignupType.values()) {
+        for (signupType in SignupType.entries) {
             for ((birthdate, errorCode) in cases) {
                 val exception =
                     assertThrows(IdentityDomainException::class.java) {
@@ -138,7 +138,7 @@ class AuthServiceTest {
             )
         `when`(passwordHasher.hash("password123!")).thenReturn(PASSWORD_HASH)
         val birthdates = listOf(LocalDate.of(2012, 6, 11), LocalDate.of(2012, 6, 10))
-        for (signupType in SignupType.values()) {
+        for (signupType in SignupType.entries) {
             for (birthdate in birthdates) {
                 service.signup(SignupCommand("password123!", "홍길동", "01012345678", birthdate, signupType))
             }

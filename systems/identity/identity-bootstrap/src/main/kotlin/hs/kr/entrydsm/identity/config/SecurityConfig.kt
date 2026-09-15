@@ -26,10 +26,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity
 import org.springframework.security.config.http.SessionCreationPolicy
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
-import org.springframework.security.web.csrf.CsrfFilter
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository
-import org.springframework.security.web.csrf.CsrfToken
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler
 import java.time.Instant
 import java.time.LocalDate
 
@@ -88,44 +84,28 @@ class SecurityConfig {
         authenticationEntryPoint: JwtAuthenticationEntryPoint,
         accessDeniedHandler: JwtAuthorizationDeniedHandler,
         environment: Environment,
-    ): SecurityFilterChain =
-        CookieCsrfTokenRepository.withHttpOnlyFalse().also {
-            it.setCookieCustomizer { cookie ->
-                cookie
-                    .secure(secureCookies)
-                    .sameSite("Lax")
-                    .path("/")
+    ): SecurityFilterChain {
+        validateSecurityConfiguration(environment)
+        return http
+            .csrf { it.disable() }
+            .formLogin { it.disable() }
+            .httpBasic { it.disable() }
+            .sessionManagement {
+                it.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             }
-        }.let { csrfTokenRepository ->
-            validateSecurityConfiguration(environment)
-            http
-                .csrf {
-                    it
-                        .csrfTokenRepository(csrfTokenRepository)
-                        // This service exposes the token through a non-HttpOnly cookie for SPA clients.
-                        // The request header must therefore contain the same token value as the cookie.
-                        .csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
-                        .ignoringRequestMatchers(AuthEndpointPaths.PASS_POPUP, AuthEndpointPaths.LOGOUT)
-                }
-                .formLogin { it.disable() }
-                .httpBasic { it.disable() }
-                .sessionManagement {
-                    it.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                }
-                .exceptionHandling {
-                    it.authenticationEntryPoint(authenticationEntryPoint)
-                    it.accessDeniedHandler(accessDeniedHandler)
-                }
-                .authorizeHttpRequests {
-                    it
-                        .requestMatchers(
-                            *publicRequestMatchers,
-                        ).permitAll()
-                        .anyRequest().authenticated()
-                }
-                .addFilterAfter(CsrfCookieResponseFilter(), CsrfFilter::class.java)
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
-                .build()
+            .exceptionHandling {
+                it.authenticationEntryPoint(authenticationEntryPoint)
+                it.accessDeniedHandler(accessDeniedHandler)
+            }
+            .authorizeHttpRequests {
+                it
+                    .requestMatchers(
+                        *publicRequestMatchers,
+                    ).permitAll()
+                    .anyRequest().authenticated()
+            }
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter::class.java)
+            .build()
         }
 }
 
@@ -137,17 +117,6 @@ object SecurityConfigurationValidator {
         if (production) {
             require(secureCookies) { "Secure cookies must be enabled in the prod profile" }
         }
-    }
-}
-
-private class CsrfCookieResponseFilter : org.springframework.web.filter.OncePerRequestFilter() {
-    override fun doFilterInternal(
-        request: jakarta.servlet.http.HttpServletRequest,
-        response: jakarta.servlet.http.HttpServletResponse,
-        filterChain: jakarta.servlet.FilterChain,
-    ) {
-        (request.getAttribute(CsrfToken::class.java.name) as? CsrfToken)?.token
-        filterChain.doFilter(request, response)
     }
 }
 

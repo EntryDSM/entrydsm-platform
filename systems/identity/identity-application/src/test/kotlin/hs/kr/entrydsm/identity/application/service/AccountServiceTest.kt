@@ -31,7 +31,7 @@ class AccountServiceTest {
         val commandPort = FakeAccountCommandPort()
         val service = AccountService(queryPort, commandPort, FakeApplicationDataPort(), fixedClock)
 
-        service.deleteAccount(DeleteAccountCommand("Bearer access-token", USER_ID))
+        service.deleteAccount(DeleteAccountCommand(USER_ID))
 
         val saved = requireNotNull(commandPort.savedAccount)
         assertEquals(AccountStatus.DELETED, saved.status)
@@ -56,7 +56,7 @@ class AccountServiceTest {
             fixedClock,
         )
 
-        val result = service.getBasicInfo(ReadAccountCommand("Bearer access-token", USER_ID))
+        val result = service.getBasicInfo(ReadAccountCommand(USER_ID))
 
         assertEquals(USER_ID, result.userId)
         assertEquals(Role.STUDENT, result.role)
@@ -79,7 +79,7 @@ class AccountServiceTest {
             fixedClock,
         )
 
-        val result = service.getAuthority(ReadAccountCommand("Bearer access-token", USER_ID))
+        val result = service.getAuthority(ReadAccountCommand(USER_ID))
 
         assertEquals(USER_ID, result.userId)
         assertEquals(Role.STUDENT, result.role)

@@ -20,12 +20,10 @@ class ApplicationControllerTest {
         val controller = ApplicationController(applicationPort)
 
         val response = controller.getStatus(
-            authorization = "Bearer access-token",
             authenticatedUser = AuthenticatedUser(123L),
         )
 
         val command = requireNotNull(applicationPort.statusApplicationCommand)
-        assertEquals("Bearer access-token", command.authorization)
         assertEquals(123L, command.userId)
         assertEquals(ApplicantStatus.SUBMITTED, response.data?.applicantStatus)
         assertEquals(NOW, response.data?.submittedAt)
@@ -38,12 +36,10 @@ class ApplicationControllerTest {
         val controller = ApplicationController(applicationPort)
 
         val response = controller.getResult(
-            authorization = "Bearer access-token",
             authenticatedUser = AuthenticatedUser(123L),
         )
 
         val command = requireNotNull(applicationPort.resultApplicationCommand)
-        assertEquals("Bearer access-token", command.authorization)
         assertEquals(123L, command.userId)
         assertEquals("PASSED", response.data?.passStatus)
         assertEquals(NOW, response.data?.announcedAt)
@@ -55,13 +51,11 @@ class ApplicationControllerTest {
         val controller = ApplicationController(applicationPort)
 
         val response = controller.cancel(
-            authorization = "Bearer access-token",
             request = ApplicationCancelRequest(reason = "change of plan"),
             authenticatedUser = AuthenticatedUser(123L),
         )
 
         val command = requireNotNull(applicationPort.cancelApplicationCommand)
-        assertEquals("Bearer access-token", command.authorization)
         assertEquals("change of plan", command.reason)
         assertEquals(123L, command.userId)
         assertEquals(ApplicantStatus.CANCELED, response.data?.applicantStatus)

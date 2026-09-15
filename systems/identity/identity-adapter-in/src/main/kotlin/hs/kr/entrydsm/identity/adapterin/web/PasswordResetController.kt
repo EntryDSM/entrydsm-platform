@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController
 
 /** Password reset is available only after the application ownership verifier accepts PASS proof. */
 @RestController
-@RequestMapping(AuthEndpointPaths.PASSWORD_RESET)
+@RequestMapping("/api/identity/v11/auth")
 @ConditionalOnProperty(
     prefix = "auth.password-reset",
     name = ["enabled"],
@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController
 class PasswordResetController(
     private val authPort: AuthPort,
 ) {
-    @PatchMapping
+    @PatchMapping("/password-reset")
     fun resetPassword(
         @Valid @RequestBody request: PasswordResetRequest,
     ): ApiResponse<Unit> {

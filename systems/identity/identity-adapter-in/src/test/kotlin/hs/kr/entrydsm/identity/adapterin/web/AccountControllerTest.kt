@@ -5,6 +5,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountComman
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
+import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.Role
@@ -17,14 +18,19 @@ import org.junit.Test
 
 class AccountControllerTest {
     @Test
-    fun getMePassesAuthorizationAndReturnsBasicInfo() {
+    fun getMePassesAuthenticatedUserIdAndReturnsBasicInfo() {
         val accountPort = FakeAccountPort()
         val controller = AccountController(accountPort)
 
-        val response = controller.getMe("Bearer access-token")
+        val authenticatedUser = AuthenticatedUser(
+            userId = 123L,
+        )
+
+        val response = controller.getMe(authenticatedUser)
 
         val command = requireNotNull(accountPort.readAccountCommand)
-        assertEquals("Bearer access-token", command.authorization)
+        assertEquals(123L, command.userId)
+
         assertEquals("user_123", response.data?.userId)
         assertEquals(ApplicantStatus.SUBMITTED, response.data?.applicantStatus)
     }
@@ -34,10 +40,14 @@ class AccountControllerTest {
         val accountPort = FakeAccountPort()
         val controller = AccountController(accountPort)
 
-        val response = controller.getMyAuthority("Bearer access-token")
+        val authenticatedUser = AuthenticatedUser(
+            userId = 123L,
+        )
+
+        val response = controller.getMyAuthority(authenticatedUser)
 
         val command = requireNotNull(accountPort.authorityCommand)
-        assertEquals("Bearer access-token", command.authorization)
+        assertEquals(123L, command.userId)
         assertEquals("user_123", response.data?.userId)
         assertEquals("STUDENT", response.data?.role)
         assertEquals(AccountStatus.ACTIVE, response.data?.status)
@@ -48,10 +58,14 @@ class AccountControllerTest {
         val accountPort = FakeAccountPort()
         val controller = AccountController(accountPort)
 
-        val response = controller.deleteMe("Bearer access-token")
+        val authenticatedUser = AuthenticatedUser(
+            userId = 123L,
+        )
+
+        val response = controller.deleteMe(authenticatedUser)
 
         assertNull(response.data)
-        assertEquals("Bearer access-token", requireNotNull(accountPort.deleteAccountCommand).authorization)
+        assertEquals(123L, requireNotNull(accountPort.deleteAccountCommand).userId)
     }
 
     private class FakeAccountPort : AccountPort {
