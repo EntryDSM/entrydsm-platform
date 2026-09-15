@@ -7,6 +7,7 @@ import hs.kr.entrydsm.observability.domain.exception.MonitorException
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.validation.BindException
@@ -62,6 +63,8 @@ class GlobalExceptionHandler {
     private fun response(errorCode: ErrorCode): ResponseEntity<ErrorResponse> =
         ResponseEntity
             .status(errorCode.status)
+            // SSE 구독 요청은 Accept 가 text/event-stream 뿐이라 협상에 맡기면 JSON 을 못 골라 401·403·429 가 500 이 된다.
+            .contentType(MediaType.APPLICATION_JSON)
             .body(
                 ErrorResponse(
                     error = ErrorDetail.from(errorCode)
