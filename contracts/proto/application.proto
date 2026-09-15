@@ -34,6 +34,17 @@ message ApplicationResponse {
     optional int64 announced_at_epoch_millis = 6;
 }
 
+message ApplicantStatusChangedEvent {
+    string event_id = 1;
+    int64 account_id = 2;
+    ApplicantStatus applicant_status = 3;
+    int64 occurred_at_epoch_millis = 4;
+    int64 version = 5;
+    optional int64 submitted_at_epoch_millis = 6;
+    PassStatus pass_status = 7;
+    optional int64 announced_at_epoch_millis = 8;
+}
+
 enum ApplicantStatus {
     APPLICANT_STATUS_UNSPECIFIED = 0;
     APPLICANT_STATUS_NONE = 1;

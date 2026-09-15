@@ -6,6 +6,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantC
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
@@ -27,7 +28,8 @@ class ApplicationCommandServiceTest {
     @Test
     fun createRejectsExistingAccountBeforeSavingAndAllowsNewAccount() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
-        val service = ApplicationCommandService(repository)
+        var event: ApplicantStatusChanged? = null
+        val service = ApplicationCommandService(repository) { event = it }
 
         assertThrows(ApplicantAlreadyExistsException::class.java) {
             service.createApplicant(CreateApplicantCommand(10L))
@@ -36,6 +38,8 @@ class ApplicationCommandServiceTest {
 
         service.createApplicant(CreateApplicantCommand(11L))
         assertEquals(11L, repository.savedApplicant?.accountId)
+        assertEquals(11L, event?.accountId)
+        assertEquals(ApplicantStatus.DRAFT, event?.status)
     }
 
     @Test

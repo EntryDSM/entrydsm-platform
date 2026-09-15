@@ -5,6 +5,7 @@ import hs.kr.entrydsm.identity.adapterout.entity.IdentityOutboxJpaEntity
 import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapter
 import hs.kr.entrydsm.identity.adapterout.repository.ApplicationProjectionJpaRepository
 import hs.kr.entrydsm.identity.adapterout.repository.IdentityOutboxJpaRepository
+import hs.kr.entrydsm.identity.adapterout.repository.StudentProfileJpaRepository
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.ApplicationEventConsumer
 import hs.kr.entrydsm.identity.application.port.out.ApplicationOutboxPort
@@ -29,6 +30,7 @@ class AccountApplicationDataPersistenceAdapter(
     private val projectionRepository: ApplicationProjectionJpaRepository,
     private val outboxRepository: IdentityOutboxJpaRepository,
     private val remoteApplicationDataAdapter: GrpcApplicationDataAdapter,
+    private val studentProfileRepository: StudentProfileJpaRepository,
 ) : ApplicationDataPort, ApplicationEventConsumer, ApplicationOutboxPort {
     @Transactional
     override fun create(userId: Long, updatedAt: Instant): ApplicationSnapshot {
@@ -94,6 +96,13 @@ class AccountApplicationDataPersistenceAdapter(
         resolved.sourceVersion = event.version
         resolved.lastEventId = event.eventId
         projectionRepository.save(resolved)
+        studentProfileRepository.findByAccount_Id(event.userId)?.let { profile ->
+            profile.applicantStatus = event.applicantStatus
+            profile.submittedAt = event.submittedAt
+            profile.passStatus = event.passStatus
+            profile.announcedAt = event.announcedAt
+            studentProfileRepository.save(profile)
+        } ?: error("Student profile not found for account ${event.userId}")
         return true
     }
 

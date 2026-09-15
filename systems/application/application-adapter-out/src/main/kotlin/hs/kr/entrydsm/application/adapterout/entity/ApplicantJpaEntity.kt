@@ -119,6 +119,9 @@ open class ApplicantJpaEntity(
     @Column(name = "cancel_reason", length = 500)
     var cancelReason: String? = null,
 
+    @Column(name = "status_version", nullable = false)
+    var statusVersion: Long = 0,
+
     @Column(name = "created_at", nullable = false)
     var createdAt: LocalDateTime = LocalDateTime.now(),
 
@@ -165,6 +168,7 @@ open class ApplicantJpaEntity(
             status = status,
             submittedAt = submittedAt,
             cancelReason = cancelReason,
+            statusVersion = statusVersion,
             passStatus = finalResult?.result ?: PassResultStatus.PENDING,
             announcedAt = finalResult?.processedAt,
             createdAt = createdAt,
@@ -198,6 +202,7 @@ open class ApplicantJpaEntity(
         status = domain.status
         submittedAt = domain.submittedAt
         cancelReason = domain.cancelReason
+        statusVersion = domain.statusVersion
         updatedAt = domain.updatedAt
         updateMiddleSchoolInfo(domain.middleSchoolInfo)
         updateAcademicRecord(domain.academicRecord)
