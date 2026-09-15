@@ -53,8 +53,7 @@ class SecurityWebConfig {
 
     private fun csrfProtectionMatcher(): ServerWebExchangeMatcher {
         val excludedMatchers = OrServerWebExchangeMatcher(
-            PathPatternParserServerWebExchangeMatcher("/api/identity/v11/auth/pass/popup"),
-            PathPatternParserServerWebExchangeMatcher("/api/identity/v11/auth/logout"),
+            PathPatternParserServerWebExchangeMatcher("/api/identity/v11/auth/pass/popup")
         )
 
         return ServerWebExchangeMatcher { exchange ->

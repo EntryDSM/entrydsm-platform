@@ -1,15 +1,20 @@
 package hs.kr.entrydsm.gateway.adapterin.configuration
 
+import hs.kr.entrydsm.gateway.adapterin.web.CsrfController
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
+import org.springframework.core.ParameterizedTypeReference
+import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
-import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.csrf
+import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig
-import org.springframework.test.web.reactive.server.MockServerConfigurer
 import org.springframework.test.web.reactive.server.WebTestClient
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
@@ -22,7 +27,7 @@ class SecurityWebConfigTest {
     private lateinit var client: WebTestClient
 
     @BeforeEach
-    fun setUp(context: ApplicationContext, springSecurity: () -> MockServerConfigurer) {
+    fun setUp(context: ApplicationContext) {
         client = WebTestClient
             .bindToApplicationContext(context)
             .apply(springSecurity())
@@ -46,13 +51,60 @@ class SecurityWebConfigTest {
     }
 
     @Test
-    fun `POST 요청은 유효한 CSRF 토큰이 있으면 허용한다`() {
-        client
-            .mutateWith(csrf())
-            .post()
+    fun `CSRF API는 토큰과 쿠키를 발급한다`() {
+        val issued = issueCsrfToken()
+
+        assertEquals(issued.token, issued.cookie.value)
+        assertTrue(issued.cookie.isHttpOnly)
+        assertFalse(issued.cookie.isSecure)
+        assertEquals("Lax", issued.cookie.sameSite)
+        assertEquals("/", issued.cookie.path)
+    }
+
+    @Test
+    fun `POST 요청은 발급된 CSRF 쿠키와 헤더가 모두 있으면 허용한다`() {
+        val issued = issueCsrfToken()
+
+        client.post()
             .uri("/test")
+            .cookie(CSRF_COOKIE, issued.cookie.value)
+            .header(CSRF_HEADER, issued.token)
             .exchange()
             .expectStatus().isOk
+    }
+
+    @Test
+    fun `POST 요청은 CSRF 쿠키만 있으면 거부한다`() {
+        val issued = issueCsrfToken()
+
+        client.post()
+            .uri("/test")
+            .cookie(CSRF_COOKIE, issued.cookie.value)
+            .exchange()
+            .expectStatus().isForbidden
+    }
+
+    @Test
+    fun `POST 요청은 CSRF 헤더만 있으면 거부한다`() {
+        val issued = issueCsrfToken()
+
+        client.post()
+            .uri("/test")
+            .header(CSRF_HEADER, issued.token)
+            .exchange()
+            .expectStatus().isForbidden
+    }
+
+    @Test
+    fun `POST 요청은 CSRF 쿠키와 헤더 값이 다르면 거부한다`() {
+        val issued = issueCsrfToken()
+
+        client.post()
+            .uri("/test")
+            .cookie(CSRF_COOKIE, issued.cookie.value)
+            .header(CSRF_HEADER, "invalid-csrf-token")
+            .exchange()
+            .expectStatus().isForbidden
     }
 
     @Test
@@ -71,9 +123,38 @@ class SecurityWebConfigTest {
             .expectStatus().isOk
     }
 
+    private fun issueCsrfToken(): IssuedCsrf {
+        val result = client.get()
+            .uri(CSRF_PATH)
+            .exchange()
+            .expectStatus().isOk
+            .expectBody(CSRF_RESPONSE_TYPE)
+            .returnResult()
+
+        val body = requireNotNull(result.responseBody)
+        val token = requireNotNull(body.data).token
+
+        val cookie = requireNotNull(
+            result.responseCookies.getFirst(CSRF_COOKIE),
+        )
+
+        return IssuedCsrf(
+            token = token,
+            cookie = cookie,
+        )
+    }
+
+    private data class IssuedCsrf(
+        val token: String,
+        val cookie: ResponseCookie,
+    )
+
     @Configuration(proxyBeanMethods = false)
     @EnableWebFlux
-    @Import(SecurityWebConfig::class)
+    @Import(
+        SecurityWebConfig::class,
+        CsrfController::class,
+    )
     class TestConfig {
 
         @Bean
@@ -97,14 +178,16 @@ class SecurityWebConfigTest {
         @PostMapping(PASS_POPUP)
         fun passPopup(): ResponseEntity<Void> =
             ResponseEntity.ok().build()
-
-        @PostMapping(LOGOUT)
-        fun logout(): ResponseEntity<Void> =
-            ResponseEntity.ok().build()
     }
 
     private companion object {
+        const val CSRF_PATH = "/api/identity/v11/auth/csrf"
+        const val CSRF_COOKIE = "XSRF-TOKEN"
+        const val CSRF_HEADER = "X-XSRF-TOKEN"
+
         const val PASS_POPUP = "/api/identity/v11/auth/pass/popup"
-        const val LOGOUT = "/api/identity/v11/auth/logout"
+
+        val CSRF_RESPONSE_TYPE =
+            object : ParameterizedTypeReference<ApiResponse<CsrfTokenResponse>>() {}
     }
 }
