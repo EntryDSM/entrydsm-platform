@@ -6,6 +6,11 @@ import org.junit.Test
 
 class ApplicantStatusOutboxJpaEntityTest {
     @Test
+    fun hasJpaDefaultConstructor() {
+        ApplicantStatusOutboxJpaEntity::class.java.getDeclaredConstructor()
+    }
+
+    @Test
     fun payloadMatchesFlywayLongBlobColumn() {
         val column = ApplicantStatusOutboxJpaEntity::class.java
             .getDeclaredField("payload")
