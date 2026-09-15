@@ -5,6 +5,7 @@ import hs.kr.entrydsm.identity.application.port.out.ApplicationEventConsumer
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationStateChangedEvent
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
+import io.lettuce.core.RedisBusyException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.RedisSystemException
 import org.springframework.data.redis.connection.stream.Consumer
@@ -36,7 +37,7 @@ class ApplicationStatusRedisConsumer(
         try {
             redis.opsForStream<String, String>().createGroup(stream, ReadOffset.from("0"), group)
         } catch (exception: RedisSystemException) {
-            if (!exception.message.orEmpty().contains("BUSYGROUP")) throw exception
+            if (exception.cause !is RedisBusyException) throw exception
         }
     }
 
