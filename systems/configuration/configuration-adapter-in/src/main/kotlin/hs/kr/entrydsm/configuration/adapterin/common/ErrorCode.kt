@@ -9,9 +9,11 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "일정을 찾을 수 없습니다."),
     INVALID_FILE_FORMAT(HttpStatus.BAD_REQUEST, "지원하지 않는 파일 형식입니다."),
     FILE_NOT_FOUND(HttpStatus.NOT_FOUND, "파일을 찾을 수 없습니다."),
+    APPLICANT_NOT_FOUND(HttpStatus.NOT_FOUND, "지원자를 찾을 수 없습니다."),
     FILE_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "허용 용량을 초과했습니다."),
     STORAGE_UPLOAD_FAILED(HttpStatus.BAD_GATEWAY, "파일 저장에 실패했습니다."),
     PRESIGN_FAILED(HttpStatus.BAD_GATEWAY, "다운로드 URL 발급에 실패했습니다."),
     STORAGE_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "파일 저장소에 접근할 수 없습니다."),
+    APPLICANT_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY, "지원자 정보를 가져오지 못했습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류가 발생했습니다."),
 }

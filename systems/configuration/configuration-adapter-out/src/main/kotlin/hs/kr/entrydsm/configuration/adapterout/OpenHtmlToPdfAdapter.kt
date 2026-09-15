@@ -24,7 +24,6 @@ class OpenHtmlToPdfAdapter : PdfRenderPort {
     override fun render(html: String): ByteArray =
         ByteArrayOutputStream().use { output ->
             PdfRendererBuilder()
-                .useFastMode()
                 .useFont(fontFile, AdmissionTicketHtml.FONT_FAMILY)
                 .withHtmlContent(html, null)
                 .toStream(output)

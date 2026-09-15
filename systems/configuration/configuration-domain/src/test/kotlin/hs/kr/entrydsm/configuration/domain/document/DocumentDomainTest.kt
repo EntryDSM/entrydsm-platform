@@ -115,12 +115,13 @@ class DocumentDomainTest {
     }
 
     @Test
-    fun `수험표·지원자 목록·첨부·요강은 관리자만 적재한다`() {
-        listOf(FileCategory.ADMISSION_TICKET, FileCategory.APPLICANT_LIST, FileCategory.ATTACHMENT, FileCategory.GUIDELINE)
+    fun `지원자 목록·첨부·요강은 관리자만 적재하고 수험표는 아무도 올리지 않는다`() {
+        listOf(FileCategory.APPLICANT_LIST, FileCategory.ATTACHMENT, FileCategory.GUIDELINE)
             .forEach {
                 assertTrue(it.name, it.canStore(admin, ownerUserId = null))
                 assertFalse(it.name, it.canStore(student(10), ownerUserId = null))
             }
+        assertFalse(FileCategory.ADMISSION_TICKET.canStore(admin, ownerUserId = null))
     }
 
     @Test

@@ -4,6 +4,8 @@ import hs.kr.entrydsm.configuration.adapterin.document.InvalidDownloadFormatExce
 import hs.kr.entrydsm.configuration.adapterin.document.InvalidFileReferenceIdException
 import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleAccessDeniedException
 import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleUnauthorizedException
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantLookupFailedException
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
@@ -39,6 +41,14 @@ class DocumentExceptionHandler {
     @ExceptionHandler(FileDocumentNotFoundException::class)
     fun handleFileNotFound(e: FileDocumentNotFoundException) =
         respond(ErrorCode.FILE_NOT_FOUND, e)
+
+    @ExceptionHandler(ApplicantNotFoundException::class)
+    fun handleApplicantNotFound(e: ApplicantNotFoundException) =
+        respond(ErrorCode.APPLICANT_NOT_FOUND, e)
+
+    @ExceptionHandler(ApplicantLookupFailedException::class)
+    fun handleApplicantLookupFailed(e: ApplicantLookupFailedException) =
+        respond(ErrorCode.APPLICANT_LOOKUP_FAILED, e)
 
     @ExceptionHandler(ScheduleNotFoundException::class)
     fun handleScheduleNotFound(e: ScheduleNotFoundException) =

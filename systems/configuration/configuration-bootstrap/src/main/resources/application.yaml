@@ -40,6 +40,10 @@ application:
     port: ${APPLICATION_GRPC_PORT:9090}
     deadline-ms: ${APPLICATION_GRPC_DEADLINE_MS:3000}
 
+document:
+  # 수험표 제목에 찍는 입학 학년도. admin 의 ADMISSION_YEAR 와 같은 값을 쓴다.
+  admission-year: ${ADMISSION_YEAR:2027}
+
 management:
   endpoints:
     web:
