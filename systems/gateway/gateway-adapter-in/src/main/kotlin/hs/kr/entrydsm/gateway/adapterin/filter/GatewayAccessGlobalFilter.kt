@@ -45,18 +45,15 @@ class GatewayAccessGlobalFilter(
             return chain.filter(sanitizedExchange)
         }
 
-        val bearerToken = request.headers.getFirst(HttpHeaders.AUTHORIZATION)
-            ?.takeIf { it.startsWith(BEARER_PREFIX) && it.length > BEARER_PREFIX.length }
         val accessTokenCookie = request.cookies.getFirst(ACCESS_TOKEN_COOKIE)?.value
-        if (bearerToken == null && accessTokenCookie.isNullOrBlank()) {
+        if (accessTokenCookie.isNullOrBlank()) {
             return chain.filter(sanitizedExchange)
         }
-        if (bearerToken == null && requiresCsrf(request.method) && !hasValidCsrfToken(exchange)) {
+        if (requiresCsrf(request.method) && !hasValidCsrfToken(exchange)) {
             return responseWriter.write(exchange, HttpStatus.FORBIDDEN, "CSRF_INVALID")
         }
 
         return authenticate(
-            authorization = request.headers.getFirst(HttpHeaders.AUTHORIZATION),
             cookie = request.headers.getFirst(HttpHeaders.COOKIE),
         ).flatMap { result ->
             when (result) {
@@ -86,11 +83,10 @@ class GatewayAccessGlobalFilter(
 
     override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE + 10
 
-    private fun authenticate(authorization: String?, cookie: String?): Mono<AuthenticationResult> =
+    private fun authenticate(cookie: String?): Mono<AuthenticationResult> =
         identityClient.get()
             .uri(AUTHORITY_PATH)
             .headers { headers ->
-                authorization?.let { headers.set(HttpHeaders.AUTHORIZATION, it) }
                 cookie?.let { headers.set(HttpHeaders.COOKIE, it) }
             }
             .exchangeToMono { response ->
@@ -107,8 +103,8 @@ class GatewayAccessGlobalFilter(
     private fun parseAuthenticationResult(body: String): AuthenticationResult = runCatching {
         val data = objectMapper.readTree(body).path("data")
         AuthorityData(
-            userId = data.path("userId").asText(),
-            role = data.path("role").asText(),
+            userId = data.path("userId").asString(),
+            role = data.path("role").asString(),
             isSensitiveAgree = data.path("isSensitiveAgree").asBoolean(false),
         ).toAuthenticationResult()
     }.getOrDefault(AuthenticationResult.Unavailable)
@@ -164,7 +160,6 @@ class GatewayAccessGlobalFilter(
         const val ACCESS_TOKEN_COOKIE = "access_token"
         const val CSRF_COOKIE = "XSRF-TOKEN"
         const val CSRF_HEADER = "X-XSRF-TOKEN"
-        const val BEARER_PREFIX = "Bearer "
         const val USER_PRINCIPAL_PREFIX = "user_"
         const val USER_ID_HEADER = "X-User-Id"
         const val USER_ROLE_HEADER = "X-User-Role"

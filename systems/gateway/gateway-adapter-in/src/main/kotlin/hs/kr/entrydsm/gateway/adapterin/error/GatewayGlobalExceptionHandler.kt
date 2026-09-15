@@ -3,6 +3,7 @@ package hs.kr.entrydsm.gateway.adapterin.error
 import hs.kr.entrydsm.gateway.application.DownstreamFailurePolicy
 import hs.kr.entrydsm.gateway.application.DownstreamFailureType
 import hs.kr.entrydsm.gateway.adapterin.filter.GatewayRequestTooLargeException
+import org.slf4j.LoggerFactory
 import org.springframework.core.Ordered
 import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
@@ -18,13 +19,32 @@ import reactor.core.publisher.Mono
 class GatewayGlobalExceptionHandler(
     private val responseWriter: GatewayErrorResponseWriter,
 ) : WebExceptionHandler, Ordered {
+
+    private val log = LoggerFactory.getLogger(javaClass)
+
     override fun handle(exchange: ServerWebExchange, ex: Throwable): Mono<Void> {
         if (exchange.response.isCommitted) {
             return Mono.error(ex)
         }
 
         val response = classify(ex)
-        return responseWriter.write(exchange, response.status, response.error)
+
+        if (response.status.is5xxServerError) {
+            log.error(
+                "Unhandled gateway exception: method={}, path={}, status={}, error={}",
+                exchange.request.method,
+                exchange.request.path.value(),
+                response.status.value(),
+                response.error,
+                ex,
+            )
+        }
+
+        return responseWriter.write(
+            exchange,
+            response.status,
+            response.error,
+        )
     }
 
     override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE
