@@ -9,15 +9,20 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleScho
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
+import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
+import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
+import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Server
@@ -81,8 +86,33 @@ class ApplicationGrpcServiceTest {
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
     }
 
+    @Test
+    fun servesApplicantWithUnsetFieldsLeftEmpty() {
+        port.applicant = ApplicantResult(
+            userId = USER_ID,
+            name = "홍길동",
+            schoolName = null,
+            region = Region.DAEJEON,
+            admissionType = null,
+            photoFileId = 7,
+        )
+
+        val found = stub.getApplicant(GetApplicantRequest.newBuilder().setUserId(USER_ID).build())
+        val missing = assertThrows(StatusRuntimeException::class.java) {
+            stub.getApplicant(GetApplicantRequest.newBuilder().setUserId(404).build())
+        }
+
+        assertEquals("홍길동", found.name)
+        assertFalse(found.hasSchoolName())
+        assertEquals(GrpcRegion.REGION_DAEJEON, found.region)
+        assertEquals(GrpcAdmissionType.ADMISSION_TYPE_UNSPECIFIED, found.admissionType)
+        assertEquals(7L, found.photoFileId)
+        assertEquals(Status.Code.NOT_FOUND, missing.status.code)
+    }
+
     private class FakeApplicationPort : ApplicationPort {
         private var snapshot: ApplicationSnapshotResult? = null
+        var applicant: ApplicantResult? = null
         var cancelReason: String? = null
         var findCount = 0
 
@@ -95,6 +125,9 @@ class ApplicationGrpcServiceTest {
             findCount += 1
             return snapshot?.takeIf { it.userId == userId }
         }
+
+        override fun findApplicantByUserId(userId: Long): ApplicantResult? =
+            applicant?.takeIf { it.userId == userId }
 
         override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason
