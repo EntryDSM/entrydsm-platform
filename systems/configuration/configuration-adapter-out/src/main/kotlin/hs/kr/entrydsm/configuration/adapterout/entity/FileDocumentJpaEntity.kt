@@ -16,6 +16,9 @@ class FileDocumentJpaEntity(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
 
+    @Column(name = "public_id", unique = true, nullable = false, length = 64)
+    val publicId: String,
+
     @Column(name = "original_name", nullable = false, length = 255)
     val originalName: String,
 
@@ -42,6 +45,7 @@ class FileDocumentJpaEntity(
 ) {
     fun toDomain() = FileDocument(
         id = id,
+        publicId = publicId,
         originalName = originalName,
         objectKey = objectKey,
         bucket = bucket,
@@ -55,6 +59,7 @@ class FileDocumentJpaEntity(
     companion object {
         fun from(domain: FileDocument) = FileDocumentJpaEntity(
             id = domain.id,
+            publicId = domain.publicId,
             originalName = domain.originalName,
             objectKey = domain.objectKey,
             bucket = domain.bucket,
