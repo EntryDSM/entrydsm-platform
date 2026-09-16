@@ -21,7 +21,9 @@ kt_jvm_binary(
 
 kt_jvm_test(
     name = "test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    srcs = glob(["src/test/kotlin/**/*.kt"]) + [
+        "src/main/kotlin/hs/kr/entrydsm/application/config/InstitutionCodeInitializer.kt",
+    ],
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     plugins = ["//:spring_allopen"],
