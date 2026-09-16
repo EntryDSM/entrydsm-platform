@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.identity.adapterout
 
-import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapterTest
+import hs.kr.entrydsm.identity.adapterout.application.ApplicantStatusChangedEventListenerTest
+import hs.kr.entrydsm.identity.adapterout.application.ApplicationApiDataAdapterTest
 import hs.kr.entrydsm.identity.adapterout.security.BCryptPasswordHasher
 import hs.kr.entrydsm.identity.adapterout.security.AesGcmPersonalDataEncryptor
 import hs.kr.entrydsm.identity.adapterout.security.AccountPasswordResetOwnershipVerifierTest
@@ -15,7 +16,6 @@ import hs.kr.entrydsm.identity.adapterout.persistence.AccountCommandPersistenceA
 import hs.kr.entrydsm.identity.adapterout.persistence.TransactionalAccountRegistrationAdapterTest
 import hs.kr.entrydsm.identity.adapterout.repository.JpaAccountRepositoryAdapterIntegrationTest
 import hs.kr.entrydsm.identity.adapterout.persistence.PersistenceProfileContractTest
-import hs.kr.entrydsm.identity.adapterout.persistence.ApplicationStatusRedisConsumerTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -41,8 +41,8 @@ import javax.crypto.AEADBadTagException
     KcbLicenseFileInitializerTest::class,
     KcbPassProviderAdapterTest::class,
     PersistenceProfileContractTest::class,
-    ApplicationStatusRedisConsumerTest::class,
-    GrpcApplicationDataAdapterTest::class,
+    ApplicantStatusChangedEventListenerTest::class,
+    ApplicationApiDataAdapterTest::class,
 )
 class IdentityAdapterOutModuleTest
 

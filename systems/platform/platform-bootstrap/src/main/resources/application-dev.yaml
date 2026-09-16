@@ -1,0 +1,12 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/entrydsm?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:password}
+  data:
+    redis:
+      url: ${REDIS_URL:redis://localhost:6379}
+
+aws:
+  s3:
+    region: ${AWS_S3_REGION:ap-northeast-2}

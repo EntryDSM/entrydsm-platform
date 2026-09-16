@@ -1,0 +1,28 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel/entrydsm-platform
+          key: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-${{ github.sha }}
+          restore-keys: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-
+
+      # 모듈을 한 프로세스로 합쳤기 때문에 빈 충돌·설정 누락은 테스트에서 걸러야 한다.
+      - name: 빌드와 테스트
+        run: bazel test //systems/...

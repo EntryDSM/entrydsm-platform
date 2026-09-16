@@ -9,15 +9,10 @@ maven.artifact(artifact = "spring-boot-starter-actuator", group = "org.springfra
 maven.artifact(artifact = "spring-boot-starter-test", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "junit-jupiter", group = "org.junit.jupiter", version = "6.0.1")
 maven.artifact(artifact = "junit-platform-launcher", group = "org.junit.platform", version = "6.0.1")
-maven.artifact(artifact = "spring-cloud-starter-gateway-server-webflux", group = "org.springframework.cloud", version = "5.0.2")
-maven.artifact(artifact = "resilience4j-circuitbreaker", group = "io.github.resilience4j", version = "2.3.0")
 maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springframework.boot", version = "4.0.7")
-maven.artifact(artifact = "context-propagation", group = "io.micrometer", version = "1.2.0")
 maven.artifact(artifact = "junit", group = "junit", version = "4.13.2")
 maven.artifact(artifact = "testcontainers", group = "org.testcontainers", version = "1.20.4")
 maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", version = "2.1.0")
-maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")
-maven.artifact(artifact = "jackson-module-kotlin", group = "com.fasterxml.jackson.module", version = "2.18.2")
 
 # Spring Boot 4는 Jackson 3(tools.jackson)을 쓴다. Kotlin 기본값 파라미터를 읽으려면 3.x 모듈이 필요하다.
 maven.artifact(artifact = "jackson-module-kotlin", group = "tools.jackson.module", version = "3.0.3")
@@ -27,7 +22,6 @@ maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "
 
 # JPA / DB
 maven.artifact(artifact = "spring-boot-starter-data-jpa", group = "org.springframework.boot", version = "4.0.7")
-maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-boot-starter", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-boot-starter-flyway", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "mysql-connector-j", group = "com.mysql", version = "9.3.0")
@@ -37,26 +31,20 @@ maven.artifact(artifact = "flyway-mysql", group = "org.flywaydb", version = "11.
 maven.artifact(artifact = "openhtmltopdf-core", group = "io.github.openhtmltopdf", version = "1.1.73")
 maven.artifact(artifact = "openhtmltopdf-pdfbox", group = "io.github.openhtmltopdf", version = "1.1.73")
 
+# Netty
+# awssdk 의 netty-nio-client 가 4.1 계열 netty-codec 을, 나머지(lettuce 등)가 4.2 계열을 끌어와 섞인다.
+# 섞이면 Redis 명령 인코딩에서 AbstractMethodError 가 난다. 한 줄기로 고정한다.
+maven.artifact(artifact = "netty-codec", group = "io.netty", version = "4.2.15.Final")
+
 # Object Storage
 maven.artifact(artifact = "s3", group = "software.amazon.awssdk", version = "2.53.1")
-
-# gRPC
-maven.artifact(artifact = "grpc-netty-shaded", group = "io.grpc", version = "1.70.0")
-maven.artifact(artifact = "grpc-protobuf", group = "io.grpc", version = "1.70.0")
-maven.artifact(artifact = "grpc-stub", group = "io.grpc", version = "1.70.0")
-maven.artifact(artifact = "grpc-kotlin-stub", group = "io.grpc", version = "1.4.1")
-maven.artifact(artifact = "protobuf-java", group = "com.google.protobuf", version = "4.30.2")
-maven.artifact(artifact = "protobuf-kotlin", group = "com.google.protobuf", version = "4.30.2")
-maven.artifact(artifact = "javax.annotation-api", group = "javax.annotation", version = "1.3.2")
 
 # 리포트 생성 (xlsx)
 maven.artifact(artifact = "poi", group = "org.apache.poi", version = "5.4.0")
 maven.artifact(artifact = "poi-ooxml", group = "org.apache.poi", version = "5.4.0")
 
 # Validation
-maven.artifact(artifact = "spring-boot-starter-validation", group = "org.springframework.boot", version = "4.0.7")
 
 # AWS S3
-maven.artifact(artifact = "s3", group = "software.amazon.awssdk", version = "2.31.0")
 
 use_repo(maven, "maven")

@@ -2,7 +2,7 @@ package hs.kr.entrydsm.identity.adapterout.persistence
 
 import hs.kr.entrydsm.identity.adapterout.entity.ApplicationProjectionJpaEntity
 import hs.kr.entrydsm.identity.adapterout.entity.IdentityOutboxJpaEntity
-import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapter
+import hs.kr.entrydsm.identity.adapterout.application.ApplicationApiDataAdapter
 import hs.kr.entrydsm.identity.adapterout.repository.ApplicationProjectionJpaRepository
 import hs.kr.entrydsm.identity.adapterout.repository.IdentityOutboxJpaRepository
 import hs.kr.entrydsm.identity.adapterout.repository.StudentProfileJpaRepository
@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional
 class AccountApplicationDataPersistenceAdapter(
     private val projectionRepository: ApplicationProjectionJpaRepository,
     private val outboxRepository: IdentityOutboxJpaRepository,
-    private val remoteApplicationDataAdapter: GrpcApplicationDataAdapter,
+    private val remoteApplicationDataAdapter: ApplicationApiDataAdapter,
     private val studentProfileRepository: StudentProfileJpaRepository,
 ) : ApplicationDataPort, ApplicationEventConsumer, ApplicationOutboxPort {
     @Transactional

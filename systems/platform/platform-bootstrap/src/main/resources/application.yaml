@@ -1,0 +1,66 @@
+# 모든 모듈이 공유하는 설정만 둔다. 모듈 고유 설정은 각 모듈 bootstrap 의 modules/<module>.yaml 에 있다.
+# application.yaml 은 클래스패스에 이 파일 하나만 있어야 한다. 모듈이 같은 경로에 두면 먼저 읽힌 쪽만 적용된다.
+spring:
+  application:
+    name: entrydsm-platform
+  config:
+    import:
+      - classpath:modules/identity.yaml
+      - classpath:modules/application.yaml
+      - classpath:modules/configuration.yaml
+      - classpath:modules/admin.yaml
+      - classpath:modules/observability.yaml
+  main:
+    # 모든 빈을 기동 시점에 만든다. 지연 초기화는 마이그레이션·스키마 검증·설정 누락을 첫 요청까지 숨긴다.
+    lazy-initialization: false
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      # 스키마는 모듈별 Flyway 가 만든다 (ModuleSchemaMigrations). Hibernate 는 검증만 한다.
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      url: ${REDIS_URL}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:2s}
+      client-name: ${REDIS_CLIENT_NAME:entrydsm-platform}
+  servlet:
+    multipart:
+      max-file-size: 21MB
+      max-request-size: 21MB
+  task:
+    scheduling:
+      pool:
+        # 모듈 스케줄 작업(상태 이벤트 릴레이, SSE 브로드캐스트, 동시 접속 샘플링)이 한 스레드를 나눠 쓰지 않게 한다.
+        size: 4
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+aws:
+  s3:
+    region: ${AWS_S3_REGION:${AWS_REGION}}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO

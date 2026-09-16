@@ -47,8 +47,8 @@ jobs:
           key: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-${{ github.sha }}
           restore-keys: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-
 
-      - name: 서비스 빌드
-        run: bash ./prepare-images.sh gateway identity application notification configuration admin observability
+      - name: 단일 서비스(platform) 빌드
+        run: bash ./prepare-images.sh platform
 
       - uses: docker/setup-buildx-action@v3
 
@@ -61,13 +61,11 @@ jobs:
       # :latest 는 docker-compose.yml이 참조하는 태그, :<sha> 는 롤백/추적용
       - name: 이미지 빌드 및 푸시
         run: |
-          for service in gateway identity application notification configuration admin observability; do
-            docker buildx build --push \
-              --build-arg "SERVICE=$service" \
-              --tag "ghcr.io/entrydsm/entrydsm-$service:latest" \
-              --tag "ghcr.io/entrydsm/entrydsm-$service:${{ github.sha }}" \
-              .
-          done
+          docker buildx build --push \
+            --build-arg "SERVICE=platform" \
+            --tag "ghcr.io/entrydsm/entrydsm-platform:latest" \
+            --tag "ghcr.io/entrydsm/entrydsm-platform:${{ github.sha }}" \
+            .
 
   deploy:
     needs: build

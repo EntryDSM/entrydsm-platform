@@ -1,0 +1,10 @@
+# admin 모듈 설정. platform 의 application.yaml 이 spring.config.import 로 가져간다.
+admin:
+  admission-year: ${ADMISSION_YEAR:2027}
+  screening:
+    # 1차(서류) 선발 인원 = 지역·전형별 모집 정원 × 배수(올림). 최종은 모집 정원 그대로.
+    first-pass-multiplier: ${FIRST_PASS_MULTIPLIER:1.5}
+  storage:
+    # 리전, 엔드포인트, 자격 증명은 platform 의 S3 클라이언트 설정(aws.s3.region, AWS 표준 환경변수)을 따른다.
+    bucket: ${ADMIN_STORAGE_BUCKET:entrydsm-admin}
+    download-url-expires-seconds: ${ADMIN_DOWNLOAD_URL_EXPIRES_SECONDS:900}

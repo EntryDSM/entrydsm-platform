@@ -1,0 +1,15 @@
+# configuration 모듈 설정. platform 의 application.yaml 이 spring.config.import 로 가져간다.
+# S3 리전은 platform 이 정하고, 문서 버킷과 서명 URL 만료 시간만 이 모듈이 갖는다.
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET}
+    presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS}
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+aws:
+  s3:
+    bucket: ${AWS_S3_BUCKET:entrydsm-document-local}
+    presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS:600}

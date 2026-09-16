@@ -1,0 +1,90 @@
+# identity 모듈 설정. platform 의 application.yaml 이 spring.config.import 로 가져간다.
+# Redis 연결(spring.data.redis.*)은 platform 이 정하고, 키 이름공간만 이 모듈이 갖는다.
+# 프로세스 바깥 경계(구 gateway) 설정. 라우팅·재시도·서킷브레이커는 프로세스가 하나라 없어졌다.
+edge:
+  cors:
+    allowed-origins: ${EDGE_CORS_ALLOWED_ORIGINS}
+  request:
+    max-body-bytes: ${EDGE_REQUEST_MAX_BODY_BYTES:10485760}
+identity:
+  redis:
+    namespace: ${IDENTITY_REDIS_KEY_NAMESPACE}
+    durability-check-enabled: ${IDENTITY_REDIS_DURABILITY_CHECK_ENABLED}
+security:
+  cookies:
+    secure: ${COOKIE_SECURE}
+  pii:
+    login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY}
+    encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64}
+auth:
+  password:
+    bcrypt-strength: ${BCRYPT_STRENGTH}
+  password-reset:
+    enabled: ${AUTH_PASSWORD_RESET_ENABLED}
+    max-attempts: ${AUTH_PASSWORD_RESET_MAX_ATTEMPTS}
+    window-seconds: ${AUTH_PASSWORD_RESET_WINDOW_SECONDS}
+    max-tracked-login-ids: ${AUTH_PASSWORD_RESET_MAX_TRACKED_LOGIN_IDS}
+  jwt:
+    secret: ${JWT_SECRET}
+    issuer: ${JWT_ISSUER}
+pass:
+  target: ${PASS_TARGET}
+  cp-code: ${PASS_CP_CODE}
+  license: ${PASS_LICENSE}
+  license-file-url: ${PASS_LICENSE_FILE_URL}
+  license-file-path: ${PASS_LICENSE_FILE_PATH}
+  base-url: ${BASE_URL}
+  site-name: ${SITE_NAME}
+  site-url: ${SITE_URL}
+  popup-url: ${PASS_POPUP_URL}
+  proof-ttl-seconds: ${PASS_PROOF_TTL_SECONDS}
+  connect-timeout-ms: ${PASS_CONNECT_TIMEOUT_MS}
+  read-timeout-ms: ${PASS_READ_TIMEOUT_MS}
+  allowed-redirect-origins: ${PASS_ALLOWED_REDIRECT_ORIGINS}
+  proof-key-current: ${PASS_PROOF_KEY_CURRENT}
+  proof-key-previous: ${PASS_PROOF_KEY_PREVIOUS:}
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+edge:
+  cors:
+    allowed-origins: ${EDGE_CORS_ALLOWED_ORIGINS:http://localhost:3000}
+identity:
+  redis:
+    namespace: ${IDENTITY_REDIS_KEY_NAMESPACE:identity}
+    durability-check-enabled: ${IDENTITY_REDIS_DURABILITY_CHECK_ENABLED:false}
+security:
+  cookies:
+    secure: ${COOKIE_SECURE:false}
+  pii:
+    login-id-hash-key: ${IDENTITY_LOGIN_ID_HASH_KEY:dev-login-id-hash-key}
+    encryption-key-base64: ${IDENTITY_PII_ENCRYPTION_KEY_BASE64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+auth:
+  password:
+    bcrypt-strength: ${BCRYPT_STRENGTH:12}
+  password-reset:
+    enabled: ${AUTH_PASSWORD_RESET_ENABLED:false}
+    max-attempts: ${AUTH_PASSWORD_RESET_MAX_ATTEMPTS:5}
+    window-seconds: ${AUTH_PASSWORD_RESET_WINDOW_SECONDS:900}
+    max-tracked-login-ids: ${AUTH_PASSWORD_RESET_MAX_TRACKED_LOGIN_IDS:10000}
+  jwt:
+    secret: ${JWT_SECRET:dev-development-jwt-secret-change-me-32}
+    issuer: ${JWT_ISSUER:entrydsm-identity}
+pass:
+  target: ${PASS_TARGET:TEST}
+  cp-code: ${PASS_CP_CODE:}
+  license: ${PASS_LICENSE:}
+  license-file-url: ${PASS_LICENSE_FILE_URL:}
+  license-file-path: ${PASS_LICENSE_FILE_PATH:/tmp/V61290000000_IDS_01_PROD_AES_license.dat}
+  base-url: ${BASE_URL:http://localhost:3000}
+  site-name: ${SITE_NAME:EntryDSM}
+  site-url: ${SITE_URL:http://localhost:3000}
+  popup-url: ${PASS_POPUP_URL:http://localhost:3000/mock/pass}
+  proof-ttl-seconds: ${PASS_PROOF_TTL_SECONDS:300}
+  connect-timeout-ms: ${PASS_CONNECT_TIMEOUT_MS:5000}
+  read-timeout-ms: ${PASS_READ_TIMEOUT_MS:10000}
+  allowed-redirect-origins: ${PASS_ALLOWED_REDIRECT_ORIGINS:http://localhost:3000}
+  proof-key-current: ${PASS_PROOF_KEY_CURRENT:dev-proof-key}
+  proof-key-previous: ${PASS_PROOF_KEY_PREVIOUS:}

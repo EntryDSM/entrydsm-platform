@@ -57,12 +57,13 @@ prefix는 Issue Type과 같습니다.
 | contracts     | 컨트랙트 관련 작업       |
 | documents     | 일반 문서 관련 작업      |
 | packages      | 패키지 및 모듈 관련 작업   |
+| platform      | 조립 루트·공용 설정 관련 작업 |
+| gateway       | 게이트웨이 관련 작업      |
 | admission     | 입학 서비스 관련 작업     |
 | analytics     | 분석 서비스 관련 작업     |
 | application   | 지원서 서비스 관련 작업    |
 | document      | 특정 문서 파일 관련 작업   |
 | evaluation    | 평가 서비스 관련 작업     |
-| gateway       | 게이트웨이 관련 작업      |
 | identity      | 인증 및 신원 관리 관련 작업 |
 | notification  | 알림 서비스 관련 작업     |
 | observability | 모니터링 및 관측성 관련 작업 |

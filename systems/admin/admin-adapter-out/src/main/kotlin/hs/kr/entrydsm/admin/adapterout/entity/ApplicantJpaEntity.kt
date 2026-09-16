@@ -22,8 +22,10 @@ import java.time.LocalDate
  *
  * ponytail: 원서 접수의 원본 데이터는 application 시스템이 갖는 것이 맞다.
  * 그 시스템이 생기면 이 테이블은 조회 전용 투영으로 바꾸거나 gRPC 조회로 대체한다.
+ *
+ * application 모듈에도 같은 이름의 엔티티 클래스가 있어 JPA 엔티티 이름을 따로 준다.
  */
-@Entity
+@Entity(name = "AdminApplicantJpaEntity")
 @Table(name = "applicant")
 class ApplicantJpaEntity(
     @Id

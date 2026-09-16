@@ -2,14 +2,16 @@ load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
 load("//:kotlin.bzl", "jpa_allopen_plugins")
 load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
-package(default_visibility = ["//visibility:public"])
+# 모듈 경계: 이 모듈 안에서만 의존할 수 있다. 다른 모듈은 <module>-api 타깃만 쓴다.
+package(default_visibility = ["//systems/application:__subpackages__"])
 
 kt_jvm_library(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
-    plugins = jpa_allopen_plugins(target_name = "spring_allopen"),
+    # 모든 필드를 생성자로 받는 엔티티(ApplicantStatusOutboxJpaEntity)도 Hibernate 가 만들 수 있게 인자 없는 생성자를 추가한다.
+    plugins = jpa_allopen_plugins(target_name = "spring_allopen") + ["//:jpa_noarg"],
     deps = MODULE_DEPS,
 )
 

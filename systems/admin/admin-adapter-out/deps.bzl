@@ -5,14 +5,9 @@ KOTLIN_DEPS = [
     "@maven//:io_github_openhtmltopdf_openhtmltopdf_pdfbox",
     "@maven//:org_apache_poi_poi",
     "@maven//:org_apache_poi_poi_ooxml",
-    "@maven//:io_grpc_grpc_netty_shaded",
-    "@maven//:io_grpc_grpc_protobuf",
-    "@maven//:io_grpc_grpc_stub",
-    "@maven//:javax_annotation_javax_annotation_api",
     "@maven//:software_amazon_awssdk_s3",
-    "//contracts:notification_grpc_java",
-    "//contracts:notification_java_proto",
     "//systems/admin/admin-domain:main",
+    "//systems/notification/notification-api:main",
 ]
 
 TEST_DEPS = [

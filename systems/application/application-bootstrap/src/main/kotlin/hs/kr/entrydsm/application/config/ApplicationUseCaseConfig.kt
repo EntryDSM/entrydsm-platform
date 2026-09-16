@@ -16,7 +16,7 @@ class ApplicationUseCaseConfig {
     fun scoreCalculator(): ScoreCalculator = ScoreCalculator()
 
     @Bean
-    fun applicationService(
+    fun applicationCommandService(
         applicantRepository: ApplicantRepository,
         applicantStatusEventOutbox: ApplicantStatusEventOutbox,
     ): ApplicationPort = ApplicationCommandService(applicantRepository, applicantStatusEventOutbox)

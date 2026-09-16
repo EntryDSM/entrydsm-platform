@@ -1,0 +1,26 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary", "kt_jvm_test")
+load(":deps.bzl", "MODULE_DEPS", "MODULE_TARGETS", "TEST_DEPS")
+
+package(default_visibility = ["//visibility:public"])
+
+kt_jvm_binary(
+    name = "main",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    main_class = "hs.kr.entrydsm.platform.PlatformApplicationKt",
+    plugins = ["//:spring_allopen"],
+    # 이 jar 가 클래스패스 맨 앞에 오므로 application.yaml 은 여기 것 하나만 읽힌다.
+    resources = glob(["src/main/resources/**"]),
+    deps = MODULE_DEPS + MODULE_TARGETS,
+)
+
+kt_jvm_test(
+    name = "test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    plugins = ["//:spring_allopen"],
+    test_class = "hs.kr.entrydsm.platform.PlatformBootstrapModuleTest",
+    deps = [":main"] + MODULE_DEPS + MODULE_TARGETS + TEST_DEPS,
+)

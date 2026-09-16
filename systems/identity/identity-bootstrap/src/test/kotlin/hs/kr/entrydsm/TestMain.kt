@@ -3,8 +3,11 @@ package hs.kr.entrydsm.identity
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.identity.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.identity.config.SecurityConfig
-import hs.kr.entrydsm.identity.config.SecurityConfigTest
 import hs.kr.entrydsm.identity.config.IdentityApplicationHttpIntegrationTest
+import hs.kr.entrydsm.identity.config.edge.EdgeAccessFilterTest
+import hs.kr.entrydsm.identity.config.edge.EdgeContractTest
+import hs.kr.entrydsm.identity.config.edge.RequestBodyLimitFilterTest
+import hs.kr.entrydsm.identity.config.edge.TraceIdFilterTest
 import hs.kr.entrydsm.identity.config.security.JwtFilterTest
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import java.time.Instant
@@ -19,7 +22,10 @@ import org.junit.runners.Suite
     IdentityBootstrapConfigurationTest::class,
     ObjectMapperConfigurationTest::class,
     JwtFilterTest::class,
-    SecurityConfigTest::class,
+    EdgeAccessFilterTest::class,
+    TraceIdFilterTest::class,
+    RequestBodyLimitFilterTest::class,
+    EdgeContractTest::class,
     IdentityApplicationHttpIntegrationTest::class,
 )
 class IdentityBootstrapModuleTest

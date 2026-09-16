@@ -3,15 +3,21 @@ package hs.kr.entrydsm.application.adapterout.repository
 import hs.kr.entrydsm.application.adapterout.entity.ApplicantStatusOutboxJpaEntity
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
-import hs.kr.entrydsm.application.grpc.ApplicantStatus
-import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
-import hs.kr.entrydsm.application.grpc.PassStatus
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import org.springframework.stereotype.Repository
-import java.time.ZoneOffset
 
 interface ApplicantStatusOutboxJpaRepository : JpaRepository<ApplicantStatusOutboxJpaEntity, String> {
     fun findTop100ByPublishedAtIsNullOrderByCreatedAtAsc(): List<ApplicantStatusOutboxJpaEntity>
+
+    /** 다른 인스턴스가 전달 중인 행은 건너뛴다. 없거나 이미 전달했으면 null 이다. */
+    @Query(
+        value = "SELECT * FROM applicant_status_outbox " +
+            "WHERE event_id = :eventId AND published_at IS NULL FOR UPDATE SKIP LOCKED",
+        nativeQuery = true,
+    )
+    fun findUnpublishedForUpdate(@Param("eventId") eventId: String): ApplicantStatusOutboxJpaEntity?
 }
 
 @Repository
@@ -19,22 +25,17 @@ class ApplicantStatusOutboxAdapter(
     private val repository: ApplicantStatusOutboxJpaRepository,
 ) : ApplicantStatusEventOutbox {
     override fun add(event: ApplicantStatusChanged) {
-        val payload = ApplicantStatusChangedEvent.newBuilder()
-            .setEventId(event.eventId.toString())
-            .setAccountId(event.accountId)
-            .setApplicantStatus(ApplicantStatus.valueOf("APPLICANT_STATUS_${event.status.name}"))
-            .setOccurredAtEpochMillis(event.occurredAt.toInstant(ZoneOffset.UTC).toEpochMilli())
-            .setVersion(event.version)
-            .setPassStatus(
-                if (event.passStatus.name == "PENDING") PassStatus.PASS_STATUS_NOT_ANNOUNCED
-                else PassStatus.valueOf("PASS_STATUS_${event.passStatus.name}"),
-            )
-            .also { builder ->
-                event.submittedAt?.let { builder.submittedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }
-                event.announcedAt?.let { builder.announcedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }
-            }
-            .build()
-            .toByteArray()
-        repository.save(ApplicantStatusOutboxJpaEntity(event.eventId.toString(), event.accountId, payload, event.occurredAt))
+        repository.save(
+            ApplicantStatusOutboxJpaEntity(
+                eventId = event.eventId.toString(),
+                accountId = event.accountId,
+                applicantStatus = event.status,
+                passStatus = event.passStatus,
+                statusVersion = event.version,
+                submittedAt = event.submittedAt,
+                announcedAt = event.announcedAt,
+                createdAt = event.occurredAt,
+            ),
+        )
     }
 }

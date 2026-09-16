@@ -33,6 +33,10 @@ class ConfigurationAuthorizationInterceptor : HandlerInterceptor {
     }
 }
 
+/**
+ * 문서 경로에만 건다. 다른 모듈과 한 컨텍스트에 올라가므로 API 경로 전체에 걸면
+ * 로그인·공지·모니터링 요청까지 이 인터셉터를 통과해야 한다.
+ */
 @Configuration(proxyBeanMethods = false)
 class ConfigurationWebConfiguration(
     private val authorizationInterceptor: ConfigurationAuthorizationInterceptor,
@@ -40,7 +44,6 @@ class ConfigurationWebConfiguration(
     override fun addInterceptors(registry: InterceptorRegistry) {
         registry
             .addInterceptor(authorizationInterceptor)
-            .addPathPatterns("/api/**")
-            .excludePathPatterns("/api/schedule/**")
+            .addPathPatterns("/api/document/**")
     }
 }

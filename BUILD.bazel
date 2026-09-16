@@ -16,37 +16,8 @@ setup_jpa_allopen_plugin(target_name = "spring_allopen")
 
 setup_jpa_noarg_plugin()
 
+# 실행 가능한 서비스는 platform 하나다. 모듈(identity, application, ...)은 platform 에 조립되는 라이브러리다.
 alias(
-    name = "admin",
-    actual = "//systems/admin/admin-bootstrap:main",
-)
-
-alias(
-    name = "application",
-    actual = "//systems/application/application-bootstrap:main",
-)
-
-alias(
-    name = "configuration",
-    actual = "//systems/configuration/configuration-bootstrap:main",
-)
-
-alias(
-    name = "gateway",
-    actual = "//systems/gateway/gateway-bootstrap:main",
-)
-
-alias(
-    name = "identity",
-    actual = "//systems/identity/identity-bootstrap:main",
-)
-
-alias(
-    name = "notification",
-    actual = "//systems/notification/notification-bootstrap:main",
-)
-
-alias(
-    name = "observability",
-    actual = "//systems/observability/observability-bootstrap:main",
+    name = "platform",
+    actual = "//systems/platform/platform-bootstrap:main",
 )

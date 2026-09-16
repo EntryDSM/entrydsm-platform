@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.support.MissingServletRequestPartException
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = ["hs.kr.entrydsm.identity"])
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 

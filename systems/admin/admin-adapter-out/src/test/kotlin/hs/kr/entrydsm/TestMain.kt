@@ -1,20 +1,25 @@
 package hs.kr.entrydsm.admin.adapterout
 
-import hs.kr.entrydsm.admin.adapterout.grpc.GrpcNoticeAdapter
-import hs.kr.entrydsm.admin.adapterout.grpc.NotificationGrpcChannel
+import hs.kr.entrydsm.admin.adapterout.notification.NotificationApiNoticeAdapter
+import hs.kr.entrydsm.admin.adapterout.notification.NotificationApiQuestionAnswerAdapter
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
-import hs.kr.entrydsm.notification.grpc.DeleteNoticeRequest
-import hs.kr.entrydsm.notification.grpc.DeleteNoticeResponse
-import hs.kr.entrydsm.notification.grpc.NotificationServiceGrpc
-import hs.kr.entrydsm.notification.grpc.UpdateNoticeRequest
-import hs.kr.entrydsm.notification.grpc.UpdateNoticeResponse
-import io.grpc.ServerBuilder
-import io.grpc.Status
-import io.grpc.stub.StreamObserver
+import hs.kr.entrydsm.admin.domain.model.Notice
+import hs.kr.entrydsm.admin.domain.model.QuestionAnswer
+import hs.kr.entrydsm.notification.api.AnswerQuestionRequest
+import hs.kr.entrydsm.notification.api.CreateNoticeRequest
+import hs.kr.entrydsm.notification.api.NoticeCreated
+import hs.kr.entrydsm.notification.api.NoticeUpdated
+import hs.kr.entrydsm.notification.api.NotificationApi
+import hs.kr.entrydsm.notification.api.NotificationApiException
+import hs.kr.entrydsm.notification.api.QuestionAnswered
+import hs.kr.entrydsm.notification.api.UpdateNoticeRequest
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,100 +29,142 @@ class AdminAdapterOutModuleTest {
         assertTrue(true)
     }
 
-    /** false 와 빈 첨부 목록도 보낸 값이라 전송 뒤에도 필드가 살아 있어야 한다. */
     @Test
-    fun grpcUpdateNoticeSendsProvidedFieldsIncludingFalseAndEmptyList() {
-        val notification = FakeNotificationService()
+    fun createNoticePostsUnderTheSchoolNameAndKeepsCreatedAt() {
+        val notification = FakeNotificationApi()
 
-        withAdapter(notification) { adapter ->
-            adapter.update(
-                UpdateNoticeCommand(noticeId = 3L, title = "new title", isPinned = false, attachmentIds = emptyList()),
-            )
-        }
+        val saved = NotificationApiNoticeAdapter(notification).save(
+            Notice(title = "title", content = "content", division = "ADMISSION_NOTICE", isPinned = true, attachmentIds = listOf("doc_1")),
+        )
+
+        val request = notification.created!!
+        assertEquals("관리자", request.author)
+        assertEquals("ADMISSION_NOTICE", request.category)
+        assertEquals(listOf("doc_1"), request.attachmentIds)
+        assertEquals(1L, saved.id)
+        assertEquals(CREATED_AT, saved.createdAt)
+    }
+
+    /** false 와 빈 첨부 목록도 보낸 값이라 그대로 넘어가야 한다. */
+    @Test
+    fun updateNoticeSendsProvidedFieldsIncludingFalseAndEmptyList() {
+        val notification = FakeNotificationApi()
+
+        NotificationApiNoticeAdapter(notification).update(
+            UpdateNoticeCommand(noticeId = 3L, title = "new title", isPinned = false, attachmentIds = emptyList()),
+        )
 
         val request = notification.updated!!
         assertEquals(3L, request.noticeId)
         assertEquals("new title", request.title)
-        assertTrue(request.hasIsPinned())
-        assertFalse(request.isPinned)
-        assertTrue(request.hasAttachmentIds())
-        assertEquals(0, request.attachmentIds.valuesCount)
+        assertEquals(false, request.isPinned)
+        assertEquals(emptyList<String>(), request.attachmentIds)
     }
 
-    /** null 인 필드를 요청에 넣으면 notification 이 기본값으로 덮어쓴다. */
+    /** null 인 필드를 값으로 바꿔 보내면 notification 이 기존 값을 덮어쓴다. */
     @Test
-    fun grpcUpdateNoticeLeavesNullFieldsUnset() {
-        val notification = FakeNotificationService()
+    fun updateNoticeLeavesNullFieldsNull() {
+        val notification = FakeNotificationApi()
 
-        withAdapter(notification) { adapter ->
-            adapter.update(UpdateNoticeCommand(noticeId = 3L, division = "PROSPECTIVE_STUDENT"))
-        }
+        NotificationApiNoticeAdapter(notification).update(
+            UpdateNoticeCommand(noticeId = 3L, division = "PROSPECTIVE_STUDENT"),
+        )
 
         val request = notification.updated!!
         assertEquals("PROSPECTIVE_STUDENT", request.category)
-        assertFalse(request.hasTitle())
-        assertFalse(request.hasContent())
-        assertFalse(request.hasIsPinned())
-        assertFalse(request.hasAttachmentIds())
+        assertNull(request.title)
+        assertNull(request.content)
+        assertNull(request.isPinned)
+        assertNull(request.attachmentIds)
     }
 
     @Test
-    fun grpcDeleteNoticeMapsNotFoundToNoticeNotFound() {
-        val notification = FakeNotificationService(failure = Status.NOT_FOUND)
+    fun deleteNoticeMapsNotFoundToNoticeNotFound() {
+        val notification = FakeNotificationApi(failure = NotificationApiException.NotFound("notice not found: id=404"))
 
-        val exception = withAdapter(notification) { adapter ->
-            runCatching { adapter.deleteById(404L) }.exceptionOrNull()
+        val exception = assertThrows(AdminDomainException::class.java) {
+            NotificationApiNoticeAdapter(notification).deleteById(404L)
         }
 
         assertEquals(404L, notification.deletedId)
-        assertTrue(exception is AdminDomainException)
-        assertEquals(ErrorCode.NOTICE_NOT_FOUND, (exception as AdminDomainException).errorCode)
+        assertEquals(ErrorCode.NOTICE_NOT_FOUND, exception.errorCode)
     }
 
-    /** 실제 직렬화를 거치도록 로컬 포트에 가짜 notification 서버를 띄운다. */
-    private fun <T> withAdapter(notification: FakeNotificationService, block: (GrpcNoticeAdapter) -> T): T {
-        val server = ServerBuilder.forPort(0).addService(notification).build().start()
-        val channel = NotificationGrpcChannel("localhost", server.port, 3000)
-        return try {
-            block(GrpcNoticeAdapter(channel))
-        } finally {
-            channel.destroy()
-            server.shutdownNow()
+    @Test
+    fun answerQuestionMapsNotFoundToQuestionNotFound() {
+        val notification = FakeNotificationApi(failure = NotificationApiException.NotFound("faq not found: id=404"))
+
+        val exception = assertThrows(AdminDomainException::class.java) {
+            NotificationApiQuestionAnswerAdapter(notification).save(questionAnswer(questionId = 404L))
         }
+
+        assertEquals(ErrorCode.QUESTION_NOT_FOUND, exception.errorCode)
     }
 
-    private class FakeNotificationService(
-        private val failure: Status? = null,
-    ) : NotificationServiceGrpc.NotificationServiceImplBase() {
-        @Volatile
+    @Test
+    fun answerQuestionReturnsQuestionIdAndAnsweredAt() {
+        val notification = FakeNotificationApi()
+
+        val saved = NotificationApiQuestionAnswerAdapter(notification).save(questionAnswer(questionId = 7L))
+
+        assertEquals(7L, notification.answered?.questionId)
+        assertEquals(7L, saved.id)
+        assertEquals(ANSWERED_AT, saved.answeredAt)
+    }
+
+    /** 저장소 장애는 admin 오류 코드로 바꾸지 않고 그대로 올려 500 으로 떨어뜨린다. */
+    @Test
+    fun unexpectedNotificationFailuresPropagate() {
+        val notification = FakeNotificationApi(failure = IllegalStateException("database unavailable"))
+
+        val exception = assertThrows(IllegalStateException::class.java) {
+            NotificationApiNoticeAdapter(notification).deleteById(3L)
+        }
+
+        assertFalse(exception is AdminDomainException)
+    }
+
+    private fun questionAnswer(questionId: Long) = QuestionAnswer(
+        questionId = questionId,
+        content = "answer",
+        answeredBy = "admin",
+    )
+
+    private class FakeNotificationApi(
+        private val failure: RuntimeException? = null,
+    ) : NotificationApi {
+        var created: CreateNoticeRequest? = null
         var updated: UpdateNoticeRequest? = null
-
-        @Volatile
         var deletedId: Long? = null
+        var answered: AnswerQuestionRequest? = null
 
-        override fun updateNotice(
-            request: UpdateNoticeRequest,
-            responseObserver: StreamObserver<UpdateNoticeResponse>,
-        ) {
+        override fun createNotice(request: CreateNoticeRequest): NoticeCreated {
+            failure?.let { throw it }
+            created = request
+            return NoticeCreated(noticeId = 1L, createdAt = CREATED_AT)
+        }
+
+        override fun updateNotice(request: UpdateNoticeRequest): NoticeUpdated {
             updated = request
-            respond(responseObserver, UpdateNoticeResponse.newBuilder().setNoticeId(request.noticeId).build())
+            failure?.let { throw it }
+            return NoticeUpdated(noticeId = request.noticeId, updatedAt = UPDATED_AT)
         }
 
-        override fun deleteNotice(
-            request: DeleteNoticeRequest,
-            responseObserver: StreamObserver<DeleteNoticeResponse>,
-        ) {
-            deletedId = request.noticeId
-            respond(responseObserver, DeleteNoticeResponse.getDefaultInstance())
+        override fun deleteNotice(noticeId: Long) {
+            deletedId = noticeId
+            failure?.let { throw it }
         }
 
-        private fun <T> respond(observer: StreamObserver<T>, response: T) {
-            if (failure != null) {
-                observer.onError(failure.asRuntimeException())
-                return
-            }
-            observer.onNext(response)
-            observer.onCompleted()
+        override fun answerQuestion(request: AnswerQuestionRequest): QuestionAnswered {
+            failure?.let { throw it }
+            answered = request
+            return QuestionAnswered(questionId = request.questionId, answeredAt = ANSWERED_AT)
         }
+    }
+
+    private companion object {
+        val CREATED_AT: Instant = Instant.parse("2026-09-11T09:00:00Z")
+        val UPDATED_AT: Instant = Instant.parse("2026-09-14T10:00:00Z")
+        val ANSWERED_AT: Instant = Instant.parse("2026-09-12T10:00:00Z")
     }
 }

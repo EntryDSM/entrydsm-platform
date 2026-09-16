@@ -1,7 +1,11 @@
 package hs.kr.entrydsm.notification.adapterin
 
-import hs.kr.entrydsm.notification.adapterin.grpc.NotificationGrpcService
+import hs.kr.entrydsm.notification.adapterin.api.NotificationApiAdapter
 import hs.kr.entrydsm.notification.adapterin.web.exception.GlobalExceptionHandler
+import hs.kr.entrydsm.notification.api.AnswerQuestionRequest
+import hs.kr.entrydsm.notification.api.CreateNoticeRequest
+import hs.kr.entrydsm.notification.api.NotificationApiException
+import hs.kr.entrydsm.notification.api.UpdateNoticeRequest
 import hs.kr.entrydsm.notification.application.exception.NotificationNotFoundException
 import hs.kr.entrydsm.notification.application.port.`in`.NotificationPort
 import hs.kr.entrydsm.notification.application.port.`in`.command.AnswerQuestionCommand
@@ -12,22 +16,11 @@ import hs.kr.entrydsm.notification.application.port.`in`.command.UpdateNoticeCom
 import hs.kr.entrydsm.notification.application.port.`in`.result.FaqDetailResult
 import hs.kr.entrydsm.notification.application.port.`in`.result.NoticeDetailResult
 import hs.kr.entrydsm.notification.domain.model.NoticeCategory
-import hs.kr.entrydsm.notification.grpc.AnswerQuestionRequest
-import hs.kr.entrydsm.notification.grpc.AnswerQuestionResponse
-import hs.kr.entrydsm.notification.grpc.AttachmentIds
-import hs.kr.entrydsm.notification.grpc.CreateNoticeRequest
-import hs.kr.entrydsm.notification.grpc.CreateNoticeResponse
-import hs.kr.entrydsm.notification.grpc.DeleteNoticeRequest
-import hs.kr.entrydsm.notification.grpc.DeleteNoticeResponse
-import hs.kr.entrydsm.notification.grpc.UpdateNoticeRequest
-import hs.kr.entrydsm.notification.grpc.UpdateNoticeResponse
-import io.grpc.Status
-import io.grpc.stub.StreamObserver
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.springframework.http.HttpStatus
@@ -39,206 +32,176 @@ class NotificationAdapterInModuleTest {
     }
 
     @Test
-    fun grpcCreateNoticePassesAllFieldsToPort() {
+    fun createNoticePassesAllFieldsToPort() {
         val port = RecordingNotificationPort()
-        val observer = RecordingObserver<CreateNoticeResponse>()
 
-        NotificationGrpcService(port).createNotice(noticeRequest(category = "PROSPECTIVE_STUDENT"), observer)
+        val created = NotificationApiAdapter(port).createNotice(noticeRequest(category = "PROSPECTIVE_STUDENT"))
 
-        val created = port.created!!
-        assertEquals("title", created.title)
-        assertEquals("content", created.content)
-        assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, created.category)
-        assertEquals("관리자", created.author)
-        assertTrue(created.isPinned)
-        assertEquals(listOf("doc_1", "doc_2"), created.attachmentIds)
-        assertEquals(1L, observer.value?.noticeId)
-        assertEquals(
-            CREATED_AT.toInstant(ZoneOffset.UTC).toEpochMilli(),
-            observer.value?.createdAtEpochMillis,
-        )
+        val command = port.created!!
+        assertEquals("title", command.title)
+        assertEquals("content", command.content)
+        assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, command.category)
+        assertEquals("관리자", command.author)
+        assertTrue(command.isPinned)
+        assertEquals(listOf("doc_1", "doc_2"), command.attachmentIds)
+        assertEquals(1L, created.noticeId)
+        assertEquals(CREATED_AT.toInstant(ZoneOffset.UTC), created.createdAt)
     }
 
     /** Notion 명세가 예시로 쓰는 영문 이름도 같은 분류로 치환해 받는다. */
     @Test
-    fun grpcCreateNoticeAcceptsSpecCategoryNames() {
+    fun createNoticeAcceptsSpecCategoryNames() {
         val port = RecordingNotificationPort()
+        val adapter = NotificationApiAdapter(port)
 
-        NotificationGrpcService(port)
-            .createNotice(noticeRequest(category = "Admissions Notice"), RecordingObserver())
+        adapter.createNotice(noticeRequest(category = "Admissions Notice"))
         assertEquals(NoticeCategory.ADMISSION_NOTICE, port.created?.category)
 
-        NotificationGrpcService(port)
-            .createNotice(noticeRequest(category = "Prospective Students Notice"), RecordingObserver())
+        adapter.createNotice(noticeRequest(category = "Prospective Students Notice"))
         assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, port.created?.category)
 
-        NotificationGrpcService(port)
-            .createNotice(noticeRequest(category = "  admissions NOTICE  "), RecordingObserver())
+        adapter.createNotice(noticeRequest(category = "  admissions NOTICE  "))
         assertEquals(NoticeCategory.ADMISSION_NOTICE, port.created?.category)
     }
 
     @Test
-    fun grpcCreateNoticeAcceptsKoreanCategoryNames() {
+    fun createNoticeAcceptsKoreanCategoryNames() {
         val port = RecordingNotificationPort()
 
-        NotificationGrpcService(port)
-            .createNotice(noticeRequest(category = "예비 신입생 안내"), RecordingObserver())
+        NotificationApiAdapter(port).createNotice(noticeRequest(category = "예비 신입생 안내"))
 
         assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, port.created?.category)
     }
 
     @Test
-    fun grpcCreateNoticeRejectsUnknownCategory() {
+    fun createNoticeRejectsUnknownCategory() {
         val port = RecordingNotificationPort()
-        val observer = RecordingObserver<CreateNoticeResponse>()
 
-        NotificationGrpcService(port).createNotice(noticeRequest(category = "Graduation Notice"), observer)
+        assertThrows(NotificationApiException.InvalidArgument::class.java) {
+            NotificationApiAdapter(port).createNotice(noticeRequest(category = "Graduation Notice"))
+        }
 
         assertNull(port.created)
-        assertEquals(Status.Code.INVALID_ARGUMENT, Status.fromThrowable(observer.error).code)
     }
 
     /** 보내지 않은 필드는 null 로 넘겨 기존 값을 유지하게 한다. 빈 첨부 목록은 보낸 값이다. */
     @Test
-    fun grpcUpdateNoticeLeavesAbsentFieldsNull() {
+    fun updateNoticeLeavesAbsentFieldsNull() {
         val port = RecordingNotificationPort()
-        val observer = RecordingObserver<UpdateNoticeResponse>()
 
-        NotificationGrpcService(port).updateNotice(
-            UpdateNoticeRequest.newBuilder()
-                .setNoticeId(3L)
-                .setTitle("new title")
-                .setAttachmentIds(AttachmentIds.getDefaultInstance())
-                .build(),
-            observer,
+        val updated = NotificationApiAdapter(port).updateNotice(
+            UpdateNoticeRequest(noticeId = 3L, title = "new title", attachmentIds = emptyList()),
         )
 
-        val updated = port.updated!!
+        val command = port.updated!!
+        assertEquals(3L, command.noticeId)
+        assertEquals("new title", command.title)
+        assertNull(command.content)
+        assertNull(command.category)
+        assertNull(command.isPinned)
+        assertEquals(emptyList<String>(), command.attachmentIds)
         assertEquals(3L, updated.noticeId)
-        assertEquals("new title", updated.title)
-        assertNull(updated.content)
-        assertNull(updated.category)
-        assertNull(updated.isPinned)
-        assertEquals(emptyList<String>(), updated.attachmentIds)
-        assertEquals(3L, observer.value?.noticeId)
-        assertEquals(
-            UPDATED_AT.toInstant(ZoneOffset.UTC).toEpochMilli(),
-            observer.value?.updatedAtEpochMillis,
-        )
+        assertEquals(UPDATED_AT.toInstant(ZoneOffset.UTC), updated.updatedAt)
     }
 
     /** false 도 보낸 값이라 버리지 않는다. 첨부를 보내지 않으면 null 이다. */
     @Test
-    fun grpcUpdateNoticeKeepsExplicitFalseAndAcceptsSpecCategoryName() {
+    fun updateNoticeKeepsExplicitFalseAndAcceptsSpecCategoryName() {
         val port = RecordingNotificationPort()
 
-        NotificationGrpcService(port).updateNotice(
-            UpdateNoticeRequest.newBuilder()
-                .setNoticeId(3L)
-                .setContent("new content")
-                .setCategory("Prospective Students Notice")
-                .setIsPinned(false)
-                .build(),
-            RecordingObserver(),
+        NotificationApiAdapter(port).updateNotice(
+            UpdateNoticeRequest(
+                noticeId = 3L,
+                content = "new content",
+                category = "Prospective Students Notice",
+                isPinned = false,
+            ),
         )
 
-        val updated = port.updated!!
-        assertNull(updated.title)
-        assertEquals("new content", updated.content)
-        assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, updated.category)
-        assertEquals(false, updated.isPinned)
-        assertNull(updated.attachmentIds)
+        val command = port.updated!!
+        assertNull(command.title)
+        assertEquals("new content", command.content)
+        assertEquals(NoticeCategory.PROSPECTIVE_STUDENT, command.category)
+        assertEquals(false, command.isPinned)
+        assertNull(command.attachmentIds)
     }
 
     @Test
-    fun grpcUpdateNoticeRejectsUnknownCategory() {
+    fun updateNoticeRejectsUnknownCategory() {
         val port = RecordingNotificationPort()
-        val observer = RecordingObserver<UpdateNoticeResponse>()
 
-        NotificationGrpcService(port).updateNotice(
-            UpdateNoticeRequest.newBuilder().setNoticeId(3L).setCategory("Graduation Notice").build(),
-            observer,
-        )
+        assertThrows(NotificationApiException.InvalidArgument::class.java) {
+            NotificationApiAdapter(port).updateNotice(UpdateNoticeRequest(noticeId = 3L, category = "Graduation Notice"))
+        }
 
         assertNull(port.updated)
-        assertEquals(Status.Code.INVALID_ARGUMENT, Status.fromThrowable(observer.error).code)
     }
 
     @Test
-    fun grpcDeleteNoticePassesIdToPort() {
+    fun deleteNoticePassesIdToPort() {
         val port = RecordingNotificationPort()
-        val observer = RecordingObserver<DeleteNoticeResponse>()
 
-        NotificationGrpcService(port).deleteNotice(DeleteNoticeRequest.newBuilder().setNoticeId(3L).build(), observer)
+        NotificationApiAdapter(port).deleteNotice(3L)
 
         assertEquals(3L, port.deletedId)
-        assertNotNull(observer.value)
-        assertNull(observer.error)
     }
 
     @Test
-    fun grpcDeleteNoticeReportsMissingNoticeAsNotFound() {
+    fun deleteNoticeReportsMissingNoticeAsNotFound() {
         val port = RecordingNotificationPort(NotificationNotFoundException("notice not found: id=404"))
-        val observer = RecordingObserver<DeleteNoticeResponse>()
 
-        NotificationGrpcService(port).deleteNotice(DeleteNoticeRequest.newBuilder().setNoticeId(404L).build(), observer)
+        val exception = assertThrows(NotificationApiException.NotFound::class.java) {
+            NotificationApiAdapter(port).deleteNotice(404L)
+        }
 
-        assertNull(observer.value)
-        assertEquals(Status.Code.NOT_FOUND, Status.fromThrowable(observer.error).code)
+        assertEquals("notice not found: id=404", exception.message)
     }
 
     @Test
-    fun grpcAnswerQuestionPassesAllFieldsToPort() {
+    fun answerQuestionPassesAllFieldsToPort() {
         val port = RecordingNotificationPort()
-        val observer = RecordingObserver<AnswerQuestionResponse>()
 
-        NotificationGrpcService(port).answerQuestion(answerRequest(questionId = 7L), observer)
+        val answered = NotificationApiAdapter(port).answerQuestion(answerRequest(questionId = 7L))
 
-        val answered = port.answered!!
+        val command = port.answered!!
+        assertEquals(7L, command.questionId)
+        assertEquals("answer", command.content)
+        assertEquals("admin", command.answeredBy)
         assertEquals(7L, answered.questionId)
-        assertEquals("answer", answered.content)
-        assertEquals("admin", answered.answeredBy)
-        assertEquals(7L, observer.value?.questionId)
-        assertEquals(
-            ANSWERED_AT.toInstant(ZoneOffset.UTC).toEpochMilli(),
-            observer.value?.answeredAtEpochMillis,
-        )
+        assertEquals(ANSWERED_AT.toInstant(ZoneOffset.UTC), answered.answeredAt)
     }
 
     @Test
-    fun grpcAnswerQuestionReportsMissingQuestionAsNotFound() {
+    fun answerQuestionReportsMissingQuestionAsNotFound() {
         val port = RecordingNotificationPort(NotificationNotFoundException("faq not found: id=404"))
-        val observer = RecordingObserver<AnswerQuestionResponse>()
 
-        NotificationGrpcService(port).answerQuestion(answerRequest(questionId = 404L), observer)
-
-        assertNull(observer.value)
-        assertEquals(Status.Code.NOT_FOUND, Status.fromThrowable(observer.error).code)
+        assertThrows(NotificationApiException.NotFound::class.java) {
+            NotificationApiAdapter(port).answerQuestion(answerRequest(questionId = 404L))
+        }
     }
 
-    /** INTERNAL 설명은 호출자에게 그대로 전달되므로 저장소 예외 메시지를 싣지 않는다. */
+    /** 저장소 예외는 API 예외로 감싸지 않는다. 호출 모듈이 자기 형식으로 500 을 만든다. */
     @Test
-    fun grpcAnswerQuestionHidesInternalFailureDetail() {
-        val port = RecordingNotificationPort(RuntimeException("Table 'notification_db.faqs' doesn't exist"))
-        val observer = RecordingObserver<AnswerQuestionResponse>()
+    fun answerQuestionPropagatesUnexpectedFailures() {
+        val port = RecordingNotificationPort(RuntimeException("Table 'entrydsm.faqs' doesn't exist"))
 
-        NotificationGrpcService(port).answerQuestion(answerRequest(questionId = 7L), observer)
+        val exception = assertThrows(RuntimeException::class.java) {
+            NotificationApiAdapter(port).answerQuestion(answerRequest(questionId = 7L))
+        }
 
-        val status = Status.fromThrowable(observer.error)
-        assertEquals(Status.Code.INTERNAL, status.code)
-        assertEquals("internal server error", status.description)
+        assertEquals("Table 'entrydsm.faqs' doesn't exist", exception.message)
+        assertTrue(exception !is NotificationApiException)
     }
 
     @Test
-    fun grpcAnswerQuestionRejectsBlankContent() {
+    fun answerQuestionRejectsBlankContent() {
         val port = RecordingNotificationPort()
-        val observer = RecordingObserver<AnswerQuestionResponse>()
 
-        NotificationGrpcService(port)
-            .answerQuestion(answerRequest(questionId = 7L, content = " "), observer)
+        assertThrows(NotificationApiException.InvalidArgument::class.java) {
+            NotificationApiAdapter(port).answerQuestion(answerRequest(questionId = 7L, content = " "))
+        }
 
         assertNull(port.answered)
-        assertEquals(Status.Code.INVALID_ARGUMENT, Status.fromThrowable(observer.error).code)
     }
 
     @Test
@@ -275,21 +238,17 @@ class NotificationAdapterInModuleTest {
     }
 
     private fun noticeRequest(category: String): CreateNoticeRequest =
-        CreateNoticeRequest.newBuilder()
-            .setTitle("title")
-            .setContent("content")
-            .setCategory(category)
-            .setAuthor("관리자")
-            .setIsPinned(true)
-            .addAllAttachmentIds(listOf("doc_1", "doc_2"))
-            .build()
+        CreateNoticeRequest(
+            title = "title",
+            content = "content",
+            category = category,
+            author = "관리자",
+            isPinned = true,
+            attachmentIds = listOf("doc_1", "doc_2"),
+        )
 
     private fun answerRequest(questionId: Long, content: String = "answer"): AnswerQuestionRequest =
-        AnswerQuestionRequest.newBuilder()
-            .setQuestionId(questionId)
-            .setContent(content)
-            .setAnsweredBy("admin")
-            .build()
+        AnswerQuestionRequest(questionId = questionId, content = content, answeredBy = "admin")
 
     private class RecordingNotificationPort(
         private val failure: RuntimeException? = null,
@@ -335,21 +294,6 @@ class NotificationAdapterInModuleTest {
         override fun getFaqs(command: ReadFaqPageCommand) = error("unused")
         override fun getFaq(id: Long) = error("unused")
         override fun getRecruitmentGuideline() = error("unused")
-    }
-
-    private class RecordingObserver<T> : StreamObserver<T> {
-        var value: T? = null
-        var error: Throwable? = null
-
-        override fun onNext(value: T) {
-            this.value = value
-        }
-
-        override fun onError(t: Throwable) {
-            error = t
-        }
-
-        override fun onCompleted() = Unit
     }
 
     private companion object {

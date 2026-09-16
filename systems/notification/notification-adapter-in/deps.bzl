@@ -1,11 +1,7 @@
-# Dependencies for the notification REST and gRPC adapter module.
+# notification 의 REST 컨트롤러와 모듈 공개 API 구현이 쓰는 의존성.
 KOTLIN_DEPS = [
-    "@maven//:io_grpc_grpc_protobuf",
-    "@maven//:io_grpc_grpc_stub",
-    "@maven//:javax_annotation_javax_annotation_api",
     "@maven//:org_springframework_boot_spring_boot_starter_web",
-    "//contracts:notification_grpc_java",
-    "//contracts:notification_java_proto",
+    "//systems/notification/notification-api:main",
     "//systems/notification/notification-application:main",
     "//systems/notification/notification-domain:main",
 ]

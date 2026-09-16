@@ -1,16 +1,17 @@
-load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_binary", "kt_jvm_test")
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
 load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
-package(default_visibility = ["//visibility:public"])
+# 모듈 경계: 이 모듈 안에서만 의존할 수 있다. 다른 모듈은 <module>-api 타깃만 쓴다.
+package(default_visibility = ["//systems/notification:__subpackages__"])
 
-kt_jvm_binary(
+kt_jvm_library(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
-    main_class = "hs.kr.entrydsm.notification.ExampleApplicationKt",
     plugins = ["//:spring_allopen"],
     resources = glob(["src/main/resources/**"]),
+    visibility = ["//systems/platform/platform-bootstrap:__pkg__"],
     deps = MODULE_DEPS + [
         "//systems/notification/notification-adapter-in:main",
         "//systems/notification/notification-adapter-out:main",

@@ -1,7 +1,8 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
 load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
-package(default_visibility = ["//visibility:public"])
+# 모듈 경계: 이 모듈 안에서만 의존할 수 있다. 다른 모듈은 <module>-api 타깃만 쓴다.
+package(default_visibility = ["//systems/application:__subpackages__"])
 
 kt_jvm_library(
     name = "main",

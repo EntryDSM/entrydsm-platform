@@ -1,7 +1,7 @@
 package hs.kr.entrydsm.identity.config
 
-import hs.kr.entrydsm.identity.IdentityBootstrapApplication
-import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapter
+import hs.kr.entrydsm.identity.IdentityModuleTestApplication
+import hs.kr.entrydsm.identity.adapterout.application.ApplicationApiDataAdapter
 import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
@@ -47,7 +47,7 @@ import org.testcontainers.utility.DockerImageName
 
 @RunWith(SpringRunner::class)
 @ActiveProfiles("integration")
-@SpringBootTest(classes = [IdentityBootstrapApplication::class])
+@SpringBootTest(classes = [IdentityModuleTestApplication::class])
 class IdentityApplicationHttpIntegrationTest {
     @Autowired
     private lateinit var webApplicationContext: WebApplicationContext
@@ -62,7 +62,7 @@ class IdentityApplicationHttpIntegrationTest {
     private lateinit var applicationDataPort: ApplicationDataPort
 
     @MockitoBean
-    private lateinit var remoteApplicationDataAdapter: GrpcApplicationDataAdapter
+    private lateinit var remoteApplicationDataAdapter: ApplicationApiDataAdapter
 
     private lateinit var mockMvc: MockMvc
 

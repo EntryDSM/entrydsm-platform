@@ -1,0 +1,7 @@
+# observability 모듈 설정. platform 의 application.yaml 이 spring.config.import 로 가져간다.
+# Redis 연결은 platform 이 정한다. 헬스체크는 프로세스 자신을 in-process 로 읽으므로 대상 주소 설정이 없다.
+monitor:
+  round:
+    name: ${MONITOR_ROUND_NAME:current}
+    from: ${MONITOR_ROUND_FROM:2026-01-01T00:00:00+09:00}
+    to: ${MONITOR_ROUND_TO:2026-12-31T23:59:59+09:00}

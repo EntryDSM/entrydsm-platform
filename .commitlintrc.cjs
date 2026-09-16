@@ -32,6 +32,7 @@ module.exports = {
         'contracts',
         'documents',
         'packages',
+        'platform',
         'admin',
         'application',
         'gateway',

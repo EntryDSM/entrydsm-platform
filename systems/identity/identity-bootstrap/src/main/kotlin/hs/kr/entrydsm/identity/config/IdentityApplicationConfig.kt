@@ -28,7 +28,7 @@ import org.springframework.beans.factory.annotation.Value
 @Configuration(proxyBeanMethods = false)
 class IdentityApplicationConfig {
     @Bean
-    fun applicationService(
+    fun identityApplicationService(
         applicationDataPort: ApplicationDataPort,
         clock: Clock,
     ): ApplicationPort = ApplicationService(applicationDataPort, clock)

@@ -1,9 +1,9 @@
 SPRING_DEPS = [
+    "@maven//:org_springframework_boot_spring_boot_persistence",
+    "@maven//:org_springframework_data_spring_data_jpa",
     "@maven//:org_springframework_boot_spring_boot_starter_web",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
     "@maven//:org_springframework_boot_spring_boot_starter_data_jpa",
-    "@maven//:org_springframework_boot_spring_boot_starter_flyway",
-    "@maven//:org_flywaydb_flyway_mysql",
 ]
 
 KOTLIN_DEPS = [

@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.enum.Role
 import hs.kr.entrydsm.identity.domain.model.Account
 import jakarta.servlet.FilterChain
 import jakarta.servlet.ServletRequest
@@ -210,9 +211,16 @@ class JwtFilterTest {
         revocationStore: RefreshTokenRevocationStore,
         account: Account?,
     ): JwtFilter = JwtFilter(
+        authenticator = authenticator(revocationStore, account),
+        authenticationEntryPoint = unauthorizedEntryPoint,
+    )
+
+    private fun authenticator(
+        revocationStore: RefreshTokenRevocationStore,
+        account: Account?,
+    ): AccessTokenAuthenticator = AccessTokenAuthenticator(
         jwtProperties = JwtProperties(secret = SECRET, issuer = ISSUER),
         clock = Clock.fixed(FIXED_NOW, UTC),
-        authenticationEntryPoint = unauthorizedEntryPoint,
         accountQueryPort = object : AccountQueryPort {
             override fun findByLoginId(loginId: String): Account? = account
 
@@ -223,6 +231,8 @@ class JwtFilterTest {
 
     private fun account(status: AccountStatus): Account = mock(Account::class.java).also {
         `when`(it.status).thenReturn(status)
+        `when`(it.role).thenReturn(Role.STUDENT)
+        `when`(it.isSensitiveAgree).thenReturn(false)
     }
 
     private fun defaultRevocationStore(): RefreshTokenRevocationStore = object : RefreshTokenRevocationStore {

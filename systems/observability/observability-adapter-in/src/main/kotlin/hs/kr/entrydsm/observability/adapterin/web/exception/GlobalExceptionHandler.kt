@@ -22,7 +22,7 @@ import org.springframework.web.context.request.async.AsyncRequestTimeoutExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.support.MissingServletRequestPartException
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = ["hs.kr.entrydsm.observability"])
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 

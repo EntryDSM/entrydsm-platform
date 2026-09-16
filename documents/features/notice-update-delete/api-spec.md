@@ -1,5 +1,9 @@
 # 공지 수정·삭제 API 명세
 
+> **갱신 필요**: 모듈러 모놀리식 전환으로 admin → notification 호출이 gRPC 에서 in-process 모듈 API(`notification-api` 의 `NotificationApi`)로 바뀌었다.
+> 요청 필드의 유무 구분(null 유지 vs 빈 목록)과 오류 매핑(`INVALID_ARGUMENT`→400, `NOT_FOUND`→`NOTICE_NOT_FOUND`)은 그대로다.
+> 아래 gRPC 설명은 전환 전 기준이다. 자세한 내용은 [모듈러 모놀리식 전환 계획](../../modular-monolith/plan.md) 참고.
+
 - 이슈: [#161](https://github.com/EntryDSM/entrydsm-platform/issues/161)
 - 설계 배경: [context.md](./context.md)
 - API 소유: admin. 공지 데이터는 notification 이 소유하고, admin 이 gRPC 로 변경을 위임한다

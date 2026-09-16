@@ -1,0 +1,18 @@
+# application 모듈 설정. platform 의 application.yaml 이 spring.config.import 로 가져간다.
+entrydsm:
+  application:
+    schedule:
+      application-start-at: ${APPLICATION_START_AT}
+      application-end-at: ${APPLICATION_END_AT}
+      result-announced-at: ${RESULT_ANNOUNCED_AT:}
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+entrydsm:
+  application:
+    schedule:
+      application-start-at: ${APPLICATION_START_AT:2026-09-01T00:00:00}
+      application-end-at: ${APPLICATION_END_AT:2026-10-01T00:00:00}
+      result-announced-at: ${RESULT_ANNOUNCED_AT:2026-11-01T00:00:00}

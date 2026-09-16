@@ -1,0 +1,15 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+
+# application 모듈의 공개 API. 다른 모듈은 application 의 내부 타깃이 아니라 이 타깃에만 의존한다.
+# 프레임워크·도메인 의존을 두지 않는다. 의존이 생기면 소비 모듈의 컴파일 클래스패스로 새어 나간다.
+kt_jvm_library(
+    name = "main",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    visibility = [
+        "//systems/application:__subpackages__",
+        # 소비 모듈
+        "//systems/identity:__subpackages__",
+    ],
+)

@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = ["hs.kr.entrydsm.notification"])
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 

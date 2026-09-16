@@ -4,65 +4,15 @@ services:
     container_name: entrydsm-redis
     restart: always
 
-  gateway:
-    image: ghcr.io/entrydsm/entrydsm-gateway:latest
-    container_name: entrydsm-gateway
+  platform:
+    image: ghcr.io/entrydsm/entrydsm-platform:latest
+    container_name: entrydsm-platform
     env_file:
-      - ./.env.gateway
+      - ./.env.platform
+    volumes:
+      - ./secrets/pass-license.dat:/run/secrets/pass-license.dat:ro
     ports:
       - "8080:8080"
     depends_on:
       - redis
-      - identity
-      - application
-      - notification
-      - configuration
-      - admin
-      - observability
-    restart: always
-
-  identity:
-    image: ghcr.io/entrydsm/entrydsm-identity:latest
-    container_name: entrydsm-identity
-    env_file:
-      - ./.env.identity
-    volumes:
-      - ./secrets/pass-license.dat:/run/secrets/pass-license.dat:ro
-    depends_on:
-      - redis
-    restart: always
-
-  application:
-    image: ghcr.io/entrydsm/entrydsm-application:latest
-    container_name: entrydsm-application
-    env_file:
-      - ./.env.application
-    restart: always
-
-  notification:
-    image: ghcr.io/entrydsm/entrydsm-notification:latest
-    container_name: entrydsm-notification
-    env_file:
-      - ./.env.notification
-    restart: always
-
-  configuration:
-    image: ghcr.io/entrydsm/entrydsm-configuration:latest
-    container_name: entrydsm-configuration
-    env_file:
-      - ./.env.configuration
-    restart: always
-
-  admin:
-    image: ghcr.io/entrydsm/entrydsm-admin:latest
-    container_name: entrydsm-admin
-    env_file:
-      - ./.env.admin
-    restart: always
-
-  observability:
-    image: ghcr.io/entrydsm/entrydsm-observability:latest
-    container_name: entrydsm-observability
-    env_file:
-      - ./.env.observability
     restart: always

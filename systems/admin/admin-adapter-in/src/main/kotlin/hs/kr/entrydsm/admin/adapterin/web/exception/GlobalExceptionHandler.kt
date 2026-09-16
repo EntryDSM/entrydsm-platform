@@ -20,7 +20,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 private const val SERVER_ERROR_STATUS = 500
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = ["hs.kr.entrydsm.admin"])
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
 
