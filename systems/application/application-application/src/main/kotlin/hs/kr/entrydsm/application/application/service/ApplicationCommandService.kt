@@ -260,7 +260,7 @@ class ApplicationCommandService(
 
     fun updateIntroduction(applicantId: Long, userId: Long? = null, introduction: String) {
         require(introduction.isNotBlank()) { "introduction is required" }
-        require(introduction.length <= MAX_ESSAY_LENGTH) { "introduction is too long" }
+        require(introduction.length <= MAX_INTRODUCTION_LENGTH) { "introduction is too long" }
 
         val applicant = getApplicant(applicantId, userId)
         applicant.introduction = introduction
@@ -269,7 +269,7 @@ class ApplicationCommandService(
 
     fun updateStudyPlan(applicantId: Long, userId: Long? = null, studyPlan: String) {
         require(studyPlan.isNotBlank()) { "studyPlan is required" }
-        require(studyPlan.length <= MAX_ESSAY_LENGTH) { "studyPlan is too long" }
+        require(studyPlan.length <= MAX_STUDY_PLAN_LENGTH) { "studyPlan is too long" }
 
         val applicant = getApplicant(applicantId, userId)
         applicant.studyPlan = studyPlan
@@ -338,6 +338,7 @@ class ApplicationCommandService(
     companion object {
         private const val NEW_APPLICANT_ID = 0L
         private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
-        private const val MAX_ESSAY_LENGTH = 1500
+        private const val MAX_INTRODUCTION_LENGTH = 1500
+        private const val MAX_STUDY_PLAN_LENGTH = 1600
     }
 }
