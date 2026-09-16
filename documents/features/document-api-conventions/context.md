@@ -90,12 +90,15 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 | 요강 삭제 | 없음 | `DELETE /guidelines/{guidelineId}` → 204 | 관리자 |
 
 - 원서는 pdf·hwp 중 가장 최근에 올린 것을 돌려준다. `format` 파라미터는 없앤다
-- 원서 적재는 지원자 한 명의 파일을 통째로 바꾸므로 `PUT` 이다
+- 원서 적재는 지원자 한 명의 파일을 통째로 바꾸므로 `PUT` 이다 (멀티파트). 멀티파트가 아니거나 `file` 이 없으면 400
+- 요강 목록은 `page` 1 이상, `size` 1~100 (기본 1, 10). 벗어나면 400
+- 삭제는 파일 행을 먼저 지우고 저장소 객체를 지운다. 객체 삭제가 실패해도 204 이고 로그만 남는다. 학생이 지울 수 있는 종류가 생겨도 자기가 올린 것만 지우게 권한표에 `canDelete` 를 둔다
 
 ### 2.4 ID
 
-- 사진·첨부·요강 ID 는 `{종류}_{32자 임의값}` (`photo_3f2c...`, `attachment_...`, `guideline_...`). `files.public_id` 컬럼을 추가하고 기존 행은 마이그레이션에서 채운다
-- application 의 `photoFileId` 는 문자열이 된다 (REST 요청, `applicants.photo_file_id`, gRPC `photo_file_id`)
+- 사진·첨부·요강 ID 는 `{종류}_{32자 임의값}` (`photo_3f2c...`, `attachment_...`, `guideline_...`). `files.public_id` 컬럼에 이 값을 통째로 저장한다(configuration V003). 기존 행은 마이그레이션이 `RANDOM_BYTES` 로 채운다(`UUID()` 는 시간 기반이라 이웃 값을 짐작할 수 있다)
+- ID 는 그대로 찾기만 하므로 형식이 틀린 ID 는 400 이 아니라 404 `FILE_NOT_FOUND` 다. 다른 종류의 ID(`GET /guidelines/attachment_...`)도 404
+- application 의 `photoFileId` 는 문자열이 된다 (REST 요청, `applicants.photo_file_id` VARCHAR(64), gRPC `photo_file_id`). develop 에 `V004__create_institution_codes`(#190)가 있어 application 마이그레이션은 V005 다
 - 원서·수험표는 applicantId 로 찾으므로 파일 ID 가 없다
 
 ### 2.5 응답
@@ -113,6 +116,7 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 ```
 
 - 적재·조회 모두 이 모양이다. 원서·수험표는 `id` 가 없다
+- `fileName`: 사진·첨부·요강은 올린 파일명, 원서·수험표는 저장 파일명(`application_{applicantId}.pdf`, `admission_ticket_{applicantId}.pdf`)
 - 원서 조회만 아직 안 올린 경우를 404 대신 `{ "exists": false }` 로 준다. 올렸으면 `exists: true` 와 위 필드
 - 요강 목록은 공통 목록 응답(`items`, `page`, `size`, `totalElements`, `totalPages`)에 위 모양을 담는다
 
@@ -135,6 +139,7 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 
 - 프론트: document 경로·응답·에러 코드가 전부 바뀐다. 사진 ID 를 원서 인적사항에 문자열로 보낸다
 - application 과 configuration 을 같이 배포한다 (gRPC 필드 번호를 새로 써서 섞여 떠도 잘못된 지원자를 돌려주지는 않고 404 가 난다)
+- 옛 경로(`/application`, `/photo` …)는 없는 경로라 지금은 catch-all 이 500 을 준다. 게이트웨이 서킷이 5xx 를 세므로 없는 경로를 404 로 바꾸는 PR #170 을 먼저 또는 같이 배포한다. #170 과 이 브랜치는 configuration 의 `DocumentExceptionHandler`·`ErrorCode`·`DocumentApiContractTest` 가 겹친다
 - 운영 데이터가 있으면 옮겨야 한다
   - `receiptCode` 로 올린 원서·수험표 파일은 새 경로로 찾지 못한다
   - 공지 `attachment_ids` 의 `attachment_5` 형식은 깨진다
@@ -156,3 +161,16 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 - notification 전형 요강 조회: 파일은 document `GET /guidelines` 라고 적는다
 - 공통 규약: "지향" → "지양", 예시 경로 `v1` → `v11`
 - 에러 코드 규칙: 공통 코드 목록
+
+## 6. 검증
+
+- `bazel test` application·configuration·admin 전부 통과. 워크스페이스 빌드는 gateway 테스트 타깃(`spring_security_test` 의존성 없음, 이 작업과 무관)만 빼고 통과
+- 로컬 E2E (origin/develop 을 임시로 합친 트리, MySQL 8.4·Redis·MinIO, application·configuration 을 바이너리로 실행)
+  - 빈 DB 에서 application V001~V005, configuration V001~V003 적용 후 스키마 검증 통과. V003 백필은 기존 행이 있는 DB 에 따로 돌려 행마다 다른 임의값이 들어가는 것을 확인
+  - 사진: 학생 적재 → 본인·관리자 200, 다른 학생 403 `FILE_ACCESS_DENIED`, 서명 URL 로 받은 바이트 일치. 그 ID 를 application `PATCH /applicants/1/personal` 로 저장
+  - 원서: 본인 PUT 200(서명 URL 바이트 일치), 다른 학생 403, 관리자 덮어쓰기 200(본인 계정·공개 ID 유지), 없는 지원자 학생 403·관리자 404, JSON 본문·파일 없음 400, jpg 400 `FILE_INVALID_FORMAT`. 조회: 올리기 전 `exists: false`, 본인·관리자 200, 다른 학생 403, 숫자 아닌 ID 400
+  - 수험표: 본인 200 → PDF 에 성명·중학교·지역·전형·본인 사진과 수험번호 `미발급`. 다른 학생 403, 없는 지원자 관리자 404, POST 405
+  - 첨부: 관리자 적재 200, 학생 적재 403, 학생 조회 200, 요강 경로로 조회 404, 학생 삭제 403, 관리자 삭제 204 → 조회 404, MinIO 객체도 지워짐
+  - 요강 목록: 2개 적재 후 `page=1&size=1` 은 최근 것, `page=2` 는 이전 것, `totalElements` 2·`totalPages` 2, `size=101` 400
+  - application 을 끈 뒤 원서·수험표 503 `APPLICATION_SERVICE_UNAVAILABLE`, 요강 목록은 200
+  - 옛 경로는 500 (위 3절, #170)
