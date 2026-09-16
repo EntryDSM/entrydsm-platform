@@ -2,10 +2,13 @@ package hs.kr.entrydsm.application.config
 
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
+import hs.kr.entrydsm.application.application.port.`in`.MiddleSchoolPort
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
+import hs.kr.entrydsm.application.application.port.out.MiddleSchoolRepository
 import hs.kr.entrydsm.application.application.service.ApplicationCommandService
 import hs.kr.entrydsm.application.application.service.EvaluationCommandService
+import hs.kr.entrydsm.application.application.service.MiddleSchoolQueryService
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -26,4 +29,9 @@ class ApplicationUseCaseConfig {
         applicantRepository: ApplicantRepository,
         scoreCalculator: ScoreCalculator,
     ): EvaluationPort = EvaluationCommandService(applicantRepository, scoreCalculator)
+
+    @Bean
+    fun middleSchoolService(
+        middleSchoolRepository: MiddleSchoolRepository,
+    ): MiddleSchoolPort = MiddleSchoolQueryService(middleSchoolRepository)
 }
