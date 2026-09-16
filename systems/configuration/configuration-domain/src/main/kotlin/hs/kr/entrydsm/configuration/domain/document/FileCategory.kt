@@ -10,6 +10,7 @@ private const val MAX_ATTACHMENT_SIZE_BYTES = 20L * 1024 * 1024
 
 /**
  * 파일 종류. 누가 적재(업로드)하고 누가 다운로드하는지는 [storers], [downloaders] 권한표로만 정한다.
+ * 원서·수험표는 지원자 ID 로, 나머지는 공개 ID 로 찾는다.
  */
 enum class FileCategory(
     val prefix: String,
@@ -27,15 +28,9 @@ enum class FileCategory(
         "admission-ticket", FileExtension.documentFormats, MAX_DOCUMENT_SIZE_BYTES,
         storers = emptySet(), downloaders = setOf(ADMIN, OWNER),
     ),
-    APPLICANT_LIST(
-        "applicant-list", setOf(FileExtension.XLSX), MAX_DOCUMENT_SIZE_BYTES,
-        storers = setOf(ADMIN), downloaders = setOf(ADMIN),
-    ),
-
-    /** 따로 다운로드 API 가 없고, 올린 학생이 업로드 응답으로 URL 을 받는다. */
     PHOTO(
         "photo", FileExtension.imageFormats, MAX_PHOTO_SIZE_BYTES,
-        storers = setOf(STUDENT), downloaders = setOf(OWNER),
+        storers = setOf(STUDENT), downloaders = setOf(ADMIN, OWNER),
     ),
     ATTACHMENT(
         "attachment", FileExtension.attachmentFormats, MAX_ATTACHMENT_SIZE_BYTES,
@@ -47,21 +42,28 @@ enum class FileCategory(
     ),
     ;
 
+    /** 이 종류의 객체가 모이는 저장소 폴더 */
+    val keyPrefix: String
+        get() = "$KEY_ROOT$prefix/"
+
     fun supports(extension: FileExtension): Boolean = extension in allowedExtensions
 
     fun exceedsMaxSize(sizeBytes: Long): Boolean = sizeBytes > maxSizeBytes
 
-    /** 아직 본인이 없는 파일은 처음 적재하는 학생이 본인이 된다. */
     fun canStore(requester: Requester, ownerUserId: Long?): Boolean =
-        storers.allows(requester, ownerUserId ?: requester.userId)
+        storers.allows(requester, ownerUserId)
 
     fun canDownload(requester: Requester, ownerUserId: Long?): Boolean =
         downloaders.allows(requester, ownerUserId)
 
-    fun objectKeyOf(fileName: String): String =
-        FileNaming.requireStorableLength("$KEY_ROOT$prefix/${FileNaming.requireSafeFileName(fileName)}")
+    /** 적재할 수 있는 사람이 지운다. 다만 학생은 자기가 올린 파일만 지운다. */
+    fun canDelete(requester: Requester, ownerUserId: Long?): Boolean =
+        canStore(requester, ownerUserId) && (requester.role == Requester.Role.ADMIN || ownerUserId == requester.userId)
 
-    fun holds(objectKey: String): Boolean = objectKey.startsWith("$KEY_ROOT$prefix/")
+    fun objectKeyOf(fileName: String): String =
+        FileNaming.requireStorableLength("$keyPrefix${FileNaming.requireSafeFileName(fileName)}")
+
+    fun holds(objectKey: String): Boolean = objectKey.startsWith(keyPrefix)
 
     companion object {
         const val KEY_ROOT = "dsm_Entry/Backend/"

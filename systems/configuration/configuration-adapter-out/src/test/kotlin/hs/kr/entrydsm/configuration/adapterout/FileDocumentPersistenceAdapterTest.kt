@@ -2,10 +2,13 @@ package hs.kr.entrydsm.configuration.adapterout
 
 import hs.kr.entrydsm.configuration.adapterout.entity.FileDocumentJpaEntity
 import hs.kr.entrydsm.configuration.adapterout.repository.FileDocumentJpaRepository
+import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.springframework.data.domain.Pageable
+import org.springframework.data.domain.Sort
 import java.lang.reflect.Proxy
 import java.time.Instant
 
@@ -17,14 +20,15 @@ class FileDocumentPersistenceAdapterTest {
     }
 
     @Test
-    fun `같은 객체 키가 이미 있으면 기존 행을 갱신한다`() {
+    fun `같은 객체 키가 이미 있으면 기존 행을 갱신하고 공개 ID 는 처음 것을 유지한다`() {
         val saved = mutableListOf<FileDocumentJpaEntity>()
         val adapter = FileDocumentPersistenceAdapter(repository(existing = entity(id = 7L), saved = saved))
 
-        val result = adapter.save(document())
+        val result = adapter.save(document().copy(publicId = "application_new"))
 
         assertEquals(7L, saved.single().id)
         assertEquals(7L, result.id)
+        assertEquals("application_first", result.publicId)
     }
 
     @Test
@@ -44,6 +48,7 @@ class FileDocumentPersistenceAdapterTest {
 
         val result = adapter.save(document())
 
+        assertEquals("application_first", result.publicId)
         assertEquals("원본.pdf", result.originalName)
         assertEquals("application/application_1234.pdf", result.objectKey)
         assertEquals("entrydsm", result.bucket)
@@ -52,7 +57,27 @@ class FileDocumentPersistenceAdapterTest {
         assertEquals("sha256", result.checksum)
     }
 
+    @Test
+    fun `목록은 종류 폴더 아래를 1부터 센 페이지를 0부터로 바꿔 최근 순으로 찾는다`() {
+        var prefix: String? = null
+        var pageable: Pageable? = null
+        val adapter = FileDocumentPersistenceAdapter(
+            repository(existing = null, saved = mutableListOf()) { args ->
+                prefix = args[0] as String
+                pageable = args[1] as Pageable
+            },
+        )
+
+        adapter.findPage(FileCategory.GUIDELINE, page = 3, size = 20)
+
+        assertEquals("dsm_Entry/Backend/guideline/", prefix)
+        assertEquals(2, pageable?.pageNumber)
+        assertEquals(20, pageable?.pageSize)
+        assertEquals(Sort.Direction.DESC, pageable?.sort?.getOrderFor("createdAt")?.direction)
+    }
+
     private fun document() = FileDocument(
+        publicId = "application_first",
         originalName = "원본.pdf",
         objectKey = "application/application_1234.pdf",
         bucket = "entrydsm",
@@ -63,6 +88,7 @@ class FileDocumentPersistenceAdapterTest {
 
     private fun entity(id: Long?) = FileDocumentJpaEntity(
         id = id,
+        publicId = "application_first",
         originalName = "원본.pdf",
         objectKey = "application/application_1234.pdf",
         bucket = "entrydsm",
@@ -72,10 +98,11 @@ class FileDocumentPersistenceAdapterTest {
         createdAt = Instant.EPOCH,
     )
 
-    // JpaRepository 상속 메서드가 많아 프록시로 필요한 두 개만 응답한다.
+    // JpaRepository 상속 메서드가 많아 프록시로 필요한 것만 응답한다.
     private fun repository(
         existing: FileDocumentJpaEntity?,
         saved: MutableList<FileDocumentJpaEntity>,
+        onFindPage: (Array<Any?>) -> Unit = {},
     ): FileDocumentJpaRepository =
         Proxy.newProxyInstance(
             FileDocumentJpaRepository::class.java.classLoader,
@@ -84,6 +111,7 @@ class FileDocumentPersistenceAdapterTest {
             when (method.name) {
                 "findByObjectKey" -> existing
                 "save" -> (args[0] as FileDocumentJpaEntity).also { saved += it }
+                "findByObjectKeyStartingWith" -> emptyList<FileDocumentJpaEntity>().also { onFindPage(args) }
                 else -> throw UnsupportedOperationException(method.name)
             }
         } as FileDocumentJpaRepository

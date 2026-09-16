@@ -39,8 +39,8 @@ open class ApplicantJpaEntity(
     @Column(name = "account_id", nullable = false, unique = true)
     var accountId: Long = 0,
 
-    @Column(name = "photo_file_id")
-    var photoFileId: Long? = null,
+    @Column(name = "photo_file_id", length = 64)
+    var photoFileId: String? = null,
 
     @Column(name = "name", length = 20)
     var name: String? = null,

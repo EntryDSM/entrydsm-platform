@@ -4,7 +4,6 @@ import hs.kr.entrydsm.admin.domain.command.UpdateApplicantStatusCommand
 import hs.kr.entrydsm.admin.domain.command.UpdateArrivalCommand
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
-import hs.kr.entrydsm.admin.domain.model.DownloadLink
 import hs.kr.entrydsm.admin.domain.model.ExamineeNumberIssueResult
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
@@ -23,12 +22,4 @@ interface UpdateApplicantUseCase {
 
 interface IssueExamineeNumberUseCase {
     fun issueAll(): ExamineeNumberIssueResult
-}
-
-interface IssueAdmissionTicketUseCase {
-    fun issueAdmissionTicket(applicantId: Long): DownloadLink
-}
-
-interface IssueApplicationDocumentUseCase {
-    fun issueApplicationDocument(applicantId: Long): DownloadLink
 }

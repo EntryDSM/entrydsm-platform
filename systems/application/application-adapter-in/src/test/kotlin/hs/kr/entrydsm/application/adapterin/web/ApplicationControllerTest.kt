@@ -131,7 +131,7 @@ class ApplicationControllerTest {
         override fun submit(command: SubmitApplicationCommand) = Unit
         override fun getLanding(accountId: Long?): LandingResult = LandingResult(applicantName = "홍길동")
         override fun findByUserId(userId: Long): ApplicationSnapshotResult? = null
-        override fun findApplicantByUserId(userId: Long): ApplicantResult? = null
+        override fun findApplicant(applicantId: Long): ApplicantResult? = null
         override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
     }
 

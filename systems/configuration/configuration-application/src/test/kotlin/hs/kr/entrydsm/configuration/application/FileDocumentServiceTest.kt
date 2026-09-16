@@ -6,7 +6,6 @@ import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
 import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.StoredObject
-import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
 import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
@@ -32,7 +31,7 @@ class FileDocumentServiceTest {
 
     private val storage = FakeStoragePort()
     private val repository = FakeFileDocumentRepository()
-    private val applicants = mutableMapOf<Long, Applicant>()
+    private val applicants = mutableMapOf(APPLICANT_ID to applicant())
     private val pdf = RecordingPdfRenderPort()
     private val service = FileDocumentService(
         storage, repository, presignExpirySeconds = 300,
@@ -42,40 +41,37 @@ class FileDocumentServiceTest {
     private val admin = Requester(1, Requester.Role.ADMIN)
 
     @Test
-    fun `업로드는 카테고리 키로 저장하고 저장된 메타데이터를 돌려준다`() {
-        val saved = service.upload(command(), content())
+    fun `원서는 지원자 ID 파일명으로 적재하고 서명 URL을 붙여 돌려준다`() {
+        val uploaded = service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID)), content())
 
-        assertEquals("dsm_Entry/Backend/application/application_1001.pdf", saved.objectKey)
-        assertEquals("application/pdf", saved.contentType)
-        assertEquals("지원서.pdf", saved.originalName)
-        assertEquals(listOf("dsm_Entry/Backend/application/application_1001.pdf"), storage.uploaded)
-        assertEquals(1, repository.saved.size)
+        assertEquals("dsm_Entry/Backend/application/application_12.pdf", uploaded.document.objectKey)
+        assertEquals("지원서.pdf", uploaded.document.originalName)
+        assertEquals(STUDENT_ID, uploaded.document.ownerUserId)
+        assertEquals("https://s3/dsm_Entry/Backend/application/application_12.pdf?expires=300", uploaded.downloadUrl)
+        assertEquals(300L, uploaded.expiresIn)
     }
 
     @Test(expected = InvalidFileFormatException::class)
     fun `카테고리가 허용하지 않는 확장자는 거부한다`() {
-        service.upload(command(originalName = "사진.jpg"), content())
+        service.uploadApplication(APPLICANT_ID, application(admin, originalName = "사진.jpg"), content())
     }
 
     @Test(expected = InvalidFileFormatException::class)
     fun `확장자가 없으면 거부한다`() {
-        service.upload(command(originalName = "지원서"), content())
+        service.uploadApplication(APPLICANT_ID, application(admin, originalName = "지원서"), content())
     }
 
     @Test(expected = FileTooLargeException::class)
     fun `카테고리 용량 한도를 넘으면 거부한다`() {
-        service.upload(command(sizeBytes = FileCategory.APPLICATION.maxSizeBytes + 1), content())
-    }
-
-    @Test(expected = InvalidFileNameException::class)
-    fun `파일명에 상위 경로 참조가 들어오면 거부한다`() {
-        service.upload(command(fileName = "../../etc/passwd"), content())
+        service.uploadApplication(APPLICANT_ID, application(admin, sizeBytes = FileCategory.APPLICATION.maxSizeBytes + 1), content())
     }
 
     @Test
     fun `원본 파일명이 DB에 담을 수 없을 만큼 길면 저장소에 올리기 전에 거부한다`() {
+        val longName = "a".repeat(FileNaming.MAX_STORED_NAME_LENGTH) + ".pdf"
+
         assertThrows(InvalidFileNameException::class.java) {
-            service.upload(command(originalName = "a".repeat(FileNaming.MAX_STORED_NAME_LENGTH) + ".pdf"), content())
+            service.uploadApplication(APPLICANT_ID, application(admin, originalName = longName), content())
         }
         assertTrue(storage.uploaded.isEmpty())
     }
@@ -84,17 +80,17 @@ class FileDocumentServiceTest {
     fun `메타데이터 저장이 실패하면 새로 올린 객체를 지운다`() {
         repository.failOnSave = true
 
-        runCatching { service.upload(command(), content()) }
+        runCatching { service.uploadApplication(APPLICANT_ID, application(admin), content()) }
 
-        assertEquals(listOf("dsm_Entry/Backend/application/application_1001.pdf"), storage.deleted)
+        assertEquals(listOf("dsm_Entry/Backend/application/application_12.pdf"), storage.deleted)
     }
 
     @Test
     fun `덮어쓴 객체는 메타데이터 저장이 실패해도 지우지 않는다`() {
-        storage.existingKeys += "dsm_Entry/Backend/application/application_1001.pdf"
+        storage.existingKeys += "dsm_Entry/Backend/application/application_12.pdf"
         repository.failOnSave = true
 
-        runCatching { service.upload(command(), content()) }
+        runCatching { service.uploadApplication(APPLICANT_ID, application(admin), content()) }
 
         assertTrue(storage.deleted.isEmpty())
     }
@@ -104,166 +100,178 @@ class FileDocumentServiceTest {
         repository.failOnSave = true
         storage.failOnDelete = true
 
-        val error = runCatching { service.upload(command(), content()) }.exceptionOrNull()
+        val error = runCatching { service.uploadApplication(APPLICANT_ID, application(admin), content()) }.exceptionOrNull()
 
         assertEquals("save failed", error?.message)
     }
 
     @Test
-    fun `학생은 다른 학생이 본인인 수험번호의 원서를 적재할 수 없다`() {
-        service.upload(command(requester = student(10)), content())
-
+    fun `원서는 application이 알려 준 본인과 관리자만 적재하고, 관리자가 올려도 본인은 지원자 계정이다`() {
         assertThrows(DocumentAccessDeniedException::class.java) {
-            service.upload(command(requester = student(11)), content())
+            service.uploadApplication(APPLICANT_ID, application(student(11)), content())
         }
+
+        val byAdmin = service.uploadApplication(APPLICANT_ID, application(admin), content())
+
+        assertEquals(STUDENT_ID, byAdmin.document.ownerUserId)
+        assertEquals(1, storage.uploaded.size)
     }
 
     @Test
-    fun `관리자가 원서를 덮어써도 본인은 그대로 남는다`() {
-        service.upload(command(requester = student(10)), content())
-        service.upload(command(requester = admin), content())
-
-        assertEquals(10L, repository.findByObjectKey("dsm_Entry/Backend/application/application_1001.pdf")?.ownerUserId)
-        service.issueByCommand(IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf", student(10), "1001"))
+    fun `없는 지원자는 학생에게 403, 관리자에게 404다`() {
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.uploadApplication(404, application(student(STUDENT_ID)), content())
+        }
+        assertThrows(ApplicantNotFoundException::class.java) {
+            service.uploadApplication(404, application(admin), content())
+        }
+        assertThrows(ApplicantNotFoundException::class.java) { service.findApplication(404, admin) }
+        assertTrue(storage.uploaded.isEmpty())
     }
 
     @Test
-    fun `수험표는 수험번호 원서의 본인 정보와 사진으로 만들어 본인이 받게 적재한다`() {
-        service.upload(command(requester = student(10)), content())
-        val photo = service.upload(photo(student(10)), content())
-        applicants[10] = Applicant("홍<길동>", "대덕중학교", Applicant.Region.DAEJEON, Applicant.AdmissionType.MEISTER, photo.id)
+    fun `원서 조회는 올리기 전이면 null, 올린 뒤엔 여러 형식 중 최근 것을 본인과 관리자에게만 준다`() {
+        assertNull(service.findApplication(APPLICANT_ID, student(STUDENT_ID)))
 
-        val ticket = service.generateAdmissionTicket("1001", admin)
+        service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID)), content())
+        service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID), originalName = "지원서.hwp"), content())
 
-        assertEquals("dsm_Entry/Backend/admission-ticket/admission_ticket_1001.pdf", ticket.objectKey)
-        assertEquals("application/pdf", ticket.contentType)
-        assertEquals(10L, ticket.ownerUserId)
-        assertTrue(ticket.objectKey in storage.uploaded)
-        listOf("2027학년도", "1001", "홍&lt;길동&gt;", "대덕중학교", "대전", "마이스터전형", "data:image/png;base64,")
+        assertEquals("application_12.hwp", service.findApplication(APPLICANT_ID, student(STUDENT_ID))?.document?.fileName)
+        assertEquals("application_12.hwp", service.findApplication(APPLICANT_ID, admin)?.document?.fileName)
+        assertThrows(DocumentAccessDeniedException::class.java) { service.findApplication(APPLICANT_ID, student(11)) }
+    }
+
+    @Test
+    fun `수험표는 지원자 정보와 본인 사진으로 만들고 수험번호는 미발급으로 찍는다`() {
+        val photo = service.upload(photo(student(STUDENT_ID)), content())
+        applicants[APPLICANT_ID] = Applicant(
+            STUDENT_ID, "홍<길동>", "대덕중학교", Applicant.Region.DAEJEON, Applicant.AdmissionType.MEISTER, photo.document.publicId,
+        )
+
+        val ticket = service.generateAdmissionTicket(APPLICANT_ID, student(STUDENT_ID))
+
+        assertEquals("dsm_Entry/Backend/admission-ticket/admission_ticket_12.pdf", ticket.document.objectKey)
+        assertEquals("application/pdf", ticket.document.contentType)
+        assertEquals(STUDENT_ID, ticket.document.ownerUserId)
+        assertTrue(ticket.downloadUrl.contains("admission_ticket_12.pdf"))
+        listOf("2027학년도", "미발급", "홍&lt;길동&gt;", "대덕중학교", "대전", "마이스터전형", "data:image/png;base64,")
             .forEach { assertTrue(it, it in pdf.lastHtml) }
-        val own = IssueDownloadUrlCommand(FileCategory.ADMISSION_TICKET, ticket.fileName, student(10), "1001")
-        assertEquals(ticket.fileName, service.issueByCommand(own).fileName)
     }
 
     @Test
-    fun `남의 수험번호 수험표는 원서가 없어도 403이고, 관리자는 원서가 없으면 404다`() {
-        service.upload(command(requester = student(10)), content())
-        applicants[10] = Applicant("홍길동", null, null, null, null)
-
-        assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket("1001", student(11)) }
-        assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket("2002", student(11)) }
-        assertThrows(ApplicantNotFoundException::class.java) { service.generateAdmissionTicket("2002", admin) }
-        assertTrue(storage.uploaded.none { it.contains("admission-ticket") })
+    fun `남의 지원자 수험표는 없어도 403이고, 관리자는 없는 지원자면 404다`() {
+        assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket(APPLICANT_ID, student(11)) }
+        assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket(404, student(11)) }
+        assertThrows(ApplicantNotFoundException::class.java) { service.generateAdmissionTicket(404, admin) }
+        assertTrue(storage.uploaded.isEmpty())
     }
 
     @Test
-    fun `원서에 다른 학생의 사진 id가 적혀 있으면 수험표에 사진을 넣지 않는다`() {
-        service.upload(command(requester = student(10)), content())
+    fun `원서에 다른 학생의 사진이나 사진이 아닌 파일 ID가 적혀 있으면 수험표에 넣지 않는다`() {
         val othersPhoto = service.upload(photo(student(11)), content())
-        applicants[10] = Applicant("홍길동", null, null, null, othersPhoto.id)
+        val attachment = service.upload(attachment(), content())
 
-        service.generateAdmissionTicket("1001", student(10))
+        applicants[APPLICANT_ID] = applicant(photoFileId = othersPhoto.document.publicId)
+        service.generateAdmissionTicket(APPLICANT_ID, admin)
+        assertFalse("data:" in pdf.lastHtml)
 
+        applicants[APPLICANT_ID] = applicant(photoFileId = attachment.document.publicId)
+        service.generateAdmissionTicket(APPLICANT_ID, admin)
         assertFalse("data:" in pdf.lastHtml)
     }
 
     @Test
-    fun `파일명으로 다운로드 URL을 발급한다`() {
-        storage.existingKeys += "dsm_Entry/Backend/application/application_1001.pdf"
+    fun `증명사진은 학생이 올리고 공개 ID로 본인과 관리자가 받는다`() {
+        val photo = service.upload(photo(student(STUDENT_ID)), content())
+        val photoId = photo.document.publicId
 
-        val downloadUrl = service.issueByCommand(
-            IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf", admin, "1001"),
-        )
-
-        assertEquals("application_1001.pdf", downloadUrl.fileName)
-        assertEquals("https://s3/dsm_Entry/Backend/application/application_1001.pdf?expires=300", downloadUrl.downloadUrl)
-        assertEquals(300L, downloadUrl.expiresIn)
-    }
-
-    @Test(expected = FileDocumentNotFoundException::class)
-    fun `없는 객체의 다운로드 URL은 발급하지 않는다`() {
-        service.issueByCommand(IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.pdf", admin, "1001"))
+        assertTrue(photo.document.objectKey.matches(Regex("dsm_Entry/Backend/photo/photo_[0-9a-f]{32}\\.png")))
+        assertTrue(photoId.matches(Regex("photo_[0-9a-f]{32}")))
+        assertEquals(photo.document.objectKey, service.find(FileCategory.PHOTO, photoId, student(STUDENT_ID)).document.objectKey)
+        assertEquals(photo.document.objectKey, service.find(FileCategory.PHOTO, photoId, admin).document.objectKey)
+        assertThrows(DocumentAccessDeniedException::class.java) { service.find(FileCategory.PHOTO, photoId, student(11)) }
+        assertThrows(DocumentAccessDeniedException::class.java) { service.upload(photo(admin), content()) }
     }
 
     @Test
-    fun `다운로드 권한이 없으면 파일이 있어도 거부한다`() {
-        service.upload(applicantList(), content())
+    fun `첨부는 관리자만 올리고 원본 파일명을 남긴다`() {
+        val attachment = service.upload(attachment(), content())
 
-        assertThrows(DocumentAccessDeniedException::class.java) {
-            service.issueByCommand(IssueDownloadUrlCommand(FileCategory.APPLICANT_LIST, "applicants_20260726.xlsx", student(10)))
-        }
-        assertThrows(DocumentAccessDeniedException::class.java) {
-            service.issueById(FileCategory.APPLICANT_LIST, 1, student(10))
-        }
+        assertEquals("notice.pdf", attachment.document.originalName)
+        assertTrue(attachment.document.objectKey.matches(Regex("dsm_Entry/Backend/attachment/[0-9a-f]{32}_notice\\.pdf")))
+        assertThrows(DocumentAccessDeniedException::class.java) { service.upload(attachment(student(STUDENT_ID)), content()) }
     }
 
     @Test
-    fun `ID로 다운로드 URL을 발급하면 원본 파일명을 돌려준다`() {
-        repository.saved += FileDocument(
-            id = 1,
-            originalName = "첨부.pdf",
-            objectKey = "dsm_Entry/Backend/attachment/abc_첨부.pdf",
-            bucket = "entrydsm",
-            contentType = "application/pdf",
-            sizeBytes = 10,
-            checksum = "abc",
-        )
-
-        val downloadUrl = service.issueById(FileCategory.ATTACHMENT, 1, student(10))
-
-        assertEquals("첨부.pdf", downloadUrl.fileName)
-        assertTrue(downloadUrl.downloadUrl.startsWith("https://s3/dsm_Entry/Backend/attachment/"))
-    }
-
-    @Test
-    fun `ID로 다운로드할 때 다른 종류의 파일은 없는 것으로 본다`() {
-        service.upload(command(), content())
+    fun `공개 ID로 찾을 때 다른 종류의 파일이나 없는 ID는 없는 것으로 본다`() {
+        val attachment = service.upload(attachment(), content())
 
         assertThrows(FileDocumentNotFoundException::class.java) {
-            service.issueById(FileCategory.GUIDELINE, 1, admin)
+            service.find(FileCategory.GUIDELINE, attachment.document.publicId, admin)
         }
-    }
-
-    @Test(expected = FileDocumentNotFoundException::class)
-    fun `없는 ID를 조회하면 예외를 올린다`() {
-        service.findById(1)
+        assertThrows(FileDocumentNotFoundException::class.java) { service.find(FileCategory.ATTACHMENT, "attachment_1", admin) }
     }
 
     @Test
-    fun `원서 조회는 적재 전이면 null, 적재 후엔 여러 형식 중 최근 것을 본인에게만 돌려준다`() {
-        assertNull(service.findApplication("1001", student(10)))
+    fun `요강 목록은 최근 것부터 페이지로 주고 전체 개수를 센다`() {
+        val older = service.upload(guideline("2026.pdf"), content())
+        val newer = service.upload(guideline("2027.pdf"), content())
+        service.upload(attachment(), content())
 
-        service.upload(command(requester = student(10)), content())
-        service.upload(
-            command(originalName = "지원서.hwp", fileName = "application_1001.hwp", requester = student(10)),
-            content(),
-        )
+        val first = service.findPage(FileCategory.GUIDELINE, page = 1, size = 1, requester = student(STUDENT_ID))
+        val second = service.findPage(FileCategory.GUIDELINE, page = 2, size = 1, requester = admin)
 
-        assertEquals("application_1001.hwp", service.findApplication("1001", student(10))?.fileName)
-        assertEquals("application_1001.hwp", service.findApplication("1001", admin)?.fileName)
+        assertEquals(listOf(newer.document.publicId), first.items.map { it.document.publicId })
+        assertEquals(listOf(older.document.publicId), second.items.map { it.document.publicId })
+        assertEquals(2L, first.totalElements)
+        assertTrue(first.items.single().downloadUrl.startsWith("https://s3/dsm_Entry/Backend/guideline/"))
+    }
+
+    @Test
+    fun `첨부 삭제는 관리자만 하고 행과 객체를 모두 지운다`() {
+        val attachment = service.upload(attachment(), content())
+        val attachmentId = attachment.document.publicId
+
         assertThrows(DocumentAccessDeniedException::class.java) {
-            service.findApplication("1001", student(11))
+            service.delete(FileCategory.ATTACHMENT, attachmentId, student(STUDENT_ID))
         }
+
+        service.delete(FileCategory.ATTACHMENT, attachmentId, admin)
+
+        assertNull(repository.findByPublicId(attachmentId))
+        assertEquals(listOf(attachment.document.objectKey), storage.deleted)
+        assertThrows(FileDocumentNotFoundException::class.java) { service.delete(FileCategory.ATTACHMENT, attachmentId, admin) }
+    }
+
+    @Test
+    fun `저장소 객체 삭제가 실패해도 행은 지우고 예외를 올리지 않는다`() {
+        val attachmentId = service.upload(attachment(), content()).document.publicId
+        storage.failOnDelete = true
+
+        service.delete(FileCategory.ATTACHMENT, attachmentId, admin)
+
+        assertNull(repository.findByPublicId(attachmentId))
     }
 
     private fun student(userId: Long) = Requester(userId, Requester.Role.STUDENT)
 
-    private fun command(
-        originalName: String = "지원서.pdf",
-        fileName: String = "application_1001.pdf",
-        sizeBytes: Long = 1024,
-        requester: Requester = admin,
-    ) = UploadFileCommand(FileCategory.APPLICATION, originalName, fileName, sizeBytes, requester, receiptCode = "1001")
+    private fun application(requester: Requester, originalName: String = "지원서.pdf", sizeBytes: Long = 1024) =
+        UploadFileCommand(FileCategory.APPLICATION, originalName, sizeBytes, requester)
 
-    private fun photo(requester: Requester) = UploadFileCommand(
-        FileCategory.PHOTO, "사진.png", "photo_${requester.userId}.png", 1024, requester,
-    )
+    private fun photo(requester: Requester) = UploadFileCommand(FileCategory.PHOTO, "사진.png", 1024, requester)
 
-    private fun applicantList() = UploadFileCommand(
-        FileCategory.APPLICANT_LIST, "명단.xlsx", "applicants_20260726.xlsx", 1024, admin,
-    )
+    private fun attachment(requester: Requester = admin) = UploadFileCommand(FileCategory.ATTACHMENT, "notice.pdf", 1024, requester)
+
+    private fun guideline(originalName: String) = UploadFileCommand(FileCategory.GUIDELINE, originalName, 1024, admin)
 
     private fun content(): InputStream = ByteArrayInputStream(ByteArray(4))
+
+    private companion object {
+        const val APPLICANT_ID = 12L
+        const val STUDENT_ID = 10L
+
+        fun applicant(photoFileId: String? = null) = Applicant(STUDENT_ID, "홍길동", null, null, null, photoFileId)
+    }
 
     private class FakeStoragePort : StoragePort {
         val existingKeys = mutableSetOf<String>()
@@ -304,25 +312,34 @@ class FileDocumentServiceTest {
         }
     }
 
-    /** 실제 어댑터처럼 같은 object key 는 새 행 대신 기존 행을 갱신한다. */
+    /** 실제 어댑터처럼 같은 object key 는 새 행 대신 기존 행을 갱신하고 공개 ID 를 유지한다. */
     private class FakeFileDocumentRepository : FileDocumentRepository {
-        val saved = mutableListOf<FileDocument>()
+        private val saved = mutableListOf<FileDocument>()
         var failOnSave = false
         private var clock = 0L
 
         override fun save(fileDocument: FileDocument): FileDocument {
             if (failOnSave) throw IllegalStateException("save failed")
-            val id = findByObjectKey(fileDocument.objectKey)?.id ?: (saved.maxOfOrNull { it.id ?: 0L } ?: 0L) + 1
+            val existing = findByObjectKey(fileDocument.objectKey)
             saved.removeIf { it.objectKey == fileDocument.objectKey }
-            return fileDocument.copy(id = id, createdAt = Instant.EPOCH.plusSeconds(++clock)).also { saved += it }
+            return fileDocument.copy(
+                id = existing?.id ?: ((saved.maxOfOrNull { it.id ?: 0L } ?: 0L) + 1),
+                publicId = existing?.publicId ?: fileDocument.publicId,
+                createdAt = Instant.EPOCH.plusSeconds(++clock),
+            ).also { saved += it }
         }
 
-        override fun findById(id: Long): FileDocument? = saved.firstOrNull { it.id == id }
+        override fun findByObjectKey(objectKey: String): FileDocument? = saved.firstOrNull { it.objectKey == objectKey }
 
-        override fun findByObjectKey(objectKey: String): FileDocument? =
-            saved.firstOrNull { it.objectKey == objectKey }
+        override fun findByPublicId(publicId: String): FileDocument? = saved.firstOrNull { it.publicId == publicId }
 
-        override fun existsById(id: Long): Boolean = saved.any { it.id == id }
+        override fun findPage(category: FileCategory, page: Int, size: Int): List<FileDocument> =
+            saved.filter { category.holds(it.objectKey) }
+                .sortedByDescending { it.createdAt }
+                .drop((page - 1) * size)
+                .take(size)
+
+        override fun count(category: FileCategory): Long = saved.count { category.holds(it.objectKey) }.toLong()
 
         override fun deleteByObjectKey(objectKey: String) {
             saved.removeIf { it.objectKey == objectKey }

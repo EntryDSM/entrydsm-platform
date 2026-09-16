@@ -1,9 +1,7 @@
 package hs.kr.entrydsm.configuration.adapterout
 
 import hs.kr.entrydsm.configuration.domain.document.StoredObject
-import hs.kr.entrydsm.configuration.domain.document.exception.PresignFailedException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
-import hs.kr.entrydsm.configuration.domain.document.exception.StorageUploadFailedException
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -46,7 +44,7 @@ class S3StorageAdapter(
                 RequestBody.fromInputStream(content, sizeBytes),
             )
         } catch (e: SdkException) {
-            throw StorageUploadFailedException(objectKey, e)
+            throw StorageUnavailableException("upload", objectKey, e)
         }
         return StoredObject(
             bucket = bucket,
@@ -69,7 +67,7 @@ class S3StorageAdapter(
                     .build()
             ).url().toString()
         } catch (e: SdkException) {
-            throw PresignFailedException(objectKey, e)
+            throw StorageUnavailableException("presign", objectKey, e)
         }
 
     override fun download(objectKey: String): ByteArray =
@@ -81,7 +79,7 @@ class S3StorageAdapter(
                     .build()
             ).asByteArray()
         } catch (e: SdkException) {
-            throw StorageUnavailableException(objectKey, e)
+            throw StorageUnavailableException("download", objectKey, e)
         }
 
     override fun exists(objectKey: String): Boolean =
@@ -95,9 +93,9 @@ class S3StorageAdapter(
             true
         } catch (e: S3Exception) {
             // HEAD 응답에는 본문이 없어 객체 없음이 NoSuchKeyException 대신 404 S3Exception 으로 올라오기도 한다.
-            if (e.statusCode() == HTTP_NOT_FOUND) false else throw StorageUnavailableException(objectKey, e)
+            if (e.statusCode() == HTTP_NOT_FOUND) false else throw StorageUnavailableException("head", objectKey, e)
         } catch (e: SdkException) {
-            throw StorageUnavailableException(objectKey, e)
+            throw StorageUnavailableException("head", objectKey, e)
         }
 
     override fun delete(objectKey: String) {
@@ -109,7 +107,7 @@ class S3StorageAdapter(
                     .build()
             )
         } catch (e: SdkException) {
-            throw StorageUnavailableException(objectKey, e)
+            throw StorageUnavailableException("delete", objectKey, e)
         }
     }
 
