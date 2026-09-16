@@ -7,6 +7,4 @@ interface StoragePort {
     fun upload(objectKey: String, contentType: String, content: ByteArray)
 
     fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long): String
-
-    fun exists(objectKey: String): Boolean
 }
