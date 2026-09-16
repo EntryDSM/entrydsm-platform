@@ -4,7 +4,7 @@ import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 
 data class UpdatePersonalRequest(
-    val photoFileId: Long,
+    val photoFileId: String,
     val name: String,
     val phoneNumber: String,
     val gender: Gender,

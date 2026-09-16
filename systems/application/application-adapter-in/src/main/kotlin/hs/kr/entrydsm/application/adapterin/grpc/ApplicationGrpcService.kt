@@ -60,13 +60,13 @@ class ApplicationGrpcService(
         request: GetApplicantRequest,
         responseObserver: StreamObserver<ApplicantResponse>,
     ) = responseObserver.respondWith {
-        request.userId.validate()
-        (applicationPort.findApplicantByUserId(request.userId) ?: throw ApplicantNotFoundException(request.userId))
+        request.applicantId.validate()
+        (applicationPort.findApplicant(request.applicantId) ?: throw ApplicantNotFoundException(request.applicantId))
             .toResponse()
     }
 
     private fun Long.validate() {
-        require(this > 0) { "user_id must be positive" }
+        require(this > 0) { "id must be positive" }
     }
 
     private fun StreamObserver<ApplicationResponse>.respond(block: () -> ApplicationSnapshotResult) =
@@ -116,6 +116,7 @@ class ApplicationGrpcService(
 
     private fun ApplicantResult.toResponse(): ApplicantResponse =
         ApplicantResponse.newBuilder()
+            .setApplicantId(applicantId)
             .setUserId(userId)
             .setRegion(
                 when (region) {

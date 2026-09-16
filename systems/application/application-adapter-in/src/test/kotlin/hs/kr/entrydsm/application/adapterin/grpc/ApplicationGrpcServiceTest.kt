@@ -89,24 +89,27 @@ class ApplicationGrpcServiceTest {
     @Test
     fun servesApplicantWithUnsetFieldsLeftEmpty() {
         port.applicant = ApplicantResult(
+            applicantId = APPLICANT_ID,
             userId = USER_ID,
             name = "홍길동",
             schoolName = null,
             region = Region.DAEJEON,
             admissionType = null,
-            photoFileId = 7,
+            photoFileId = "photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8",
         )
 
-        val found = stub.getApplicant(GetApplicantRequest.newBuilder().setUserId(USER_ID).build())
+        val found = stub.getApplicant(GetApplicantRequest.newBuilder().setApplicantId(APPLICANT_ID).build())
         val missing = assertThrows(StatusRuntimeException::class.java) {
-            stub.getApplicant(GetApplicantRequest.newBuilder().setUserId(404).build())
+            stub.getApplicant(GetApplicantRequest.newBuilder().setApplicantId(404).build())
         }
 
+        assertEquals(APPLICANT_ID, found.applicantId)
+        assertEquals(USER_ID, found.userId)
         assertEquals("홍길동", found.name)
         assertFalse(found.hasSchoolName())
         assertEquals(GrpcRegion.REGION_DAEJEON, found.region)
         assertEquals(GrpcAdmissionType.ADMISSION_TYPE_UNSPECIFIED, found.admissionType)
-        assertEquals(7L, found.photoFileId)
+        assertEquals("photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8", found.photoFileId)
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
     }
 
@@ -126,8 +129,8 @@ class ApplicationGrpcServiceTest {
             return snapshot?.takeIf { it.userId == userId }
         }
 
-        override fun findApplicantByUserId(userId: Long): ApplicantResult? =
-            applicant?.takeIf { it.userId == userId }
+        override fun findApplicant(applicantId: Long): ApplicantResult? =
+            applicant?.takeIf { it.applicantId == applicantId }
 
         override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason
@@ -155,5 +158,6 @@ class ApplicationGrpcServiceTest {
 
     private companion object {
         const val USER_ID = 10L
+        const val APPLICANT_ID = 3L
     }
 }

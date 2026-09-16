@@ -24,7 +24,7 @@ interface ApplicationPort {
     fun submit(command: SubmitApplicationCommand)
     fun getLanding(accountId: Long?): LandingResult
     fun findByUserId(userId: Long): ApplicationSnapshotResult?
-    fun findApplicantByUserId(userId: Long): ApplicantResult?
+    fun findApplicant(applicantId: Long): ApplicantResult?
     fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult
 }
 
