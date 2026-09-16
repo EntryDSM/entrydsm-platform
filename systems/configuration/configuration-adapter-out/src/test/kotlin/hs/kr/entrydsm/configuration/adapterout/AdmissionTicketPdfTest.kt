@@ -16,8 +16,7 @@ class AdmissionTicketPdfTest {
     fun `수험표 HTML을 사진과 한글 폰트를 넣어 PDF로 바꾼다`() {
         val html = AdmissionTicketHtml.render(
             admissionYear = 2027,
-            receiptCode = "1001",
-            applicant = Applicant("홍길동", "대덕중학교", Applicant.Region.DAEJEON, Applicant.AdmissionType.MEISTER, 7),
+            applicant = Applicant(10, "홍길동", "대덕중학교", Applicant.Region.DAEJEON, Applicant.AdmissionType.MEISTER, "photo_a"),
             photoDataUri = "data:image/png;base64," + Base64.getEncoder().encodeToString(png()),
         )
 
@@ -33,8 +32,7 @@ class AdmissionTicketPdfTest {
     fun `읽을 수 없는 사진은 빈 칸으로 두고 PDF는 만든다`() {
         val html = AdmissionTicketHtml.render(
             admissionYear = 2027,
-            receiptCode = "1001",
-            applicant = Applicant("홍길동", null, null, null, 7),
+            applicant = Applicant(10, "홍길동", null, null, null, "photo_a"),
             photoDataUri = "data:image/webp;base64," + Base64.getEncoder().encodeToString("RIFF0000WEBPVP8 ".toByteArray()),
         )
 

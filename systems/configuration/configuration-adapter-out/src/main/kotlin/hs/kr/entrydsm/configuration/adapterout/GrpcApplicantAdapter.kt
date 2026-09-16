@@ -29,13 +29,14 @@ class GrpcApplicantAdapter(
         .build()
     private val stub = ApplicationServiceGrpc.newBlockingStub(channel)
 
-    override fun findByUserId(userId: Long): Applicant? =
+    override fun findById(applicantId: Long): Applicant? =
         try {
             stub.withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
-                .getApplicant(GetApplicantRequest.newBuilder().setUserId(userId).build())
+                .getApplicant(GetApplicantRequest.newBuilder().setApplicantId(applicantId).build())
                 .toApplicant()
         } catch (e: StatusRuntimeException) {
-            if (e.status.code == Status.Code.NOT_FOUND) null else throw ApplicantLookupFailedException(userId, e)
+            // 0 이하 id 는 application 이 INVALID_ARGUMENT 로 거절한다. 없는 지원자와 같다.
+            if (e.status.code in NO_APPLICANT) null else throw ApplicantLookupFailedException(applicantId, e)
         }
 
     override fun destroy() {
@@ -43,6 +44,7 @@ class GrpcApplicantAdapter(
     }
 
     private fun ApplicantResponse.toApplicant() = Applicant(
+        userId = userId,
         name = name.takeIf { hasName() },
         schoolName = schoolName.takeIf { hasSchoolName() },
         region = when (region) {
@@ -58,4 +60,8 @@ class GrpcApplicantAdapter(
         },
         photoFileId = photoFileId.takeIf { hasPhotoFileId() },
     )
+
+    private companion object {
+        val NO_APPLICANT = setOf(Status.Code.NOT_FOUND, Status.Code.INVALID_ARGUMENT)
+    }
 }
