@@ -1,275 +1,223 @@
 package hs.kr.entrydsm.configuration.adapterin.document
 
 import hs.kr.entrydsm.configuration.adapterin.common.DocumentExceptionHandler
-import hs.kr.entrydsm.configuration.domain.document.DownloadUrl
+import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
+import hs.kr.entrydsm.configuration.domain.document.FilePage
 import hs.kr.entrydsm.configuration.domain.document.Requester
-import hs.kr.entrydsm.configuration.domain.document.command.IssueDownloadUrlCommand
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
-import hs.kr.entrydsm.configuration.domain.document.port.`in`.GenerateAdmissionTicketUseCase
-import hs.kr.entrydsm.configuration.domain.document.port.`in`.IssueDownloadUrlUseCase
-import hs.kr.entrydsm.configuration.domain.document.port.`in`.ReadFileUseCase
-import hs.kr.entrydsm.configuration.domain.document.port.`in`.UploadFileUseCase
+import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCase
+import hs.kr.entrydsm.configuration.domain.document.port.`in`.FileUseCase
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import org.springframework.http.HttpMethod
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.MockMvc
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.request.RequestPostProcessor
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import java.io.InputStream
 import java.time.Instant
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 class DocumentControllerTest {
 
-    private val upload = RecordingUploadFileUseCase()
-    private val issue = StubIssueDownloadUrlUseCase()
-    private val read = StubReadFileUseCase()
-    private var generated: Pair<String, Requester>? = null
-    private val generate = GenerateAdmissionTicketUseCase { receiptCode, requester ->
-        generated = receiptCode to requester
-        stored(FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_$receiptCode.pdf"))
-    }
+    private val applicantFiles = RecordingApplicantFileUseCase()
+    private val files = RecordingFileUseCase()
 
     private val mvc: MockMvc =
-        MockMvcBuilders.standaloneSetup(DocumentUploadController(upload, issue, generate), DocumentDownloadController(issue, read))
+        MockMvcBuilders.standaloneSetup(ApplicantFileController(applicantFiles), FileController(files))
             .addInterceptors(ConfigurationAuthorizationInterceptor())
             .setControllerAdvice(DocumentExceptionHandler())
             .build()
 
     @Test
-    fun `지원서 업로드는 수험번호 기반 파일명으로 적재하고 요청자와 수험번호를 넘긴다`() {
-        mvc.perform(multipart("/api/document/v11/application").file(pdf()).param("receiptCode", "1001").with(student(10)))
+    fun `원서 적재는 PUT 멀티파트로 받아 지원자 ID와 요청자를 넘기고 key 없이 서명 URL을 준다`() {
+        mvc.perform(multipart(HttpMethod.PUT, "/api/document/v11/applications/12").file(pdf()).with(student(10)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.success").value(true))
-            .andExpect(jsonPath("$.data.fileName").value("application_1001.pdf"))
-            .andExpect(jsonPath("$.data.key").value("dsm_Entry/Backend/application/application_1001.pdf"))
-
-        val command = upload.lastCommand!!
-        assertEquals(FileCategory.APPLICATION, command.category)
-        assertEquals("지원서.pdf", command.originalName)
-        assertEquals(Requester(10, Requester.Role.STUDENT), command.requester)
-        assertEquals("1001", command.receiptCode)
-    }
-
-    @Test
-    fun `지원서 업로드는 허용하지 않는 형식을 400으로 거부한다`() {
-        mvc.perform(
-            multipart("/api/document/v11/application")
-                .file(MockMultipartFile("file", "지원서.jpg", null, ByteArray(1)))
-                .param("receiptCode", "1001")
-                .with(admin()),
-        )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error.code").value("INVALID_FILE_FORMAT"))
-    }
-
-    @Test
-    fun `게이트웨이 헤더가 없거나 id가 숫자가 아니면 401, 모르는 역할이면 403으로 거부한다`() {
-        mvc.perform(get("/api/document/v11/guideline/download").param("guidelineId", "guideline_3"))
-            .andExpect(status().isUnauthorized)
-            .andExpect(jsonPath("$.error.code").value("AUTH_UNAUTHORIZED"))
-
-        mvc.perform(
-            get("/api/document/v11/guideline/download").param("guidelineId", "guideline_3")
-                .header("X-User-Id", "user_1").header("X-User-Role", "STUDENT"),
-        ).andExpect(status().isUnauthorized)
-
-        mvc.perform(
-            get("/api/document/v11/guideline/download").param("guidelineId", "guideline_3")
-                .header("X-User-Id", "9").header("X-User-Role", "GUEST"),
-        ).andExpect(status().isForbidden)
-            .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"))
-    }
-
-    @Test
-    fun `적재·다운로드 권한이 없다는 판정은 403으로 돌려준다`() {
-        issue.denied = true
-
-        mvc.perform(get("/api/document/v11/applicant-list/download").param("fileName", "applicants_20260726.xlsx").with(student(10)))
-            .andExpect(status().isForbidden)
-            .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"))
-    }
-
-    @Test
-    fun `지원서 조회는 서비스가 찾은 최근 적재본을 돌려준다`() {
-        read.application = stored("dsm_Entry/Backend/application/application_1001.hwp")
-
-        mvc.perform(get("/api/document/v11/application").param("receiptCode", "1001").with(student(10)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.exists").value(true))
-            .andExpect(jsonPath("$.data.fileName").value("application_1001.hwp"))
-
-        assertEquals(Requester(10, Requester.Role.STUDENT), read.lastRequester)
-    }
-
-    @Test
-    fun `지원서가 없으면 pdf 기본 파일명과 미존재 표시를 돌려준다`() {
-        mvc.perform(get("/api/document/v11/application").param("receiptCode", "1001").with(student(10)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.exists").value(false))
-            .andExpect(jsonPath("$.data.fileName").value("application_1001.pdf"))
-            .andExpect(jsonPath("$.data.key").value("dsm_Entry/Backend/application/application_1001.pdf"))
-    }
-
-    @Test
-    fun `지원서 다운로드는 요청한 형식의 파일명과 수험번호로 URL을 발급한다`() {
-        mvc.perform(
-            get("/api/document/v11/application/download")
-                .param("receiptCode", "1001")
-                .param("format", "hwp")
-                .with(student(10)),
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.fileName").value("application_1001.hwp"))
+            .andExpect(jsonPath("$.data.fileName").value("application_12.pdf"))
+            .andExpect(jsonPath("$.data.size").value(7))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/application/application_12.pdf"))
             .andExpect(jsonPath("$.data.expiresIn").value(300))
+            .andExpect(jsonPath("$.data.id").doesNotExist())
+            .andExpect(jsonPath("$.data.key").doesNotExist())
 
+        assertEquals(12L, applicantFiles.lastApplicantId)
         assertEquals(
-            IssueDownloadUrlCommand(FileCategory.APPLICATION, "application_1001.hwp", Requester(10, Requester.Role.STUDENT), "1001"),
-            issue.lastCommand,
+            UploadFileCommand(FileCategory.APPLICATION, "지원서.pdf", 7, Requester(10, Requester.Role.STUDENT)),
+            applicantFiles.lastCommand,
         )
     }
 
     @Test
-    fun `지원하지 않는 다운로드 형식은 400으로 거부한다`() {
-        mvc.perform(
-            get("/api/document/v11/application/download")
-                .param("receiptCode", "1001")
-                .param("format", "jpg")
-                .with(admin()),
-        )
+    fun `멀티파트가 아니거나 파일 파트가 없으면 400이다`() {
+        mvc.perform(put("/api/document/v11/applications/12").content("{}").with(student(10)))
+            .andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
+
+        mvc.perform(multipart(HttpMethod.PUT, "/api/document/v11/applications/12").with(student(10)))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
     }
 
     @Test
-    fun `수험표 생성은 수험번호와 요청자를 넘기고 적재된 키를 돌려준다`() {
-        mvc.perform(get("/api/document/v11/admission-ticket").param("receiptCode", "1001").with(student(10)))
+    fun `원서 조회는 올린 파일이 있으면 서명 URL을, 없으면 exists false만 준다`() {
+        mvc.perform(get("/api/document/v11/applications/12").with(student(10)))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.key").value("dsm_Entry/Backend/admission-ticket/admission_ticket_1001.pdf"))
-            .andExpect(jsonPath("$.data.fileName").value("admission_ticket_1001.pdf"))
+            .andExpect(jsonPath("$.data.exists").value(false))
+            .andExpect(jsonPath("$.data.fileName").doesNotExist())
+            .andExpect(jsonPath("$.data.downloadUrl").doesNotExist())
 
-        assertEquals("1001" to Requester(10, Requester.Role.STUDENT), generated)
+        applicantFiles.application = downloadable(FileCategory.APPLICATION.objectKeyOf("application_12.hwp"))
 
-        mvc.perform(multipart("/api/document/v11/admission-ticket").file(pdf()).param("receiptCode", "1001").with(admin()))
+        mvc.perform(get("/api/document/v11/applications/12").with(admin()))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.exists").value(true))
+            .andExpect(jsonPath("$.data.fileName").value("application_12.hwp"))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/application/application_12.hwp"))
+            .andExpect(jsonPath("$.data.expiresIn").value(300))
+    }
+
+    @Test
+    fun `수험표는 GET으로 만들고 서명 URL을 준다, 올리는 요청은 405다`() {
+        mvc.perform(get("/api/document/v11/admission-tickets/12").with(student(10)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.fileName").value("admission_ticket_12.pdf"))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/admission-ticket/admission_ticket_12.pdf"))
+            .andExpect(jsonPath("$.data.id").doesNotExist())
+
+        assertEquals(12L to Requester(10, Requester.Role.STUDENT), applicantFiles.generated)
+
+        mvc.perform(multipart("/api/document/v11/admission-tickets/12").file(pdf()).with(admin()))
             .andExpect(status().isMethodNotAllowed)
             .andExpect(jsonPath("$.error.code").value("METHOD_NOT_ALLOWED"))
     }
 
     @Test
-    fun `수험표 다운로드는 수험번호 기반 파일명을 사용한다`() {
-        mvc.perform(get("/api/document/v11/admission-ticket/download").param("receiptCode", "1001").with(student(10)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.fileName").value("admission_ticket_1001.pdf"))
-
-        assertEquals(FileCategory.ADMISSION_TICKET, issue.lastCommand?.category)
-        assertEquals("1001", issue.lastCommand?.receiptCode)
-    }
-
-    @Test
-    fun `수험번호에 경로 문자가 들어오면 400으로 거부한다`() {
-        mvc.perform(get("/api/document/v11/admission-ticket/download").param("receiptCode", "../1001").with(admin()))
+    fun `지원자 ID가 숫자가 아니면 400이다`() {
+        mvc.perform(get("/api/document/v11/admission-tickets/abc").with(admin()))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
     }
 
     @Test
-    fun `지원자 명단은 파일명을 주지 않으면 오늘 날짜로 적재한다`() {
-        val expected = "applicants_${DateTimeFormatter.ofPattern("yyyyMMdd").format(LocalDate.now())}.xlsx"
+    fun `게이트웨이 헤더가 없거나 id가 숫자가 아니면 401, 모르는 역할이면 403으로 거부한다`() {
+        mvc.perform(get("/api/document/v11/guidelines"))
+            .andExpect(status().isUnauthorized)
+            .andExpect(jsonPath("$.error.code").value("AUTH_UNAUTHORIZED"))
 
-        mvc.perform(multipart("/api/document/v11/applicant-list").file(xlsx()).with(admin()))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.fileName").value(expected))
+        mvc.perform(get("/api/document/v11/guidelines").header("X-User-Id", "user_1").header("X-User-Role", "STUDENT"))
+            .andExpect(status().isUnauthorized)
+
+        mvc.perform(get("/api/document/v11/guidelines").header("X-User-Id", "9").header("X-User-Role", "GUEST"))
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"))
     }
 
     @Test
-    fun `지원자 명단은 지정한 xlsx 파일명을 그대로 쓴다`() {
-        mvc.perform(
-            multipart("/api/document/v11/applicant-list")
-                .file(xlsx())
-                .param("fileName", "applicants_20260726.xlsx")
-                .with(admin()),
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.fileName").value("applicants_20260726.xlsx"))
+    fun `파일 권한이 없다는 판정은 403 FILE_ACCESS_DENIED다`() {
+        files.denied = true
+
+        mvc.perform(get("/api/document/v11/photos/photo_3f2c").with(student(11)))
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.error.code").value("FILE_ACCESS_DENIED"))
     }
 
     @Test
-    fun `지원자 명단은 xlsx가 아닌 파일명을 400으로 거부한다`() {
-        mvc.perform(
-            multipart("/api/document/v11/applicant-list")
-                .file(xlsx())
-                .param("fileName", "applicants.csv")
-                .with(admin()),
-        )
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error.code").value("INVALID_FILE_FORMAT"))
+    fun `증명사진·첨부·요강 적재는 종류와 올린 파일명을 넘기고 공개 ID와 서명 URL을 준다`() {
+        mvc.perform(multipart("/api/document/v11/photos").file(MockMultipartFile("file", "사진.png", null, ByteArray(2))).with(student(10)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.id").value("photo_3f2c"))
+            .andExpect(jsonPath("$.data.fileName").value("사진.png"))
+            .andExpect(jsonPath("$.data.size").value(2))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/photo/photo_3f2c.png"))
+            .andExpect(jsonPath("$.data.expiresIn").value(300))
+        assertEquals(UploadFileCommand(FileCategory.PHOTO, "사진.png", 2, Requester(10, Requester.Role.STUDENT)), files.lastCommand)
+
+        mvc.perform(multipart("/api/document/v11/attachments").file(pdf("공지.pdf")).with(admin()))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.id").value("attachment_3f2c"))
+        assertEquals(FileCategory.ATTACHMENT, files.lastCommand?.category)
+
+        mvc.perform(multipart("/api/document/v11/guidelines").file(pdf("요강.pdf")).with(admin()))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.id").value("guideline_3f2c"))
+        assertEquals(FileCategory.GUIDELINE, files.lastCommand?.category)
     }
 
     @Test
-    fun `첨부파일 업로드는 카테고리 접두사가 붙은 ID를 돌려준다`() {
-        mvc.perform(multipart("/api/document/v11/attachment").file(pdf("첨부.pdf")).with(admin()))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.attachmentId").value("attachment_7"))
-            .andExpect(jsonPath("$.data.fileName").value("첨부.pdf"))
-            .andExpect(jsonPath("$.data.size").value(7))
-    }
-
-    @Test
-    fun `첨부파일 다운로드는 접두사가 붙은 ID만 받는다`() {
-        mvc.perform(get("/api/document/v11/attachment/download").param("attachmentId", "attachment_7").with(student(10)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/ATTACHMENT/7"))
-
-        mvc.perform(get("/api/document/v11/attachment/download").param("attachmentId", "7").with(student(10)))
-            .andExpect(status().isBadRequest)
-            .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
-    }
-
-    @Test
-    fun `입학요강 적재는 guideline 접두사가 붙은 ID를 돌려준다`() {
-        mvc.perform(multipart("/api/document/v11/guideline").file(pdf("2027_요강.pdf")).with(admin()))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.guidelineId").value("guideline_7"))
-            .andExpect(jsonPath("$.data.fileName").value("2027_요강.pdf"))
-
-        assertEquals(FileCategory.GUIDELINE, upload.lastCommand?.category)
-        assert(upload.lastCommand!!.fileName.matches(Regex("[0-9a-f]{32}_2027___\\.pdf")))
-    }
-
-    @Test
-    fun `입학요강 다운로드는 guideline 접두사 ID를 요강 종류로 조회한다`() {
-        mvc.perform(get("/api/document/v11/guideline/download").param("guidelineId", "guideline_3").with(student(10)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/GUIDELINE/3"))
-    }
-
-    @Test
-    fun `증명사진 업로드는 적재 직후 올린 학생에게 다운로드 URL을 함께 돌려준다`() {
-        mvc.perform(multipart("/api/document/v11/photo").file(MockMultipartFile("file", "사진.png", null, ByteArray(2))).with(student(10)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.url").value("https://s3/photo"))
-
-        assertEquals(FileCategory.PHOTO, upload.lastCommand?.category)
-        assert(upload.lastCommand!!.fileName.matches(Regex("photo_[0-9a-f]{32}\\.png")))
-        assertEquals(Requester(10, Requester.Role.STUDENT), issue.lastCommand?.requester)
+    fun `공개 ID 조회는 경로의 ID와 종류를 넘긴다`() {
+        listOf(
+            "/api/document/v11/photos/photo_3f2c" to FileCategory.PHOTO,
+            "/api/document/v11/attachments/attachment_3f2c" to FileCategory.ATTACHMENT,
+            "/api/document/v11/guidelines/guideline_3f2c" to FileCategory.GUIDELINE,
+        ).forEach { (path, category) ->
+            mvc.perform(get(path).with(student(10)))
+                .andExpect(status().isOk)
+                .andExpect(jsonPath("$.data.id").value("${category.prefix}_3f2c"))
+            assertEquals(category to path.substringAfterLast('/'), files.lastFound)
+        }
     }
 
     @Test
     fun `없는 파일을 조회하면 404를 돌려준다`() {
-        issue.notFound = true
+        files.notFound = true
 
-        mvc.perform(get("/api/document/v11/guideline/download").param("guidelineId", "guideline_3").with(student(10)))
+        mvc.perform(get("/api/document/v11/attachments/attachment_1").with(student(10)))
             .andExpect(status().isNotFound)
             .andExpect(jsonPath("$.error.code").value("FILE_NOT_FOUND"))
+    }
+
+    @Test
+    fun `첨부·요강 삭제는 본문 없이 204다`() {
+        mvc.perform(delete("/api/document/v11/attachments/attachment_3f2c").with(admin()))
+            .andExpect(status().isNoContent)
+            .andExpect(content().string(""))
+        assertEquals(FileCategory.ATTACHMENT to "attachment_3f2c", files.lastDeleted)
+
+        mvc.perform(delete("/api/document/v11/guidelines/guideline_3f2c").with(admin()))
+            .andExpect(status().isNoContent)
+        assertEquals(FileCategory.GUIDELINE to "guideline_3f2c", files.lastDeleted)
+    }
+
+    @Test
+    fun `요강 목록은 공통 목록 응답으로 주고, 페이지 범위를 벗어나면 400이다`() {
+        files.totalElements = 3
+
+        mvc.perform(get("/api/document/v11/guidelines").param("page", "2").param("size", "2").with(student(10)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.items[0].id").value("guideline_3f2c"))
+            .andExpect(jsonPath("$.data.page").value(2))
+            .andExpect(jsonPath("$.data.size").value(2))
+            .andExpect(jsonPath("$.data.totalElements").value(3))
+            .andExpect(jsonPath("$.data.totalPages").value(2))
+        assertEquals(2 to 2, files.lastPage)
+
+        mvc.perform(get("/api/document/v11/guidelines").with(student(10)))
+            .andExpect(status().isOk)
+        assertEquals(1 to 10, files.lastPage)
+
+        listOf("page" to "0", "size" to "0", "size" to "101").forEach { (name, value) ->
+            mvc.perform(get("/api/document/v11/guidelines").param(name, value).with(student(10)))
+                .andExpect(status().isBadRequest)
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
+        }
+    }
+
+    @Test
+    fun `없앤 경로의 요청 방식은 405다`() {
+        mvc.perform(post("/api/document/v11/applications/12").with(student(10)))
+            .andExpect(status().isMethodNotAllowed)
     }
 
     private fun admin() = gatewayHeaders(1, "ADMIN")
@@ -286,67 +234,74 @@ class DocumentControllerTest {
     private fun pdf(name: String = "지원서.pdf") =
         MockMultipartFile("file", name, null, "content".toByteArray())
 
-    private fun xlsx() = MockMultipartFile("file", "명단.xlsx", null, ByteArray(1))
-
-    private fun stored(objectKey: String) = FileDocument(
-        id = 7,
-        originalName = "지원서",
-        objectKey = objectKey,
-        bucket = "entrydsm",
-        contentType = "application/pdf",
-        sizeBytes = 7,
-        checksum = "abc",
-        ownerUserId = 10,
-        createdAt = Instant.parse("2026-02-01T00:00:00Z"),
-    )
-
-    private class RecordingUploadFileUseCase : UploadFileUseCase {
+    private class RecordingApplicantFileUseCase : ApplicantFileUseCase {
+        var lastApplicantId: Long? = null
         var lastCommand: UploadFileCommand? = null
+        var application: DownloadableFile? = null
+        var generated: Pair<Long, Requester>? = null
 
-        override fun upload(command: UploadFileCommand, content: InputStream): FileDocument {
+        override fun uploadApplication(applicantId: Long, command: UploadFileCommand, content: InputStream): DownloadableFile {
+            lastApplicantId = applicantId
             lastCommand = command
-            return FileDocument(
-                id = 7,
-                originalName = command.originalName,
-                objectKey = command.category.objectKeyOf(command.fileName),
-                bucket = "entrydsm",
-                contentType = "application/octet-stream",
-                sizeBytes = command.sizeBytes,
-                checksum = "abc",
-                createdAt = Instant.parse("2026-01-01T00:00:00Z"),
-            )
+            return downloadable(FileCategory.APPLICATION.objectKeyOf("application_$applicantId.pdf"), command.sizeBytes)
+        }
+
+        override fun findApplication(applicantId: Long, requester: Requester): DownloadableFile? = application
+
+        override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {
+            generated = applicantId to requester
+            return downloadable(FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_$applicantId.pdf"))
         }
     }
 
-    private class StubIssueDownloadUrlUseCase : IssueDownloadUrlUseCase {
-        var lastCommand: IssueDownloadUrlCommand? = null
-        var notFound = false
+    private class RecordingFileUseCase : FileUseCase {
+        var lastCommand: UploadFileCommand? = null
+        var lastFound: Pair<FileCategory, String>? = null
+        var lastDeleted: Pair<FileCategory, String>? = null
+        var lastPage: Pair<Int, Int>? = null
+        var totalElements = 0L
         var denied = false
+        var notFound = false
 
-        override fun issueByCommand(command: IssueDownloadUrlCommand): DownloadUrl {
+        override fun upload(command: UploadFileCommand, content: InputStream): DownloadableFile {
             lastCommand = command
-            if (denied) throw DocumentAccessDeniedException()
-            if (notFound) throw FileDocumentNotFoundException(command.fileName)
-            return DownloadUrl(command.fileName, "https://s3/photo", 300)
+            val file = downloadable(command.category.objectKeyOf("${command.category.prefix}_3f2c.png"), command.sizeBytes)
+            return file.copy(document = file.document.copy(originalName = command.originalName))
         }
 
-        override fun issueById(category: FileCategory, id: Long, requester: Requester): DownloadUrl {
-            if (notFound) throw FileDocumentNotFoundException("id=$id")
-            return DownloadUrl("file_$id.pdf", "https://s3/${category.name}/$id", 300)
+        override fun find(category: FileCategory, publicId: String, requester: Requester): DownloadableFile {
+            lastFound = category to publicId
+            if (denied) throw DocumentAccessDeniedException()
+            if (notFound) throw FileDocumentNotFoundException(publicId)
+            return downloadable(category.objectKeyOf("${category.prefix}_3f2c.pdf"))
+        }
+
+        override fun findPage(category: FileCategory, page: Int, size: Int, requester: Requester): FilePage {
+            lastPage = page to size
+            return FilePage(listOf(downloadable(category.objectKeyOf("guideline_3f2c.pdf"))), totalElements)
+        }
+
+        override fun delete(category: FileCategory, publicId: String, requester: Requester) {
+            lastDeleted = category to publicId
         }
     }
 
-    private class StubReadFileUseCase : ReadFileUseCase {
-        var application: FileDocument? = null
-        var lastRequester: Requester? = null
-
-        override fun findById(id: Long): FileDocument = throw FileDocumentNotFoundException("id=$id")
-
-        override fun findApplication(receiptCode: String, requester: Requester): FileDocument? {
-            lastRequester = requester
-            return application
-        }
-
-        override fun existsById(id: Long): Boolean = false
+    private companion object {
+        fun downloadable(objectKey: String, sizeBytes: Long = 7) = DownloadableFile(
+            document = FileDocument(
+                id = 7,
+                publicId = "${FileCategory.entries.first { it.holds(objectKey) }.prefix}_3f2c",
+                originalName = "원본.pdf",
+                objectKey = objectKey,
+                bucket = "entrydsm",
+                contentType = "application/pdf",
+                sizeBytes = sizeBytes,
+                checksum = "abc",
+                ownerUserId = 10,
+                createdAt = Instant.parse("2026-02-01T00:00:00Z"),
+            ),
+            downloadUrl = "https://s3/$objectKey",
+            expiresIn = 300,
+        )
     }
 }
