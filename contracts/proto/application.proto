@@ -35,18 +35,24 @@ message ApplicationResponse {
     optional int64 announced_at_epoch_millis = 6;
 }
 
+// 원서 작성 API 경로의 applicant id 로 찾는다. 1번(user_id)은 이전 버전이 쓰던 번호라 다시 쓰지 않는다.
 message GetApplicantRequest {
-    int64 user_id = 1;
+    reserved 1;
+    int64 applicant_id = 2;
 }
 
 // 수험표처럼 원서 내용을 찍는 문서에 쓰는 지원자 정보. 작성 중인 원서면 비어 있을 수 있다.
+// user_id 는 원서 주인 계정이라 document 가 본인 판정에 쓴다.
 message ApplicantResponse {
+    reserved 6;
     int64 user_id = 1;
     optional string name = 2;
     optional string school_name = 3;
     Region region = 4;
     AdmissionType admission_type = 5;
-    optional int64 photo_file_id = 6;
+    int64 applicant_id = 7;
+    // document 증명사진 ID (photo_ 로 시작)
+    optional string photo_file_id = 8;
 }
 
 message ApplicantStatusChangedEvent {
