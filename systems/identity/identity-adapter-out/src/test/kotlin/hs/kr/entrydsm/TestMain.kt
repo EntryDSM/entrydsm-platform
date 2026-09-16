@@ -12,6 +12,7 @@ import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdap
 import hs.kr.entrydsm.identity.adapterout.security.RedisRefreshTokenRotationAdapterTest
 import hs.kr.entrydsm.identity.adapterout.security.RedisDurabilityGuardTest
 import hs.kr.entrydsm.identity.adapterout.persistence.AccountCommandPersistenceAdapterTest
+import hs.kr.entrydsm.identity.adapterout.persistence.AccountApplicationDataPersistenceAdapterTest
 import hs.kr.entrydsm.identity.adapterout.persistence.TransactionalAccountRegistrationAdapterTest
 import hs.kr.entrydsm.identity.adapterout.repository.JpaAccountRepositoryAdapterIntegrationTest
 import hs.kr.entrydsm.identity.adapterout.persistence.PersistenceProfileContractTest
@@ -31,6 +32,7 @@ import javax.crypto.AEADBadTagException
     IdentityAdapterOutSmokeTest::class,
     PersonalDataCryptoTest::class,
     AccountCommandPersistenceAdapterTest::class,
+    AccountApplicationDataPersistenceAdapterTest::class,
     TransactionalAccountRegistrationAdapterTest::class,
     JpaAccountRepositoryAdapterIntegrationTest::class,
     RedisRefreshTokenRotationAdapterTest::class,

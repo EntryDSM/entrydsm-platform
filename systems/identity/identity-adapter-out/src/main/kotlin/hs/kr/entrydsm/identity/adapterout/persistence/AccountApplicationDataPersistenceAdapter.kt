@@ -43,9 +43,14 @@ class AccountApplicationDataPersistenceAdapter(
     }
 
     @Transactional(readOnly = true)
-    override fun findByUserId(userId: Long): ApplicationSnapshot? =
-        projectionRepository.findById(userId).orElse(null)?.toSnapshot()
-            ?: remoteApplicationDataAdapter.findByUserId(userId)
+    override fun findByUserId(userId: Long): ApplicationSnapshot? {
+        val projection = projectionRepository.findById(userId).orElse(null)?.toSnapshot()
+        return if (projection?.applicantStatus == ApplicantStatus.NONE) {
+            remoteApplicationDataAdapter.findByUserId(userId) ?: projection
+        } else {
+            projection ?: remoteApplicationDataAdapter.findByUserId(userId)
+        }
+    }
 
     @Transactional
     override fun cancel(
