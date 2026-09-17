@@ -7,7 +7,7 @@ import java.time.LocalDate
 data class UpdatePersonalCommand(
     val applicantId: Long,
     val userId: Long? = null,
-    val photoFileId: Long,
+    val photoFileId: String,
     val name: String,
     val phoneNumber: String,
     val gender: Gender,

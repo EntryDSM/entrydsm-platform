@@ -21,7 +21,6 @@ enum class ErrorCode(
     SCORE_POLICY_NOT_FOUND(404, "등록된 성적 정책이 없습니다."),
     ADMISSION_QUOTA_NOT_FOUND(404, "등록된 모집 정원이 없습니다."),
     EXPORT_JOB_NOT_FOUND(404, "Export 작업을 찾을 수 없습니다."),
-    APPLICATION_DOCUMENT_NOT_FOUND(404, "제출된 원서 원본이 없습니다."),
     QUESTION_NOT_FOUND(404, "질문을 찾을 수 없습니다."),
     NOTICE_NOT_FOUND(404, "공지를 찾을 수 없습니다."),
     METHOD_NOT_ALLOWED(405, "지원하지 않는 HTTP 메서드입니다."),

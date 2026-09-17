@@ -2,13 +2,11 @@ package hs.kr.entrydsm.admin.adapterin.web.dto.common
 
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ApplicantDetailResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ApplicantSummaryResponse
-import hs.kr.entrydsm.admin.adapterin.web.dto.response.DownloadResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExamineeNumberIssueResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.PageResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreResponse
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantScore
-import hs.kr.entrydsm.admin.domain.model.DownloadLink
 import hs.kr.entrydsm.admin.domain.model.ExamineeNumberIssueResult
 import hs.kr.entrydsm.admin.domain.model.Page
 
@@ -63,8 +61,3 @@ fun ExamineeNumberIssueResult.toResponse(): ExamineeNumberIssueResponse =
         skippedCount = skippedCount,
         totalTargets = totalTargets,
     )
-
-fun DownloadLink.toResponse(): DownloadResponse = DownloadResponse(
-    downloadUrl = downloadUrl,
-    expiresAt = expiresAt,
-)

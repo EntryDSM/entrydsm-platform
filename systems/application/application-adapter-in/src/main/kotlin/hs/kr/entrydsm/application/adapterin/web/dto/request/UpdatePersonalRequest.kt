@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 
 data class UpdatePersonalRequest(
-    val photoFileId: Long,
+    val photoFileId: String,
     @field:NotBlank
     @field:Size(max = 20)
     val name: String,

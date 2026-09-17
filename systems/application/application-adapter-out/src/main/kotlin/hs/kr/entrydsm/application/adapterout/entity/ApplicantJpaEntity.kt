@@ -4,7 +4,6 @@ import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
-import hs.kr.entrydsm.application.domain.enum.GuardianRelation
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.ResultType
@@ -39,8 +38,8 @@ open class ApplicantJpaEntity(
     @Column(name = "account_id", nullable = false, unique = true)
     var accountId: Long = 0,
 
-    @Column(name = "photo_file_id")
-    var photoFileId: Long? = null,
+    @Column(name = "photo_file_id", length = 64)
+    var photoFileId: String? = null,
 
     @Column(name = "name", length = 20)
     var name: String? = null,
@@ -86,7 +85,7 @@ open class ApplicantJpaEntity(
 
     @Enumerated(EnumType.STRING)
     @Column(name = "guardian_relation", length = 10)
-    var guardianRelation: GuardianRelation? = null,
+    var guardianRelation: String? = null,
 
     @Column(name = "address_base", length = 255)
     var addressBase: String? = null,

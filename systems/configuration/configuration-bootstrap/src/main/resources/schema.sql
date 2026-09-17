@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS environment_variable (
 
 CREATE TABLE IF NOT EXISTS files (
     id            BIGINT       NOT NULL AUTO_INCREMENT,
+    public_id     VARCHAR(64)  NOT NULL,
     original_name VARCHAR(255) NOT NULL,
     object_key    VARCHAR(255) NOT NULL,
     bucket        VARCHAR(100) NOT NULL,
@@ -21,7 +22,8 @@ CREATE TABLE IF NOT EXISTS files (
     owner_user_id BIGINT       NULL,
     created_at    DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
-    UNIQUE KEY uk_files_object_key (object_key)
+    UNIQUE KEY uk_files_object_key (object_key),
+    UNIQUE KEY uk_files_public_id (public_id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 CREATE TABLE IF NOT EXISTS schedule (

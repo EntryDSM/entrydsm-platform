@@ -1,17 +1,15 @@
 package hs.kr.entrydsm.configuration.adapterin.common
 
-import hs.kr.entrydsm.configuration.adapterin.document.InvalidDownloadFormatException
-import hs.kr.entrydsm.configuration.adapterin.document.InvalidFileReferenceIdException
 import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleAccessDeniedException
 import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleUnauthorizedException
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantLookupFailedException
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameException
-import hs.kr.entrydsm.configuration.domain.document.exception.PresignFailedException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
-import hs.kr.entrydsm.configuration.domain.document.exception.StorageUploadFailedException
 import hs.kr.entrydsm.configuration.domain.schedule.ScheduleNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
@@ -24,6 +22,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
+import org.springframework.web.multipart.MultipartException
+import org.springframework.web.multipart.support.MissingServletRequestPartException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 @RestControllerAdvice
@@ -33,7 +33,7 @@ class DocumentExceptionHandler {
 
     @ExceptionHandler(InvalidFileFormatException::class)
     fun handleInvalidFileFormat(e: InvalidFileFormatException) =
-        respond(ErrorCode.INVALID_FILE_FORMAT, e)
+        respond(ErrorCode.FILE_INVALID_FORMAT, e)
 
     @ExceptionHandler(FileTooLargeException::class, MaxUploadSizeExceededException::class)
     fun handleFileTooLarge(e: Exception) =
@@ -42,6 +42,14 @@ class DocumentExceptionHandler {
     @ExceptionHandler(FileDocumentNotFoundException::class)
     fun handleFileNotFound(e: FileDocumentNotFoundException) =
         respond(ErrorCode.FILE_NOT_FOUND, e)
+
+    @ExceptionHandler(ApplicantNotFoundException::class)
+    fun handleApplicantNotFound(e: ApplicantNotFoundException) =
+        respond(ErrorCode.APPLICANT_NOT_FOUND, e)
+
+    @ExceptionHandler(ApplicantLookupFailedException::class)
+    fun handleApplicantLookupFailed(e: ApplicantLookupFailedException) =
+        respond(ErrorCode.APPLICATION_SERVICE_UNAVAILABLE, e)
 
     @ExceptionHandler(ScheduleNotFoundException::class)
     fun handleScheduleNotFound(e: ScheduleNotFoundException) =
@@ -57,13 +65,14 @@ class DocumentExceptionHandler {
 
     @ExceptionHandler(DocumentAccessDeniedException::class)
     fun handleDocumentAccessDenied(e: DocumentAccessDeniedException) =
-        respond(ErrorCode.ACCESS_DENIED, e)
+        respond(ErrorCode.FILE_ACCESS_DENIED, e)
 
+    /** 멀티파트가 아닌 요청이나 파일 파트 누락도 여기서 400 이다. 용량 초과는 더 구체적인 처리기가 413 으로 받는다. */
     @ExceptionHandler(
         InvalidFileNameException::class,
-        InvalidFileReferenceIdException::class,
-        InvalidDownloadFormatException::class,
         MissingServletRequestParameterException::class,
+        MissingServletRequestPartException::class,
+        MultipartException::class,
         MethodArgumentNotValidException::class,
         MethodArgumentTypeMismatchException::class,
         HttpMessageNotReadableException::class,
@@ -72,19 +81,12 @@ class DocumentExceptionHandler {
     fun handleInvalidRequestParam(e: Exception) =
         respond(ErrorCode.INVALID_REQUEST_PARAM, e)
 
-    @ExceptionHandler(StorageUploadFailedException::class)
-    fun handleStorageUploadFailed(e: StorageUploadFailedException) =
-        respond(ErrorCode.STORAGE_UPLOAD_FAILED, e)
-
-    @ExceptionHandler(PresignFailedException::class)
-    fun handlePresignFailed(e: PresignFailedException) =
-        respond(ErrorCode.PRESIGN_FAILED, e)
-
     @ExceptionHandler(StorageUnavailableException::class)
     fun handleStorageUnavailable(e: StorageUnavailableException) =
-        respond(ErrorCode.STORAGE_UNAVAILABLE, e)
+        respond(ErrorCode.FILE_STORAGE_UNAVAILABLE, e)
 
     // 없는 경로·메서드 요청이 아래 Exception 처리로 빠지면 500과 ERROR 로그가 남고, gateway 서킷 브레이커가 실패로 센다.
+    // 없앤 API 를 계속 부르는 클라이언트(옛 `POST /photo` 는 404, `POST /admission-tickets/{id}` 는 405)도 여기서 걸린다.
     @ExceptionHandler(NoResourceFoundException::class)
     fun handleApiNotFound(e: NoResourceFoundException) =
         respond(ErrorCode.API_NOT_FOUND, e)
