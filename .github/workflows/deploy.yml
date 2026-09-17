@@ -91,20 +91,35 @@ jobs:
             echo "DEPLOY_SSH_KEY 또는 DEPLOY_KNOWN_HOSTS 시크릿이 설정되지 않았습니다."
             exit 1
           fi
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
           printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: 이미지 pull 및 재시작
+      - name: GHCR 로그인 및 이미지 pull / 재시작
         env:
           HOST: ${{ matrix.host }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         run: |
-          ssh -i ~/.ssh/id_deploy "$DEPLOY_USER@$HOST" \
-            "cd '$DEPLOY_PATH' && docker compose pull && docker compose up -d && docker image prune -f"
+          if [ -z "$GHCR_USERNAME" ] || [ -z "$GHCR_TOKEN" ]; then
+            echo "GHCR_USERNAME 또는 GHCR_TOKEN이 설정되지 않았습니다."
+            exit 1
+          fi
+          
+          printf '%s' "$GHCR_TOKEN" | \
+            ssh -i ~/.ssh/id_deploy "$DEPLOY_USER@$HOST" \
+            "docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin \
+            && cd '$DEPLOY_PATH' \
+            && docker compose pull \
+            && docker compose up -d \
+            && docker image prune -f"
 
       # 컨테이너가 뜨는 데 시간이 걸리므로 최대 150초까지 재시도합니다.
       - name: 헬스체크
