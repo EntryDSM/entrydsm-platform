@@ -2,7 +2,6 @@ package hs.kr.entrydsm.application.domain
 
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.GraduationType
-import hs.kr.entrydsm.application.domain.enum.GuardianRelation
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.ResultType
@@ -23,14 +22,6 @@ class ApplicationEnumTest {
         assertEquals(
             listOf("PROSPECTIVE", "GRADUATED", "GED"),
             GraduationType.entries.map { it.name },
-        )
-    }
-
-    @Test
-    fun guardianRelationContainsExpectedValues() {
-        assertEquals(
-            listOf("FATHER", "MOTHER", "OTHER"),
-            GuardianRelation.entries.map { it.name },
         )
     }
 

@@ -20,7 +20,6 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleScho
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
-import hs.kr.entrydsm.application.domain.enum.GuardianRelation
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import jakarta.validation.Valid
 import java.time.LocalDate
@@ -118,7 +117,7 @@ class ApplicationController(
                 guardianName = request.guardianName,
                 guardianPhoneNumber = request.guardianPhoneNumber,
                 guardianGender = request.guardianGender,
-                guardianRelation = request.guardianRelation.toGuardianRelation(),
+                guardianRelation = request.guardianRelation,
                 zipCode = request.address.zipCode,
                 addressBase = request.address.addressBase,
                 addressDetail = request.address.addressDetail,
@@ -195,15 +194,6 @@ class ApplicationController(
             YearMonth.parse(value).atDay(1)
         } else {
             LocalDate.parse(value)
-        }
-    }
-
-    private fun String.toGuardianRelation(): GuardianRelation {
-        return when (uppercase()) {
-            "FATHER", "FATHER_RELATION" -> GuardianRelation.FATHER
-            "MOTHER", "MOTHER_RELATION" -> GuardianRelation.MOTHER
-            "OTHER" -> GuardianRelation.OTHER
-            else -> throw IllegalArgumentException("guardianRelation must be FATHER, MOTHER, or OTHER")
         }
     }
 

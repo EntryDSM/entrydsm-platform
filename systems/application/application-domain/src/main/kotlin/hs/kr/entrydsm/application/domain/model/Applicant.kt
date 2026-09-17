@@ -4,7 +4,6 @@ import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
-import hs.kr.entrydsm.application.domain.enum.GuardianRelation
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
@@ -30,7 +29,7 @@ data class Applicant(
     var guardianName: String? = null,
     var guardianPhoneNumber: String? = null,
     var guardianGender: Gender? = null,
-    var guardianRelation: GuardianRelation? = null,
+    var guardianRelation: String? = null,
     var addressBase: String? = null,
     var addressDetail: String? = null,
     var zipCode: String? = null,
