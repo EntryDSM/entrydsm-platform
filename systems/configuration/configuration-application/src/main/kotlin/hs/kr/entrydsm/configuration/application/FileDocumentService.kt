@@ -183,9 +183,16 @@ class FileDocumentService(
      * 원서에 적힌 사진 ID 는 학생이 보낸 값이라, 그 학생이 올린 사진일 때만 수험표에 넣는다.
      *
      * ponytail: webp 사진은 openhtmltopdf(ImageIO)가 읽지 못해 빈 칸으로 찍힌다. 필요해지면 webp 디코더를 붙인다.
+     *
+     * ponytail: application V005 전에 숫자(`files.id`)로 저장된 사진 ID 도 찾는다. 본인 확인은 같아서 순번을 훑어도 남의 사진은
+     * 못 넣는다. 운영 `applicants.photo_file_id` 가 모두 `photo_` 로 시작하게 되면 숫자 분기와 `findById` 를 지운다.
      */
     private fun photoDataUri(photoFileId: String, ownerUserId: Long): String? {
-        val photo = fileDocumentRepository.findByPublicId(photoFileId)
+        val found = when (val legacyId = photoFileId.toLongOrNull()) {
+            null -> fileDocumentRepository.findByPublicId(photoFileId)
+            else -> fileDocumentRepository.findById(legacyId)
+        }
+        val photo = found
             ?.takeIf { FileCategory.PHOTO.holds(it.objectKey) && it.ownerUserId == ownerUserId }
             ?: return null
         return "data:${photo.contentType};base64," + Base64.getEncoder().encodeToString(storagePort.download(photo.objectKey))

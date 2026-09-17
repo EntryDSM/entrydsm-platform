@@ -205,6 +205,20 @@ class FileDocumentServiceTest {
     }
 
     @Test
+    fun `V005 전에 숫자로 저장된 사진 ID도 그 학생이 올린 사진이면 수험표에 넣는다`() {
+        val own = service.upload(photo(student(STUDENT_ID)), content())
+        val others = service.upload(photo(student(11)), content())
+
+        applicants[APPLICANT_ID] = applicant(photoFileId = own.document.id.toString())
+        service.generateAdmissionTicket(APPLICANT_ID, admin)
+        assertTrue("data:image/png;base64," in pdf.lastHtml)
+
+        applicants[APPLICANT_ID] = applicant(photoFileId = others.document.id.toString())
+        service.generateAdmissionTicket(APPLICANT_ID, admin)
+        assertFalse("data:" in pdf.lastHtml)
+    }
+
+    @Test
     fun `증명사진은 학생이 올리고 공개 ID로 본인과 관리자가 받는다`() {
         val photo = service.upload(photo(student(STUDENT_ID)), content())
         val photoId = photo.document.publicId
@@ -359,6 +373,8 @@ class FileDocumentServiceTest {
         override fun findByObjectKey(objectKey: String): FileDocument? = saved.firstOrNull { it.objectKey == objectKey }
 
         override fun findByPublicId(publicId: String): FileDocument? = saved.firstOrNull { it.publicId == publicId }
+
+        override fun findById(id: Long): FileDocument? = saved.firstOrNull { it.id == id }
 
         override fun findPage(category: FileCategory, page: Int, size: Int): List<FileDocument> =
             saved.filter { category.holds(it.objectKey) }

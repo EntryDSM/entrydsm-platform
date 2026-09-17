@@ -33,6 +33,9 @@ class FileDocumentPersistenceAdapter(
     override fun findByPublicId(publicId: String): FileDocument? =
         fileDocumentJpaRepository.findByPublicId(publicId)?.toDomain()
 
+    override fun findById(id: Long): FileDocument? =
+        fileDocumentJpaRepository.findById(id).orElse(null)?.toDomain()
+
     override fun findPage(category: FileCategory, page: Int, size: Int): List<FileDocument> =
         fileDocumentJpaRepository.findByObjectKeyStartingWith(
             category.keyPrefix,
