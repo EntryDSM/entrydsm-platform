@@ -30,7 +30,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
+import org.springframework.web.HttpRequestMethodNotSupportedException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 class NotificationAdapterInModuleTest {
     @Test
@@ -261,6 +264,28 @@ class NotificationAdapterInModuleTest {
         assertEquals(400, response.body?.status)
         assertEquals("INVALID_REQUEST", response.body?.code)
         assertEquals("invalid request", response.body?.message)
+    }
+
+    @Test
+    fun apiNotFoundReturnsStableErrorResponse() {
+        val response = GlobalExceptionHandler().handleApiNotFound(
+            NoResourceFoundException(HttpMethod.GET, "/api/notification/v1/notices", "api/notification/v1/notices"),
+        )
+
+        assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
+        assertEquals(404, response.body?.status)
+        assertEquals("API_NOT_FOUND", response.body?.code)
+    }
+
+    @Test
+    fun methodNotAllowedReturnsStableErrorResponseWithAllowHeader() {
+        val response = GlobalExceptionHandler()
+            .handleMethodNotAllowed(HttpRequestMethodNotSupportedException("DELETE", listOf("GET")))
+
+        assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.statusCode)
+        assertEquals(405, response.body?.status)
+        assertEquals("METHOD_NOT_ALLOWED", response.body?.code)
+        assertEquals(setOf(HttpMethod.GET), response.headers.allow)
     }
 
     @Test
