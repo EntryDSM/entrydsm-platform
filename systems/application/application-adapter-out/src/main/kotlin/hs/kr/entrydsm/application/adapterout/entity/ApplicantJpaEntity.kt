@@ -83,7 +83,6 @@ open class ApplicantJpaEntity(
     @Column(name = "guardian_gender", length = 10)
     var guardianGender: Gender? = null,
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "guardian_relation", length = 10)
     var guardianRelation: String? = null,
 
