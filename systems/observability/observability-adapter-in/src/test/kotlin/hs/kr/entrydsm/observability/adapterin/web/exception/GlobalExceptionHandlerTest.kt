@@ -7,18 +7,17 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.slf4j.MDC
 import org.springframework.http.HttpMethod
-import org.springframework.validation.BindException
-import org.springframework.web.HttpRequestMethodNotSupportedException
-import org.springframework.web.servlet.resource.NoResourceFoundException
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.validation.BindException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 class GlobalExceptionHandlerTest {
     private val handler = GlobalExceptionHandler()
@@ -70,6 +69,9 @@ class GlobalExceptionHandlerTest {
         assertEquals(405, response.statusCode.value())
         assertEquals("METHOD_NOT_ALLOWED", response.body?.error?.code)
         assertEquals(setOf(HttpMethod.GET), response.headers.allow)
+    }
+
+    @Test
     fun answersEventStreamRequestWithErrorStatusInsteadOf500() {
         val mvc = MockMvcBuilders.standaloneSetup(RejectingStreamController())
             .setControllerAdvice(handler)
