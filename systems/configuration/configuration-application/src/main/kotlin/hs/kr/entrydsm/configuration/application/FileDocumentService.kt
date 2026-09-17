@@ -43,9 +43,7 @@ class FileDocumentService(
         val extension = validate(command)
         val applicant = requireApplicant(applicantId, command.requester, category::canStore)
         val fileName = FileNaming.applicationFileName(applicantId, extension)
-        return downloadable(
-            store(category, fileName, command.originalName, extension, command.sizeBytes, content, applicant.userId)
-        )
+        return store(category, fileName, command.originalName, extension, command.sizeBytes, content, applicant.userId)
     }
 
     override fun findApplication(applicantId: Long, requester: Requester): DownloadableFile? {
@@ -67,9 +65,7 @@ class FileDocumentService(
             )
         )
         val fileName = FileNaming.admissionTicketFileName(applicantId)
-        return downloadable(
-            store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), applicant.userId)
-        )
+        return store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), applicant.userId)
     }
 
     override fun upload(command: UploadFileCommand, content: InputStream): DownloadableFile {
@@ -82,9 +78,7 @@ class FileDocumentService(
             FileCategory.APPLICATION, FileCategory.ADMISSION_TICKET ->
                 throw IllegalArgumentException("$category is stored per applicant")
         }
-        return downloadable(
-            store(category, fileName, command.originalName, extension, command.sizeBytes, content, command.requester.studentId)
-        )
+        return store(category, fileName, command.originalName, extension, command.sizeBytes, content, command.requester.studentId)
     }
 
     override fun find(category: FileCategory, publicId: String, requester: Requester): DownloadableFile {
@@ -137,6 +131,10 @@ class FileDocumentService(
         return extension
     }
 
+    /**
+     * 서명 URL 을 올리기 전에 만든다. 서명은 객체가 없어도 되므로, 서명이 실패하면 아무것도 저장되지 않은 채로 끝난다.
+     * 저장한 뒤에 서명하면 실패 응답을 받은 클라이언트가 다시 올려 같은 파일이 쌓인다.
+     */
     private fun store(
         category: FileCategory,
         fileName: String,
@@ -145,8 +143,9 @@ class FileDocumentService(
         sizeBytes: Long,
         content: InputStream,
         ownerUserId: Long?,
-    ): FileDocument {
+    ): DownloadableFile {
         val objectKey = category.objectKeyOf(fileName)
+        val downloadUrl = storagePort.issueDownloadUrl(objectKey, presignExpirySeconds)
         val stored = storagePort.upload(objectKey, extension.contentType, sizeBytes, content)
         val document = FileDocument(
             publicId = FileNaming.publicId(category),
@@ -159,7 +158,7 @@ class FileDocumentService(
             ownerUserId = ownerUserId,
         )
 
-        return try {
+        val saved = try {
             fileDocumentRepository.save(document)
         } catch (e: RuntimeException) {
             if (!category.keyedByApplicant) {
@@ -171,6 +170,7 @@ class FileDocumentService(
             // 가리키므로 지우지 않고, 다시 저장해 그 행을 갱신한다. 다시 실패하면 남은 객체는 다음 적재가 덮어쓴다.
             fileDocumentRepository.save(document)
         }
+        return DownloadableFile(saved, downloadUrl, presignExpirySeconds)
     }
 
     private fun downloadable(document: FileDocument) = DownloadableFile(

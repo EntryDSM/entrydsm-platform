@@ -13,6 +13,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFou
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameException
+import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
 import hs.kr.entrydsm.configuration.domain.document.port.out.PdfRenderPort
@@ -93,6 +94,17 @@ class FileDocumentServiceTest {
         val error = runCatching { service.upload(attachment(), content()) }.exceptionOrNull()
 
         assertEquals("save failed", error?.message)
+    }
+
+    @Test
+    fun `서명 URL 발급이 실패하면 아무것도 올리거나 저장하지 않는다`() {
+        storage.failOnPresign = true
+
+        assertThrows(StorageUnavailableException::class.java) { service.upload(attachment(), content()) }
+        assertThrows(StorageUnavailableException::class.java) { service.generateAdmissionTicket(APPLICANT_ID, admin) }
+
+        assertTrue(storage.uploaded.isEmpty())
+        assertEquals(0L, repository.count(FileCategory.ATTACHMENT) + repository.count(FileCategory.ADMISSION_TICKET))
     }
 
     @Test
@@ -289,6 +301,7 @@ class FileDocumentServiceTest {
         val uploaded = mutableListOf<String>()
         val deleted = mutableListOf<String>()
         var failOnDelete = false
+        var failOnPresign = false
 
         override fun upload(
             objectKey: String,
@@ -300,8 +313,10 @@ class FileDocumentServiceTest {
             return StoredObject(bucket = "entrydsm", objectKey = objectKey, checksum = "abc")
         }
 
-        override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long): String =
-            "https://s3/$objectKey?expires=$expiresInSeconds"
+        override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long): String {
+            if (failOnPresign) throw StorageUnavailableException("presign", objectKey)
+            return "https://s3/$objectKey?expires=$expiresInSeconds"
+        }
 
         override fun download(objectKey: String): ByteArray = objectKey.toByteArray()
 
