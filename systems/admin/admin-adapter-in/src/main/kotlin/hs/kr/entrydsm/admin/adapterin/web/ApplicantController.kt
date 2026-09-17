@@ -8,7 +8,6 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.request.UpdateApplicantStatusReque
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.UpdateArrivalRequest
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ApplicantDetailResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ApplicantSummaryResponse
-import hs.kr.entrydsm.admin.adapterin.web.dto.response.DownloadResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExamineeNumberIssueResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.PageResponse
 import hs.kr.entrydsm.admin.domain.command.UpdateApplicantStatusCommand
@@ -19,8 +18,6 @@ import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.PageRequest
-import hs.kr.entrydsm.admin.domain.port.`in`.IssueAdmissionTicketUseCase
-import hs.kr.entrydsm.admin.domain.port.`in`.IssueApplicationDocumentUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.IssueExamineeNumberUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.UpdateApplicantUseCase
@@ -39,8 +36,6 @@ class ApplicantController(
     private val readApplicantUseCase: ReadApplicantUseCase,
     private val updateApplicantUseCase: UpdateApplicantUseCase,
     private val issueExamineeNumberUseCase: IssueExamineeNumberUseCase,
-    private val issueAdmissionTicketUseCase: IssueAdmissionTicketUseCase,
-    private val issueApplicationDocumentUseCase: IssueApplicationDocumentUseCase,
 ) {
 
     @GetMapping(AdminEndpointPaths.APPLICANTS)
@@ -109,26 +104,4 @@ class ApplicantController(
     @PostMapping(AdminEndpointPaths.EXAMINEE_NUMBER_ISSUE)
     fun issueExamineeNumbers(): ResponseEntity<ApiResponse<ExamineeNumberIssueResponse>> =
         ResponseEntity.ok(ApiResponse(data = issueExamineeNumberUseCase.issueAll().toResponse()))
-
-    @GetMapping(AdminEndpointPaths.APPLICANT_ADMISSION_TICKET)
-    fun issueAdmissionTicket(
-        @PathVariable applicantId: Long,
-    ): ResponseEntity<ApiResponse<DownloadResponse>> =
-        ResponseEntity.ok(
-            ApiResponse(
-                data = issueAdmissionTicketUseCase.issueAdmissionTicket(applicantId).toResponse(),
-            ),
-        )
-
-    @GetMapping(AdminEndpointPaths.APPLICANT_APPLICATION_DOCUMENT)
-    fun issueApplicationDocument(
-        @PathVariable applicantId: Long,
-    ): ResponseEntity<ApiResponse<DownloadResponse>> =
-        ResponseEntity.ok(
-            ApiResponse(
-                data = issueApplicationDocumentUseCase
-                    .issueApplicationDocument(applicantId)
-                    .toResponse(),
-            ),
-        )
 }

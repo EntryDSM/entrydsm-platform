@@ -15,6 +15,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleScho
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
@@ -118,6 +119,19 @@ class ApplicationCommandService(
     override fun findByUserId(userId: Long): ApplicationSnapshotResult? =
         applicantRepository.findByAccountId(userId)?.toSnapshot()
 
+    override fun findApplicant(applicantId: Long): ApplicantResult? =
+        applicantRepository.findById(applicantId)?.let {
+            ApplicantResult(
+                applicantId = it.id,
+                userId = it.accountId,
+                name = it.name,
+                schoolName = it.middleSchoolInfo?.schoolName,
+                region = it.region,
+                admissionType = it.admissionType,
+                photoFileId = it.photoFileId,
+            )
+        }
+
     override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult {
         val applicant = getApplicantByUserId(userId)
         if (applicant.status != ApplicantStatus.SUBMITTED) {
@@ -184,13 +198,14 @@ class ApplicationCommandService(
     fun updatePersonal(
         applicantId: Long,
         userId: Long? = null,
-        photoFileId: Long,
+        photoFileId: String,
         name: String,
         phoneNumber: String,
         gender: Gender,
         birthdate: LocalDate,
         specialAdmissionType: SpecialAdmissionType,
     ) {
+        require(photoFileId.isNotBlank() && photoFileId.length <= MAX_PHOTO_FILE_ID_LENGTH) { "photoFileId is invalid" }
         require(name.isNotBlank()) { "name is required" }
         require(phoneNumber.matches(PHONE_NUMBER_REGEX)) { "phoneNumber format is invalid" }
 
@@ -339,5 +354,7 @@ class ApplicationCommandService(
         private const val NEW_APPLICANT_ID = 0L
         private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
         private const val MAX_ESSAY_LENGTH = 1600
+        // applicants.photo_file_id 컬럼 길이. document 증명사진 ID 는 photo_ 와 32자 임의값이다.
+        private const val MAX_PHOTO_FILE_ID_LENGTH = 64
     }
 }

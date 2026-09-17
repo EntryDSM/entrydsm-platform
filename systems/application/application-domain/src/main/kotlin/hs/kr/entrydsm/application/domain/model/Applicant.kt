@@ -17,7 +17,7 @@ import java.time.YearMonth
 data class Applicant(
     val id: Long,
     val accountId: Long,
-    var photoFileId: Long? = null,
+    var photoFileId: String? = null,
     var name: String? = null,
     var phoneNumber: String? = null,
     var gender: Gender? = null,

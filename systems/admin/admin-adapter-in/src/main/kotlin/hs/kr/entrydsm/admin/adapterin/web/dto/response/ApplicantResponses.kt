@@ -67,8 +67,3 @@ data class ExamineeNumberIssueResponse(
     val skippedCount: Int,
     val totalTargets: Int,
 )
-
-data class DownloadResponse(
-    val downloadUrl: String,
-    val expiresAt: Instant,
-)

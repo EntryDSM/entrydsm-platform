@@ -1,7 +1,9 @@
 package hs.kr.entrydsm.configuration
 
 import hs.kr.entrydsm.configuration.application.FileDocumentService
+import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
+import hs.kr.entrydsm.configuration.domain.document.port.out.PdfRenderPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
@@ -14,6 +16,11 @@ class DocumentBeanConfig {
     fun fileDocumentService(
         storagePort: StoragePort,
         fileDocumentRepository: FileDocumentRepository,
+        applicantPort: ApplicantPort,
+        pdfRenderPort: PdfRenderPort,
         @Value("\${aws.s3.presign-expiry-seconds}") presignExpirySeconds: Long,
-    ) = FileDocumentService(storagePort, fileDocumentRepository, presignExpirySeconds)
+        @Value("\${document.admission-year}") admissionYear: Int,
+    ) = FileDocumentService(
+        storagePort, fileDocumentRepository, presignExpirySeconds, applicantPort, pdfRenderPort, admissionYear,
+    )
 }
