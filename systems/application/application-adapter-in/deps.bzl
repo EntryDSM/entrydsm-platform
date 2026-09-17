@@ -4,6 +4,7 @@ KOTLIN_DEPS = [
     "@maven//:io_grpc_grpc_stub",
     "@maven//:javax_annotation_javax_annotation_api",
     "@maven//:org_springframework_boot_spring_boot_starter_web",
+    "@maven//:org_springframework_boot_spring_boot_starter_validation",
     "//contracts:application_grpc_java",
     "//contracts:application_java_proto",
     "//systems/application/application-application:main",

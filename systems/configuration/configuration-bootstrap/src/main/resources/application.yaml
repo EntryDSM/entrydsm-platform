@@ -20,6 +20,12 @@ spring:
       max-file-size: 21MB
       max-request-size: 21MB
 
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+
 aws:
   s3:
     bucket: ${AWS_S3_BUCKET}

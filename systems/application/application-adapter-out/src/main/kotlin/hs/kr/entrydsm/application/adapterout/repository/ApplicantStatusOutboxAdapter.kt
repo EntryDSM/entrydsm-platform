@@ -7,11 +7,22 @@ import hs.kr.entrydsm.application.grpc.ApplicantStatus
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
 import hs.kr.entrydsm.application.grpc.PassStatus
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
 import java.time.ZoneOffset
 
 interface ApplicantStatusOutboxJpaRepository : JpaRepository<ApplicantStatusOutboxJpaEntity, String> {
-    fun findTop100ByPublishedAtIsNullOrderByCreatedAtAsc(): List<ApplicantStatusOutboxJpaEntity>
+    @Query(
+        value = """
+            SELECT * FROM applicant_status_outbox
+            WHERE published_at IS NULL
+            ORDER BY created_at
+            LIMIT 100
+            FOR UPDATE SKIP LOCKED
+        """,
+        nativeQuery = true,
+    )
+    fun findUnpublishedForUpdate(): List<ApplicantStatusOutboxJpaEntity>
 }
 
 @Repository

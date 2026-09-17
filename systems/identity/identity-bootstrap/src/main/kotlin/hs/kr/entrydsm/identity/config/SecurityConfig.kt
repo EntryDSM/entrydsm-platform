@@ -38,6 +38,9 @@ class SecurityConfig {
     private val publicRequestMatchers = arrayOf(
         "/actuator/health",
         "/actuator/info",
+        "/v3/api-docs/**",
+        "/swagger-ui/**",
+        "/swagger-ui.html",
         *AuthEndpointPaths.PUBLIC.toTypedArray(),
         AuthEndpointPaths.LOGOUT,
     )

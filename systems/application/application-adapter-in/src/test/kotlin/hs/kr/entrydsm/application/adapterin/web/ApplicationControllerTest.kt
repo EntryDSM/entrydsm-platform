@@ -44,7 +44,7 @@ class ApplicationControllerTest {
                 .setControllerAdvice(GlobalExceptionHandler())
                 .build()
 
-            val response = mvc.perform(post("/api/application/v11/applicants").header("X-User-Id", "10"))
+            val response = mvc.perform(post("/api/application/v11/applicants").header("user-id", "10"))
                 .andReturn().response
 
             assertEquals(409, response.status)
