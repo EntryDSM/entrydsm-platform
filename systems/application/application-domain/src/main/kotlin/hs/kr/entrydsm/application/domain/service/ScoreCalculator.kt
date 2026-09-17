@@ -45,9 +45,20 @@ class ScoreCalculator {
         val specialAdditionalScore =
             calculateSpecialAdditionalScore(record)
 
+        val regularSubjectScore = if (applicant.graduationType == GraduationType.GED) {
+            baseSubjectScore * GED_REGULAR_SUBJECT_SCORE_MULTIPLIER
+        } else {
+            baseSubjectScore * REGULAR_SUBJECT_SCORE_MULTIPLIER
+        }
+
+        val specialSubjectScore = if (applicant.graduationType == GraduationType.GED) {
+            baseSubjectScore * GED_SPECIAL_SUBJECT_SCORE_MULTIPLIER
+        } else {
+            baseSubjectScore
+        }
+
         val regularScore = calculateTotalScore(
-            subjectScore =
-                baseSubjectScore * REGULAR_SUBJECT_SCORE_MULTIPLIER,
+            subjectScore = regularSubjectScore,
             attendanceScore = attendanceScore,
             volunteerScore = volunteerScore,
             additionalScore = regularAdditionalScore,
@@ -55,7 +66,7 @@ class ScoreCalculator {
         )
 
         val specialScore = calculateTotalScore(
-            subjectScore = baseSubjectScore,
+            subjectScore = specialSubjectScore,
             attendanceScore = attendanceScore,
             volunteerScore = volunteerScore,
             additionalScore = specialAdditionalScore,
@@ -85,10 +96,6 @@ class ScoreCalculator {
         record: AcademicRecord,
         graduationType: GraduationType?,
     ): Double {
-        if (record.subjectGrades.isEmpty()) {
-            return EMPTY_SCORE
-        }
-
         return when (graduationType) {
             GraduationType.GRADUATED ->
                 calculateGraduatedBaseScore(record)
@@ -252,16 +259,7 @@ class ScoreCalculator {
                 SPECIAL_SUBJECT_MAX_SCORE
     }
 
-    /**
-     * 검정고시 환산.
-     *
-     * 주의:
-     * DSM 2027 공개 전형요강에서는 검정고시 지원자의
-     * 구체적인 환산식을 웹 페이지에 명시하지 않고
-     * 별도 환산/입학전형위원회 결정 대상으로 안내하고 있음.
-     *
-     * 아래 계산식은 기존 프로젝트 정책을 유지한 것.
-     */
+    /** 검정고시 6개 과목의 구간별 환산점수 평균(1~5)을 반환한다. */
     private fun calculateGedBaseScore(
         scores: GedScores,
     ): Double {
@@ -272,7 +270,6 @@ class ScoreCalculator {
             scores.scienceScore,
             scores.societyScore,
             scores.technologyScore,
-            scores.historyScore,
         )
 
         require(
@@ -283,13 +280,17 @@ class ScoreCalculator {
             "GED subject scores must be between 0 and 100"
         }
 
-        val average = subjectScores.average()
+        return subjectScores
+            .map(::gedScoreToPoint)
+            .average()
+    }
 
-        return roundToThirdDecimal(
-            average /
-                    PERFECT_GED_SCORE *
-                    SPECIAL_SUBJECT_MAX_SCORE,
-        )
+    private fun gedScoreToPoint(score: Int): Double = when {
+        score >= 98 -> 5.0
+        score >= 94 -> 4.0
+        score >= 90 -> 3.0
+        score >= 86 -> 2.0
+        else -> 1.0
     }
 
     /**
@@ -500,6 +501,12 @@ class ScoreCalculator {
 
         private const val REGULAR_SUBJECT_SCORE_MULTIPLIER =
             1.75
+
+        private const val GED_REGULAR_SUBJECT_SCORE_MULTIPLIER =
+            34.0
+
+        private const val GED_SPECIAL_SUBJECT_SCORE_MULTIPLIER =
+            22.0
 
         private const val PROSPECTIVE_CURRENT_SEMESTER_MAX_SCORE =
             40.0

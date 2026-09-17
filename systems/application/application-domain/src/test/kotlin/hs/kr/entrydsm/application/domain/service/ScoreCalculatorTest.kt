@@ -65,9 +65,35 @@ class ScoreCalculatorTest {
 
         val result = calculator.calculate(applicant)
 
-        assertEquals(140.0, result.getValue(AdmissionType.REGULAR), 0.0)
-        assertEquals(80.0, result.getValue(AdmissionType.SOCIAL), 0.0)
-        assertEquals(80.0, result.getValue(AdmissionType.MEISTER), 0.0)
+        assertEquals(170.0, result.getValue(AdmissionType.REGULAR), 0.0)
+        assertEquals(110.0, result.getValue(AdmissionType.SOCIAL), 0.0)
+        assertEquals(110.0, result.getValue(AdmissionType.MEISTER), 0.0)
+    }
+
+    @Test
+    fun calculatesGedScoresBySixSubjectConversionBands() {
+        val result = calculator.calculate(
+            Applicant(
+                id = 1L,
+                accountId = 1L,
+                graduationType = GraduationType.GED,
+                academicRecord = AcademicRecord(
+                    gedScores = GedScores(
+                        koreanScore = 96,
+                        mathScore = 92,
+                        englishScore = 95,
+                        scienceScore = 86,
+                        societyScore = 100,
+                        technologyScore = 96,
+                        historyScore = 0,
+                    ),
+                ),
+            ),
+        )
+
+        // (4 + 3 + 4 + 2 + 5 + 4) / 6 × 34 or 22.
+        assertEquals(124.667, result.getValue(AdmissionType.REGULAR), 0.0)
+        assertEquals(80.667, result.getValue(AdmissionType.SOCIAL), 0.0)
     }
 
     @Test
@@ -87,6 +113,18 @@ class ScoreCalculatorTest {
 
         assertEquals(155.0, result.getValue(AdmissionType.REGULAR), 0.0)
         assertEquals(95.0, result.getValue(AdmissionType.SOCIAL), 0.0)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsProspectiveApplicantWithoutSubjectGrades() {
+        calculator.calculate(
+            Applicant(
+                id = 1L,
+                accountId = 1L,
+                graduationType = GraduationType.PROSPECTIVE,
+                academicRecord = AcademicRecord(),
+            ),
+        )
     }
 
     @Test
