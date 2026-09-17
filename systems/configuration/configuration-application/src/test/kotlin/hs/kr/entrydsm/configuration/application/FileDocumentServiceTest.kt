@@ -205,7 +205,7 @@ class FileDocumentServiceTest {
     }
 
     @Test
-    fun `V005 전에 숫자로 저장된 사진 ID도 그 학생이 올린 사진이면 수험표에 넣는다`() {
+    fun `V006 전에 숫자로 저장된 사진 ID도 그 학생이 올린 사진이면 수험표에 넣는다`() {
         val own = service.upload(photo(student(STUDENT_ID)), content())
         val others = service.upload(photo(student(11)), content())
 

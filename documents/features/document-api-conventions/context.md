@@ -100,8 +100,8 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 
 - 사진·첨부·요강 ID 는 `{종류}_{32자 임의값}` (`photo_3f2c...`, `attachment_...`, `guideline_...`). `files.public_id` 컬럼에 이 값을 통째로 저장한다(configuration V003). 기존 행은 마이그레이션이 `RANDOM_BYTES` 로 채운다(`UUID()` 는 시간 기반이라 이웃 값을 짐작할 수 있다)
 - ID 는 그대로 찾기만 하므로 형식이 틀린 ID 는 400 이 아니라 404 `FILE_NOT_FOUND` 다. 다른 종류의 ID(`GET /guidelines/attachment_...`)도 404
-- application 의 `photoFileId` 는 문자열이 된다 (REST 요청, `applicants.photo_file_id` VARCHAR(64), gRPC `photo_file_id`). develop 에 `V004__create_institution_codes`(#190)가 있어 application 마이그레이션은 V005 다
-- V005 는 타입만 바꿔 예전 숫자 사진 ID 가 `"123"` 으로 남는다. 수험표를 만들 때 숫자면 `files.id` 로도 찾는다(사진 종류·본인 확인은 같다). 운영 값이 모두 `photo_` 로 시작하면 이 분기를 지운다
+- application 의 `photoFileId` 는 문자열이 된다 (REST 요청, `applicants.photo_file_id` VARCHAR(64), gRPC `photo_file_id`). develop 에 `V004__create_institution_codes`(#190)와 `V005__expand_subject_grade_school_semester`(#202)가 있어 application 마이그레이션은 V006 이다(#207)
+- V006 은 타입만 바꿔 예전 숫자 사진 ID 가 `"123"` 으로 남는다. 수험표를 만들 때 숫자면 `files.id` 로도 찾는다(사진 종류·본인 확인은 같다). 운영 값이 모두 `photo_` 로 시작하면 이 분기를 지운다
 - 원서·수험표는 applicantId 로 찾으므로 파일 ID 가 없다
 
 ### 2.5 응답
@@ -168,7 +168,7 @@ SELECT COUNT(*) FROM applicants WHERE photo_file_id IS NOT NULL;
 
 ### 3.2 데이터가 있을 때 옮기기
 
-configuration V003 과 application V005 가 적용된 뒤, 새 버전으로 트래픽을 받기 전에 한다.
+configuration V003 과 application V006 이 적용된 뒤, 새 버전으로 트래픽을 받기 전에 한다.
 
 - 수험표: 요청할 때마다 다시 만들므로 옮기지 않는다. 옛 `admission_ticket_{receiptCode}` 행과 객체는 지워도 된다
 - 원서: 행마다 `owner_user_id`(올린 학생 계정)로 `application_db.applicants.account_id` 를 찾아 applicantId 를 얻고, S3 객체를 `dsm_Entry/Backend/application/application_{applicantId}.{확장자}` 로 복사한 뒤 `files.object_key` 를 새 키로 바꾼다. `owner_user_id` 가 없는 행(관리자가 먼저 올림)은 지원자를 알 수 없어 따로 확인한다
@@ -198,7 +198,7 @@ DELETE FROM flyway_schema_history WHERE script = 'V003__add_file_public_id.sql';
 -- application_db: 새 형식 사진 ID(photo_...)는 되돌릴 수 없어 비운다. 학생이 사진을 다시 골라야 한다
 UPDATE applicants SET photo_file_id = NULL WHERE photo_file_id NOT REGEXP '^[0-9]+$';
 ALTER TABLE applicants MODIFY COLUMN photo_file_id BIGINT NULL;
-DELETE FROM flyway_schema_history WHERE script = 'V005__change_photo_file_id_to_string.sql';
+DELETE FROM flyway_schema_history WHERE script = 'V006__change_photo_file_id_to_string.sql';
 ```
 
 3.2 로 옮긴 데이터(원서 키, 공지 첨부 ID)는 롤백 SQL 로 되돌아가지 않는다. 옮기기 전 대응표를 남겨 둔다.
