@@ -147,26 +147,29 @@ class FileDocumentService(
         ownerUserId: Long?,
     ): FileDocument {
         val objectKey = category.objectKeyOf(fileName)
-        // 같은 키를 덮어쓴 경우 보상 삭제가 이전 파일까지 지우면 안 된다.
-        val replacedExistingObject = storagePort.exists(objectKey)
         val stored = storagePort.upload(objectKey, extension.contentType, sizeBytes, content)
+        val document = FileDocument(
+            publicId = FileNaming.publicId(category),
+            originalName = originalName,
+            objectKey = stored.objectKey,
+            bucket = stored.bucket,
+            contentType = extension.contentType,
+            sizeBytes = sizeBytes,
+            checksum = stored.checksum,
+            ownerUserId = ownerUserId,
+        )
 
         return try {
-            fileDocumentRepository.save(
-                FileDocument(
-                    publicId = FileNaming.publicId(category),
-                    originalName = originalName,
-                    objectKey = stored.objectKey,
-                    bucket = stored.bucket,
-                    contentType = extension.contentType,
-                    sizeBytes = sizeBytes,
-                    checksum = stored.checksum,
-                    ownerUserId = ownerUserId,
-                )
-            )
+            fileDocumentRepository.save(document)
         } catch (e: RuntimeException) {
-            if (!replacedExistingObject) deleteQuietly(objectKey)
-            throw e
+            if (!category.keyedByApplicant) {
+                // 요청마다 새 키라 이 요청만 쓴 객체다.
+                deleteQuietly(objectKey)
+                throw e
+            }
+            // 같은 지원자의 동시 요청이 같은 키에 올리고 행을 먼저 만들었을 수 있다. 객체를 지우면 그 행이 빈 객체를
+            // 가리키므로 지우지 않고, 다시 저장해 그 행을 갱신한다. 다시 실패하면 남은 객체는 다음 적재가 덮어쓴다.
+            fileDocumentRepository.save(document)
         }
     }
 
@@ -193,3 +196,7 @@ class FileDocumentService(
             .onFailure { log.warn("Failed to delete stored object: {}", objectKey, it) }
     }
 }
+
+/** 원서·수험표는 지원자마다 저장 키가 하나다. 나머지는 요청마다 새 키(임의값)다. */
+private val FileCategory.keyedByApplicant: Boolean
+    get() = this == FileCategory.APPLICATION || this == FileCategory.ADMISSION_TICKET

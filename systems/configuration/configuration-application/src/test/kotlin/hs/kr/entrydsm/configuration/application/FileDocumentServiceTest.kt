@@ -77,32 +77,44 @@ class FileDocumentServiceTest {
     }
 
     @Test
-    fun `메타데이터 저장이 실패하면 새로 올린 객체를 지운다`() {
-        repository.failOnSave = true
+    fun `요청마다 새 키를 쓰는 파일은 메타데이터 저장이 실패하면 올린 객체를 지운다`() {
+        repository.failingSaves = 1
 
-        runCatching { service.uploadApplication(APPLICANT_ID, application(admin), content()) }
+        assertThrows(IllegalStateException::class.java) { service.upload(attachment(), content()) }
 
-        assertEquals(listOf("dsm_Entry/Backend/application/application_12.pdf"), storage.deleted)
-    }
-
-    @Test
-    fun `덮어쓴 객체는 메타데이터 저장이 실패해도 지우지 않는다`() {
-        storage.existingKeys += "dsm_Entry/Backend/application/application_12.pdf"
-        repository.failOnSave = true
-
-        runCatching { service.uploadApplication(APPLICANT_ID, application(admin), content()) }
-
-        assertTrue(storage.deleted.isEmpty())
+        assertEquals(storage.uploaded, storage.deleted)
     }
 
     @Test
     fun `보상 삭제가 실패해도 원래 예외를 그대로 올린다`() {
-        repository.failOnSave = true
+        repository.failingSaves = 1
         storage.failOnDelete = true
 
-        val error = runCatching { service.uploadApplication(APPLICANT_ID, application(admin), content()) }.exceptionOrNull()
+        val error = runCatching { service.upload(attachment(), content()) }.exceptionOrNull()
 
         assertEquals("save failed", error?.message)
+    }
+
+    @Test
+    fun `원서는 동시 요청이 행을 먼저 만들어 저장이 실패하면 객체를 지우지 않고 다시 저장한다`() {
+        repository.failingSaves = 1
+
+        val uploaded = service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID)), content())
+
+        assertTrue(storage.deleted.isEmpty())
+        assertEquals(uploaded.document.objectKey, repository.findByObjectKey(uploaded.document.objectKey)?.objectKey)
+    }
+
+    @Test
+    fun `원서·수험표는 다시 저장해도 실패하면 예외를 올리되 같은 키의 객체는 지우지 않는다`() {
+        repository.failingSaves = Int.MAX_VALUE
+
+        assertThrows(IllegalStateException::class.java) {
+            service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID)), content())
+        }
+        assertThrows(IllegalStateException::class.java) { service.generateAdmissionTicket(APPLICANT_ID, admin) }
+
+        assertTrue(storage.deleted.isEmpty())
     }
 
     @Test
@@ -274,7 +286,6 @@ class FileDocumentServiceTest {
     }
 
     private class FakeStoragePort : StoragePort {
-        val existingKeys = mutableSetOf<String>()
         val uploaded = mutableListOf<String>()
         val deleted = mutableListOf<String>()
         var failOnDelete = false
@@ -286,7 +297,6 @@ class FileDocumentServiceTest {
             content: InputStream,
         ): StoredObject {
             uploaded += objectKey
-            existingKeys += objectKey
             return StoredObject(bucket = "entrydsm", objectKey = objectKey, checksum = "abc")
         }
 
@@ -294,8 +304,6 @@ class FileDocumentServiceTest {
             "https://s3/$objectKey?expires=$expiresInSeconds"
 
         override fun download(objectKey: String): ByteArray = objectKey.toByteArray()
-
-        override fun exists(objectKey: String): Boolean = objectKey in existingKeys
 
         override fun delete(objectKey: String) {
             if (failOnDelete) throw IllegalStateException("delete failed")
@@ -315,11 +323,15 @@ class FileDocumentServiceTest {
     /** 실제 어댑터처럼 같은 object key 는 새 행 대신 기존 행을 갱신하고 공개 ID 를 유지한다. */
     private class FakeFileDocumentRepository : FileDocumentRepository {
         private val saved = mutableListOf<FileDocument>()
-        var failOnSave = false
+        /** 이 횟수만큼 저장이 실패한다. */
+        var failingSaves = 0
         private var clock = 0L
 
         override fun save(fileDocument: FileDocument): FileDocument {
-            if (failOnSave) throw IllegalStateException("save failed")
+            if (failingSaves > 0) {
+                failingSaves--
+                throw IllegalStateException("save failed")
+            }
             val existing = findByObjectKey(fileDocument.objectKey)
             saved.removeIf { it.objectKey == fileDocument.objectKey }
             return fileDocument.copy(

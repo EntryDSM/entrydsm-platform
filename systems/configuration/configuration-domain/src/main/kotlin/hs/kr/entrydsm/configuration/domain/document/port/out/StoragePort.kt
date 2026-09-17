@@ -15,7 +15,5 @@ interface StoragePort {
 
     fun download(objectKey: String): ByteArray
 
-    fun exists(objectKey: String): Boolean
-
     fun delete(objectKey: String)
 }
