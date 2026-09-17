@@ -93,12 +93,15 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 - 원서 적재는 지원자 한 명의 파일을 통째로 바꾸므로 `PUT` 이다 (멀티파트). 멀티파트가 아니거나 `file` 이 없으면 400
 - 요강 목록은 `page` 1 이상, `size` 1~100 (기본 1, 10). 벗어나면 400
 - 삭제는 파일 행을 먼저 지우고 저장소 객체를 지운다. 객체 삭제가 실패해도 204 이고 로그만 남는다. 학생이 지울 수 있는 종류가 생겨도 자기가 올린 것만 지우게 권한표에 `canDelete` 를 둔다
+- 적재는 서명 URL 을 먼저 발급하고 올린다. 서명이 실패하면 아무것도 저장되지 않아, 실패 응답을 받은 클라이언트가 다시 올려도 파일이 쌓이지 않는다
+- 원서·수험표는 지원자마다 저장 키가 하나라 같은 지원자의 동시 요청이 객체를 같이 쓴다. 행 저장이 실패해도 객체를 지우지 않고 한 번 다시 저장한다(먼저 만들어진 행을 갱신). 요청마다 새 키를 쓰는 사진·첨부·요강만 실패 시 객체를 지운다
 
 ### 2.4 ID
 
 - 사진·첨부·요강 ID 는 `{종류}_{32자 임의값}` (`photo_3f2c...`, `attachment_...`, `guideline_...`). `files.public_id` 컬럼에 이 값을 통째로 저장한다(configuration V003). 기존 행은 마이그레이션이 `RANDOM_BYTES` 로 채운다(`UUID()` 는 시간 기반이라 이웃 값을 짐작할 수 있다)
 - ID 는 그대로 찾기만 하므로 형식이 틀린 ID 는 400 이 아니라 404 `FILE_NOT_FOUND` 다. 다른 종류의 ID(`GET /guidelines/attachment_...`)도 404
 - application 의 `photoFileId` 는 문자열이 된다 (REST 요청, `applicants.photo_file_id` VARCHAR(64), gRPC `photo_file_id`). develop 에 `V004__create_institution_codes`(#190)가 있어 application 마이그레이션은 V005 다
+- V005 는 타입만 바꿔 예전 숫자 사진 ID 가 `"123"` 으로 남는다. 수험표를 만들 때 숫자면 `files.id` 로도 찾는다(사진 종류·본인 확인은 같다). 운영 값이 모두 `photo_` 로 시작하면 이 분기를 지운다
 - 원서·수험표는 applicantId 로 찾으므로 파일 ID 가 없다
 
 ### 2.5 응답
@@ -140,11 +143,56 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 - 프론트: document 경로·응답·에러 코드가 전부 바뀐다. 사진 ID 를 원서 인적사항에 문자열로 보낸다
 - application 과 configuration 을 같이 배포한다 (gRPC 필드 번호를 새로 써서 섞여 떠도 잘못된 지원자를 돌려주지는 않고 404 가 난다)
 - 옛 경로(`/application`, `/photo` …)는 없는 경로라 지금은 catch-all 이 500 을 준다. 게이트웨이 서킷이 5xx 를 세므로 없는 경로를 404 로 바꾸는 PR #170 을 먼저 또는 같이 배포한다. #170 과 이 브랜치는 configuration 의 `DocumentExceptionHandler`·`ErrorCode`·`DocumentApiContractTest` 가 겹친다
-- 운영 데이터가 있으면 옮겨야 한다
-  - `receiptCode` 로 올린 원서·수험표 파일은 새 경로로 찾지 못한다
-  - 공지 `attachment_ids` 의 `attachment_5` 형식은 깨진다
-  - `applicants.photo_file_id` 의 숫자 값은 사진으로 이어지지 않는다
+- 운영 데이터 확인·이전과 롤백은 아래 3.1~3.3 을 따른다. 롤백은 운영 데이터가 없어도 스키마 때문에 SQL 이 필요하다
 - 관리자 화면이 document 를 부르려면 admin 지원자 응답의 `applicantId` 가 application 의 applicantId 여야 한다. admin 지원자 데이터 공백(#145 유실)과 함께 풀어야 한다
+
+### 3.1 배포 전 확인
+
+이전 버전 스키마에서 돌린다. 모두 0 이면 3.2 는 건너뛴다.
+
+```sql
+-- configuration_db: receiptCode 로 올린 원서·수험표. 새 코드는 applicantId 키로 찾아 이 파일들을 못 찾는다
+SELECT COUNT(*) FROM files
+WHERE object_key LIKE 'dsm\_Entry/Backend/application/%'
+   OR object_key LIKE 'dsm\_Entry/Backend/admission-ticket/%';
+
+-- notification_db: 첨부가 붙은 공지. attachment_{순번} 형식은 새 코드에서 404 다
+SELECT COUNT(*) FROM notices WHERE attachment_ids IS NOT NULL AND attachment_ids <> '';
+
+-- application_db: 숫자 사진 ID. 코드가 계속 찾으므로 옮기지 않아도 되고, 숫자 분기를 지울 시점만 판단한다
+SELECT COUNT(*) FROM applicants WHERE photo_file_id IS NOT NULL;
+```
+
+### 3.2 데이터가 있을 때 옮기기
+
+configuration V003 과 application V005 가 적용된 뒤, 새 버전으로 트래픽을 받기 전에 한다.
+
+- 수험표: 요청할 때마다 다시 만들므로 옮기지 않는다. 옛 `admission_ticket_{receiptCode}` 행과 객체는 지워도 된다
+- 원서: 행마다 `owner_user_id`(올린 학생 계정)로 `application_db.applicants.account_id` 를 찾아 applicantId 를 얻고, S3 객체를 `dsm_Entry/Backend/application/application_{applicantId}.{확장자}` 로 복사한 뒤 `files.object_key` 를 새 키로 바꾼다. `owner_user_id` 가 없는 행(관리자가 먼저 올림)은 지원자를 알 수 없어 따로 확인한다
+- 공지 첨부: `configuration_db.files` 에서 첨부 행의 `id`·`public_id` 대응을 뽑아, `notices.attachment_ids` 안의 `attachment_{id}` 를 그 `public_id` 로 바꾼다. 쉼표로 이은 문자열이라 SQL 보다 일회성 스크립트가 안전하다
+- 사진 ID: 옮기지 않는다 (2.4)
+
+### 3.3 롤백
+
+이전 버전은 두 마이그레이션이 적용된 스키마에서 동작하지 않는다.
+
+- configuration 이전 버전은 `public_id`(NOT NULL, 기본값 없음)를 넣지 않아 파일 적재 INSERT 가 실패한다
+- application 이전 버전은 엔티티가 `Long` 이라 `photo_file_id` VARCHAR 에서 `ddl-auto: validate` 로 기동하지 못한다
+
+새 버전을 내리고 SQL 을 돌린 뒤 이전 버전을 올린다. 프론트도 이전 경로로 함께 되돌린다. `flyway_schema_history` 행을 지우지 않으면 다시 배포할 때 마이그레이션이 적용되지 않는다.
+
+```sql
+-- configuration_db
+ALTER TABLE files DROP INDEX uk_files_public_id, DROP COLUMN public_id;
+DELETE FROM flyway_schema_history WHERE script = 'V003__add_file_public_id.sql';
+
+-- application_db: 새 형식 사진 ID(photo_...)는 되돌릴 수 없어 비운다. 학생이 사진을 다시 골라야 한다
+UPDATE applicants SET photo_file_id = NULL WHERE photo_file_id NOT REGEXP '^[0-9]+$';
+ALTER TABLE applicants MODIFY COLUMN photo_file_id BIGINT NULL;
+DELETE FROM flyway_schema_history WHERE script = 'V005__change_photo_file_id_to_string.sql';
+```
+
+3.2 로 옮긴 데이터(원서 키, 공지 첨부 ID)는 롤백 SQL 로 되돌아가지 않는다. 옮기기 전 대응표를 남겨 둔다.
 
 ## 4. 하지 않는 것
 
