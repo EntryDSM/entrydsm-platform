@@ -338,6 +338,6 @@ class ApplicationCommandService(
     companion object {
         private const val NEW_APPLICANT_ID = 0L
         private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
-        private const val MAX_ESSAY_LENGTH = 1500
+        private const val MAX_ESSAY_LENGTH = 1600
     }
 }

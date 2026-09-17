@@ -22,6 +22,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanC
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.domain.enum.GuardianRelation
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
+import jakarta.validation.Valid
 import java.time.LocalDate
 import java.time.YearMonth
 import org.springframework.http.HttpStatus
@@ -43,7 +44,7 @@ class ApplicationController(
 ) {
     @GetMapping("/landing")
     fun getLanding(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
     ): ApiResponse<LandingResponse> {
         val result = applicationPort.getLanding(userId)
         return ApiResponse(data = result.toResponse(landingScheduleProperties))
@@ -52,7 +53,7 @@ class ApplicationController(
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun createApplicant(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
     ): ApiResponse<CreateApplicantResponse> {
         val result = applicationPort.createApplicant(
             CreateApplicantCommand(
@@ -64,10 +65,10 @@ class ApplicationController(
 
     @PatchMapping("/{id}/type")
     fun updateType(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @RequestHeader(SENSITIVE_AGREE_HEADER, defaultValue = "false") isSensitiveAgree: Boolean,
         @PathVariable id: Long,
-        @RequestBody request: UpdateTypeRequest,
+        @Valid @RequestBody request: UpdateTypeRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateType(
             UpdateTypeCommand(
@@ -85,9 +86,9 @@ class ApplicationController(
 
     @PatchMapping("/{id}/personal")
     fun updatePersonal(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @PathVariable id: Long,
-        @RequestBody request: UpdatePersonalRequest,
+        @Valid @RequestBody request: UpdatePersonalRequest,
     ): ApiResponse<Unit> {
         applicationPort.updatePersonal(
             UpdatePersonalCommand(
@@ -106,9 +107,9 @@ class ApplicationController(
 
     @PatchMapping("/{id}/family")
     fun updateFamily(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @PathVariable id: Long,
-        @RequestBody request: UpdateFamilyRequest,
+        @Valid @RequestBody request: UpdateFamilyRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateFamily(
             UpdateFamilyCommand(
@@ -128,9 +129,9 @@ class ApplicationController(
 
     @PatchMapping("/{id}/middle-school")
     fun updateMiddleSchool(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @PathVariable id: Long,
-        @RequestBody request: UpdateMiddleSchoolRequest,
+        @Valid @RequestBody request: UpdateMiddleSchoolRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateMiddleSchool(
             UpdateMiddleSchoolCommand(
@@ -147,9 +148,9 @@ class ApplicationController(
 
     @PatchMapping("/{id}/self-introduction")
     fun updateIntroduction(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @PathVariable id: Long,
-        @RequestBody request: UpdateIntroductionRequest,
+        @Valid @RequestBody request: UpdateIntroductionRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateIntroduction(
             UpdateIntroductionCommand(
@@ -163,9 +164,9 @@ class ApplicationController(
 
     @PatchMapping("/{id}/study-plan")
     fun updateStudyPlan(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @PathVariable id: Long,
-        @RequestBody request: UpdateStudyPlanRequest,
+        @Valid @RequestBody request: UpdateStudyPlanRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateStudyPlan(
             UpdateStudyPlanCommand(
@@ -179,7 +180,7 @@ class ApplicationController(
 
     @PatchMapping
     fun submit(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
     ): ApiResponse<Unit> {
         applicationPort.submit(
             SubmitApplicationCommand(
