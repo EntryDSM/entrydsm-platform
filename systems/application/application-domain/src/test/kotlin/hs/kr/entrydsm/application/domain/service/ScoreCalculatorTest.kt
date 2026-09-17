@@ -70,9 +70,9 @@ class ScoreCalculatorTest {
         assertEquals(80.0, result.getValue(AdmissionType.MEISTER), 0.0)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun rejectsIncompleteProspectiveSubjectGrades() {
-        calculator.calculate(
+    @Test
+    fun fillsMissingProspectiveSemestersWithAvailableScore() {
+        val result = calculator.calculate(
             Applicant(
                 id = 1L,
                 accountId = 1L,
@@ -84,11 +84,14 @@ class ScoreCalculatorTest {
                 ),
             ),
         )
+
+        assertEquals(155.0, result.getValue(AdmissionType.REGULAR), 0.0)
+        assertEquals(95.0, result.getValue(AdmissionType.SOCIAL), 0.0)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun rejectsIncompleteGraduatedSubjectGrades() {
-        calculator.calculate(
+    @Test
+    fun fillsMissingGraduatedSemesterWithAverageOfReflectedScores() {
+        val result = calculator.calculate(
             Applicant(
                 id = 1L,
                 accountId = 1L,
@@ -102,6 +105,51 @@ class ScoreCalculatorTest {
                 ),
             ),
         )
+
+        assertEquals(155.0, result.getValue(AdmissionType.REGULAR), 0.0)
+        assertEquals(95.0, result.getValue(AdmissionType.SOCIAL), 0.0)
+    }
+
+    @Test
+    fun doesNotRoundSubjectBaseBeforeRegularConversion() {
+        val result = calculator.calculate(
+            Applicant(
+                id = 1L,
+                accountId = 1L,
+                graduationType = GraduationType.PROSPECTIVE,
+                academicRecord = AcademicRecord(
+                    subjectGrades = linkedMapOf(
+                        SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to
+                            SubjectGrades(
+                                koreanGrade = SubjectGrade.A,
+                                mathGrade = SubjectGrade.E,
+                                englishGrade = SubjectGrade.E,
+                                scienceGrade = SubjectGrade.E,
+                                societyGrade = SubjectGrade.E,
+                                technologyGrade = SubjectGrade.E,
+                                historyGrade = SubjectGrade.E,
+                            ),
+                        SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to
+                            all(SubjectGrade.E),
+                        SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to
+                            SubjectGrades(
+                                koreanGrade = SubjectGrade.B,
+                                mathGrade = SubjectGrade.E,
+                                englishGrade = SubjectGrade.E,
+                                scienceGrade = SubjectGrade.E,
+                                societyGrade = SubjectGrade.E,
+                                technologyGrade = SubjectGrade.E,
+                                historyGrade = SubjectGrade.E,
+                            ),
+                    ),
+                    volunteerTime = 15,
+                ),
+            ),
+        )
+
+        // 기준점수 4×39/7은 중간 반올림 없이 일반전형에서 39점이 된다.
+        assertEquals(69.0, result.getValue(AdmissionType.REGULAR), 0.0)
+        assertEquals(52.286, result.getValue(AdmissionType.SOCIAL), 0.0)
     }
 
     @Test
