@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Size
 
 data class UpdatePersonalRequest(
     val photoFileId: String,
-    val photoFileId: Long,
     @field:NotBlank
     @field:Size(max = 20)
     val name: String,

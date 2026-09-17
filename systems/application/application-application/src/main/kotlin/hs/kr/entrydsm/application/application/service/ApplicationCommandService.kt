@@ -353,9 +353,8 @@ class ApplicationCommandService(
     companion object {
         private const val NEW_APPLICANT_ID = 0L
         private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
-        private const val MAX_ESSAY_LENGTH = 1500
+        private const val MAX_ESSAY_LENGTH = 1600
         // applicants.photo_file_id 컬럼 길이. document 증명사진 ID 는 photo_ 와 32자 임의값이다.
         private const val MAX_PHOTO_FILE_ID_LENGTH = 64
-        private const val MAX_ESSAY_LENGTH = 1600
     }
 }
