@@ -1,6 +1,7 @@
 SPRING_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
     "@maven//:org_springframework_cloud_spring_cloud_starter_gateway_server_webflux",
+    "@maven//:org_springdoc_springdoc_openapi_starter_webflux_ui",
 ]
 
 KOTLIN_DEPS = [

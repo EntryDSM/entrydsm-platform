@@ -45,6 +45,7 @@ data class Applicant(
     var cancelReason: String? = null,
     var passStatus: PassResultStatus = PassResultStatus.PENDING,
     var announcedAt: LocalDateTime? = null,
+    var statusVersion: Long = 0,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     var updatedAt: LocalDateTime = LocalDateTime.now(),
 ) {

@@ -62,6 +62,12 @@ pass:
   allowed-redirect-origins: ${PASS_ALLOWED_REDIRECT_ORIGINS}
   proof-key-current: ${PASS_PROOF_KEY_CURRENT}
   proof-key-previous: ${PASS_PROOF_KEY_PREVIOUS:}
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+
 server:
   port: ${SERVER_PORT}
   shutdown: graceful

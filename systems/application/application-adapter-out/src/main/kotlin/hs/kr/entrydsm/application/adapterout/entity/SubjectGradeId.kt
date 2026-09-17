@@ -13,6 +13,6 @@ data class SubjectGradeId(
     var academicRecordId: Long? = null,
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "school_semester", length = 20)
+    @Column(name = "school_semester", length = 50)
     var schoolSemester: SchoolSemester? = null,
 ) : Serializable

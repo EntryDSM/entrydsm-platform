@@ -10,6 +10,15 @@ import org.springframework.http.HttpMethod
 import org.springframework.validation.BindException
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.servlet.resource.NoResourceFoundException
+import org.springframework.http.MediaType
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.validation.BindException
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
 
 class GlobalExceptionHandlerTest {
     private val handler = GlobalExceptionHandler()
@@ -61,6 +70,21 @@ class GlobalExceptionHandlerTest {
         assertEquals(405, response.statusCode.value())
         assertEquals("METHOD_NOT_ALLOWED", response.body?.error?.code)
         assertEquals(setOf(HttpMethod.GET), response.headers.allow)
+    fun answersEventStreamRequestWithErrorStatusInsteadOf500() {
+        val mvc = MockMvcBuilders.standaloneSetup(RejectingStreamController())
+            .setControllerAdvice(handler)
+            .build()
+
+        // 브라우저 EventSource 는 Accept: text/event-stream 만 보낸다.
+        mvc.perform(get("/stream").accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isTooManyRequests)
+            .andExpect(jsonPath("$.error.code").value("TOO_MANY_CONNECTIONS"))
+    }
+
+    @RestController
+    class RejectingStreamController {
+        @GetMapping("/stream", produces = [MediaType.TEXT_EVENT_STREAM_VALUE])
+        fun stream(): SseEmitter = throw MonitorDomainException(ErrorCode.TOO_MANY_CONNECTIONS)
     }
 
     @Test

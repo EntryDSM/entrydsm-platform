@@ -17,9 +17,9 @@ class IdentityServiceTest {
     fun applicationStatusAndCancellationPersistState() {
         val (serviceBundle, applications) = services()
 
-        val status = serviceBundle.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token", 123L))
+        val status = serviceBundle.application.getApplicationStatus(ReadApplicationCommand(123L))
         val canceled = serviceBundle.application.cancelApplication(
-            CancelApplicationCommand("Bearer access-token", "개인 사유", 123L),
+            CancelApplicationCommand("개인 사유", 123L),
         )
 
         assertEquals(ApplicantStatus.SUBMITTED, status.applicantStatus)
@@ -34,7 +34,7 @@ class IdentityServiceTest {
         applications.snapshots.remove(123L)
 
         val exception = captureIdentityException {
-            serviceBundle.application.cancelApplication(CancelApplicationCommand("Bearer access-token", null, 123L))
+            serviceBundle.application.cancelApplication(CancelApplicationCommand(null, 123L))
         }
 
         assertEquals(ErrorCode.USER_NOT_FOUND, exception.errorCode)
@@ -48,7 +48,7 @@ class IdentityServiceTest {
         )
 
         val exception = captureIdentityException {
-            serviceBundle.application.cancelApplication(CancelApplicationCommand("Bearer access-token", null, 123L))
+            serviceBundle.application.cancelApplication(CancelApplicationCommand(null, 123L))
         }
 
         assertEquals(ErrorCode.APPLICATION_CANCEL_NOT_ALLOWED, exception.errorCode)
@@ -59,7 +59,7 @@ class IdentityServiceTest {
         val (serviceBundle, _) = services()
 
         val exception = captureIdentityException {
-            serviceBundle.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token"))
+            serviceBundle.application.getApplicationStatus(ReadApplicationCommand())
         }
 
         assertEquals(ErrorCode.AUTH_UNAUTHORIZED, exception.errorCode)
@@ -73,7 +73,7 @@ class IdentityServiceTest {
             announcedAt = null,
         )
 
-        val result = services.application.getApplicationResult(ReadApplicationCommand("Bearer access-token", 123L))
+        val result = services.application.getApplicationResult(ReadApplicationCommand(123L))
 
         assertEquals(PassStatus.NOT_ANNOUNCED, result.passStatus)
         assertEquals(null, result.announcedAt)
@@ -84,7 +84,7 @@ class IdentityServiceTest {
         val (services, applications) = services()
         applications.snapshots.remove(123L)
 
-        val result = services.application.getApplicationStatus(ReadApplicationCommand("Bearer access-token", 123L))
+        val result = services.application.getApplicationStatus(ReadApplicationCommand(123L))
 
         assertEquals(ApplicantStatus.NONE, result.applicantStatus)
     }

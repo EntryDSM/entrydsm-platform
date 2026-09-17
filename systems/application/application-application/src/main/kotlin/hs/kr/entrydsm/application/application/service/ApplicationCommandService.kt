@@ -19,6 +19,8 @@ import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapsh
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
+import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
@@ -31,9 +33,12 @@ import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+import org.springframework.transaction.annotation.Transactional
 
+@Transactional
 class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
+    private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
         val applicant = createApplicant(requireUserId(command.userId))
@@ -119,18 +124,22 @@ class ApplicationCommandService(
             throw ApplicationCancelNotAllowedException()
         }
         applicant.status = ApplicantStatus.CANCELED
+        applicant.statusVersion += 1
         applicant.cancelReason = reason?.takeIf(String::isNotBlank)
-        return saveTouched(applicant).toSnapshot()
+        return saveTouched(applicant).also(::publishStatus).toSnapshot()
     }
 
     fun createApplicant(accountId: Long = 0): Applicant {
         if (applicantRepository.existsByAccountId(accountId)) throw ApplicantAlreadyExistsException(accountId)
-        return applicantRepository.save(
+        val applicant = applicantRepository.save(
             Applicant(
                 id = NEW_APPLICANT_ID,
                 accountId = accountId,
+                statusVersion = 1,
             ),
         )
+        publishStatus(applicant)
+        return applicant
     }
 
     fun updateType(
@@ -159,6 +168,18 @@ class ApplicationCommandService(
         }
         saveTouched(applicant)
     }
+
+    private fun publishStatus(applicant: Applicant) = applicantStatusEventOutbox.add(
+        ApplicantStatusChanged(
+            accountId = applicant.accountId,
+            status = applicant.status,
+            occurredAt = applicant.updatedAt,
+            version = applicant.statusVersion,
+            submittedAt = applicant.submittedAt,
+            passStatus = applicant.passStatus,
+            announcedAt = applicant.announcedAt,
+        ),
+    )
 
     fun updatePersonal(
         applicantId: Long,
@@ -295,8 +316,9 @@ class ApplicationCommandService(
 
     private fun markSubmitted(applicant: Applicant) {
         applicant.status = ApplicantStatus.SUBMITTED
+        applicant.statusVersion += 1
         applicant.submittedAt = LocalDateTime.now()
-        saveTouched(applicant)
+        publishStatus(saveTouched(applicant))
     }
 
     private fun saveTouched(applicant: Applicant): Applicant {
@@ -316,6 +338,6 @@ class ApplicationCommandService(
     companion object {
         private const val NEW_APPLICANT_ID = 0L
         private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
-        private const val MAX_ESSAY_LENGTH = 1500
+        private const val MAX_ESSAY_LENGTH = 1600
     }
 }

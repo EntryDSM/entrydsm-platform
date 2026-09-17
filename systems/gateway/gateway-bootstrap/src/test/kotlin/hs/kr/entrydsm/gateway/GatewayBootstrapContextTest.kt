@@ -35,8 +35,11 @@ class GatewayBootstrapContextTest {
         val routeIds = routes.map { route -> route.id }
 
         assertTrue(routes.isNotEmpty())
-        assertEquals(GatewayService.entries.size, routes.size)
-        assertEquals(GatewayService.entries.map { service -> service.routeId }.toSet(), routeIds.toSet())
+        assertEquals(GatewayService.entries.size * 2, routes.size)
+        assertEquals(
+            GatewayService.entries.flatMap { listOf(it.routeId, "${it.routeId}-openapi") }.toSet(),
+            routeIds.toSet(),
+        )
         assertEquals(routeIds.size, routeIds.toSet().size)
     }
 
@@ -51,6 +54,21 @@ class GatewayBootstrapContextTest {
             .header("Origin", "https://stag-auth.entrydsm.hs.kr")
             .header("Access-Control-Request-Method", "POST")
             .header("Access-Control-Request-Headers", "content-type,x-xsrf-token")
+            .exchange()
+            .expectStatus().isOk
+            .expectHeader().valueEquals("Access-Control-Allow-Origin", "https://stag-auth.entrydsm.hs.kr")
+            .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
+    }
+
+    @Test
+    fun addsCorsHeadersToLocalCsrfEndpoint() {
+        WebTestClient.bindToApplicationContext(applicationContext)
+            .configureClient()
+            .baseUrl("http://gateway.local")
+            .build()
+            .get()
+            .uri("/api/identity/v11/auth/csrf")
+            .header("Origin", "https://stag-auth.entrydsm.hs.kr")
             .exchange()
             .expectStatus().isOk
             .expectHeader().valueEquals("Access-Control-Allow-Origin", "https://stag-auth.entrydsm.hs.kr")

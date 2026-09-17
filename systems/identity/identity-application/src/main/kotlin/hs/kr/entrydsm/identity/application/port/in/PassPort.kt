@@ -1,6 +1,6 @@
 package hs.kr.entrydsm.identity.application.port.`in`
 
-import java.time.LocalDate
+import hs.kr.entrydsm.identity.application.port.`in`.result.PassVerificationResult
 
 interface PassPort {
     fun generatePopup(redirectUrl: String): String
@@ -8,8 +8,3 @@ interface PassPort {
     fun verify(token: String): PassVerificationResult
 }
 
-data class PassVerificationResult(
-    val phoneNumber: String,
-    val name: String,
-    val birthdate: LocalDate,
-)

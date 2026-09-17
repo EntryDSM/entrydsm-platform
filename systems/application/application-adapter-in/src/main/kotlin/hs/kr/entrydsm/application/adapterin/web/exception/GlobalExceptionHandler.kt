@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MissingPathVariableException
+import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -90,6 +91,7 @@ class GlobalExceptionHandler {
         HttpMessageNotReadableException::class,
         MethodArgumentNotValidException::class,
         MissingPathVariableException::class,
+        MissingRequestHeaderException::class,
         MissingServletRequestParameterException::class,
         MissingServletRequestPartException::class,
         MethodArgumentTypeMismatchException::class,

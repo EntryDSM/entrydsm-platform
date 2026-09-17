@@ -1,4 +1,5 @@
 KOTLIN_DEPS = [
+    "@maven//:io_lettuce_lettuce_core",
     "@maven//:io_grpc_grpc_netty_shaded",
     "@maven//:io_grpc_grpc_protobuf",
     "@maven//:io_grpc_grpc_stub",

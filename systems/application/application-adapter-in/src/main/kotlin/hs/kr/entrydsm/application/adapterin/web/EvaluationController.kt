@@ -28,7 +28,7 @@ class EvaluationController(
 ) {
     @PostMapping("/grades/expected")
     fun saveExpectedGrades(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @RequestBody request: SaveSubjectGradesRequest,
     ): ApiResponse<Unit> {
         saveSubjectGrades(userId, request)
@@ -37,7 +37,7 @@ class EvaluationController(
 
     @PostMapping("/grades/graduated")
     fun saveGraduatedGrades(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @RequestBody request: SaveSubjectGradesRequest,
     ): ApiResponse<Unit> {
         saveSubjectGrades(userId, request)
@@ -46,7 +46,7 @@ class EvaluationController(
 
     @PostMapping("/ged-scores")
     fun saveGedScores(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @RequestBody request: SaveGedScoresRequest,
     ): ApiResponse<Unit> {
         evaluationPort.saveGedScores(
@@ -68,7 +68,7 @@ class EvaluationController(
 
     @PostMapping("/academic-records")
     fun saveAcademicRecords(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @RequestBody request: SaveAcademicRecordRequest,
     ): ApiResponse<AcademicRecordResponse> {
         val result = evaluationPort.saveAcademicRecord(
@@ -86,7 +86,7 @@ class EvaluationController(
 
     @PostMapping("/certificates")
     fun saveCertificates(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
         @RequestBody request: SaveCertificatesRequest,
     ): ApiResponse<Unit> {
         evaluationPort.saveCertificates(
@@ -101,7 +101,7 @@ class EvaluationController(
 
     @PostMapping("/result")
     fun getResult(
-        @RequestHeader(USER_ID_HEADER, required = false) userId: Long? = null,
+        @RequestHeader(USER_ID_HEADER) userId: Long,
     ): ApiResponse<Unit> {
         evaluationPort.calculateResult(
             CalculateEvaluationCommand(
@@ -125,7 +125,7 @@ class EvaluationController(
     }
 
     private companion object {
-        const val USER_ID_HEADER = "user-id"
+        const val USER_ID_HEADER = "X-USER-ID"
     }
 }
 

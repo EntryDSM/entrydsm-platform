@@ -2,7 +2,7 @@ package hs.kr.entrydsm.identity.adapterin.web
 
 import hs.kr.entrydsm.identity.adapterin.web.dto.request.PassPopupRequest
 import hs.kr.entrydsm.identity.application.port.`in`.PassPort
-import hs.kr.entrydsm.identity.application.port.`in`.PassVerificationResult
+import hs.kr.entrydsm.identity.application.port.`in`.result.PassVerificationResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

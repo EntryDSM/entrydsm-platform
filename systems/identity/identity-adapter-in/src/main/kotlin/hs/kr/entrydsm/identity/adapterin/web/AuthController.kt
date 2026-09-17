@@ -7,7 +7,6 @@ import hs.kr.entrydsm.identity.adapterin.web.dto.request.SignupRequest
 import hs.kr.entrydsm.identity.adapterin.web.dto.response.AccountResponse
 import hs.kr.entrydsm.identity.adapterin.web.dto.response.UserSummaryResponse
 import hs.kr.entrydsm.identity.application.port.`in`.AuthPort
-import hs.kr.entrydsm.identity.application.web.AuthEndpointPaths
 import hs.kr.entrydsm.identity.application.port.`in`.command.LoginCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.LogoutCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.RefreshTokenCommand
@@ -22,26 +21,19 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.Authentication
-import org.springframework.security.web.csrf.CsrfToken
 import org.springframework.web.bind.annotation.CookieValue
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestAttribute
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping(AuthEndpointPaths.BASE)
+@RequestMapping("/api/identity/v11/auth")
 class AuthController(
     private val authPort: AuthPort,
-    @Value("\${security.cookies.secure:true}") private val secureCookies: Boolean = true,
+    @param:Value("\${security.cookies.secure:true}") private val secureCookies: Boolean = true,
 ) {
-    @GetMapping(AuthEndpointPaths.CSRF_PATH)
-    fun csrf(@RequestAttribute("_csrf") csrfToken: CsrfToken): ApiResponse<CsrfTokenResponse> =
-        ApiResponse(data = CsrfTokenResponse(csrfToken.token))
-
-    @PostMapping(AuthEndpointPaths.SIGNUP_PATH)
+    @PostMapping("/signup")
     fun signup(
         @Valid @RequestBody request: SignupRequest,
     ): ResponseEntity<ApiResponse<AccountResponse>> {
@@ -60,7 +52,7 @@ class AuthController(
             .body(ApiResponse(data = result.toResponse()))
     }
 
-    @PostMapping(AuthEndpointPaths.LOGIN_PATH)
+    @PostMapping("/login")
     fun login(
         @Valid @RequestBody request: LoginRequest,
     ): ResponseEntity<ApiResponse<UserSummaryResponse>> {
@@ -77,7 +69,7 @@ class AuthController(
             .body(ApiResponse(data = result.toUserSummaryResponse()))
     }
 
-    @PostMapping(AuthEndpointPaths.LOGOUT_PATH)
+    @PostMapping("logout")
     fun logout(
         authentication: Authentication?,
     ): ResponseEntity<ApiResponse<Unit>> {
@@ -91,7 +83,7 @@ class AuthController(
             .body(ApiResponse(data = null))
     }
 
-    @PostMapping(AuthEndpointPaths.TOKEN_PATH)
+    @PostMapping("/token")
     fun refreshToken(
         @CookieValue("refresh_token", required = false) refreshToken: String?,
     ): ResponseEntity<ApiResponse<UserSummaryResponse>> {
