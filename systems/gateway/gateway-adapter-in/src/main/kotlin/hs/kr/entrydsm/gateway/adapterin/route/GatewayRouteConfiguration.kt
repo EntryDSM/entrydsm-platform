@@ -28,6 +28,17 @@ class GatewayRouteConfiguration {
                     }
                     .uri(uri.toString())
             }
+
+            routes.route("${service.routeId}-openapi") { route ->
+                route.path("/swagger/${service.routeId}/**")
+                    .filters { filters ->
+                        filters.rewritePath(
+                            "/swagger/${service.routeId}/(?<remaining>.*)",
+                            "/\${remaining}",
+                        )
+                    }
+                    .uri(uri.toString())
+            }
         }
         return routes.build()
     }

@@ -21,6 +21,12 @@ spring:
       timeout: ${REDIS_COMMAND_TIMEOUT:2s}
       client-name: ${REDIS_CLIENT_NAME:application}
 
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+
 entrydsm:
   application:
     schedule:

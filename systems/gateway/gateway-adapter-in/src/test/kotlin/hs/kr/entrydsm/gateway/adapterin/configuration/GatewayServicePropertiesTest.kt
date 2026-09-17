@@ -35,8 +35,11 @@ class GatewayServicePropertiesTest {
         val routes = routeLocator.routes.collectList().block().orEmpty()
         val routesById = routes.associateBy { it.id }
 
-        assertEquals(GatewayService.entries.size, routes.size)
-        assertEquals(GatewayService.entries.map { it.routeId }.toSet(), routesById.keys)
+        assertEquals(GatewayService.entries.size * 2, routes.size)
+        assertEquals(
+            GatewayService.entries.flatMap { listOf(it.routeId, "${it.routeId}-openapi") }.toSet(),
+            routesById.keys,
+        )
         assertEquals(URI("http://localhost:8081"), routesById.getValue("identity").uri)
         assertEquals(URI("http://localhost:8082"), routesById.getValue("application").uri)
         assertEquals(URI("http://localhost:8082"), routesById.getValue("evaluation").uri)

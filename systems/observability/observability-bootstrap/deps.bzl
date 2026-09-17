@@ -1,5 +1,6 @@
 SPRING_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_web",
+    "@maven//:org_springdoc_springdoc_openapi_starter_webmvc_ui",
     "@maven//:org_springframework_boot_spring_boot_starter_actuator",
 ]
 
