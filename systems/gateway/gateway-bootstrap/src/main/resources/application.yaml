@@ -37,6 +37,27 @@ spring:
                   basedOnPreviousValue: ${gateway.downstream.retry-backoff-based-on-previous-value}
                 jitter:
                   randomFactor: ${gateway.downstream.retry-jitter-random-factor}
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    urls:
+      - name: gateway
+        url: /v3/api-docs
+      - name: identity
+        url: /swagger/identity/v3/api-docs
+      - name: application
+        url: /swagger/application/v3/api-docs
+      - name: admin
+        url: /swagger/admin/v3/api-docs
+      - name: notification
+        url: /swagger/notification/v3/api-docs
+      - name: observability
+        url: /swagger/observability/v3/api-docs
+      - name: configuration
+        url: /swagger/configuration/v3/api-docs
+
 server:
   port: ${SERVER_PORT}
   shutdown: graceful

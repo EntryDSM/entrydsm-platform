@@ -35,8 +35,11 @@ class GatewayBootstrapContextTest {
         val routeIds = routes.map { route -> route.id }
 
         assertTrue(routes.isNotEmpty())
-        assertEquals(GatewayService.entries.size, routes.size)
-        assertEquals(GatewayService.entries.map { service -> service.routeId }.toSet(), routeIds.toSet())
+        assertEquals(GatewayService.entries.size * 2, routes.size)
+        assertEquals(
+            GatewayService.entries.flatMap { listOf(it.routeId, "${it.routeId}-openapi") }.toSet(),
+            routeIds.toSet(),
+        )
         assertEquals(routeIds.size, routeIds.toSet().size)
     }
 
