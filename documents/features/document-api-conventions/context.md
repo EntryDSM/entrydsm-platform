@@ -141,7 +141,10 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 ## 3. 영향과 배포 전 확인
 
 - 프론트: document 경로·응답·에러 코드가 전부 바뀐다. 사진 ID 를 원서 인적사항에 문자열로 보낸다
-- application 과 configuration 을 같이 배포한다 (gRPC 필드 번호를 새로 써서 섞여 떠도 잘못된 지원자를 돌려주지는 않고 404 가 난다)
+- application 을 먼저 배포하고 준비(`/actuator/health/readiness`)를 확인한 뒤 configuration 을 배포한다
+  - develop 의 application 에는 `GetApplicant` RPC 가 없다. 새 configuration 이 먼저 뜨면 원서·수험표 요청이 `UNIMPLEMENTED` 로 실패해 503 `APPLICATION_SERVICE_UNAVAILABLE` 이 된다
+  - 새 application 은 develop configuration 이 부르지 않는 RPC 를 더할 뿐이라 먼저 올려도 된다
+  - 자동 배포(`deploy.yml`)는 호스트마다 `docker compose up -d` 로 바뀐 서비스를 한꺼번에 다시 띄워 순서를 보장하지 않는다. application 이 뜨는 동안 원서·수험표 요청이 503 이 난다. 이 틈을 없애려면 호스트마다 `docker compose up -d application` 으로 먼저 올리고 준비를 확인한 뒤 나머지를 올린다
 - 옛 경로(`/application`, `/photo` …)는 없는 경로라 지금은 catch-all 이 500 을 준다. 게이트웨이 서킷이 5xx 를 세므로 없는 경로를 404 로 바꾸는 PR #170 을 먼저 또는 같이 배포한다. #170 과 이 브랜치는 configuration 의 `DocumentExceptionHandler`·`ErrorCode`·`DocumentApiContractTest` 가 겹친다
 - 운영 데이터 확인·이전과 롤백은 아래 3.1~3.3 을 따른다. 롤백은 운영 데이터가 없어도 스키마 때문에 SQL 이 필요하다
 - 관리자 화면이 document 를 부르려면 admin 지원자 응답의 `applicantId` 가 application 의 applicantId 여야 한다. admin 지원자 데이터 공백(#145 유실)과 함께 풀어야 한다
@@ -179,7 +182,13 @@ configuration V003 과 application V005 가 적용된 뒤, 새 버전으로 트�
 - configuration 이전 버전은 `public_id`(NOT NULL, 기본값 없음)를 넣지 않아 파일 적재 INSERT 가 실패한다
 - application 이전 버전은 엔티티가 `Long` 이라 `photo_file_id` VARCHAR 에서 `ddl-auto: validate` 로 기동하지 못한다
 
-새 버전을 내리고 SQL 을 돌린 뒤 이전 버전을 올린다. 프론트도 이전 경로로 함께 되돌린다. `flyway_schema_history` 행을 지우지 않으면 다시 배포할 때 마이그레이션이 적용되지 않는다.
+되돌리는 순서는 배포의 반대로 configuration → application 이다. application 을 먼저 되돌리면 새 configuration 이 없는 RPC 를 불러 원서·수험표 요청이 503 이 된다.
+
+1. 새 configuration 을 내리고 아래 configuration_db SQL 을 돌린 뒤 이전 configuration 을 올린다
+2. 새 application 을 내리고 application_db SQL 을 돌린 뒤 이전 application 을 올린다
+3. 프론트도 이전 경로로 되돌린다
+
+`flyway_schema_history` 행을 지우지 않으면 다시 배포할 때 마이그레이션이 적용되지 않는다.
 
 ```sql
 -- configuration_db
