@@ -25,7 +25,6 @@ import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
-import hs.kr.entrydsm.application.domain.enum.GuardianRelation
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.model.Applicant
@@ -210,7 +209,7 @@ class ApplicationCommandService(
         guardianName: String,
         guardianPhoneNumber: String,
         guardianGender: Gender,
-        guardianRelation: GuardianRelation,
+        guardianRelation: String,
         zipCode: String,
         addressBase: String,
         addressDetail: String,
