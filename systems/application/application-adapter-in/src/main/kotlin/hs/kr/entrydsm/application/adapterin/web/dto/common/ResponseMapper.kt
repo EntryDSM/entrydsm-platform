@@ -39,6 +39,6 @@ fun AcademicRecordResult.toResponse(): AcademicRecordResponse =
 
 fun MiddleSchoolSearchResult.toResponse(): MiddleSchoolSearchResponse =
     MiddleSchoolSearchResponse(
-        schools = schools.map { MiddleSchoolResponse(code = it.code, name = it.name) },
-        hasNext = hasNext,
+        schools = schools.map { MiddleSchoolResponse(code = it.code, name = it.name, address = it.address) },
+        totalCount = totalCount,
     )
