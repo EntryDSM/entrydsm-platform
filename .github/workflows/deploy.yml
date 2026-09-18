@@ -51,12 +51,10 @@ permissions:
 jobs:
   build:
     name: Build ${{ matrix.service }}
-
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
-
       matrix:
         service:
           - gateway
@@ -75,16 +73,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/bazel/entrydsm-platform
-          key: bazel-${{ runner.os }}-${{ matrix.service }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-${{ github.sha }}
+          key: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-${{ github.sha }}
           restore-keys: |
-            bazel-${{ runner.os }}-${{ matrix.service }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-
-            bazel-${{ runner.os }}-${{ matrix.service }}-
+            bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-
 
       - name: 서비스 빌드
         run: |
           set -euo pipefail
-          
-          echo "Building ${{ matrix.service }}"
+
           bash ./prepare-images.sh "${{ matrix.service }}"
 
       - name: Docker Buildx 설정
@@ -100,11 +96,11 @@ jobs:
       - name: 이미지 빌드 및 푸시
         run: |
           set -euo pipefail
-          
+
           docker buildx build \
             --push \
             --build-arg "SERVICE=${{ matrix.service }}" \
-            --tag "ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:latest" \
+            --tag "ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:${{ github.sha }}" \
             .
 
   deploy-stag:
