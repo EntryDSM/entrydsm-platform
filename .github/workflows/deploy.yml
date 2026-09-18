@@ -94,13 +94,33 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 이미지 빌드 및 푸시
+        env:
+          SERVICE: ${{ matrix.service }}
+          GIT_SHA: ${{ github.sha }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-
+          
+          IMAGE="ghcr.io/entrydsm/entrydsm-$SERVICE"
+          
+          if [ "$BRANCH" = "develop" ]; then
+            ENV_TAG="stag"
+          elif [ "$BRANCH" = "main" ]; then
+            ENV_TAG="prod"
+          else
+            echo "지원하지 않는 브랜치입니다: $BRANCH"
+            exit 1
+          fi
+          
+          echo "Building:"
+          echo "  $IMAGE:$GIT_SHA"
+          echo "  $IMAGE:$ENV_TAG"
+          
           docker buildx build \
             --push \
-            --build-arg "SERVICE=${{ matrix.service }}" \
-            --tag "ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:${{ github.sha }}" \
+            --build-arg "SERVICE=$SERVICE" \
+            --tag "$IMAGE:$GIT_SHA" \
+            --tag "$IMAGE:$ENV_TAG" \
             .
 
   deploy-stag:
