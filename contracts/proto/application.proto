@@ -35,7 +35,7 @@ message ApplicationResponse {
     optional int64 announced_at_epoch_millis = 6;
 }
 
-// 원서 생성 API 응답의 applicant id 로 찾는다. 1번(user_id)은 이전 버전이 쓰던 번호라 다시 쓰지 않는다.
+// 원서 작성 API 경로의 applicant id 로 찾는다. 1번(user_id)은 이전 버전이 쓰던 번호라 다시 쓰지 않는다.
 message GetApplicantRequest {
     reserved 1;
     int64 applicant_id = 2;

@@ -64,7 +64,7 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 
 ### 2.2 원서·수험표는 applicantId 로 찾고 application 에 본인을 묻는다
 
-- 경로 키는 application 의 `applicantId` 다. #145 설계의 admin `applicantId` 와도 같다. 학생은 `POST /applicants` 응답으로 이미 안다 (원서 작성 API 는 #210 부터 경로에서 이 값을 받지 않는다)
+- 경로 키는 application 의 `applicantId` 다. 원서 작성 API(`/api/application/v11/applicants/{id}`)와 같은 값이고, #145 설계의 admin `applicantId` 와도 같다. 학생은 `POST /applicants` 응답으로 이미 안다
 - 본인 판정은 application gRPC `GetApplicant(applicant_id)` 가 돌려준 `user_id` 와 요청자(`X-User-Id`)를 비교한다. 선점 규칙, `receiptCode`, 원서 파일의 본인 추적(`ownerOf`)을 지운다
 - 지원자가 없으면 404 `APPLICANT_NOT_FOUND`, application 호출 실패는 503 `APPLICATION_SERVICE_UNAVAILABLE`
 - 수험표의 수험번호 칸: 발급값을 가진 곳에서 받을 길이 없어 `미발급` 으로 찍는다(admin 수험표와 같은 표기). 클라이언트가 보낸 `receiptCode` 를 찍던 것은 검증되지 않은 값이었다

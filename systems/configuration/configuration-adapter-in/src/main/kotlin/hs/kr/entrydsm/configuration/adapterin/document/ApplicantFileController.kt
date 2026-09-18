@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.multipart.MultipartFile
 
 /**
- * 지원자 한 명에게 하나씩 있는 원서·수험표. 경로의 applicantId 는 원서 생성 API(`POST /api/application/v11/applicants`) 응답의 값이다.
+ * 지원자 한 명에게 하나씩 있는 원서·수험표. 경로의 applicantId 는 원서 작성 API(`/api/application/v11/applicants/{id}`)와 같은 값이다.
  * 누가 적재·다운로드할 수 있는지는 FileCategory 권한표가 정한다.
  */
 @RestController
