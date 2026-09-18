@@ -134,11 +134,7 @@ class EvaluationCommandService(
 
     fun calculateResult(userId: Long?) {
         val applicant = getApplicantByUserId(userId)
-        val admissionType = requireNotNull(applicant.admissionType) {
-            "admissionType is required"
-        }
-        val result = scoreCalculator.calculate(applicant)
-        applicant.totalScore = result.getValue(admissionType)
+        applicant.totalScore = scoreCalculator.calculate(applicant)
         applicant.totalScoreUpdatedAt = LocalDateTime.now()
         applicant.touch()
         applicantRepository.save(applicant)

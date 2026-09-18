@@ -13,75 +13,88 @@ import java.math.RoundingMode
 
 class ScoreCalculator {
 
-    fun calculate(applicant: Applicant): Map<AdmissionType, Double> {
-        val record = applicant.academicRecord ?: return emptyScores()
+    /**
+     * 1차 전형 점수.
+     *
+     * 2027학년도 입학전형 요강 4-가 <표 1>.
+     *
+     * 식은 하나뿐이고 전형 단위별로 달라지는 값은 세 가지다.
+     *
+     * - 교과 성적 환산 비율: 일반전형 175%(140점), 특별전형 100%(80점)
+     * - 프로그래밍기능사 가산점: 특별전형 지원자에게만 준다
+     * - 1차 전형 소계 상한: 일반전형 173점, 특별전형 119점
+     *
+     * 1차 전형 점수
+     *   = 교과성적(80점) × 전형 비율 + 출석 점수(15점) + 봉사활동 점수(15점) + 가산점
+     *
+     * 교과성적과 그 이전 단계는 반올림하지 않고, 전형 비율을 곱한 합계만
+     * 반올림하여 소수 셋째 자리까지 구한다.
+     */
+    fun calculate(applicant: Applicant): Double {
+        val admissionType = requireNotNull(applicant.admissionType) {
+            "admissionType is required"
+        }
+        val isRegular = admissionType == AdmissionType.REGULAR
 
-        val baseSubjectScore = when (applicant.graduationType) {
-            GraduationType.GED -> calculateGedBaseScore(
+        val record = applicant.academicRecord ?: return EMPTY_SCORE
+
+        val isGed = applicant.graduationType == GraduationType.GED
+
+        val subjectBaseScore = if (isGed) {
+            calculateGedBaseScore(
                 requireNotNull(record.gedScores) {
                     "gedScores is required for GED applicants"
                 },
             )
-
-            else -> calculateSchoolBaseScore(
+        } else {
+            calculateSchoolBaseScore(
                 record = record,
                 graduationType = applicant.graduationType,
             )
         }
 
-        val attendanceScore = calculateAttendanceScore(
-            record = record,
-            graduationType = applicant.graduationType,
-        )
-
-        val volunteerScore = calculateVolunteerScore(
-            volunteerTime = record.volunteerTime,
-            graduationType = applicant.graduationType,
-        )
-
-        val regularAdditionalScore =
-            calculateRegularAdditionalScore(record)
-
-        val specialAdditionalScore =
-            calculateSpecialAdditionalScore(record)
-
-        val regularSubjectScore = if (applicant.graduationType == GraduationType.GED) {
-            baseSubjectScore * GED_REGULAR_SUBJECT_SCORE_MULTIPLIER
+        /*
+         * 검정고시 합격자는 출결·봉사활동 기록이 없다.
+         * 요강은 "별도의 환산 점수를 반영한다"고만 정하므로,
+         * 두 항목의 30점도 교과 환산 점수에 비례해서 준다.
+         * (만점이면 일반전형 170점, 특별전형 110점)
+         */
+        val attendanceAndVolunteerScore = if (isGed) {
+            subjectBaseScore /
+                    SUBJECT_MAX_SCORE *
+                    (ATTENDANCE_MAX_SCORE + VOLUNTEER_MAX_SCORE)
         } else {
-            baseSubjectScore * REGULAR_SUBJECT_SCORE_MULTIPLIER
+            calculateAttendanceScore(record) +
+                    calculateVolunteerScore(record.volunteerTime)
         }
 
-        val specialSubjectScore = if (applicant.graduationType == GraduationType.GED) {
-            baseSubjectScore * GED_SPECIAL_SUBJECT_SCORE_MULTIPLIER
+        val subjectScore = subjectBaseScore * if (isRegular) {
+            REGULAR_SUBJECT_SCORE_RATIO
         } else {
-            baseSubjectScore
+            SPECIAL_SUBJECT_SCORE_RATIO
         }
 
-        val regularScore = calculateTotalScore(
-            subjectScore = regularSubjectScore,
-            attendanceScore = attendanceScore,
-            volunteerScore = volunteerScore,
-            additionalScore = regularAdditionalScore,
-            maxScore = REGULAR_FIRST_SCREENING_MAX_SCORE,
-        )
+        val score =
+            subjectScore +
+                    attendanceAndVolunteerScore +
+                    calculateAdditionalScore(record, isRegular)
 
-        val specialScore = calculateTotalScore(
-            subjectScore = specialSubjectScore,
-            attendanceScore = attendanceScore,
-            volunteerScore = volunteerScore,
-            additionalScore = specialAdditionalScore,
-            maxScore = SPECIAL_FIRST_SCREENING_MAX_SCORE,
-        )
+        val maxScore = if (isRegular) {
+            REGULAR_FIRST_SCREENING_MAX_SCORE
+        } else {
+            SPECIAL_FIRST_SCREENING_MAX_SCORE
+        }
 
-        return mapOf(
-            AdmissionType.REGULAR to regularScore,
-            AdmissionType.SOCIAL to specialScore,
-            AdmissionType.MEISTER to specialScore,
+        return roundToThirdDecimal(
+            score.coerceIn(
+                minimumValue = EMPTY_SCORE,
+                maximumValue = maxScore,
+            ),
         )
     }
 
     /**
-     * 학교생활기록부 기반 교과 기준점수 계산.
+     * 학교생활기록부 기반 교과 성적(기준점수 80점) 계산.
      *
      * 졸업예정자:
      * - 3학년 1학기: 40점
@@ -89,8 +102,6 @@ class ScoreCalculator {
      *
      * 졸업자:
      * - 3학년 2학기까지 자유학기가 아닌 최근 4개 학기: 각 20점
-     *
-     * 기준점수 최대 80점.
      */
     private fun calculateSchoolBaseScore(
         record: AcademicRecord,
@@ -153,9 +164,9 @@ class ScoreCalculator {
                         calculateSemesterAveragePointOrNull(grades)
                             ?: return@mapNotNull null
 
-                    SemesterAverage(
-                        semester = semester,
+                    WeightedSemesterScore(
                         averagePoint = average,
+                        maxScore = OTHER_SEMESTER_MAX_SCORE,
                     )
                 }
                 .take(PROSPECTIVE_PREVIOUS_SEMESTER_COUNT)
@@ -173,14 +184,7 @@ class ScoreCalculator {
                 ),
             )
 
-            previousSemesters.forEach {
-                add(
-                    WeightedSemesterScore(
-                        averagePoint = it.averagePoint,
-                        maxScore = OTHER_SEMESTER_MAX_SCORE,
-                    ),
-                )
-            }
+            addAll(previousSemesters)
         }
 
         return normalizeSubjectScore(weightedScores)
@@ -214,10 +218,6 @@ class ScoreCalculator {
                     )
                 }
                 .take(GRADUATED_REFLECTED_SEMESTER_COUNT)
-
-        if (semesters.isEmpty()) {
-            return EMPTY_SCORE
-        }
 
         return normalizeSubjectScore(semesters)
     }
@@ -256,10 +256,13 @@ class ScoreCalculator {
 
         return earnedScore /
                 reflectedMaxScore *
-                SPECIAL_SUBJECT_MAX_SCORE
+                SUBJECT_MAX_SCORE
     }
 
-    /** 검정고시 6개 과목의 구간별 환산점수 평균(1~5)을 반환한다. */
+    /**
+     * 검정고시 6개 과목의 구간별 환산 평점(1~5) 평균을
+     * 교과 성적 기준점수(80점)로 환산한다.
+     */
     private fun calculateGedBaseScore(
         scores: GedScores,
     ): Double {
@@ -282,7 +285,9 @@ class ScoreCalculator {
 
         return subjectScores
             .map(::gedScoreToPoint)
-            .average()
+            .average() /
+                MAX_GRADE_POINT *
+                SUBJECT_MAX_SCORE
     }
 
     private fun gedScoreToPoint(score: Int): Double = when {
@@ -336,12 +341,7 @@ class ScoreCalculator {
      */
     private fun calculateAttendanceScore(
         record: AcademicRecord,
-        graduationType: GraduationType?,
     ): Double {
-        if (graduationType == GraduationType.GED) {
-            return EMPTY_SCORE
-        }
-
         require(record.absentCount >= 0) {
             "absentCount cannot be negative"
         }
@@ -378,12 +378,7 @@ class ScoreCalculator {
 
     private fun calculateVolunteerScore(
         volunteerTime: Int,
-        graduationType: GraduationType?,
     ): Double {
-        if (graduationType == GraduationType.GED) {
-            return EMPTY_SCORE
-        }
-
         require(volunteerTime >= 0) {
             "volunteerTime cannot be negative"
         }
@@ -393,18 +388,13 @@ class ScoreCalculator {
             .toDouble()
     }
 
-    private fun calculateRegularAdditionalScore(
+    /**
+     * 알고리즘 경진대회 수상 3점은 모든 전형,
+     * 프로그래밍기능사 6점은 특별전형 지원자에게만 준다.
+     */
+    private fun calculateAdditionalScore(
         record: AcademicRecord,
-    ): Double {
-        return if (record.isDsmAlgorithmAwarded) {
-            DSM_ALGORITHM_AWARD_SCORE
-        } else {
-            EMPTY_SCORE
-        }
-    }
-
-    private fun calculateSpecialAdditionalScore(
-        record: AcademicRecord,
+        isRegular: Boolean,
     ): Double {
         var score = EMPTY_SCORE
 
@@ -412,34 +402,11 @@ class ScoreCalculator {
             score += DSM_ALGORITHM_AWARD_SCORE
         }
 
-        if (record.isProgrammingCertified) {
+        if (!isRegular && record.isProgrammingCertified) {
             score += PROGRAMMING_CERTIFICATE_SCORE
         }
 
-        return score.coerceAtMost(
-            SPECIAL_ADDITIONAL_MAX_SCORE,
-        )
-    }
-
-    private fun calculateTotalScore(
-        subjectScore: Double,
-        attendanceScore: Double,
-        volunteerScore: Double,
-        additionalScore: Double,
-        maxScore: Double,
-    ): Double {
-        val score =
-            subjectScore +
-                    attendanceScore +
-                    volunteerScore +
-                    additionalScore
-
-        return roundToThirdDecimal(
-            score.coerceIn(
-                minimumValue = EMPTY_SCORE,
-                maximumValue = maxScore,
-            ),
-        )
+        return score
     }
 
     private fun gradeToPoint(
@@ -471,19 +438,6 @@ class ScoreCalculator {
             .toDouble()
     }
 
-    private fun emptyScores(): Map<AdmissionType, Double> {
-        return mapOf(
-            AdmissionType.REGULAR to EMPTY_SCORE,
-            AdmissionType.SOCIAL to EMPTY_SCORE,
-            AdmissionType.MEISTER to EMPTY_SCORE,
-        )
-    }
-
-    private data class SemesterAverage(
-        val semester: SchoolSemester,
-        val averagePoint: Double,
-    )
-
     private data class WeightedSemesterScore(
         val averagePoint: Double,
         val maxScore: Double,
@@ -497,16 +451,11 @@ class ScoreCalculator {
         private const val MIN_GED_SCORE = 0.0
         private const val PERFECT_GED_SCORE = 100.0
 
-        private const val SPECIAL_SUBJECT_MAX_SCORE = 80.0
+        /** 교과 성적 기준점수. */
+        private const val SUBJECT_MAX_SCORE = 80.0
 
-        private const val REGULAR_SUBJECT_SCORE_MULTIPLIER =
-            1.75
-
-        private const val GED_REGULAR_SUBJECT_SCORE_MULTIPLIER =
-            34.0
-
-        private const val GED_SPECIAL_SUBJECT_SCORE_MULTIPLIER =
-            22.0
+        private const val REGULAR_SUBJECT_SCORE_RATIO = 1.75
+        private const val SPECIAL_SUBJECT_SCORE_RATIO = 1.0
 
         private const val PROSPECTIVE_CURRENT_SEMESTER_MAX_SCORE =
             40.0
@@ -534,9 +483,6 @@ class ScoreCalculator {
 
         private const val PROGRAMMING_CERTIFICATE_SCORE =
             6.0
-
-        private const val SPECIAL_ADDITIONAL_MAX_SCORE =
-            9.0
 
         private const val REGULAR_FIRST_SCREENING_MAX_SCORE =
             173.0
