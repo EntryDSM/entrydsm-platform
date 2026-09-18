@@ -50,17 +50,22 @@ permissions:
 
 jobs:
   build:
+    name: Build ${{ matrix.service }}
+
     runs-on: ubuntu-latest
 
-    env:
-      SERVICES: >-
-        gateway
-        identity
-        application
-        notification
-        configuration
-        admin
-        observability
+    strategy:
+      fail-fast: false
+
+      matrix:
+        service:
+          - gateway
+          - identity
+          - application
+          - notification
+          - configuration
+          - admin
+          - observability
 
     steps:
       - name: Checkout
@@ -70,20 +75,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/bazel/entrydsm-platform
-          key: bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-${{ github.sha }}
+          key: bazel-${{ runner.os }}-${{ matrix.service }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-${{ github.sha }}
           restore-keys: |
-            bazel-${{ runner.os }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-
+            bazel-${{ runner.os }}-${{ matrix.service }}-${{ hashFiles('.bazelversion', 'MODULE.bazel.lock') }}-
+            bazel-${{ runner.os }}-${{ matrix.service }}-
 
       - name: 서비스 빌드
         run: |
           set -euo pipefail
-    
-          echo "Preparing services:"
-          for service in $SERVICES; do
-            echo "- $service"
-          done
-    
-          bash ./prepare-images.sh $SERVICES
+          
+          echo "Building ${{ matrix.service }}"
+          bash ./prepare-images.sh "${{ matrix.service }}"
 
       - name: Docker Buildx 설정
         uses: docker/setup-buildx-action@v3
@@ -98,19 +100,12 @@ jobs:
       - name: 이미지 빌드 및 푸시
         run: |
           set -euo pipefail
-    
-          for service in $SERVICES; do
-            echo "========================================"
-            echo "Building and pushing: $service"
-            echo "Image: ghcr.io/entrydsm/entrydsm-$service:${{ github.sha }}"
-            echo "========================================"
-    
-            docker buildx build \
-              --push \
-              --build-arg "SERVICE=$service" \
-              --tag "ghcr.io/entrydsm/entrydsm-$service:${{ github.sha }}" \
-              .
-          done
+          
+          docker buildx build \
+            --push \
+            --build-arg "SERVICE=${{ matrix.service }}" \
+            --tag "ghcr.io/entrydsm/entrydsm-${{ matrix.service }}:latest" \
+            .
 
   deploy-stag:
     name: Deploy STAG
