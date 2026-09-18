@@ -121,7 +121,7 @@ jobs:
       max-parallel: 1
 
       matrix:
-        host: ${{ fromJSON(vars.STAG_DEPLOY_HOSTS || '[]') }}
+        host: ${{ fromJSON(vars.STAG_DEPLOY_HOSTS) }}
 
     steps:
       - name: SSH 키 준비
@@ -188,7 +188,7 @@ jobs:
 
           DEPLOY_USER: ${{ vars.STAG_DEPLOY_USER }}
 
-          HEALTHCHECK_URL: ${{ vars.STAG_HEALTHCHECK_URL || 'http://localhost:8080/actuator/health' }}
+          HEALTHCHECK_URL: ${{ vars.STAG_HEALTHCHECK_URL }}
         run: |
           for i in $(seq 1 30); do
           
@@ -229,7 +229,7 @@ jobs:
       max-parallel: 1
 
       matrix:
-        host: ${{ fromJSON(vars.PROD_DEPLOY_HOSTS || '[]') }}
+        host: ${{ fromJSON(vars.PROD_DEPLOY_HOSTS) }}
 
     steps:
       - name: SSH 키 준비
@@ -296,7 +296,7 @@ jobs:
 
           DEPLOY_USER: ${{ vars.PROD_DEPLOY_USER }}
 
-          HEALTHCHECK_URL: ${{ vars.PROD_HEALTHCHECK_URL || 'http://localhost:8080/actuator/health' }}
+          HEALTHCHECK_URL: ${{ vars.PROD_HEALTHCHECK_URL }}
         run: |
           for i in $(seq 1 30); do
           
