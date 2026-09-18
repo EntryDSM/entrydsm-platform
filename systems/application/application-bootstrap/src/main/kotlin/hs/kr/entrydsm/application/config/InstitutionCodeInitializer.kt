@@ -40,12 +40,12 @@ class InstitutionCodeInitializer(
         }
 
         return InstitutionCodeJpaEntity(
-            institutionCode = values[0],
+            code = values[0],
             fullName = values[1],
-            institutionName = values[2],
+            name = values[2],
             postalCode = values[3].ifBlank { null },
             status = values[4],
-            roadAddress = values[5].ifBlank { null },
+            address = values[5].ifBlank { null },
             phoneNumber = values[6].ifBlank { null },
             faxNumber = values[7].ifBlank { null },
         )

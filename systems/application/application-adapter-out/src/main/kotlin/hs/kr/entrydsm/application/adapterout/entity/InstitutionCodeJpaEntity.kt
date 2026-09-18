@@ -9,14 +9,14 @@ import jakarta.persistence.Table
 @Table(name = "institution_codes")
 open class InstitutionCodeJpaEntity(
     @Id
-    @Column(name = "institution_code", length = 20)
-    val institutionCode: String,
+    @Column(name = "code", length = 20)
+    val code: String,
 
     @Column(name = "full_name", nullable = false, length = 255)
     val fullName: String,
 
-    @Column(name = "institution_name", nullable = false, length = 255)
-    val institutionName: String,
+    @Column(name = "name", nullable = false, length = 255)
+    val name: String,
 
     @Column(name = "postal_code", length = 10)
     val postalCode: String?,
@@ -25,7 +25,7 @@ open class InstitutionCodeJpaEntity(
     val status: String,
 
     @Column(name = "road_address", length = 500)
-    val roadAddress: String?,
+    val address: String?,
 
     @Column(name = "phone_number", length = 30)
     val phoneNumber: String?,

@@ -15,9 +15,9 @@ class MiddleSchoolPersistenceAdapter(
         return MiddleSchoolSearchResult(
             schools = schools.map {
                 MiddleSchoolResult(
-                    code = it.institutionCode,
-                    name = it.institutionName,
-                    address = it.roadAddress
+                    code = it.code,
+                    name = it.name,
+                    address = it.address
             ) },
             totalCount = schools.size,
         )
