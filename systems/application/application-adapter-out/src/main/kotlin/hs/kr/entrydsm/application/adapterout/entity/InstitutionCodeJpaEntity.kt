@@ -21,10 +21,7 @@ open class InstitutionCodeJpaEntity(
     @Column(name = "postal_code", length = 10)
     val postalCode: String?,
 
-    @Column(name = "status", nullable = false, length = 20)
-    val status: String,
-
-    @Column(name = "road_address", length = 500)
+    @Column(name = "address", length = 500)
     val address: String?,
 
     @Column(name = "phone_number", length = 30)

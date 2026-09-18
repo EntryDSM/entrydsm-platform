@@ -9,8 +9,7 @@ CREATE TABLE institution_codes (
     phone_number VARCHAR(30) NULL COMMENT '전화번호',
     fax_number VARCHAR(30) NULL COMMENT '팩스번호',
 
-    PRIMARY KEY (code),
-    INDEX idx_institution_name (name)
+    PRIMARY KEY (code)
 );
 
 CREATE INDEX idx_institution_codes_name

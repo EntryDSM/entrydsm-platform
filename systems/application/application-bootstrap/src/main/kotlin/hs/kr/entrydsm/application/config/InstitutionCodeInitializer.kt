@@ -44,7 +44,6 @@ class InstitutionCodeInitializer(
             fullName = values[1],
             name = values[2],
             postalCode = values[3].ifBlank { null },
-            status = values[4],
             address = values[5].ifBlank { null },
             phoneNumber = values[6].ifBlank { null },
             faxNumber = values[7].ifBlank { null },
