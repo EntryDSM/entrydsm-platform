@@ -3,7 +3,6 @@ package hs.kr.entrydsm.application.adapterin.web.exception
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
-import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
@@ -26,14 +25,6 @@ import org.springframework.web.multipart.support.MissingServletRequestPartExcept
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
-
-    @ExceptionHandler(ApplicantAlreadyExistsException::class)
-    fun handleApplicantAlreadyExists(exception: ApplicantAlreadyExistsException): ResponseEntity<ErrorResponse> =
-        response(
-            status = HttpStatus.CONFLICT,
-            code = "APPLICANT_ALREADY_EXISTS",
-            message = exception.message ?: "applicant already exists",
-        )
 
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleDataIntegrityViolation(exception: DataIntegrityViolationException): ResponseEntity<ErrorResponse> =

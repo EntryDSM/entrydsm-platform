@@ -1,7 +1,6 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
-import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
@@ -41,8 +40,10 @@ class ApplicationCommandService(
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
-        val applicant = createApplicant(requireUserId(command.userId))
-        return CreateApplicantResult(applicant.id, applicant.toSnapshot())
+        val accountId = requireUserId(command.userId)
+        val existing = applicantRepository.findByAccountId(accountId)
+        val applicant = existing ?: createApplicant(accountId)
+        return CreateApplicantResult(applicant.id, applicant.toSnapshot(), created = existing == null)
     }
 
     override fun updateType(command: UpdateTypeCommand) {
@@ -143,7 +144,7 @@ class ApplicationCommandService(
     }
 
     fun createApplicant(accountId: Long = 0): Applicant {
-        if (applicantRepository.existsByAccountId(accountId)) throw ApplicantAlreadyExistsException(accountId)
+        applicantRepository.findByAccountId(accountId)?.let { return it }
         val applicant = applicantRepository.save(
             Applicant(
                 id = NEW_APPLICANT_ID,
