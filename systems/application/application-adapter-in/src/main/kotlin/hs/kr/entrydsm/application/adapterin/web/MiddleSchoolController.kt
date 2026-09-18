@@ -18,14 +18,10 @@ class MiddleSchoolController(
     @GetMapping
     fun getMiddleSchools(
         @RequestParam("name", defaultValue = "") name: String,
-        @RequestParam("page", defaultValue = "0") page: Int,
-        @RequestParam("size", defaultValue = "10") size: Int,
     ): ApiResponse<MiddleSchoolSearchResponse> {
         val result = middleSchoolPort.getMiddleSchools(
             SearchMiddleSchoolCommand(
                 name = name.trim(),
-                page = page,
-                size = size,
             ),
         )
         return ApiResponse(data = result.toResponse())

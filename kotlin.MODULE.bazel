@@ -1,39 +1,53 @@
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(name = "maven", repositories = ["https://repo1.maven.org/maven2"])
 
+# Spring Boot
+maven.artifact(artifact = "spring-boot-starter", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-boot-starter-web", group = "org.springframework.boot", version = "4.0.7")
-maven.artifact(artifact = "springdoc-openapi-starter-webmvc-ui", group = "org.springdoc", version = "3.1.1")
-maven.artifact(artifact = "springdoc-openapi-starter-webflux-ui", group = "org.springdoc", version = "3.1.1")
 maven.artifact(artifact = "spring-boot-starter-validation", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-boot-starter-security", group = "org.springframework.boot", version = "4.0.7")
-maven.artifact(artifact = "spring-security-crypto", group = "org.springframework.security", version = "7.0.4")
 maven.artifact(artifact = "spring-boot-starter-actuator", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-boot-starter-test", group = "org.springframework.boot", version = "4.0.7")
-maven.artifact(artifact = "junit-jupiter", group = "org.junit.jupiter", version = "6.0.1")
-maven.artifact(artifact = "junit-platform-launcher", group = "org.junit.platform", version = "6.0.1")
+maven.artifact(artifact = "spring-boot-starter-data-jpa-test", group = "org.springframework.boot", version = "4.0.7")
+maven.artifact(artifact = "spring-security-crypto", group = "org.springframework.security", version = "7.0.4")
+
+# SpringDoc
+maven.artifact(artifact = "springdoc-openapi-starter-webmvc-ui", group = "org.springdoc", version = "3.1.1")
+maven.artifact(artifact = "springdoc-openapi-starter-webflux-ui", group = "org.springdoc", version = "3.1.1")
+
+# Spring Cloud / Resilience
 maven.artifact(artifact = "spring-cloud-starter-gateway-server-webflux", group = "org.springframework.cloud", version = "5.0.2")
 maven.artifact(artifact = "resilience4j-circuitbreaker", group = "io.github.resilience4j", version = "2.3.0")
-maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "context-propagation", group = "io.micrometer", version = "1.2.0")
-maven.artifact(artifact = "junit", group = "junit", version = "4.13.2")
-maven.artifact(artifact = "testcontainers", group = "org.testcontainers", version = "1.20.4")
-maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", version = "2.1.0")
-maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")
-maven.artifact(artifact = "jackson-module-kotlin", group = "com.fasterxml.jackson.module", version = "2.18.2")
-
-# Spring Boot 4는 Jackson 3(tools.jackson)을 쓴다. Kotlin 기본값 파라미터를 읽으려면 3.x 모듈이 필요하다.
-maven.artifact(artifact = "jackson-module-kotlin", group = "tools.jackson.module", version = "3.0.3")
-maven.artifact(artifact = "jjwt-api", group = "io.jsonwebtoken", version = "0.13.0")
-maven.artifact(artifact = "jjwt-impl", group = "io.jsonwebtoken", version = "0.13.0")
-maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "0.13.0")
 
 # JPA / DB
 maven.artifact(artifact = "spring-boot-starter-data-jpa", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-boot-starter-data-redis", group = "org.springframework.boot", version = "4.0.7")
-maven.artifact(artifact = "spring-boot-starter", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-boot-starter-flyway", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "mysql-connector-j", group = "com.mysql", version = "9.3.0")
 maven.artifact(artifact = "flyway-mysql", group = "org.flywaydb", version = "11.14.1")
+maven.artifact(artifact = "h2", group = "com.h2database", version = "2.3.232")
+
+# Test
+maven.artifact(artifact = "junit", group = "junit", version = "4.13.2")
+maven.artifact(artifact = "junit-jupiter", group = "org.junit.jupiter", version = "6.0.1")
+maven.artifact(artifact = "junit-platform-launcher", group = "org.junit.platform", version = "6.0.1")
+maven.artifact(artifact = "testcontainers", group = "org.testcontainers", version = "1.20.4")
+
+# Kotlin
+maven.artifact(artifact = "kotlin-reflect", group = "org.jetbrains.kotlin", version = "2.1.0")
+maven.artifact(artifact = "kotlin-allopen-compiler-plugin", group = "org.jetbrains.kotlin", version = "2.1.0")
+
+# Jackson
+maven.artifact(artifact = "jackson-module-kotlin", group = "com.fasterxml.jackson.module", version = "2.18.2")
+
+# Spring Boot 4는 Jackson 3(tools.jackson)을 쓴다. Kotlin 기본값 파라미터를 읽으려면 3.x 모듈이 필요하다.
+maven.artifact(artifact = "jackson-module-kotlin", group = "tools.jackson.module", version = "3.0.3")
+
+# JWT
+maven.artifact(artifact = "jjwt-api", group = "io.jsonwebtoken", version = "0.13.0")
+maven.artifact(artifact = "jjwt-impl", group = "io.jsonwebtoken", version = "0.13.0")
+maven.artifact(artifact = "jjwt-jackson", group = "io.jsonwebtoken", version = "0.13.0")
 
 # PDF
 maven.artifact(artifact = "openhtmltopdf-core", group = "io.github.openhtmltopdf", version = "1.1.73")
@@ -54,11 +68,5 @@ maven.artifact(artifact = "javax.annotation-api", group = "javax.annotation", ve
 # 리포트 생성 (xlsx)
 maven.artifact(artifact = "poi", group = "org.apache.poi", version = "5.4.0")
 maven.artifact(artifact = "poi-ooxml", group = "org.apache.poi", version = "5.4.0")
-
-# Validation
-maven.artifact(artifact = "spring-boot-starter-validation", group = "org.springframework.boot", version = "4.0.7")
-
-# AWS S3
-maven.artifact(artifact = "s3", group = "software.amazon.awssdk", version = "2.31.0")
 
 use_repo(maven, "maven")
