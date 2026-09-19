@@ -63,12 +63,33 @@ class FileDocumentServiceTest {
     }
 
     @Test
-    fun `원서는 관리자면 403이고, 원서가 없는 본인은 403이 아니라 404다`() {
-        assertThrows(DocumentAccessDeniedException::class.java) { service.generateApplicationForm(admin) }
-        // 권한을 먼저 보므로 남의 계정을 훑을 수 없다. 본인에게 원서가 없는 것은 숨길 이유가 없어 404 다.
+    fun `원서가 없는 계정은 404다 - 관리자 계정도 자기 원서는 없다`() {
+        // 계정으로 찾는 쪽이라 남의 계정을 훑을 수 없다. 없는 것은 숨길 이유가 없어 404 다.
         assertThrows(ApplicantNotFoundException::class.java) { service.generateApplicationForm(student(11)) }
+        // 관리자는 권한을 통과하지만 관리자 계정에 원서가 없다. applicant id 를 받는 쪽을 써야 한다.
+        assertThrows(ApplicantNotFoundException::class.java) { service.generateApplicationForm(admin) }
 
         assertTrue(storage.uploaded.isEmpty())
+    }
+
+    @Test
+    fun `관리자는 applicant id 로 지목한 지원자의 원서를 받고, 파일 주인은 그 지원자다`() {
+        val generated = service.generateApplicationForm(APPLICANT_ID, admin)
+
+        assertEquals("dsm_Entry/Backend/application/application_12.pdf", generated.document.objectKey)
+        assertEquals(STUDENT_ID, generated.document.ownerUserId)
+        assertTrue("홍길동" in pdf.lastHtml)
+    }
+
+    @Test
+    fun `applicant id 로 받는 원서는 남의 것이면 403, 관리자에게 없는 지원자면 404다`() {
+        // 본인 지원자는 applicant id 로도 받을 수 있다.
+        service.generateApplicationForm(APPLICANT_ID, student(STUDENT_ID))
+
+        assertThrows(DocumentAccessDeniedException::class.java) { service.generateApplicationForm(APPLICANT_ID, student(11)) }
+        // 권한을 먼저 보므로 학생은 없는 지원자도 403 이라 applicant id 를 훑을 수 없다.
+        assertThrows(DocumentAccessDeniedException::class.java) { service.generateApplicationForm(999, student(11)) }
+        assertThrows(ApplicantNotFoundException::class.java) { service.generateApplicationForm(999, admin) }
     }
 
     @Test(expected = InvalidFileFormatException::class)

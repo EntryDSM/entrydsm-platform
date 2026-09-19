@@ -39,9 +39,18 @@ class FileDocumentService(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun generateApplicationForm(requester: Requester): DownloadableFile {
+    override fun generateApplicationForm(requester: Requester): DownloadableFile =
+        renderApplicationForm(requireApplicationForm(requester))
+
+    override fun generateApplicationForm(applicantId: Long, requester: Requester): DownloadableFile {
+        val applicant = requireApplicant(applicantId, requester, FileCategory.APPLICATION::canDownload)
+        return renderApplicationForm(
+            applicantPort.findApplicationForm(applicant.userId) ?: throw ApplicantNotFoundException(applicantId),
+        )
+    }
+
+    private fun renderApplicationForm(form: ApplicationForm): DownloadableFile {
         val category = FileCategory.APPLICATION
-        val form = requireApplicationForm(requester)
         val pdf = pdfRenderPort.render(
             ApplicationFormHtml.render(
                 admissionYear, form,
@@ -115,8 +124,8 @@ class FileDocumentService(
     }
 
     /**
-     * 요청자 계정으로 찾으니 원서 주인이 곧 요청자다. 권한을 먼저 보므로 관리자는 여기서 403 이고,
-     * 본인에게 원서가 없으면 남의 원서를 훑을 수 없는 조회라 404 다.
+     * 요청자 계정으로 찾으니 원서 주인이 곧 요청자다. 남의 원서를 훑을 수 없는 조회라 원서가 없으면 404 다.
+     * 관리자도 권한은 통과하지만 관리자 계정에는 원서가 없어 404 다 — 관리자는 applicant id 를 받는 쪽을 쓴다.
      */
     private fun requireApplicationForm(requester: Requester): ApplicationForm {
         if (!FileCategory.APPLICATION.canDownload(requester, requester.userId)) throw DocumentAccessDeniedException()

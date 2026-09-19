@@ -54,10 +54,20 @@ class DocumentControllerTest {
     }
 
     @Test
-    fun `원서를 받을 권한이 없으면 403이다 - 관리자가 여기서 걸린다`() {
+    fun `원서는 경로의 applicantId로도 만든다 - 관리자가 지원자를 지목한다`() {
+        mvc.perform(get("/api/document/v11/applications/12").with(admin()))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.fileName").value("application_12.pdf"))
+            .andExpect(jsonPath("$.data.id").doesNotExist())
+
+        assertEquals(12L to Requester(1, Requester.Role.ADMIN), applicantFiles.formGenerated)
+    }
+
+    @Test
+    fun `원서를 받을 권한이 없으면 403이다`() {
         applicantFiles.denied = true
 
-        mvc.perform(get("/api/document/v11/applications").with(admin()))
+        mvc.perform(get("/api/document/v11/applications/12").with(student(11)))
             .andExpect(status().isForbidden)
             .andExpect(jsonPath("$.error.code").value("FILE_ACCESS_DENIED"))
     }
@@ -221,6 +231,7 @@ class DocumentControllerTest {
 
     private class RecordingApplicantFileUseCase : ApplicantFileUseCase {
         var formRequester: Requester? = null
+        var formGenerated: Pair<Long, Requester>? = null
         var generated: Pair<Long, Requester>? = null
         var denied = false
 
@@ -228,6 +239,12 @@ class DocumentControllerTest {
             formRequester = requester
             if (denied) throw DocumentAccessDeniedException()
             return downloadable(FileCategory.APPLICATION.objectKeyOf("application_12.pdf"))
+        }
+
+        override fun generateApplicationForm(applicantId: Long, requester: Requester): DownloadableFile {
+            formGenerated = applicantId to requester
+            if (denied) throw DocumentAccessDeniedException()
+            return downloadable(FileCategory.APPLICATION.objectKeyOf("application_$applicantId.pdf"))
         }
 
         override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {
