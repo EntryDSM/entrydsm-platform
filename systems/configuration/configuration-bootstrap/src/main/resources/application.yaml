@@ -8,6 +8,9 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  hikari:
+    maximum-pool-size: ${DB_MAX_POOL_SIZE:3}
+    minimum-idle: ${DB_MIN_IDLE:1}
   jpa:
     hibernate:
       ddl-auto: validate
