@@ -28,7 +28,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
-import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -63,17 +62,15 @@ class ApplicationController(
             .body(ApiResponse(data = result.toResponse()))
     }
 
-    @PatchMapping("/{id}/type")
+    @PatchMapping("/type")
     fun updateType(
         @RequestHeader(USER_ID_HEADER) userId: Long,
         @RequestHeader(SENSITIVE_AGREE_HEADER, defaultValue = "false") isSensitiveAgree: Boolean,
-        @PathVariable id: Long,
         @Valid @RequestBody request: UpdateTypeRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateType(
             UpdateTypeCommand(
                 userId = userId,
-                applicantId = id,
                 admissionType = request.admissionType,
                 region = request.region,
                 graduationType = request.graduationType,
@@ -84,16 +81,14 @@ class ApplicationController(
         return ApiResponse(data = null)
     }
 
-    @PatchMapping("/{id}/personal")
+    @PatchMapping("/personal")
     fun updatePersonal(
         @RequestHeader(USER_ID_HEADER) userId: Long,
-        @PathVariable id: Long,
         @Valid @RequestBody request: UpdatePersonalRequest,
     ): ApiResponse<Unit> {
         applicationPort.updatePersonal(
             UpdatePersonalCommand(
                 userId = userId,
-                applicantId = id,
                 photoFileId = request.photoFileId,
                 name = request.name,
                 phoneNumber = request.phoneNumber,
@@ -105,16 +100,14 @@ class ApplicationController(
         return ApiResponse(data = null)
     }
 
-    @PatchMapping("/{id}/family")
+    @PatchMapping("/family")
     fun updateFamily(
         @RequestHeader(USER_ID_HEADER) userId: Long,
-        @PathVariable id: Long,
         @Valid @RequestBody request: UpdateFamilyRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateFamily(
             UpdateFamilyCommand(
                 userId = userId,
-                applicantId = id,
                 guardianName = request.guardianName,
                 guardianPhoneNumber = request.guardianPhoneNumber,
                 guardianGender = request.guardianGender,
@@ -127,16 +120,14 @@ class ApplicationController(
         return ApiResponse(data = null)
     }
 
-    @PatchMapping("/{id}/middle-school")
+    @PatchMapping("/middle-school")
     fun updateMiddleSchool(
         @RequestHeader(USER_ID_HEADER) userId: Long,
-        @PathVariable id: Long,
         @Valid @RequestBody request: UpdateMiddleSchoolRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateMiddleSchool(
             UpdateMiddleSchoolCommand(
                 userId = userId,
-                applicantId = id,
                 schoolName = request.schoolName,
                 studentNumber = request.studentNumber,
                 schoolPhone = request.schoolPhone,
@@ -146,32 +137,28 @@ class ApplicationController(
         return ApiResponse(data = null)
     }
 
-    @PatchMapping("/{id}/self-introduction")
+    @PatchMapping("/self-introduction")
     fun updateIntroduction(
         @RequestHeader(USER_ID_HEADER) userId: Long,
-        @PathVariable id: Long,
         @Valid @RequestBody request: UpdateIntroductionRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateIntroduction(
             UpdateIntroductionCommand(
                 userId = userId,
-                applicantId = id,
                 introduction = request.introduction,
             ),
         )
         return ApiResponse(data = null)
     }
 
-    @PatchMapping("/{id}/study-plan")
+    @PatchMapping("/study-plan")
     fun updateStudyPlan(
         @RequestHeader(USER_ID_HEADER) userId: Long,
-        @PathVariable id: Long,
         @Valid @RequestBody request: UpdateStudyPlanRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateStudyPlan(
             UpdateStudyPlanCommand(
                 userId = userId,
-                applicantId = id,
                 studyPlan = request.studyPlan,
             ),
         )

@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.application.application.service
 
-import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
@@ -51,7 +50,6 @@ class ApplicationCommandService(
             throw SensitiveConsentRequiredException()
         }
         updateType(
-            applicantId = command.applicantId,
             userId = command.userId,
             admissionType = command.admissionType,
             region = command.region,
@@ -62,7 +60,6 @@ class ApplicationCommandService(
 
     override fun updatePersonal(command: UpdatePersonalCommand) {
         updatePersonal(
-            applicantId = command.applicantId,
             userId = command.userId,
             photoFileId = command.photoFileId,
             name = command.name,
@@ -75,7 +72,6 @@ class ApplicationCommandService(
 
     override fun updateFamily(command: UpdateFamilyCommand) {
         updateFamily(
-            applicantId = command.applicantId,
             userId = command.userId,
             guardianName = command.guardianName,
             guardianPhoneNumber = command.guardianPhoneNumber,
@@ -89,7 +85,6 @@ class ApplicationCommandService(
 
     override fun updateMiddleSchool(command: UpdateMiddleSchoolCommand) {
         updateMiddleSchool(
-            applicantId = command.applicantId,
             userId = command.userId,
             schoolName = command.schoolName,
             studentNumber = command.studentNumber,
@@ -99,11 +94,11 @@ class ApplicationCommandService(
     }
 
     override fun updateIntroduction(command: UpdateIntroductionCommand) {
-        updateIntroduction(command.applicantId, command.userId, command.introduction)
+        updateIntroduction(command.userId, command.introduction)
     }
 
     override fun updateStudyPlan(command: UpdateStudyPlanCommand) {
-        updateStudyPlan(command.applicantId, command.userId, command.studyPlan)
+        updateStudyPlan(command.userId, command.studyPlan)
     }
 
     override fun submit(command: SubmitApplicationCommand) {
@@ -157,14 +152,13 @@ class ApplicationCommandService(
     }
 
     fun updateType(
-        applicantId: Long,
-        userId: Long? = null,
+        userId: Long?,
         admissionType: AdmissionType,
         region: Region,
         graduationType: GraduationType,
         graduationDate: YearMonth?,
     ) {
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         require(graduationType == GraduationType.GED || graduationDate != null) {
             "graduationDate is required unless graduationType is GED"
         }
@@ -196,8 +190,7 @@ class ApplicationCommandService(
     )
 
     fun updatePersonal(
-        applicantId: Long,
-        userId: Long? = null,
+        userId: Long?,
         photoFileId: String,
         name: String,
         phoneNumber: String,
@@ -209,7 +202,7 @@ class ApplicationCommandService(
         require(name.isNotBlank()) { "name is required" }
         require(phoneNumber.matches(PHONE_NUMBER_REGEX)) { "phoneNumber format is invalid" }
 
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         applicant.photoFileId = photoFileId
         applicant.name = name
         applicant.phoneNumber = phoneNumber
@@ -220,8 +213,7 @@ class ApplicationCommandService(
     }
 
     fun updateFamily(
-        applicantId: Long,
-        userId: Long? = null,
+        userId: Long?,
         guardianName: String,
         guardianPhoneNumber: String,
         guardianGender: Gender,
@@ -236,7 +228,7 @@ class ApplicationCommandService(
         require(addressBase.isNotBlank()) { "addressBase is required" }
         require(addressDetail.isNotBlank()) { "addressDetail is required" }
 
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         applicant.guardianName = guardianName
         applicant.guardianPhoneNumber = guardianPhoneNumber
         applicant.guardianGender = guardianGender
@@ -248,14 +240,13 @@ class ApplicationCommandService(
     }
 
     fun updateMiddleSchool(
-        applicantId: Long,
-        userId: Long? = null,
+        userId: Long?,
         schoolName: String,
         studentNumber: String,
         schoolPhone: String,
         teacherName: String,
     ) {
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         require(applicant.graduationType != GraduationType.GED) {
             "middle school info is unavailable for GED applicants"
         }
@@ -273,32 +264,22 @@ class ApplicationCommandService(
         saveTouched(applicant)
     }
 
-    fun updateIntroduction(applicantId: Long, userId: Long? = null, introduction: String) {
+    fun updateIntroduction(userId: Long?, introduction: String) {
         require(introduction.isNotBlank()) { "introduction is required" }
         require(introduction.length <= MAX_ESSAY_LENGTH) { "introduction is too long" }
 
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         applicant.introduction = introduction
         saveTouched(applicant)
     }
 
-    fun updateStudyPlan(applicantId: Long, userId: Long? = null, studyPlan: String) {
+    fun updateStudyPlan(userId: Long?, studyPlan: String) {
         require(studyPlan.isNotBlank()) { "studyPlan is required" }
         require(studyPlan.length <= MAX_ESSAY_LENGTH) { "studyPlan is too long" }
 
-        val applicant = getApplicant(applicantId, userId)
+        val applicant = getApplicantByUserId(userId)
         applicant.studyPlan = studyPlan
         saveTouched(applicant)
-    }
-
-    fun submit(applicantId: Long, userId: Long? = null) {
-        val applicant = getApplicant(applicantId, userId)
-        require(applicant.admissionType != null) { "admission type is required" }
-        require(!applicant.name.isNullOrBlank()) { "personal info is required" }
-        require(!applicant.guardianName.isNullOrBlank()) { "family info is required" }
-        require(!applicant.introduction.isNullOrBlank()) { "introduction is required" }
-        require(!applicant.studyPlan.isNullOrBlank()) { "studyPlan is required" }
-        markSubmitted(applicant)
     }
 
     fun submit(userId: Long?) {
@@ -309,15 +290,6 @@ class ApplicationCommandService(
         require(!applicant.introduction.isNullOrBlank()) { "introduction is required" }
         require(!applicant.studyPlan.isNullOrBlank()) { "studyPlan is required" }
         markSubmitted(applicant)
-    }
-
-    private fun getApplicant(applicantId: Long, userId: Long? = null): Applicant {
-        val applicant = applicantRepository.findById(applicantId)
-            ?: throw ApplicantNotFoundException(applicantId)
-        if (userId != null && applicant.accountId != userId) {
-            throw ApplicantAccessDeniedException(applicantId)
-        }
-        return applicant
     }
 
     private fun getApplicantByUserId(userId: Long?): Applicant {
