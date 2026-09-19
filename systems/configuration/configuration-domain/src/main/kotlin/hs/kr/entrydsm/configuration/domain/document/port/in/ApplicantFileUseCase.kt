@@ -14,7 +14,10 @@ interface ApplicantFileUseCase {
      */
     fun generateApplicationForm(requester: Requester): DownloadableFile
 
-    /** 지목한 지원자의 원서 PDF 를 새로 만들어 올린다. applicant id 를 아는 관리자가 쓴다. */
+    /**
+     * 지목한 지원자의 원서 PDF 를 새로 만들어 올린다. 관리자와 그 원서 주인 학생이 받을 수 있고,
+     * 남의 applicant id 를 넣은 학생은 거부된다. applicant id 를 들고 있는 쪽이 주로 관리자다.
+     */
     fun generateApplicationForm(applicantId: Long, requester: Requester): DownloadableFile
 
     /** 수험표 PDF 를 원서 내용으로 새로 만들어 올린다. */
