@@ -1,7 +1,6 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
-import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
@@ -33,17 +32,19 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
-    fun createRejectsExistingAccountBeforeSavingAndAllowsNewAccount() {
+    fun createReturnsExistingApplicantWithoutSavingAndAllowsNewAccount() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
         var event: ApplicantStatusChanged? = null
         val service = ApplicationCommandService(repository) { event = it }
 
-        assertThrows(ApplicantAlreadyExistsException::class.java) {
-            service.createApplicant(CreateApplicantCommand(10L))
-        }
+        val existing = service.createApplicant(CreateApplicantCommand(10L))
+        assertEquals(1L, existing.applicantId)
+        assertFalse(existing.created)
         assertNull(repository.savedApplicant)
+        assertNull(event)
 
-        service.createApplicant(CreateApplicantCommand(11L))
+        val created = service.createApplicant(CreateApplicantCommand(11L))
+        assertTrue(created.created)
         assertEquals(11L, repository.savedApplicant?.accountId)
         assertEquals(11L, event?.accountId)
         assertEquals(ApplicantStatus.DRAFT, event?.status)

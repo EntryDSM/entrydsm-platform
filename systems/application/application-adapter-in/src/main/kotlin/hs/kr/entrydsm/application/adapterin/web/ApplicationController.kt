@@ -25,6 +25,7 @@ import jakarta.validation.Valid
 import java.time.LocalDate
 import java.time.YearMonth
 import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -32,7 +33,6 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
 import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
@@ -50,16 +50,17 @@ class ApplicationController(
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
     fun createApplicant(
         @RequestHeader(USER_ID_HEADER) userId: Long,
-    ): ApiResponse<CreateApplicantResponse> {
+    ): ResponseEntity<ApiResponse<CreateApplicantResponse>> {
         val result = applicationPort.createApplicant(
             CreateApplicantCommand(
                 userId = userId,
             ),
         )
-        return ApiResponse(data = result.toResponse())
+        return ResponseEntity
+            .status(if (result.created) HttpStatus.CREATED else HttpStatus.OK)
+            .body(ApiResponse(data = result.toResponse()))
     }
 
     @PatchMapping("/{id}/type")

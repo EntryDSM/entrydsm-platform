@@ -2,7 +2,6 @@ package hs.kr.entrydsm.application.adapterin.web
 
 import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
 import hs.kr.entrydsm.application.adapterin.web.exception.GlobalExceptionHandler
-import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -32,25 +31,21 @@ import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedE
 
 class ApplicationControllerTest {
     @Test
-    fun duplicateAndSaveConflictReturn409() {
-        for ((exception, code) in listOf(
-            ApplicantAlreadyExistsException(10L) to "APPLICANT_ALREADY_EXISTS",
-            DataIntegrityViolationException("private database details") to "DATA_INTEGRITY_VIOLATION",
-        )) {
-            val port = object : ApplicationPort by FakeApplicationPort() {
-                override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult = throw exception
-            }
-            val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port, scheduleProperties()))
-                .setControllerAdvice(GlobalExceptionHandler())
-                .build()
-
-            val response = mvc.perform(post("/api/application/v11/applicants").header("user-id", "10"))
-                .andReturn().response
-
-            assertEquals(409, response.status)
-            org.junit.Assert.assertTrue(response.contentAsString.contains("\"code\":\"$code\""))
-            org.junit.Assert.assertFalse(response.contentAsString.contains("private database details"))
+    fun saveConflictReturns409WithoutDatabaseDetails() {
+        val port = object : ApplicationPort by FakeApplicationPort() {
+            override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult =
+                throw DataIntegrityViolationException("private database details")
         }
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port, scheduleProperties()))
+            .setControllerAdvice(GlobalExceptionHandler())
+            .build()
+
+        val response = mvc.perform(post("/api/application/v11/applicants").header("user-id", "10"))
+            .andReturn().response
+
+        assertEquals(409, response.status)
+        org.junit.Assert.assertTrue(response.contentAsString.contains("\"code\":\"DATA_INTEGRITY_VIOLATION\""))
+        org.junit.Assert.assertFalse(response.contentAsString.contains("private database details"))
     }
 
     @Test
@@ -63,7 +58,21 @@ class ApplicationControllerTest {
         )
 
         assertEquals(10L, applicationPort.createApplicantCommand?.userId)
-        assertEquals(1L, response.data?.applicantId)
+        assertEquals(201, response.statusCode.value())
+        assertEquals(1L, response.body?.data?.applicantId)
+    }
+
+    @Test
+    fun createApplicantReturnsExistingApplicantWith200() {
+        val port = object : ApplicationPort by FakeApplicationPort() {
+            override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult =
+                FakeApplicationPort().createApplicant(command).copy(created = false)
+        }
+
+        val response = ApplicationController(port, scheduleProperties()).createApplicant(userId = 10L)
+
+        assertEquals(200, response.statusCode.value())
+        assertEquals(1L, response.body?.data?.applicantId)
     }
 
     @Test
