@@ -1,5 +1,9 @@
 package hs.kr.entrydsm.application.adapterout.repository
 
+import hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity
+import hs.kr.entrydsm.application.application.port.`in`.command.SearchMiddleSchoolCommand
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.springframework.beans.factory.annotation.Autowired
