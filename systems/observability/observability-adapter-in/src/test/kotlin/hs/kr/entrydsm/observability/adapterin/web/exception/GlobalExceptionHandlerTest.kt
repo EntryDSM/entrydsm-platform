@@ -6,15 +6,18 @@ import jakarta.validation.ConstraintViolationException
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.slf4j.MDC
+import org.springframework.http.HttpMethod
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.validation.BindException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 class GlobalExceptionHandlerTest {
     private val handler = GlobalExceptionHandler()
@@ -47,6 +50,25 @@ class GlobalExceptionHandlerTest {
             assertEquals(400, response.statusCode.value())
             assertEquals("INVALID_PAYLOAD", response.body?.error?.code)
         }
+    }
+
+    @Test
+    fun mapsUnknownPathToNotFoundResponse() {
+        val response = handler.handleApiNotFound(
+            NoResourceFoundException(HttpMethod.GET, "/api/monitor/v1/health", "api/monitor/v1/health"),
+        )
+
+        assertEquals(404, response.statusCode.value())
+        assertEquals("API_NOT_FOUND", response.body?.error?.code)
+    }
+
+    @Test
+    fun mapsUnsupportedMethodToMethodNotAllowedResponseWithAllowHeader() {
+        val response = handler.handleMethodNotAllowed(HttpRequestMethodNotSupportedException("POST", listOf("GET")))
+
+        assertEquals(405, response.statusCode.value())
+        assertEquals("METHOD_NOT_ALLOWED", response.body?.error?.code)
+        assertEquals(setOf(HttpMethod.GET), response.headers.allow)
     }
 
     @Test

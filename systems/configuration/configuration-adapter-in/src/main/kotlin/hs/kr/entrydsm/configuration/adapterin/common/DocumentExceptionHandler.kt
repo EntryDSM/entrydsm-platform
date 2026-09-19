@@ -12,6 +12,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameExc
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
 import hs.kr.entrydsm.configuration.domain.schedule.ScheduleNotFoundException
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.HttpRequestMethodNotSupportedException
@@ -23,6 +24,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.multipart.MaxUploadSizeExceededException
 import org.springframework.web.multipart.MultipartException
 import org.springframework.web.multipart.support.MissingServletRequestPartException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 @RestControllerAdvice
 class DocumentExceptionHandler {
@@ -79,14 +81,19 @@ class DocumentExceptionHandler {
     fun handleInvalidRequestParam(e: Exception) =
         respond(ErrorCode.INVALID_REQUEST_PARAM, e)
 
-    /** 없앤 API(예: 수험표 업로드 POST)를 부르는 클라이언트를 500 으로 셈하지 않도록 405 로 돌려준다. */
-    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
-    fun handleMethodNotAllowed(e: HttpRequestMethodNotSupportedException) =
-        respond(ErrorCode.METHOD_NOT_ALLOWED, e)
-
     @ExceptionHandler(StorageUnavailableException::class)
     fun handleStorageUnavailable(e: StorageUnavailableException) =
         respond(ErrorCode.FILE_STORAGE_UNAVAILABLE, e)
+
+    // 없는 경로·메서드 요청이 아래 Exception 처리로 빠지면 500과 ERROR 로그가 남고, gateway 서킷 브레이커가 실패로 센다.
+    // 없앤 API 를 계속 부르는 클라이언트(옛 `POST /photo` 는 404, `POST /admission-tickets/{id}` 는 405)도 여기서 걸린다.
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleApiNotFound(e: NoResourceFoundException) =
+        respond(ErrorCode.API_NOT_FOUND, e)
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotAllowed(e: HttpRequestMethodNotSupportedException) =
+        respond(ErrorCode.METHOD_NOT_ALLOWED, e, e.headers)
 
     @ExceptionHandler(Exception::class)
     fun handleUnexpected(e: Exception): ResponseEntity<ApiResponse<Nothing>> {
@@ -96,8 +103,12 @@ class DocumentExceptionHandler {
             .body(ApiResponse.failure(ErrorCode.INTERNAL_SERVER_ERROR))
     }
 
-    private fun respond(errorCode: ErrorCode, e: Exception): ResponseEntity<ApiResponse<Nothing>> {
+    private fun respond(
+        errorCode: ErrorCode,
+        e: Exception,
+        headers: HttpHeaders = HttpHeaders.EMPTY,
+    ): ResponseEntity<ApiResponse<Nothing>> {
         log.warn("{}: {}", errorCode.name, e.message)
-        return ResponseEntity.status(errorCode.status).body(ApiResponse.failure(errorCode))
+        return ResponseEntity.status(errorCode.status).headers(headers).body(ApiResponse.failure(errorCode))
     }
 }
