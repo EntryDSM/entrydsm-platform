@@ -35,7 +35,7 @@ class ApplicationGrpcService(
         responseObserver: StreamObserver<ApplicationResponse>,
     ) = responseObserver.respond {
         request.userId.validate()
-        applicationPort.findByUserId(request.userId)
+        applicationPort.findByAccountId(request.userId)
             ?: applicationPort.createApplicant(CreateApplicantCommand(request.userId)).snapshot
     }
 
@@ -44,7 +44,7 @@ class ApplicationGrpcService(
         responseObserver: StreamObserver<ApplicationResponse>,
     ) = responseObserver.respond {
         request.userId.validate()
-        applicationPort.findByUserId(request.userId)
+        applicationPort.findByAccountId(request.userId)
             ?: throw ApplicantNotFoundException(request.userId)
     }
 
@@ -90,7 +90,7 @@ class ApplicationGrpcService(
 
     private fun ApplicationSnapshotResult.toResponse(): ApplicationResponse =
         ApplicationResponse.newBuilder()
-            .setUserId(userId)
+            .setUserId(accountId)
             .setApplicantStatus(
                 when (applicantStatus) {
                     ApplicantStatus.DRAFT -> GrpcApplicantStatus.APPLICANT_STATUS_DRAFT
@@ -117,7 +117,7 @@ class ApplicationGrpcService(
     private fun ApplicantResult.toResponse(): ApplicantResponse =
         ApplicantResponse.newBuilder()
             .setApplicantId(applicantId)
-            .setUserId(userId)
+            .setUserId(accountId)
             .setRegion(
                 when (region) {
                     Region.DAEJEON -> GrpcRegion.REGION_DAEJEON

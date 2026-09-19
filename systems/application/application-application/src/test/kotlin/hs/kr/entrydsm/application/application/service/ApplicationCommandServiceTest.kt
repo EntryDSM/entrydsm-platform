@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
+import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
@@ -65,7 +66,7 @@ class ApplicationCommandServiceTest {
         )
         val service = ApplicationCommandService(repository)
 
-        service.submit(userId = 10L)
+        service.submit(accountId = 10L)
         assertEquals(ApplicantStatus.SUBMITTED, repository.savedApplicant?.status)
         assertNotNull(repository.savedApplicant?.submittedAt)
 
@@ -106,8 +107,7 @@ class ApplicationCommandServiceTest {
         val service = ApplicationCommandService(repository)
 
         service.updateType(
-            applicantId = 1L,
-            userId = 10L,
+            accountId = 10L,
             admissionType = AdmissionType.REGULAR,
             region = Region.DAEJEON,
             graduationType = GraduationType.GED,
@@ -123,8 +123,7 @@ class ApplicationCommandServiceTest {
     fun socialAdmissionRequiresSensitiveConsent() {
         val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)))
         val command = UpdateTypeCommand(
-            applicantId = 1L,
-            userId = 10L,
+            accountId = 10L,
             admissionType = AdmissionType.SOCIAL,
             region = Region.DAEJEON,
             graduationType = GraduationType.GED,
@@ -133,6 +132,19 @@ class ApplicationCommandServiceTest {
         )
 
         assertThrows(SensitiveConsentRequiredException::class.java) { service.updateType(command) }
+    }
+
+    @Test
+    fun updateFindsApplicantByRequesterAccount() {
+        val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+        val service = ApplicationCommandService(repository)
+
+        service.updateIntroduction(accountId = 10L, introduction = "자기소개")
+        assertEquals("자기소개", repository.savedApplicant?.introduction)
+
+        assertThrows(ApplicantNotFoundException::class.java) {
+            service.updateIntroduction(accountId = 11L, introduction = "남의 원서")
+        }
     }
 
     private class FakeApplicantRepository(

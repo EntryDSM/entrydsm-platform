@@ -4,7 +4,7 @@ import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 
 data class SaveSubjectGradesCommand(
-    val userId: Long? = null,
+    val accountId: Long? = null,
     val schoolSemester: SchoolSemester,
     val subjectGrades: SubjectGrades,
 )

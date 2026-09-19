@@ -23,8 +23,8 @@ interface ApplicationPort {
     fun updateStudyPlan(command: UpdateStudyPlanCommand)
     fun submit(command: SubmitApplicationCommand)
     fun getLanding(accountId: Long?): LandingResult
-    fun findByUserId(userId: Long): ApplicationSnapshotResult?
+    fun findByAccountId(accountId: Long): ApplicationSnapshotResult?
     fun findApplicant(applicantId: Long): ApplicantResult?
-    fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult
+    fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult
 }
 

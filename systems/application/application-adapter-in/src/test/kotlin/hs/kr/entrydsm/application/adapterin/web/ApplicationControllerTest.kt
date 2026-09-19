@@ -54,10 +54,10 @@ class ApplicationControllerTest {
         val controller = ApplicationController(applicationPort, scheduleProperties())
 
         val response = controller.createApplicant(
-            userId = 10L,
+            accountId = 10L,
         )
 
-        assertEquals(10L, applicationPort.createApplicantCommand?.userId)
+        assertEquals(10L, applicationPort.createApplicantCommand?.accountId)
         assertEquals(201, response.statusCode.value())
         assertEquals(1L, response.body?.data?.applicantId)
     }
@@ -69,7 +69,7 @@ class ApplicationControllerTest {
                 FakeApplicationPort().createApplicant(command).copy(created = false)
         }
 
-        val response = ApplicationController(port, scheduleProperties()).createApplicant(userId = 10L)
+        val response = ApplicationController(port, scheduleProperties()).createApplicant(accountId = 10L)
 
         assertEquals(200, response.statusCode.value())
         assertEquals(1L, response.body?.data?.applicantId)
@@ -121,7 +121,7 @@ class ApplicationControllerTest {
             return CreateApplicantResult(
                 applicantId = 1L,
                 snapshot = ApplicationSnapshotResult(
-                    userId = requireNotNull(command.userId),
+                    accountId = requireNotNull(command.accountId),
                     applicantStatus = ApplicantStatus.DRAFT,
                     submittedAt = null,
                     updatedAt = applicationStartAt,
@@ -139,9 +139,9 @@ class ApplicationControllerTest {
         override fun updateStudyPlan(command: UpdateStudyPlanCommand) = Unit
         override fun submit(command: SubmitApplicationCommand) = Unit
         override fun getLanding(accountId: Long?): LandingResult = LandingResult(applicantName = "홍길동")
-        override fun findByUserId(userId: Long): ApplicationSnapshotResult? = null
+        override fun findByAccountId(accountId: Long): ApplicationSnapshotResult? = null
         override fun findApplicant(applicantId: Long): ApplicantResult? = null
-        override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
+        override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
     }
 
     private companion object {
