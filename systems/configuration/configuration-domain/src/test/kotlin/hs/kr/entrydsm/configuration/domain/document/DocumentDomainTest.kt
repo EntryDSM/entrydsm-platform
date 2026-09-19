@@ -121,11 +121,11 @@ class DocumentDomainTest {
     }
 
     @Test
-    fun `원서는 본인만 다운로드하고 수험표는 본인 학생과 관리자가 다운로드한다`() {
+    fun `원서와 수험표는 본인 학생과 관리자가 다운로드한다`() {
         assertTrue(FileCategory.APPLICATION.canDownload(student(10), ownerUserId = 10))
         assertFalse(FileCategory.APPLICATION.canDownload(student(11), ownerUserId = 10))
         assertFalse(FileCategory.APPLICATION.canDownload(student(10), ownerUserId = null))
-        assertFalse(FileCategory.APPLICATION.canDownload(admin, ownerUserId = 10))
+        assertTrue(FileCategory.APPLICATION.canDownload(admin, ownerUserId = 10))
 
         assertTrue(FileCategory.ADMISSION_TICKET.canDownload(student(10), ownerUserId = 10))
         assertFalse(FileCategory.ADMISSION_TICKET.canDownload(student(11), ownerUserId = 10))
