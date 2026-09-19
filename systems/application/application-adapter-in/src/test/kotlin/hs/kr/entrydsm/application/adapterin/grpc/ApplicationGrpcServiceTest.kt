@@ -90,7 +90,7 @@ class ApplicationGrpcServiceTest {
     fun servesApplicantWithUnsetFieldsLeftEmpty() {
         port.applicant = ApplicantResult(
             applicantId = APPLICANT_ID,
-            userId = USER_ID,
+            accountId = USER_ID,
             name = "홍길동",
             schoolName = null,
             region = Region.DAEJEON,
@@ -120,21 +120,21 @@ class ApplicationGrpcServiceTest {
         var findCount = 0
 
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
-            snapshot = snapshot(command.userId ?: error("userId is required"), ApplicantStatus.DRAFT)
+            snapshot = snapshot(command.accountId ?: error("accountId is required"), ApplicantStatus.DRAFT)
             return CreateApplicantResult(1L, requireNotNull(snapshot))
         }
 
-        override fun findByUserId(userId: Long): ApplicationSnapshotResult? {
+        override fun findByAccountId(accountId: Long): ApplicationSnapshotResult? {
             findCount += 1
-            return snapshot?.takeIf { it.userId == userId }
+            return snapshot?.takeIf { it.accountId == accountId }
         }
 
         override fun findApplicant(applicantId: Long): ApplicantResult? =
             applicant?.takeIf { it.applicantId == applicantId }
 
-        override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult {
+        override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason
-            return snapshot(userId, ApplicantStatus.CANCELED).also { snapshot = it }
+            return snapshot(accountId, ApplicantStatus.CANCELED).also { snapshot = it }
         }
 
         override fun updateType(command: UpdateTypeCommand) = Unit
@@ -146,8 +146,8 @@ class ApplicationGrpcServiceTest {
         override fun submit(command: SubmitApplicationCommand) = Unit
         override fun getLanding(accountId: Long?): LandingResult = LandingResult(null)
 
-        private fun snapshot(userId: Long, status: ApplicantStatus) = ApplicationSnapshotResult(
-            userId = userId,
+        private fun snapshot(accountId: Long, status: ApplicantStatus) = ApplicationSnapshotResult(
+            accountId = accountId,
             applicantStatus = status,
             submittedAt = null,
             updatedAt = LocalDateTime.of(2026, 9, 9, 0, 0),

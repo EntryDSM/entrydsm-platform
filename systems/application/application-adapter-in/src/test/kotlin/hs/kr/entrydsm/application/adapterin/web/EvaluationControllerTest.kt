@@ -44,7 +44,7 @@ class EvaluationControllerTest {
         val controller = EvaluationController(evaluationPort)
 
         controller.saveExpectedGrades(
-            userId = 10L,
+            accountId = 10L,
             request = SaveSubjectGradesRequest(
                 schoolSemester = "3-1",
                 subjects = subjectGradesRequest(),
@@ -55,13 +55,13 @@ class EvaluationControllerTest {
             SchoolSemester.THIRD_GRADE_FIRST_SEMESTER,
             evaluationPort.saveSubjectGradesCommand?.schoolSemester,
         )
-        assertEquals(10L, evaluationPort.saveSubjectGradesCommand?.userId)
+        assertEquals(10L, evaluationPort.saveSubjectGradesCommand?.accountId)
     }
 
     @Test(expected = IllegalArgumentException::class)
     fun saveExpectedGradesRejectsInvalidSchoolSemester() {
         EvaluationController(FakeEvaluationPort()).saveExpectedGrades(
-            userId = 10L,
+            accountId = 10L,
             request = SaveSubjectGradesRequest(
                 schoolSemester = "1-1",
                 subjects = subjectGradesRequest(),
@@ -75,11 +75,11 @@ class EvaluationControllerTest {
         val controller = EvaluationController(evaluationPort)
 
         val response = controller.getResult(
-            userId = 10L,
+            accountId = 10L,
         )
 
         assertEquals(null, response.data)
-        assertEquals(10L, evaluationPort.calculateEvaluationCommand?.userId)
+        assertEquals(10L, evaluationPort.calculateEvaluationCommand?.accountId)
     }
 
     private class FakeEvaluationPort : EvaluationPort {

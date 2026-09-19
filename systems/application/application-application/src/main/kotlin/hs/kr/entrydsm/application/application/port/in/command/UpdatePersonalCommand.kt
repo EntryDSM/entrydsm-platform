@@ -5,7 +5,7 @@ import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import java.time.LocalDate
 
 data class UpdatePersonalCommand(
-    val userId: Long? = null,
+    val accountId: Long? = null,
     val photoFileId: String,
     val name: String,
     val phoneNumber: String,

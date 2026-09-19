@@ -39,7 +39,7 @@ class ApplicationCommandService(
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
-        val accountId = requireUserId(command.userId)
+        val accountId = requireAccountId(command.accountId)
         val existing = applicantRepository.findByAccountId(accountId)
         val applicant = existing ?: createApplicant(accountId)
         return CreateApplicantResult(applicant.id, applicant.toSnapshot(), created = existing == null)
@@ -50,7 +50,7 @@ class ApplicationCommandService(
             throw SensitiveConsentRequiredException()
         }
         updateType(
-            userId = command.userId,
+            accountId = command.accountId,
             admissionType = command.admissionType,
             region = command.region,
             graduationType = command.graduationType,
@@ -60,7 +60,7 @@ class ApplicationCommandService(
 
     override fun updatePersonal(command: UpdatePersonalCommand) {
         updatePersonal(
-            userId = command.userId,
+            accountId = command.accountId,
             photoFileId = command.photoFileId,
             name = command.name,
             phoneNumber = command.phoneNumber,
@@ -72,7 +72,7 @@ class ApplicationCommandService(
 
     override fun updateFamily(command: UpdateFamilyCommand) {
         updateFamily(
-            userId = command.userId,
+            accountId = command.accountId,
             guardianName = command.guardianName,
             guardianPhoneNumber = command.guardianPhoneNumber,
             guardianGender = command.guardianGender,
@@ -85,7 +85,7 @@ class ApplicationCommandService(
 
     override fun updateMiddleSchool(command: UpdateMiddleSchoolCommand) {
         updateMiddleSchool(
-            userId = command.userId,
+            accountId = command.accountId,
             schoolName = command.schoolName,
             studentNumber = command.studentNumber,
             schoolPhone = command.schoolPhone,
@@ -94,15 +94,15 @@ class ApplicationCommandService(
     }
 
     override fun updateIntroduction(command: UpdateIntroductionCommand) {
-        updateIntroduction(command.userId, command.introduction)
+        updateIntroduction(command.accountId, command.introduction)
     }
 
     override fun updateStudyPlan(command: UpdateStudyPlanCommand) {
-        updateStudyPlan(command.userId, command.studyPlan)
+        updateStudyPlan(command.accountId, command.studyPlan)
     }
 
     override fun submit(command: SubmitApplicationCommand) {
-        submit(command.userId)
+        submit(command.accountId)
     }
 
     override fun getLanding(accountId: Long?): LandingResult {
@@ -111,14 +111,14 @@ class ApplicationCommandService(
         )
     }
 
-    override fun findByUserId(userId: Long): ApplicationSnapshotResult? =
-        applicantRepository.findByAccountId(userId)?.toSnapshot()
+    override fun findByAccountId(accountId: Long): ApplicationSnapshotResult? =
+        applicantRepository.findByAccountId(accountId)?.toSnapshot()
 
     override fun findApplicant(applicantId: Long): ApplicantResult? =
         applicantRepository.findById(applicantId)?.let {
             ApplicantResult(
                 applicantId = it.id,
-                userId = it.accountId,
+                accountId = it.accountId,
                 name = it.name,
                 schoolName = it.middleSchoolInfo?.schoolName,
                 region = it.region,
@@ -127,8 +127,8 @@ class ApplicationCommandService(
             )
         }
 
-    override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult {
-        val applicant = getApplicantByUserId(userId)
+    override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult {
+        val applicant = getApplicantByAccountId(accountId)
         if (applicant.status != ApplicantStatus.SUBMITTED) {
             throw ApplicationCancelNotAllowedException()
         }
@@ -152,13 +152,13 @@ class ApplicationCommandService(
     }
 
     fun updateType(
-        userId: Long?,
+        accountId: Long?,
         admissionType: AdmissionType,
         region: Region,
         graduationType: GraduationType,
         graduationDate: YearMonth?,
     ) {
-        val applicant = getApplicantByUserId(userId)
+        val applicant = getApplicantByAccountId(accountId)
         require(graduationType == GraduationType.GED || graduationDate != null) {
             "graduationDate is required unless graduationType is GED"
         }
@@ -190,7 +190,7 @@ class ApplicationCommandService(
     )
 
     fun updatePersonal(
-        userId: Long?,
+        accountId: Long?,
         photoFileId: String,
         name: String,
         phoneNumber: String,
@@ -202,7 +202,7 @@ class ApplicationCommandService(
         require(name.isNotBlank()) { "name is required" }
         require(phoneNumber.matches(PHONE_NUMBER_REGEX)) { "phoneNumber format is invalid" }
 
-        val applicant = getApplicantByUserId(userId)
+        val applicant = getApplicantByAccountId(accountId)
         applicant.photoFileId = photoFileId
         applicant.name = name
         applicant.phoneNumber = phoneNumber
@@ -213,7 +213,7 @@ class ApplicationCommandService(
     }
 
     fun updateFamily(
-        userId: Long?,
+        accountId: Long?,
         guardianName: String,
         guardianPhoneNumber: String,
         guardianGender: Gender,
@@ -228,7 +228,7 @@ class ApplicationCommandService(
         require(addressBase.isNotBlank()) { "addressBase is required" }
         require(addressDetail.isNotBlank()) { "addressDetail is required" }
 
-        val applicant = getApplicantByUserId(userId)
+        val applicant = getApplicantByAccountId(accountId)
         applicant.guardianName = guardianName
         applicant.guardianPhoneNumber = guardianPhoneNumber
         applicant.guardianGender = guardianGender
@@ -240,13 +240,13 @@ class ApplicationCommandService(
     }
 
     fun updateMiddleSchool(
-        userId: Long?,
+        accountId: Long?,
         schoolName: String,
         studentNumber: String,
         schoolPhone: String,
         teacherName: String,
     ) {
-        val applicant = getApplicantByUserId(userId)
+        val applicant = getApplicantByAccountId(accountId)
         require(applicant.graduationType != GraduationType.GED) {
             "middle school info is unavailable for GED applicants"
         }
@@ -264,26 +264,26 @@ class ApplicationCommandService(
         saveTouched(applicant)
     }
 
-    fun updateIntroduction(userId: Long?, introduction: String) {
+    fun updateIntroduction(accountId: Long?, introduction: String) {
         require(introduction.isNotBlank()) { "introduction is required" }
         require(introduction.length <= MAX_ESSAY_LENGTH) { "introduction is too long" }
 
-        val applicant = getApplicantByUserId(userId)
+        val applicant = getApplicantByAccountId(accountId)
         applicant.introduction = introduction
         saveTouched(applicant)
     }
 
-    fun updateStudyPlan(userId: Long?, studyPlan: String) {
+    fun updateStudyPlan(accountId: Long?, studyPlan: String) {
         require(studyPlan.isNotBlank()) { "studyPlan is required" }
         require(studyPlan.length <= MAX_ESSAY_LENGTH) { "studyPlan is too long" }
 
-        val applicant = getApplicantByUserId(userId)
+        val applicant = getApplicantByAccountId(accountId)
         applicant.studyPlan = studyPlan
         saveTouched(applicant)
     }
 
-    fun submit(userId: Long?) {
-        val applicant = getApplicantByUserId(userId)
+    fun submit(accountId: Long?) {
+        val applicant = getApplicantByAccountId(accountId)
         require(applicant.admissionType != null) { "admission type is required" }
         require(!applicant.name.isNullOrBlank()) { "personal info is required" }
         require(!applicant.guardianName.isNullOrBlank()) { "family info is required" }
@@ -292,14 +292,14 @@ class ApplicationCommandService(
         markSubmitted(applicant)
     }
 
-    private fun getApplicantByUserId(userId: Long?): Applicant {
-        val accountId = requireUserId(userId)
-        return applicantRepository.findByAccountId(accountId)
-            ?: throw ApplicantNotFoundException(accountId)
+    private fun getApplicantByAccountId(accountId: Long?): Applicant {
+        val id = requireAccountId(accountId)
+        return applicantRepository.findByAccountId(id)
+            ?: throw ApplicantNotFoundException(id)
     }
 
-    private fun requireUserId(userId: Long?): Long =
-        userId ?: throw AuthenticationRequiredException()
+    private fun requireAccountId(accountId: Long?): Long =
+        accountId ?: throw AuthenticationRequiredException()
 
     private fun markSubmitted(applicant: Applicant) {
         applicant.status = ApplicantStatus.SUBMITTED
@@ -314,7 +314,7 @@ class ApplicationCommandService(
     }
 
     private fun Applicant.toSnapshot(): ApplicationSnapshotResult = ApplicationSnapshotResult(
-        userId = accountId,
+        accountId = accountId,
         applicantStatus = status,
         submittedAt = submittedAt,
         updatedAt = updatedAt,

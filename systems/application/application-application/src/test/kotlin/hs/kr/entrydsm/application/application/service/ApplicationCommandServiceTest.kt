@@ -66,7 +66,7 @@ class ApplicationCommandServiceTest {
         )
         val service = ApplicationCommandService(repository)
 
-        service.submit(userId = 10L)
+        service.submit(accountId = 10L)
         assertEquals(ApplicantStatus.SUBMITTED, repository.savedApplicant?.status)
         assertNotNull(repository.savedApplicant?.submittedAt)
 
@@ -107,7 +107,7 @@ class ApplicationCommandServiceTest {
         val service = ApplicationCommandService(repository)
 
         service.updateType(
-            userId = 10L,
+            accountId = 10L,
             admissionType = AdmissionType.REGULAR,
             region = Region.DAEJEON,
             graduationType = GraduationType.GED,
@@ -123,7 +123,7 @@ class ApplicationCommandServiceTest {
     fun socialAdmissionRequiresSensitiveConsent() {
         val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)))
         val command = UpdateTypeCommand(
-            userId = 10L,
+            accountId = 10L,
             admissionType = AdmissionType.SOCIAL,
             region = Region.DAEJEON,
             graduationType = GraduationType.GED,
@@ -139,11 +139,11 @@ class ApplicationCommandServiceTest {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
         val service = ApplicationCommandService(repository)
 
-        service.updateIntroduction(userId = 10L, introduction = "자기소개")
+        service.updateIntroduction(accountId = 10L, introduction = "자기소개")
         assertEquals("자기소개", repository.savedApplicant?.introduction)
 
         assertThrows(ApplicantNotFoundException::class.java) {
-            service.updateIntroduction(userId = 11L, introduction = "남의 원서")
+            service.updateIntroduction(accountId = 11L, introduction = "남의 원서")
         }
     }
 

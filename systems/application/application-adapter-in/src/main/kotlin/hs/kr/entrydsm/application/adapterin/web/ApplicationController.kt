@@ -42,19 +42,19 @@ class ApplicationController(
 ) {
     @GetMapping("/landing")
     fun getLanding(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
     ): ApiResponse<LandingResponse> {
-        val result = applicationPort.getLanding(userId)
+        val result = applicationPort.getLanding(accountId)
         return ApiResponse(data = result.toResponse(landingScheduleProperties))
     }
 
     @PostMapping
     fun createApplicant(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
     ): ResponseEntity<ApiResponse<CreateApplicantResponse>> {
         val result = applicationPort.createApplicant(
             CreateApplicantCommand(
-                userId = userId,
+                accountId = accountId,
             ),
         )
         return ResponseEntity
@@ -64,13 +64,13 @@ class ApplicationController(
 
     @PatchMapping("/type")
     fun updateType(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @RequestHeader(SENSITIVE_AGREE_HEADER, defaultValue = "false") isSensitiveAgree: Boolean,
         @Valid @RequestBody request: UpdateTypeRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateType(
             UpdateTypeCommand(
-                userId = userId,
+                accountId = accountId,
                 admissionType = request.admissionType,
                 region = request.region,
                 graduationType = request.graduationType,
@@ -83,12 +83,12 @@ class ApplicationController(
 
     @PatchMapping("/personal")
     fun updatePersonal(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @Valid @RequestBody request: UpdatePersonalRequest,
     ): ApiResponse<Unit> {
         applicationPort.updatePersonal(
             UpdatePersonalCommand(
-                userId = userId,
+                accountId = accountId,
                 photoFileId = request.photoFileId,
                 name = request.name,
                 phoneNumber = request.phoneNumber,
@@ -102,12 +102,12 @@ class ApplicationController(
 
     @PatchMapping("/family")
     fun updateFamily(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @Valid @RequestBody request: UpdateFamilyRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateFamily(
             UpdateFamilyCommand(
-                userId = userId,
+                accountId = accountId,
                 guardianName = request.guardianName,
                 guardianPhoneNumber = request.guardianPhoneNumber,
                 guardianGender = request.guardianGender,
@@ -122,12 +122,12 @@ class ApplicationController(
 
     @PatchMapping("/middle-school")
     fun updateMiddleSchool(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @Valid @RequestBody request: UpdateMiddleSchoolRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateMiddleSchool(
             UpdateMiddleSchoolCommand(
-                userId = userId,
+                accountId = accountId,
                 schoolName = request.schoolName,
                 studentNumber = request.studentNumber,
                 schoolPhone = request.schoolPhone,
@@ -139,12 +139,12 @@ class ApplicationController(
 
     @PatchMapping("/self-introduction")
     fun updateIntroduction(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @Valid @RequestBody request: UpdateIntroductionRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateIntroduction(
             UpdateIntroductionCommand(
-                userId = userId,
+                accountId = accountId,
                 introduction = request.introduction,
             ),
         )
@@ -153,12 +153,12 @@ class ApplicationController(
 
     @PatchMapping("/study-plan")
     fun updateStudyPlan(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @Valid @RequestBody request: UpdateStudyPlanRequest,
     ): ApiResponse<Unit> {
         applicationPort.updateStudyPlan(
             UpdateStudyPlanCommand(
-                userId = userId,
+                accountId = accountId,
                 studyPlan = request.studyPlan,
             ),
         )
@@ -167,11 +167,11 @@ class ApplicationController(
 
     @PatchMapping
     fun submit(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
     ): ApiResponse<Unit> {
         applicationPort.submit(
             SubmitApplicationCommand(
-                userId = userId,
+                accountId = accountId,
             ),
         )
         return ApiResponse(data = null)
