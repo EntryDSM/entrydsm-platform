@@ -10,8 +10,8 @@ object FileNaming {
     /** files.object_key·original_name 컬럼 길이. 넘으면 S3 에 올린 뒤 DB 저장에서 실패한다. */
     const val MAX_STORED_NAME_LENGTH = 255
 
-    fun applicationFileName(applicantId: Long, extension: FileExtension): String =
-        "application_$applicantId.${extension.value}"
+    fun applicationFileName(applicantId: Long): String =
+        "application_$applicantId.${FileExtension.PDF.value}"
 
     fun admissionTicketFileName(applicantId: Long): String =
         "admission_ticket_$applicantId.${FileExtension.PDF.value}"

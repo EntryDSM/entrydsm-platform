@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.configuration.adapterin.common
 
-import hs.kr.entrydsm.configuration.adapterin.document.dto.ApplicationFileResponse
 import hs.kr.entrydsm.configuration.adapterin.document.dto.FileResponse
 import hs.kr.entrydsm.configuration.adapterin.document.dto.PageResponse
 import hs.kr.entrydsm.configuration.adapterin.document.toUploadCommand
@@ -119,8 +118,6 @@ class DocumentApiContractTest {
 
         assertEquals(FileResponse("attachment_3f2c", "공지.pdf", 1024, "https://s3/a", 300), FileResponse.of(file))
         assertEquals(FileResponse(null, "3f2c_notice.pdf", 1024, "https://s3/a", 300), FileResponse.ofApplicant(file))
-        assertEquals(ApplicationFileResponse(exists = false), ApplicationFileResponse.of(null))
-        assertEquals(ApplicationFileResponse(true, "3f2c_notice.pdf", 1024, "https://s3/a", 300), ApplicationFileResponse.of(file))
     }
 
     @Test

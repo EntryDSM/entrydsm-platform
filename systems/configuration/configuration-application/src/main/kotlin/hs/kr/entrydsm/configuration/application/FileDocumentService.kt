@@ -2,6 +2,8 @@ package hs.kr.entrydsm.configuration.application
 
 import hs.kr.entrydsm.configuration.domain.document.AdmissionTicketHtml
 import hs.kr.entrydsm.configuration.domain.document.Applicant
+import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
+import hs.kr.entrydsm.configuration.domain.document.ApplicationFormHtml
 import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
@@ -23,7 +25,6 @@ import hs.kr.entrydsm.configuration.domain.document.port.out.PdfRenderPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.slf4j.LoggerFactory
 import java.io.InputStream
-import java.time.Instant
 import java.util.Base64
 
 class FileDocumentService(
@@ -38,21 +39,17 @@ class FileDocumentService(
 
     private val log = LoggerFactory.getLogger(javaClass)
 
-    override fun uploadApplication(applicantId: Long, command: UploadFileCommand, content: InputStream): DownloadableFile {
+    override fun generateApplicationForm(requester: Requester): DownloadableFile {
         val category = FileCategory.APPLICATION
-        val extension = validate(command)
-        val applicant = requireApplicant(applicantId, command.requester, category::canStore)
-        val fileName = FileNaming.applicationFileName(applicantId, extension)
-        return store(category, fileName, command.originalName, extension, command.sizeBytes, content, applicant.userId)
-    }
-
-    override fun findApplication(applicantId: Long, requester: Requester): DownloadableFile? {
-        val category = FileCategory.APPLICATION
-        requireApplicant(applicantId, requester, category::canDownload)
-        return FileExtension.documentFormats
-            .mapNotNull { fileDocumentRepository.findByObjectKey(category.objectKeyOf(FileNaming.applicationFileName(applicantId, it))) }
-            .maxByOrNull { it.createdAt ?: Instant.EPOCH }
-            ?.let(::downloadable)
+        val form = requireApplicationForm(requester)
+        val pdf = pdfRenderPort.render(
+            ApplicationFormHtml.render(
+                admissionYear, form,
+                photoDataUri = form.photoFileId?.let { photoDataUri(it, form.userId) },
+            )
+        )
+        val fileName = FileNaming.applicationFileName(form.applicantId)
+        return store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), form.userId)
     }
 
     override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {
@@ -115,6 +112,15 @@ class FileDocumentService(
         val applicant = applicantPort.findById(applicantId)
         if (!allowed(requester, applicant?.userId)) throw DocumentAccessDeniedException()
         return applicant ?: throw ApplicantNotFoundException(applicantId)
+    }
+
+    /**
+     * 요청자 계정으로 찾으니 원서 주인이 곧 요청자다. 권한을 먼저 보므로 관리자는 여기서 403 이고,
+     * 본인에게 원서가 없으면 남의 원서를 훑을 수 없는 조회라 404 다.
+     */
+    private fun requireApplicationForm(requester: Requester): ApplicationForm {
+        if (!FileCategory.APPLICATION.canDownload(requester, requester.userId)) throw DocumentAccessDeniedException()
+        return applicantPort.findApplicationForm(requester.userId) ?: throw ApplicantNotFoundException(requester.userId, "accountId")
     }
 
     private fun requireFile(category: FileCategory, publicId: String): FileDocument =
@@ -180,7 +186,7 @@ class FileDocumentService(
     )
 
     /**
-     * 원서에 적힌 사진 ID 는 학생이 보낸 값이라, 그 학생이 올린 사진일 때만 수험표에 넣는다.
+     * 원서에 적힌 사진 ID 는 학생이 보낸 값이라, 그 학생이 올린 사진일 때만 원서·수험표에 넣는다.
      *
      * ponytail: webp 사진은 openhtmltopdf(ImageIO)가 읽지 못해 빈 칸으로 찍힌다. 필요해지면 webp 디코더를 붙인다.
      *
