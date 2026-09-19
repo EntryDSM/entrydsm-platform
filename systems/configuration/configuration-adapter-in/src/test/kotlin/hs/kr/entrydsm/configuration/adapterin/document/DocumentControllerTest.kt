@@ -13,14 +13,12 @@ import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCa
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.FileUseCase
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.springframework.http.HttpMethod
 import org.springframework.mock.web.MockMultipartFile
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.request.RequestPostProcessor
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.content
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
@@ -41,8 +39,8 @@ class DocumentControllerTest {
             .build()
 
     @Test
-    fun `원서 적재는 PUT 멀티파트로 받아 지원자 ID와 요청자를 넘기고 key 없이 서명 URL을 준다`() {
-        mvc.perform(multipart(HttpMethod.PUT, "/api/document/v11/applications/12").file(pdf()).with(student(10)))
+    fun `원서는 GET으로 요청자 본인 것을 만들고 key 없이 서명 URL을 준다`() {
+        mvc.perform(get("/api/document/v11/applications").with(student(10)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.fileName").value("application_12.pdf"))
@@ -52,40 +50,27 @@ class DocumentControllerTest {
             .andExpect(jsonPath("$.data.id").doesNotExist())
             .andExpect(jsonPath("$.data.key").doesNotExist())
 
-        assertEquals(12L, applicantFiles.lastApplicantId)
-        assertEquals(
-            UploadFileCommand(FileCategory.APPLICATION, "지원서.pdf", 7, Requester(10, Requester.Role.STUDENT)),
-            applicantFiles.lastCommand,
-        )
+        assertEquals(Requester(10, Requester.Role.STUDENT), applicantFiles.formRequester)
+    }
+
+    @Test
+    fun `원서를 받을 권한이 없으면 403이다 - 관리자가 여기서 걸린다`() {
+        applicantFiles.denied = true
+
+        mvc.perform(get("/api/document/v11/applications").with(admin()))
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.error.code").value("FILE_ACCESS_DENIED"))
     }
 
     @Test
     fun `멀티파트가 아니거나 파일 파트가 없으면 400이다`() {
-        mvc.perform(put("/api/document/v11/applications/12").content("{}").with(student(10)))
+        mvc.perform(post("/api/document/v11/photos").content("{}").with(student(10)))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
 
-        mvc.perform(multipart(HttpMethod.PUT, "/api/document/v11/applications/12").with(student(10)))
+        mvc.perform(multipart("/api/document/v11/photos").with(student(10)))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST_PARAM"))
-    }
-
-    @Test
-    fun `원서 조회는 올린 파일이 있으면 서명 URL을, 없으면 exists false만 준다`() {
-        mvc.perform(get("/api/document/v11/applications/12").with(student(10)))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.exists").value(false))
-            .andExpect(jsonPath("$.data.fileName").doesNotExist())
-            .andExpect(jsonPath("$.data.downloadUrl").doesNotExist())
-
-        applicantFiles.application = downloadable(FileCategory.APPLICATION.objectKeyOf("application_12.hwp"))
-
-        mvc.perform(get("/api/document/v11/applications/12").with(admin()))
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.exists").value(true))
-            .andExpect(jsonPath("$.data.fileName").value("application_12.hwp"))
-            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/application/application_12.hwp"))
-            .andExpect(jsonPath("$.data.expiresIn").value(300))
     }
 
     @Test
@@ -216,7 +201,7 @@ class DocumentControllerTest {
 
     @Test
     fun `없앤 경로의 요청 방식은 405다`() {
-        mvc.perform(post("/api/document/v11/applications/12").with(student(10)))
+        mvc.perform(post("/api/document/v11/applications").with(student(10)))
             .andExpect(status().isMethodNotAllowed)
     }
 
@@ -235,18 +220,15 @@ class DocumentControllerTest {
         MockMultipartFile("file", name, null, "content".toByteArray())
 
     private class RecordingApplicantFileUseCase : ApplicantFileUseCase {
-        var lastApplicantId: Long? = null
-        var lastCommand: UploadFileCommand? = null
-        var application: DownloadableFile? = null
+        var formRequester: Requester? = null
         var generated: Pair<Long, Requester>? = null
+        var denied = false
 
-        override fun uploadApplication(applicantId: Long, command: UploadFileCommand, content: InputStream): DownloadableFile {
-            lastApplicantId = applicantId
-            lastCommand = command
-            return downloadable(FileCategory.APPLICATION.objectKeyOf("application_$applicantId.pdf"), command.sizeBytes)
+        override fun generateApplicationForm(requester: Requester): DownloadableFile {
+            formRequester = requester
+            if (denied) throw DocumentAccessDeniedException()
+            return downloadable(FileCategory.APPLICATION.objectKeyOf("application_12.pdf"))
         }
-
-        override fun findApplication(applicantId: Long, requester: Requester): DownloadableFile? = application
 
         override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {
             generated = applicantId to requester

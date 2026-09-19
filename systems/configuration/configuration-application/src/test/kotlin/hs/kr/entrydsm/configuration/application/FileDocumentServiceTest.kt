@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.configuration.application
 
 import hs.kr.entrydsm.configuration.domain.document.Applicant
+import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
@@ -33,38 +34,56 @@ class FileDocumentServiceTest {
     private val storage = FakeStoragePort()
     private val repository = FakeFileDocumentRepository()
     private val applicants = mutableMapOf(APPLICANT_ID to applicant())
+    private val forms = mutableMapOf(STUDENT_ID to applicationForm())
     private val pdf = RecordingPdfRenderPort()
     private val service = FileDocumentService(
         storage, repository, presignExpirySeconds = 300,
-        applicantPort = ApplicantPort(applicants::get), pdfRenderPort = pdf, admissionYear = 2027,
+        // 수험표는 applicant id 로, 원서 전문은 계정으로 찾는다.
+        applicantPort = object : ApplicantPort {
+            override fun findById(applicantId: Long) = applicants[applicantId]
+
+            override fun findApplicationForm(accountId: Long) = forms[accountId]
+        },
+        pdfRenderPort = pdf, admissionYear = 2027,
     )
 
     private val admin = Requester(1, Requester.Role.ADMIN)
 
     @Test
-    fun `원서는 지원자 ID 파일명으로 적재하고 서명 URL을 붙여 돌려준다`() {
-        val uploaded = service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID)), content())
+    fun `원서는 요청자 계정으로 찾아 접수번호 파일명으로 만들고 서명 URL을 붙여 돌려준다`() {
+        val generated = service.generateApplicationForm(student(STUDENT_ID))
 
-        assertEquals("dsm_Entry/Backend/application/application_12.pdf", uploaded.document.objectKey)
-        assertEquals("지원서.pdf", uploaded.document.originalName)
-        assertEquals(STUDENT_ID, uploaded.document.ownerUserId)
-        assertEquals("https://s3/dsm_Entry/Backend/application/application_12.pdf?expires=300", uploaded.downloadUrl)
-        assertEquals(300L, uploaded.expiresIn)
+        // 파일명은 계정(10)이 아니라 원서가 알려 준 접수번호(12)로 짓는다.
+        assertEquals("dsm_Entry/Backend/application/application_12.pdf", generated.document.objectKey)
+        assertEquals("application/pdf", generated.document.contentType)
+        assertEquals(STUDENT_ID, generated.document.ownerUserId)
+        assertEquals("https://s3/dsm_Entry/Backend/application/application_12.pdf?expires=300", generated.downloadUrl)
+        assertEquals(300L, generated.expiresIn)
+        listOf("서식 1", "2027학년도", "홍길동").forEach { assertTrue(it, it in pdf.lastHtml) }
+    }
+
+    @Test
+    fun `원서는 관리자면 403이고, 원서가 없는 본인은 403이 아니라 404다`() {
+        assertThrows(DocumentAccessDeniedException::class.java) { service.generateApplicationForm(admin) }
+        // 권한을 먼저 보므로 남의 계정을 훑을 수 없다. 본인에게 원서가 없는 것은 숨길 이유가 없어 404 다.
+        assertThrows(ApplicantNotFoundException::class.java) { service.generateApplicationForm(student(11)) }
+
+        assertTrue(storage.uploaded.isEmpty())
     }
 
     @Test(expected = InvalidFileFormatException::class)
     fun `카테고리가 허용하지 않는 확장자는 거부한다`() {
-        service.uploadApplication(APPLICANT_ID, application(admin, originalName = "사진.jpg"), content())
+        service.upload(photo(student(STUDENT_ID), originalName = "사진.pdf"), content())
     }
 
     @Test(expected = InvalidFileFormatException::class)
     fun `확장자가 없으면 거부한다`() {
-        service.uploadApplication(APPLICANT_ID, application(admin, originalName = "지원서"), content())
+        service.upload(attachment(originalName = "공지"), content())
     }
 
     @Test(expected = FileTooLargeException::class)
     fun `카테고리 용량 한도를 넘으면 거부한다`() {
-        service.uploadApplication(APPLICANT_ID, application(admin, sizeBytes = FileCategory.APPLICATION.maxSizeBytes + 1), content())
+        service.upload(attachment(sizeBytes = FileCategory.ATTACHMENT.maxSizeBytes + 1), content())
     }
 
     @Test
@@ -72,7 +91,7 @@ class FileDocumentServiceTest {
         val longName = "a".repeat(FileNaming.MAX_STORED_NAME_LENGTH) + ".pdf"
 
         assertThrows(InvalidFileNameException::class.java) {
-            service.uploadApplication(APPLICANT_ID, application(admin, originalName = longName), content())
+            service.upload(attachment(originalName = longName), content())
         }
         assertTrue(storage.uploaded.isEmpty())
     }
@@ -111,58 +130,20 @@ class FileDocumentServiceTest {
     fun `원서는 동시 요청이 행을 먼저 만들어 저장이 실패하면 객체를 지우지 않고 다시 저장한다`() {
         repository.failingSaves = 1
 
-        val uploaded = service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID)), content())
+        val generated = service.generateApplicationForm(student(STUDENT_ID))
 
         assertTrue(storage.deleted.isEmpty())
-        assertEquals(uploaded.document.objectKey, repository.findByObjectKey(uploaded.document.objectKey)?.objectKey)
+        assertEquals(generated.document.objectKey, repository.findByObjectKey(generated.document.objectKey)?.objectKey)
     }
 
     @Test
     fun `원서·수험표는 다시 저장해도 실패하면 예외를 올리되 같은 키의 객체는 지우지 않는다`() {
         repository.failingSaves = Int.MAX_VALUE
 
-        assertThrows(IllegalStateException::class.java) {
-            service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID)), content())
-        }
+        assertThrows(IllegalStateException::class.java) { service.generateApplicationForm(student(STUDENT_ID)) }
         assertThrows(IllegalStateException::class.java) { service.generateAdmissionTicket(APPLICANT_ID, admin) }
 
         assertTrue(storage.deleted.isEmpty())
-    }
-
-    @Test
-    fun `원서는 application이 알려 준 본인과 관리자만 적재하고, 관리자가 올려도 본인은 지원자 계정이다`() {
-        assertThrows(DocumentAccessDeniedException::class.java) {
-            service.uploadApplication(APPLICANT_ID, application(student(11)), content())
-        }
-
-        val byAdmin = service.uploadApplication(APPLICANT_ID, application(admin), content())
-
-        assertEquals(STUDENT_ID, byAdmin.document.ownerUserId)
-        assertEquals(1, storage.uploaded.size)
-    }
-
-    @Test
-    fun `없는 지원자는 학생에게 403, 관리자에게 404다`() {
-        assertThrows(DocumentAccessDeniedException::class.java) {
-            service.uploadApplication(404, application(student(STUDENT_ID)), content())
-        }
-        assertThrows(ApplicantNotFoundException::class.java) {
-            service.uploadApplication(404, application(admin), content())
-        }
-        assertThrows(ApplicantNotFoundException::class.java) { service.findApplication(404, admin) }
-        assertTrue(storage.uploaded.isEmpty())
-    }
-
-    @Test
-    fun `원서 조회는 올리기 전이면 null, 올린 뒤엔 여러 형식 중 최근 것을 본인과 관리자에게만 준다`() {
-        assertNull(service.findApplication(APPLICANT_ID, student(STUDENT_ID)))
-
-        service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID)), content())
-        service.uploadApplication(APPLICANT_ID, application(student(STUDENT_ID), originalName = "지원서.hwp"), content())
-
-        assertEquals("application_12.hwp", service.findApplication(APPLICANT_ID, student(STUDENT_ID))?.document?.fileName)
-        assertEquals("application_12.hwp", service.findApplication(APPLICANT_ID, admin)?.document?.fileName)
-        assertThrows(DocumentAccessDeniedException::class.java) { service.findApplication(APPLICANT_ID, student(11)) }
     }
 
     @Test
@@ -293,12 +274,14 @@ class FileDocumentServiceTest {
 
     private fun student(userId: Long) = Requester(userId, Requester.Role.STUDENT)
 
-    private fun application(requester: Requester, originalName: String = "지원서.pdf", sizeBytes: Long = 1024) =
-        UploadFileCommand(FileCategory.APPLICATION, originalName, sizeBytes, requester)
+    private fun photo(requester: Requester, originalName: String = "사진.png") =
+        UploadFileCommand(FileCategory.PHOTO, originalName, 1024, requester)
 
-    private fun photo(requester: Requester) = UploadFileCommand(FileCategory.PHOTO, "사진.png", 1024, requester)
-
-    private fun attachment(requester: Requester = admin) = UploadFileCommand(FileCategory.ATTACHMENT, "notice.pdf", 1024, requester)
+    private fun attachment(
+        requester: Requester = admin,
+        originalName: String = "notice.pdf",
+        sizeBytes: Long = 1024,
+    ) = UploadFileCommand(FileCategory.ATTACHMENT, originalName, sizeBytes, requester)
 
     private fun guideline(originalName: String) = UploadFileCommand(FileCategory.GUIDELINE, originalName, 1024, admin)
 
@@ -309,6 +292,14 @@ class FileDocumentServiceTest {
         const val STUDENT_ID = 10L
 
         fun applicant(photoFileId: String? = null) = Applicant(STUDENT_ID, "홍길동", null, null, null, photoFileId)
+
+        /** 작성 중인 원서처럼 이름만 채운다. 나머지 칸이 비어도 서식은 찍힌다. */
+        fun applicationForm() = ApplicationForm(
+            applicantId = APPLICANT_ID, userId = STUDENT_ID, name = "홍길동", phoneNumber = null, birthdate = null,
+            gender = null, address = null, photoFileId = null, region = null, admissionType = null, specialNote = null,
+            graduationType = null, graduationDate = null, guardianName = null, guardianRelation = null,
+            guardianPhoneNumber = null, school = null, semesterGrades = emptyList(), academicRecord = null,
+        )
     }
 
     private class FakeStoragePort : StoragePort {
