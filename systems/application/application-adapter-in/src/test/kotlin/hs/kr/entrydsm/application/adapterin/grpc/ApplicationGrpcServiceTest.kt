@@ -15,15 +15,26 @@ import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapsh
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.application.domain.enum.Gender
+import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
+import hs.kr.entrydsm.application.domain.enum.SubjectGrade
+import hs.kr.entrydsm.application.domain.model.AcademicRecord
+import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
+import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
+import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
+import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
+import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
+import hs.kr.entrydsm.application.grpc.SpecialAdmissionType as GrpcSpecialAdmissionType
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.Server
@@ -31,9 +42,12 @@ import io.grpc.ServerBuilder
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import java.time.LocalDateTime
+import java.time.LocalDate
+import java.time.YearMonth
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
@@ -114,9 +128,83 @@ class ApplicationGrpcServiceTest {
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
     }
 
+    @Test
+    fun servesApplicationFormByAccountWithUnsetFieldsLeftEmpty() {
+        port.form = ApplicationFormResult(
+            applicantId = APPLICANT_ID,
+            accountId = USER_ID,
+            status = ApplicantStatus.SUBMITTED,
+            name = "홍길동",
+            phoneNumber = null,
+            birthdate = LocalDate.of(2010, 3, 2),
+            gender = Gender.MALE,
+            address = "(34503) 대전광역시 유성구 가정북로 76 101동 1001호",
+            photoFileId = "photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8",
+            region = Region.DAEJEON,
+            admissionType = null,
+            specialAdmissionType = SpecialAdmissionType.NATIONAL_MERIT,
+            graduationType = GraduationType.PROSPECTIVE,
+            graduationDate = YearMonth.of(2027, 2),
+            guardianName = "홍판서",
+            guardianRelation = "부",
+            guardianPhoneNumber = null,
+            middleSchool = MiddleSchoolInfo("대덕중학교", "30115", "042-000-0000", "김선생"),
+            thirdGradeSecondSemester = null,
+            thirdGradeFirstSemester = SubjectGrades(
+                koreanGrade = SubjectGrade.A,
+                societyGrade = SubjectGrade.B,
+                historyGrade = SubjectGrade.C,
+                mathGrade = SubjectGrade.X,
+                scienceGrade = SubjectGrade.D,
+                technologyGrade = SubjectGrade.E,
+                englishGrade = SubjectGrade.A,
+            ),
+            previousSemester = null,
+            secondPreviousSemester = null,
+            academicRecord = AcademicRecord(volunteerTime = 30, isDsmAlgorithmAwarded = true),
+        )
+
+        val found = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build())
+        val missing = assertThrows(StatusRuntimeException::class.java) {
+            stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(404).build())
+        }
+        val invalid = assertThrows(StatusRuntimeException::class.java) {
+            stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(0).build())
+        }
+
+        // 계정으로 찾지만 서식의 접수번호 칸은 원서 ID 다.
+        assertEquals(APPLICANT_ID, found.applicantId)
+        assertEquals(USER_ID, found.userId)
+        assertEquals("2010-03-02", found.birthdate)
+        assertEquals("2027-02", found.graduationDate)
+        assertEquals(GrpcGender.GENDER_MALE, found.gender)
+        assertEquals(GrpcGraduationType.GRADUATION_TYPE_PROSPECTIVE, found.graduationType)
+        assertEquals(
+            GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NATIONAL_MERIT,
+            found.specialAdmissionType,
+        )
+        assertEquals("대덕중학교", found.middleSchool.name)
+        assertEquals("김선생", found.middleSchool.teacherName)
+        // 성취도 미이수(X)는 요강에 없는 값이라 빈 문자열로 나가 칸이 빈다.
+        assertEquals("A", found.thirdGradeFirstSemester.korean)
+        assertEquals("", found.thirdGradeFirstSemester.math)
+        assertEquals(30, found.academicRecord.volunteerTime)
+        assertTrue(found.academicRecord.dsmAlgorithmAwarded)
+        assertFalse(found.academicRecord.programmingCertified)
+        // 비어 있는 값은 담지 않아 서식의 칸이 빈다.
+        assertFalse(found.hasPhoneNumber())
+        assertFalse(found.hasGuardianPhoneNumber())
+        assertFalse(found.hasThirdGradeSecondSemester())
+        assertEquals(GrpcAdmissionType.ADMISSION_TYPE_UNSPECIFIED, found.admissionType)
+
+        assertEquals(Status.Code.NOT_FOUND, missing.status.code)
+        assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
+    }
+
     private class FakeApplicationPort : ApplicationPort {
         private var snapshot: ApplicationSnapshotResult? = null
         var applicant: ApplicantResult? = null
+        var form: ApplicationFormResult? = null
         var cancelReason: String? = null
         var findCount = 0
 
@@ -133,7 +221,8 @@ class ApplicationGrpcServiceTest {
         override fun findApplicant(applicantId: Long): ApplicantResult? =
             applicant?.takeIf { it.applicantId == applicantId }
 
-        override fun findApplicationForm(accountId: Long): ApplicationFormResult? = null
+        override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
+            form?.takeIf { it.accountId == accountId }
 
         override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason
