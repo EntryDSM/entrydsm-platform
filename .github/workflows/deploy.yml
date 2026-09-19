@@ -199,7 +199,7 @@ jobs:
           
               docker compose up -d
           
-              docker image prune -f
+              docker image prune -af
               "
 
       - name: STAG 헬스체크
