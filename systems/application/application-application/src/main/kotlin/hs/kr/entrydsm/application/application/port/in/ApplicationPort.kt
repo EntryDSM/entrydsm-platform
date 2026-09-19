@@ -9,6 +9,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCo
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
@@ -25,6 +26,9 @@ interface ApplicationPort {
     fun getLanding(accountId: Long?): LandingResult
     fun findByAccountId(accountId: Long): ApplicationSnapshotResult?
     fun findApplicant(applicantId: Long): ApplicantResult?
+
+    /** 요강 <서식 1> 입학원서를 찍는 데 쓰는 원서 내용. 그 계정의 원서가 없으면 null. */
+    fun findApplicationForm(accountId: Long): ApplicationFormResult?
     fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult
 }
 

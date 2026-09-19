@@ -10,6 +10,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCo
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
@@ -131,6 +132,8 @@ class ApplicationGrpcServiceTest {
 
         override fun findApplicant(applicantId: Long): ApplicantResult? =
             applicant?.takeIf { it.applicantId == applicantId }
+
+        override fun findApplicationForm(accountId: Long): ApplicationFormResult? = null
 
         override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason

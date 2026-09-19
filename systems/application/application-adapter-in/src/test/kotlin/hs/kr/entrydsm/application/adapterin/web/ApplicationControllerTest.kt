@@ -15,6 +15,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCo
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
@@ -141,6 +142,7 @@ class ApplicationControllerTest {
         override fun getLanding(accountId: Long?): LandingResult = LandingResult(applicantName = "홍길동")
         override fun findByAccountId(accountId: Long): ApplicationSnapshotResult? = null
         override fun findApplicant(applicantId: Long): ApplicantResult? = null
+        override fun findApplicationForm(accountId: Long): ApplicationFormResult? = null
         override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
     }
 

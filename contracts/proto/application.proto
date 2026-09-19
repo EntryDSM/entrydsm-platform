@@ -11,6 +11,7 @@ service ApplicationService {
     rpc GetApplication(GetApplicationRequest) returns (ApplicationResponse);
     rpc CancelApplication(CancelApplicationRequest) returns (ApplicationResponse);
     rpc GetApplicant(GetApplicantRequest) returns (ApplicantResponse);
+    rpc GetApplicationForm(GetApplicationFormRequest) returns (ApplicationFormResponse);
 }
 
 message CreateApplicationRequest {
@@ -55,6 +56,75 @@ message ApplicantResponse {
     optional string photo_file_id = 8;
 }
 
+// 원서 주인 계정(X-User-Id). 본인 원서만 찍으므로 applicant id 를 받지 않는다.
+message GetApplicationFormRequest {
+    int64 account_id = 1;
+}
+
+// 요강 <서식 1> 입학원서를 찍는 데 쓰는 원서 내용.
+// ApplicantResponse 에 얹지 않는 것은 원서 전문이 무겁고, 수험표가 쓰는 요약과 소비자가 다르기 때문이다.
+// 원서가 작성 중이면 대부분 비어 있다.
+message ApplicationFormResponse {
+    int64 applicant_id = 1;
+    int64 user_id = 2;
+    ApplicantStatus applicant_status = 3;
+    optional string name = 4;
+    optional string phone_number = 5;
+    // ISO-8601 (yyyy-MM-dd)
+    optional string birthdate = 6;
+    Gender gender = 7;
+    // 우편번호까지 합친 한 줄
+    optional string address = 8;
+    // document 증명사진 ID (photo_ 로 시작)
+    optional string photo_file_id = 9;
+    Region region = 10;
+    AdmissionType admission_type = 11;
+    SpecialAdmissionType special_admission_type = 12;
+    GraduationType graduation_type = 13;
+    // yyyy-MM
+    optional string graduation_date = 14;
+    optional string guardian_name = 15;
+    optional string guardian_relation = 16;
+    optional string guardian_phone_number = 17;
+    optional MiddleSchool middle_school = 18;
+    // 서식 1 교과성적 표의 네 열. 성적이 없는 열은 담지 않는다.
+    // 직전·직전전은 자유학기를 건너뛴 상대 순서라 ScoreCalculator 와 같은 규칙으로 고른다.
+    optional SemesterGrades third_grade_second_semester = 19;
+    optional SemesterGrades third_grade_first_semester = 20;
+    optional SemesterGrades previous_semester = 21;
+    optional SemesterGrades second_previous_semester = 22;
+    optional AcademicRecord academic_record = 23;
+}
+
+message MiddleSchool {
+    string name = 1;
+    string student_number = 2;
+    string phone = 3;
+    string teacher_name = 4;
+}
+
+// 성취도 A~E. 미이수(자유학기 등)는 요강에 없는 값이라 빈 문자열로 준다.
+message SemesterGrades {
+    string korean = 1;
+    string society = 2;
+    string history = 3;
+    string math = 4;
+    string science = 5;
+    string technology = 6;
+    string english = 7;
+}
+
+// 성적을 한 번도 넣지 않은 원서면 이 값이 없다. 전부 0 인 것과 구분된다.
+message AcademicRecord {
+    int32 absent_count = 1;
+    int32 late_count = 2;
+    int32 early_leave_count = 3;
+    int32 class_absence_count = 4;
+    int32 volunteer_time = 5;
+    bool dsm_algorithm_awarded = 6;
+    bool programming_certified = 7;
+}
+
 message ApplicantStatusChangedEvent {
     string event_id = 1;
     int64 account_id = 2;
@@ -83,6 +153,13 @@ enum PassStatus {
     PASS_STATUS_FAILED = 3;
 }
 
+enum GraduationType {
+    GRADUATION_TYPE_UNSPECIFIED = 0;
+    GRADUATION_TYPE_PROSPECTIVE = 1;
+    GRADUATION_TYPE_GRADUATED = 2;
+    GRADUATION_TYPE_GED = 3;
+}
+
 enum Region {
     REGION_UNSPECIFIED = 0;
     REGION_DAEJEON = 1;
@@ -94,4 +171,17 @@ enum AdmissionType {
     ADMISSION_TYPE_REGULAR = 1;
     ADMISSION_TYPE_MEISTER = 2;
     ADMISSION_TYPE_SOCIAL = 3;
+}
+
+enum Gender {
+    GENDER_UNSPECIFIED = 0;
+    GENDER_MALE = 1;
+    GENDER_FEMALE = 2;
+}
+
+enum SpecialAdmissionType {
+    SPECIAL_ADMISSION_TYPE_UNSPECIFIED = 0;
+    SPECIAL_ADMISSION_TYPE_NONE = 1;
+    SPECIAL_ADMISSION_TYPE_NATIONAL_MERIT = 2;
+    SPECIAL_ADMISSION_TYPE_SPECIAL_ADMISSION = 3;
 }

@@ -14,6 +14,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCo
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
@@ -25,9 +26,12 @@ import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
+import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
+import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -126,6 +130,51 @@ class ApplicationCommandService(
                 photoFileId = it.photoFileId,
             )
         }
+
+    override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
+        applicantRepository.findByAccountId(accountId)?.toApplicationFormResult()
+
+    private fun Applicant.toApplicationFormResult(): ApplicationFormResult {
+        val grades = academicRecord?.subjectGrades.orEmpty()
+        /*
+         * 서식 1 의 "직전학기"·"직전전학기" 는 절대 학기가 아니라 자유학기를 건너뛴 상대 순서다.
+         * ScoreCalculator 가 반영 학기를 고르는 순서(2-2 → 2-1 → 1-2 → 1-1)와 같아야
+         * 인쇄한 원서와 산출한 점수가 어긋나지 않는다.
+         */
+        val previous = PREVIOUS_SEMESTERS.mapNotNull(grades::reflected)
+        return ApplicationFormResult(
+            applicantId = id,
+            accountId = accountId,
+            status = status,
+            name = name,
+            phoneNumber = phoneNumber,
+            birthdate = birthdate,
+            gender = gender,
+            address = formatAddress(),
+            photoFileId = photoFileId,
+            region = region,
+            admissionType = admissionType,
+            specialAdmissionType = specialAdmissionType,
+            graduationType = graduationType,
+            graduationDate = graduationDate,
+            guardianName = guardianName,
+            guardianRelation = guardianRelation,
+            guardianPhoneNumber = guardianPhoneNumber,
+            middleSchool = middleSchoolInfo,
+            thirdGradeSecondSemester = grades.reflected(SchoolSemester.THIRD_GRADE_SECOND_SEMESTER),
+            thirdGradeFirstSemester = grades.reflected(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER),
+            previousSemester = previous.getOrNull(0),
+            secondPreviousSemester = previous.getOrNull(1),
+            academicRecord = academicRecord,
+        )
+    }
+
+    /** 원서에 적힌 주소를 서식 1 의 한 칸에 넣을 한 줄로 만든다. 아무것도 없으면 null. */
+    private fun Applicant.formatAddress(): String? = listOfNotNull(
+        zipCode?.takeIf(String::isNotBlank)?.let { "($it)" },
+        addressBase?.takeIf(String::isNotBlank),
+        addressDetail?.takeIf(String::isNotBlank),
+    ).joinToString(" ").takeIf(String::isNotBlank)
 
     override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult {
         val applicant = getApplicantByAccountId(accountId)
@@ -324,9 +373,24 @@ class ApplicationCommandService(
 
     companion object {
         private const val NEW_APPLICANT_ID = 0L
+        /** 서식 1 의 직전·직전전 학기 후보. ScoreCalculator 의 반영 학기 순서와 같다. */
+        private val PREVIOUS_SEMESTERS = listOf(
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER,
+            SchoolSemester.SECOND_GRADE_FIRST_SEMESTER,
+            SchoolSemester.FIRST_GRADE_SECOND_SEMESTER,
+            SchoolSemester.FIRST_GRADE_FIRST_SEMESTER,
+        )
         private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
         private const val MAX_ESSAY_LENGTH = 1600
         // applicants.photo_file_id 컬럼 길이. document 증명사진 ID 는 photo_ 와 32자 임의값이다.
         private const val MAX_PHOTO_FILE_ID_LENGTH = 64
     }
 }
+
+/** 자유학기처럼 반영할 과목이 하나도 없는 학기는 서식 1 의 열로 쓰지 않는다. */
+private fun Map<SchoolSemester, SubjectGrades>.reflected(semester: SchoolSemester): SubjectGrades? =
+    this[semester]?.takeIf { it.hasReflectedSubject() }
+
+private fun SubjectGrades.hasReflectedSubject(): Boolean = listOf(
+    koreanGrade, societyGrade, historyGrade, mathGrade, scienceGrade, technologyGrade, englishGrade,
+).any { it != SubjectGrade.X }
