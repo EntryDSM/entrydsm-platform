@@ -68,7 +68,7 @@ class DocumentDomainTest {
 
     @Test
     fun `원서·수험표 파일명은 지원자 ID로 만든다`() {
-        assertEquals("application_12.hwp", FileNaming.applicationFileName(12, FileExtension.HWP))
+        assertEquals("application_12.pdf", FileNaming.applicationFileName(12))
         assertEquals("admission_ticket_12.pdf", FileNaming.admissionTicketFileName(12))
     }
 
@@ -99,23 +99,16 @@ class DocumentDomainTest {
     }
 
     @Test
-    fun `첨부·요강은 관리자만 적재하고 수험표는 아무도 올리지 않는다`() {
+    fun `첨부·요강은 관리자만 적재하고 원서·수험표는 아무도 올리지 않는다`() {
         listOf(FileCategory.ATTACHMENT, FileCategory.GUIDELINE).forEach {
             assertTrue(it.name, it.canStore(admin, ownerUserId = null))
             assertFalse(it.name, it.canStore(student(10), ownerUserId = null))
         }
-        assertFalse(FileCategory.ADMISSION_TICKET.canStore(admin, ownerUserId = null))
-        assertFalse(FileCategory.ADMISSION_TICKET.canStore(student(10), ownerUserId = 10))
-    }
-
-    @Test
-    fun `원서는 지원자 본인과 관리자만 적재하고, 본인을 모르면 학생은 적재할 수 없다`() {
-        val application = FileCategory.APPLICATION
-
-        assertTrue(application.canStore(student(10), ownerUserId = 10))
-        assertFalse(application.canStore(student(11), ownerUserId = 10))
-        assertFalse(application.canStore(student(10), ownerUserId = null))
-        assertTrue(application.canStore(admin, ownerUserId = 10))
+        listOf(FileCategory.APPLICATION, FileCategory.ADMISSION_TICKET).forEach {
+            assertFalse(it.name, it.canStore(admin, ownerUserId = 10))
+            assertFalse(it.name, it.canStore(student(10), ownerUserId = 10))
+            assertFalse(it.name, it.canDelete(admin, ownerUserId = 10))
+        }
     }
 
     @Test
@@ -128,13 +121,16 @@ class DocumentDomainTest {
     }
 
     @Test
-    fun `원서·수험표는 본인 학생과 관리자만 다운로드한다`() {
-        listOf(FileCategory.APPLICATION, FileCategory.ADMISSION_TICKET).forEach {
-            assertTrue(it.name, it.canDownload(student(10), ownerUserId = 10))
-            assertFalse(it.name, it.canDownload(student(11), ownerUserId = 10))
-            assertFalse(it.name, it.canDownload(student(10), ownerUserId = null))
-            assertTrue(it.name, it.canDownload(admin, ownerUserId = null))
-        }
+    fun `원서와 수험표는 본인 학생과 관리자가 다운로드한다`() {
+        assertTrue(FileCategory.APPLICATION.canDownload(student(10), ownerUserId = 10))
+        assertFalse(FileCategory.APPLICATION.canDownload(student(11), ownerUserId = 10))
+        assertFalse(FileCategory.APPLICATION.canDownload(student(10), ownerUserId = null))
+        assertTrue(FileCategory.APPLICATION.canDownload(admin, ownerUserId = 10))
+
+        assertTrue(FileCategory.ADMISSION_TICKET.canDownload(student(10), ownerUserId = 10))
+        assertFalse(FileCategory.ADMISSION_TICKET.canDownload(student(11), ownerUserId = 10))
+        assertFalse(FileCategory.ADMISSION_TICKET.canDownload(student(10), ownerUserId = null))
+        assertTrue(FileCategory.ADMISSION_TICKET.canDownload(admin, ownerUserId = null))
     }
 
     @Test

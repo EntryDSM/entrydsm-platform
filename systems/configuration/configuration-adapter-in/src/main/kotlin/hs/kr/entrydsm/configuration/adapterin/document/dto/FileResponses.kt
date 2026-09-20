@@ -26,7 +26,7 @@ data class FileResponse(
             expiresIn = file.expiresIn,
         )
 
-        /** 원서·수험표: 저장 파일명(application_{applicantId}.pdf 등) */
+        /** 원서·수험표: 저장 파일명(application_{applicantId}.pdf) */
         fun ofApplicant(file: DownloadableFile) = FileResponse(
             id = null,
             fileName = file.document.fileName,
@@ -34,23 +34,6 @@ data class FileResponse(
             downloadUrl = file.downloadUrl,
             expiresIn = file.expiresIn,
         )
-    }
-}
-
-/** 원서 조회. 아직 올리지 않았으면 404 대신 `exists: false` 만 준다. */
-@JsonInclude(JsonInclude.Include.NON_NULL)
-data class ApplicationFileResponse(
-    val exists: Boolean,
-    val fileName: String? = null,
-    val size: Long? = null,
-    val downloadUrl: String? = null,
-    val expiresIn: Long? = null,
-) {
-    companion object {
-        fun of(file: DownloadableFile?): ApplicationFileResponse =
-            file?.let { FileResponse.ofApplicant(it) }
-                ?.let { ApplicationFileResponse(true, it.fileName, it.size, it.downloadUrl, it.expiresIn) }
-                ?: ApplicationFileResponse(exists = false)
     }
 }
 

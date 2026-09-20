@@ -5,7 +5,7 @@ import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import java.time.LocalDateTime
 
 data class ApplicationSnapshotResult(
-    val userId: Long,
+    val accountId: Long,
     val applicantStatus: ApplicantStatus,
     val submittedAt: LocalDateTime?,
     val updatedAt: LocalDateTime,

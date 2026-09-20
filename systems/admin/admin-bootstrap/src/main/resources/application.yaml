@@ -4,10 +4,13 @@ spring:
   main:
     lazy-initialization: true
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/admin_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:password}
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  hikari:
+    maximum-pool-size: ${DB_MAX_POOL_SIZE:3}
+    minimum-idle: ${DB_MIN_IDLE:1}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -49,4 +52,4 @@ management:
         enabled: true
 logging:
   level:
-    root: INFO
+    root: ${LOGGING_LEVEL_ROOT:INFO}

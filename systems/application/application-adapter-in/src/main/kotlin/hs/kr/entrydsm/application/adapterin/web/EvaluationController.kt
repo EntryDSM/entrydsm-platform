@@ -28,30 +28,30 @@ class EvaluationController(
 ) {
     @PostMapping("/grades/expected")
     fun saveExpectedGrades(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @RequestBody request: SaveSubjectGradesRequest,
     ): ApiResponse<Unit> {
-        saveSubjectGrades(userId, request)
+        saveSubjectGrades(accountId, request)
         return ApiResponse(data = null)
     }
 
     @PostMapping("/grades/graduated")
     fun saveGraduatedGrades(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @RequestBody request: SaveSubjectGradesRequest,
     ): ApiResponse<Unit> {
-        saveSubjectGrades(userId, request)
+        saveSubjectGrades(accountId, request)
         return ApiResponse(data = null)
     }
 
     @PostMapping("/ged-scores")
     fun saveGedScores(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @RequestBody request: SaveGedScoresRequest,
     ): ApiResponse<Unit> {
         evaluationPort.saveGedScores(
             SaveGedScoresCommand(
-                userId = userId,
+                accountId = accountId,
                 gedScores = GedScores(
                     koreanScore = request.koreanScore,
                     mathScore = request.mathScore,
@@ -68,12 +68,12 @@ class EvaluationController(
 
     @PostMapping("/academic-records")
     fun saveAcademicRecords(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @RequestBody request: SaveAcademicRecordRequest,
     ): ApiResponse<AcademicRecordResponse> {
         val result = evaluationPort.saveAcademicRecord(
             SaveAcademicRecordCommand(
-                userId = userId,
+                accountId = accountId,
                 absentCount = request.absentCount,
                 earlyLeaveCount = request.earlyLeaveCount,
                 lateCount = request.lateCount,
@@ -86,12 +86,12 @@ class EvaluationController(
 
     @PostMapping("/certificates")
     fun saveCertificates(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
         @RequestBody request: SaveCertificatesRequest,
     ): ApiResponse<Unit> {
         evaluationPort.saveCertificates(
             SaveCertificatesCommand(
-                userId = userId,
+                accountId = accountId,
                 isDsmAlgorithmAwarded = request.isDsmAlgorithmAwarded,
                 isProgrammingCertified = request.isProgrammingCertified,
             ),
@@ -101,23 +101,23 @@ class EvaluationController(
 
     @PostMapping("/result")
     fun getResult(
-        @RequestHeader(USER_ID_HEADER) userId: Long,
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
     ): ApiResponse<Unit> {
         evaluationPort.calculateResult(
             CalculateEvaluationCommand(
-                userId = userId,
+                accountId = accountId,
             ),
         )
         return ApiResponse(data = null)
     }
 
     private fun saveSubjectGrades(
-        userId: Long?,
+        accountId: Long?,
         request: SaveSubjectGradesRequest,
     ) {
         evaluationPort.saveSubjectGrades(
             SaveSubjectGradesCommand(
-                userId = userId,
+                accountId = accountId,
                 schoolSemester = request.schoolSemester.toSchoolSemester(),
                 subjectGrades = request.subjects.toDomain(),
             ),

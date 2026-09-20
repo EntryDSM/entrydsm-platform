@@ -1,0 +1,130 @@
+package hs.kr.entrydsm.configuration.adapterout
+
+import hs.kr.entrydsm.configuration.domain.document.Applicant
+import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
+import hs.kr.entrydsm.configuration.domain.document.ApplicationFormHtml
+import org.apache.pdfbox.Loader
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.awt.image.BufferedImage
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.util.Base64
+import javax.imageio.ImageIO
+import kotlin.math.roundToInt
+
+/**
+ * 서식 1 은 인쇄해서 우편으로 보내는 종이라 **A4 한 장**이어야 한다.
+ * 칸이 넘쳐 두 장이 되면 요강이 요구하는 서식이 아니게 되므로 쪽수를 단언한다.
+ */
+class ApplicationFormPdfTest {
+
+    @Test
+    fun `칸을 다 채운 원서를 A4 한 장으로 찍는다`() {
+        val pdf = render(form(), photo = true)
+
+        assertTrue(String(pdf.copyOfRange(0, 5)) == "%PDF-")
+        assertA4SinglePage(pdf)
+
+        // 눈으로 확인할 때 쓴다. bazel-testlogs/.../test.outputs/outputs.zip 에 담긴다.
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "application-form.pdf").writeBytes(pdf) }
+    }
+
+    @Test
+    fun `주소·학교명·보호자명이 길어도 한 장을 넘지 않는다`() {
+        val pdf = render(
+            form().copy(
+                name = "황보구양선우제갈남궁",
+                address = "(34503) 대전광역시 유성구 가정북로 76번길 123-45 대덕소프트웨어마이스터고등학교 기숙사 제3생활관 502호",
+                guardianName = "황보구양선우제갈남궁",
+                guardianRelation = "아버지의 사촌 형제",
+                school = ApplicationForm.MiddleSchool(
+                    name = "대전광역시립대덕소프트웨어부설중학교",
+                    studentNumber = "30125",
+                    phone = "042-000-0000",
+                    teacherName = "황보구양선우제갈남궁",
+                ),
+            ),
+        )
+
+        assertA4SinglePage(pdf)
+    }
+
+    @Test
+    fun `작성 중이라 이름만 있는 원서도 빈 칸인 채로 한 장을 찍는다`() {
+        val pdf = render(
+            ApplicationForm(
+                applicantId = 12, userId = 10, name = "홍길동", phoneNumber = null, birthdate = null,
+                gender = null, address = null, photoFileId = null, region = null, admissionType = null,
+                specialNote = null, graduationType = null, graduationDate = null, guardianName = null,
+                guardianRelation = null, guardianPhoneNumber = null, school = null,
+                semesterGrades = emptyList(), academicRecord = null,
+            ),
+        )
+
+        assertA4SinglePage(pdf)
+    }
+
+    private fun render(form: ApplicationForm, photo: Boolean = false): ByteArray =
+        OpenHtmlToPdfAdapter().render(
+            ApplicationFormHtml.render(
+                admissionYear = 2027,
+                form = form,
+                photoDataUri = if (photo) "data:image/png;base64," + Base64.getEncoder().encodeToString(png()) else null,
+            ),
+        )
+
+    private fun assertA4SinglePage(pdf: ByteArray) = Loader.loadPDF(pdf).use { document ->
+        assertEquals(1, document.numberOfPages)
+        val page = document.getPage(0).mediaBox
+        // A4 세로 = 595 x 842 pt (소수점은 반올림해 본다)
+        assertEquals(595, page.width.roundToInt())
+        assertEquals(842, page.height.roundToInt())
+    }
+
+    /** 졸업예정자라 3학년 2학기 열은 비고 나머지 세 열이 찬다. */
+    private fun form() = ApplicationForm(
+        applicantId = 12,
+        userId = 10,
+        name = "홍길동",
+        phoneNumber = "010-1234-5678",
+        birthdate = "2010-03-02",
+        gender = ApplicationForm.Gender.MALE,
+        address = "(34503) 대전광역시 유성구 가정북로 76 101동 1001호",
+        photoFileId = "photo_a",
+        region = Applicant.Region.DAEJEON,
+        admissionType = Applicant.AdmissionType.MEISTER,
+        specialNote = "국가유공자 자녀",
+        graduationType = ApplicationForm.GraduationType.PROSPECTIVE,
+        graduationDate = "2027-02",
+        guardianName = "홍판서",
+        guardianRelation = "부",
+        guardianPhoneNumber = "010-9876-5432",
+        school = ApplicationForm.MiddleSchool(
+            name = "대덕중학교",
+            studentNumber = "30115",
+            phone = "042-000-0000",
+            teacherName = "김선생",
+        ),
+        semesterGrades = listOf(null, grades("A"), grades("B"), grades("C")),
+        academicRecord = ApplicationForm.AcademicRecord(
+            absentCount = 1,
+            lateCount = 2,
+            earlyLeaveCount = 0,
+            classAbsenceCount = 3,
+            volunteerTime = 30,
+            dsmAlgorithmAwarded = true,
+            programmingCertified = true,
+        ),
+    )
+
+    private fun grades(grade: String) = ApplicationForm.SemesterGrades(
+        korean = grade, society = grade, history = grade, math = grade,
+        science = grade, technology = grade, english = grade,
+    )
+
+    private fun png(): ByteArray = ByteArrayOutputStream().also {
+        ImageIO.write(BufferedImage(30, 40, BufferedImage.TYPE_INT_RGB), "png", it)
+    }.toByteArray()
+}

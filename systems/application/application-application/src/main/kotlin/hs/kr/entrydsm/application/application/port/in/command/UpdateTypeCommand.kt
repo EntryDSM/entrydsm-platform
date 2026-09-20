@@ -6,8 +6,7 @@ import hs.kr.entrydsm.application.domain.enum.Region
 import java.time.YearMonth
 
 data class UpdateTypeCommand(
-    val applicantId: Long,
-    val userId: Long? = null,
+    val accountId: Long? = null,
     val admissionType: AdmissionType,
     val region: Region,
     val graduationType: GraduationType,

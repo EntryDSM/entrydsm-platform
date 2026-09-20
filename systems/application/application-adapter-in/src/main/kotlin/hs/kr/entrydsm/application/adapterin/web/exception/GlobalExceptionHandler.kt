@@ -2,8 +2,6 @@ package hs.kr.entrydsm.application.adapterin.web.exception
 
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorResponse
-import hs.kr.entrydsm.application.application.exception.ApplicantAccessDeniedException
-import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
@@ -11,9 +9,11 @@ import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedE
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MissingPathVariableException
 import org.springframework.web.bind.MissingRequestHeaderException
 import org.springframework.web.bind.MissingServletRequestParameterException
@@ -22,18 +22,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import org.springframework.web.multipart.support.MissingServletRequestPartException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
-
-    @ExceptionHandler(ApplicantAlreadyExistsException::class)
-    fun handleApplicantAlreadyExists(exception: ApplicantAlreadyExistsException): ResponseEntity<ErrorResponse> =
-        response(
-            status = HttpStatus.CONFLICT,
-            code = "APPLICANT_ALREADY_EXISTS",
-            message = exception.message ?: "applicant already exists",
-        )
 
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleDataIntegrityViolation(exception: DataIntegrityViolationException): ResponseEntity<ErrorResponse> =
@@ -49,14 +42,6 @@ class GlobalExceptionHandler {
             status = HttpStatus.NOT_FOUND,
             code = "APPLICANT_NOT_FOUND",
             message = exception.message ?: "applicant not found",
-        )
-
-    @ExceptionHandler(ApplicantAccessDeniedException::class)
-    fun handleApplicantAccessDenied(exception: ApplicantAccessDeniedException): ResponseEntity<ErrorResponse> =
-        response(
-            status = HttpStatus.FORBIDDEN,
-            code = "APPLICANT_ACCESS_DENIED",
-            message = exception.message ?: "applicant access denied",
         )
 
     @ExceptionHandler(AuthenticationRequiredException::class)
@@ -100,6 +85,24 @@ class GlobalExceptionHandler {
             message = exception.message ?: "invalid request",
         )
 
+    // 없는 경로·메서드 요청이 아래 Exception 처리로 빠지면 500과 ERROR 로그가 남고, gateway 서킷 브레이커가 실패로 센다.
+    @ExceptionHandler(NoResourceFoundException::class)
+    fun handleApiNotFound(exception: NoResourceFoundException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.NOT_FOUND,
+            code = "API_NOT_FOUND",
+            message = "api not found",
+        )
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotAllowed(exception: HttpRequestMethodNotSupportedException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.METHOD_NOT_ALLOWED,
+            code = "METHOD_NOT_ALLOWED",
+            message = "method not allowed",
+            headers = exception.headers,
+        )
+
     @ExceptionHandler(Exception::class)
     fun handleUnhandledException(exception: Exception): ResponseEntity<ErrorResponse> =
         response(
@@ -118,9 +121,11 @@ class GlobalExceptionHandler {
         status: HttpStatus,
         code: String,
         message: String,
+        headers: HttpHeaders = HttpHeaders.EMPTY,
     ): ResponseEntity<ErrorResponse> =
         ResponseEntity
             .status(status)
+            .headers(headers)
             .body(
                 ErrorResponse(
                     error = ErrorDetail(

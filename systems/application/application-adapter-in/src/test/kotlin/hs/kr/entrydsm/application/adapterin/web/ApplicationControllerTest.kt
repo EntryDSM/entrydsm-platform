@@ -2,7 +2,6 @@ package hs.kr.entrydsm.application.adapterin.web
 
 import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
 import hs.kr.entrydsm.application.adapterin.web.exception.GlobalExceptionHandler
-import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -16,6 +15,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCo
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
@@ -32,25 +32,21 @@ import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedE
 
 class ApplicationControllerTest {
     @Test
-    fun duplicateAndSaveConflictReturn409() {
-        for ((exception, code) in listOf(
-            ApplicantAlreadyExistsException(10L) to "APPLICANT_ALREADY_EXISTS",
-            DataIntegrityViolationException("private database details") to "DATA_INTEGRITY_VIOLATION",
-        )) {
-            val port = object : ApplicationPort by FakeApplicationPort() {
-                override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult = throw exception
-            }
-            val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port, scheduleProperties()))
-                .setControllerAdvice(GlobalExceptionHandler())
-                .build()
-
-            val response = mvc.perform(post("/api/application/v11/applicants").header("user-id", "10"))
-                .andReturn().response
-
-            assertEquals(409, response.status)
-            org.junit.Assert.assertTrue(response.contentAsString.contains("\"code\":\"$code\""))
-            org.junit.Assert.assertFalse(response.contentAsString.contains("private database details"))
+    fun saveConflictReturns409WithoutDatabaseDetails() {
+        val port = object : ApplicationPort by FakeApplicationPort() {
+            override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult =
+                throw DataIntegrityViolationException("private database details")
         }
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port, scheduleProperties()))
+            .setControllerAdvice(GlobalExceptionHandler())
+            .build()
+
+        val response = mvc.perform(post("/api/application/v11/applicants").header("user-id", "10"))
+            .andReturn().response
+
+        assertEquals(409, response.status)
+        org.junit.Assert.assertTrue(response.contentAsString.contains("\"code\":\"DATA_INTEGRITY_VIOLATION\""))
+        org.junit.Assert.assertFalse(response.contentAsString.contains("private database details"))
     }
 
     @Test
@@ -59,11 +55,25 @@ class ApplicationControllerTest {
         val controller = ApplicationController(applicationPort, scheduleProperties())
 
         val response = controller.createApplicant(
-            userId = 10L,
+            accountId = 10L,
         )
 
-        assertEquals(10L, applicationPort.createApplicantCommand?.userId)
-        assertEquals(1L, response.data?.applicantId)
+        assertEquals(10L, applicationPort.createApplicantCommand?.accountId)
+        assertEquals(201, response.statusCode.value())
+        assertEquals(1L, response.body?.data?.applicantId)
+    }
+
+    @Test
+    fun createApplicantReturnsExistingApplicantWith200() {
+        val port = object : ApplicationPort by FakeApplicationPort() {
+            override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult =
+                FakeApplicationPort().createApplicant(command).copy(created = false)
+        }
+
+        val response = ApplicationController(port, scheduleProperties()).createApplicant(accountId = 10L)
+
+        assertEquals(200, response.statusCode.value())
+        assertEquals(1L, response.body?.data?.applicantId)
     }
 
     @Test
@@ -112,7 +122,7 @@ class ApplicationControllerTest {
             return CreateApplicantResult(
                 applicantId = 1L,
                 snapshot = ApplicationSnapshotResult(
-                    userId = requireNotNull(command.userId),
+                    accountId = requireNotNull(command.accountId),
                     applicantStatus = ApplicantStatus.DRAFT,
                     submittedAt = null,
                     updatedAt = applicationStartAt,
@@ -130,9 +140,10 @@ class ApplicationControllerTest {
         override fun updateStudyPlan(command: UpdateStudyPlanCommand) = Unit
         override fun submit(command: SubmitApplicationCommand) = Unit
         override fun getLanding(accountId: Long?): LandingResult = LandingResult(applicantName = "홍길동")
-        override fun findByUserId(userId: Long): ApplicationSnapshotResult? = null
+        override fun findByAccountId(accountId: Long): ApplicationSnapshotResult? = null
         override fun findApplicant(applicantId: Long): ApplicantResult? = null
-        override fun cancel(userId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
+        override fun findApplicationForm(accountId: Long): ApplicationFormResult? = null
+        override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
     }
 
     private companion object {

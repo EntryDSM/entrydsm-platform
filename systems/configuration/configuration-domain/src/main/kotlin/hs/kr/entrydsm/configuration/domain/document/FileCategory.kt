@@ -19,9 +19,10 @@ enum class FileCategory(
     val storers: Set<FileAccessor>,
     val downloaders: Set<FileAccessor>,
 ) {
+    /** 요강 <서식 1> 양식으로 서버가 만든다. 올리지 않는다. 본인과 관리자가 받는다. */
     APPLICATION(
         "application", FileExtension.documentFormats, MAX_DOCUMENT_SIZE_BYTES,
-        storers = setOf(ADMIN, OWNER), downloaders = setOf(ADMIN, OWNER),
+        storers = emptySet(), downloaders = setOf(ADMIN, OWNER),
     ),
     /** 올리지 않고 서버가 만든다. 만들 수 있는 사람은 받을 수 있는 사람과 같다. */
     ADMISSION_TICKET(

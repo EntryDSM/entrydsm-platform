@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.configuration.adapterin.common
 
-import hs.kr.entrydsm.configuration.adapterin.document.dto.ApplicationFileResponse
 import hs.kr.entrydsm.configuration.adapterin.document.dto.FileResponse
 import hs.kr.entrydsm.configuration.adapterin.document.dto.PageResponse
 import hs.kr.entrydsm.configuration.adapterin.document.toUploadCommand
@@ -21,11 +20,14 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.mock.web.MockMultipartFile
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.multipart.MaxUploadSizeExceededException
+import org.springframework.web.servlet.resource.NoResourceFoundException
 
 class DocumentApiContractTest {
 
@@ -55,7 +57,9 @@ class DocumentApiContractTest {
 
     @Test
     fun `공통 코드가 아닌 오류 코드는 도메인 접두사로 시작한다`() {
-        val common = setOf("INVALID_REQUEST_PARAM", "AUTH_UNAUTHORIZED", "ACCESS_DENIED", "METHOD_NOT_ALLOWED", "INTERNAL_SERVER_ERROR")
+        val common = setOf(
+            "INVALID_REQUEST_PARAM", "AUTH_UNAUTHORIZED", "ACCESS_DENIED", "API_NOT_FOUND", "METHOD_NOT_ALLOWED", "INTERNAL_SERVER_ERROR",
+        )
         val domains = listOf("FILE_", "APPLICANT_", "APPLICATION_", "SCHEDULE_")
 
         ErrorCode.entries.filterNot { it.name in common }.forEach { code ->
@@ -95,6 +99,19 @@ class DocumentApiContractTest {
     }
 
     @Test
+    fun `없는 경로와 지원하지 않는 메서드는 404와 405로 변환한다`() {
+        assertMapped(
+            ErrorCode.API_NOT_FOUND,
+            handler.handleApiNotFound(
+                NoResourceFoundException(HttpMethod.GET, "/api/document/v1/files", "api/document/v1/files"),
+            ),
+        )
+        val methodNotAllowed = handler.handleMethodNotAllowed(HttpRequestMethodNotSupportedException("DELETE", listOf("GET")))
+        assertMapped(ErrorCode.METHOD_NOT_ALLOWED, methodNotAllowed)
+        assertEquals(setOf(HttpMethod.GET), methodNotAllowed.headers.allow)
+    }
+
+    @Test
     fun `처리하지 못한 예외는 내부 메시지를 노출하지 않는다`() {
         val response = handler.handleUnexpected(IllegalStateException("jdbc://user:password@db"))
 
@@ -119,8 +136,6 @@ class DocumentApiContractTest {
 
         assertEquals(FileResponse("attachment_3f2c", "공지.pdf", 1024, "https://s3/a", 300), FileResponse.of(file))
         assertEquals(FileResponse(null, "3f2c_notice.pdf", 1024, "https://s3/a", 300), FileResponse.ofApplicant(file))
-        assertEquals(ApplicationFileResponse(exists = false), ApplicationFileResponse.of(null))
-        assertEquals(ApplicationFileResponse(true, "3f2c_notice.pdf", 1024, "https://s3/a", 300), ApplicationFileResponse.of(file))
     }
 
     @Test
