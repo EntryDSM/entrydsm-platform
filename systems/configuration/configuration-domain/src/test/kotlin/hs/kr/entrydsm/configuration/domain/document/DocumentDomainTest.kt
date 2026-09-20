@@ -70,6 +70,13 @@ class DocumentDomainTest {
     fun `원서·수험표 파일명은 네 자리 접수번호로 만든다`() {
         assertEquals("application_0012.pdf", FileNaming.applicationFileName(12))
         assertEquals("admission_ticket_0012.pdf", FileNaming.admissionTicketFileName(12))
+        assertEquals("application_0001.pdf", FileNaming.applicationFileName(1))
+        assertEquals("admission_ticket_0001.pdf", FileNaming.admissionTicketFileName(1))
+        // 9999 번을 넘으면 자릿수가 늘어난다.
+        assertEquals("application_9999.pdf", FileNaming.applicationFileName(9999))
+        assertEquals("admission_ticket_9999.pdf", FileNaming.admissionTicketFileName(9999))
+        assertEquals("application_10000.pdf", FileNaming.applicationFileName(10000))
+        assertEquals("admission_ticket_10000.pdf", FileNaming.admissionTicketFileName(10000))
     }
 
     @Test
