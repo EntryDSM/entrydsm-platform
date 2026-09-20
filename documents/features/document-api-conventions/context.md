@@ -119,7 +119,7 @@ Notion 명세 12개 행을 공통 규약과 대조한 리뷰를 코드로 확인
 ```
 
 - 적재·조회 모두 이 모양이다. 원서·수험표는 `id` 가 없다
-- `fileName`: 사진·첨부·요강은 올린 파일명, 원서·수험표는 저장 파일명(`application_{applicantId}.pdf`, `admission_ticket_{applicantId}.pdf`)
+- `fileName`: 사진·첨부·요강은 올린 파일명, 원서·수험표는 저장 파일명(`application_{접수번호}.pdf`, `admission_ticket_{접수번호}.pdf`). 접수번호는 `applicantId` 를 네 자리로 채운 `0001` 꼴이다
 - 원서 조회만 아직 안 올린 경우를 404 대신 `{ "exists": false }` 로 준다. 올렸으면 `exists: true` 와 위 필드
 - 요강 목록은 공통 목록 응답(`items`, `page`, `size`, `totalElements`, `totalPages`)에 위 모양을 담는다
 

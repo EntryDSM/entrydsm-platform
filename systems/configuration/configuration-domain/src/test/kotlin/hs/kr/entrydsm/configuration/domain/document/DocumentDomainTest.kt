@@ -67,9 +67,9 @@ class DocumentDomainTest {
     }
 
     @Test
-    fun `원서·수험표 파일명은 지원자 ID로 만든다`() {
-        assertEquals("application_12.pdf", FileNaming.applicationFileName(12))
-        assertEquals("admission_ticket_12.pdf", FileNaming.admissionTicketFileName(12))
+    fun `원서·수험표 파일명은 네 자리 접수번호로 만든다`() {
+        assertEquals("application_0012.pdf", FileNaming.applicationFileName(12))
+        assertEquals("admission_ticket_0012.pdf", FileNaming.admissionTicketFileName(12))
     }
 
     @Test

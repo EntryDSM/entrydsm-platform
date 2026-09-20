@@ -10,11 +10,12 @@ object FileNaming {
     /** files.object_key·original_name 컬럼 길이. 넘으면 S3 에 올린 뒤 DB 저장에서 실패한다. */
     const val MAX_STORED_NAME_LENGTH = 255
 
+    /** 원서·수험표 파일명의 번호는 서식에 찍는 접수번호와 같은 표기다. */
     fun applicationFileName(applicantId: Long): String =
-        "application_$applicantId.${FileExtension.PDF.value}"
+        "application_${ReceiptNumber.of(applicantId)}.${FileExtension.PDF.value}"
 
     fun admissionTicketFileName(applicantId: Long): String =
-        "admission_ticket_$applicantId.${FileExtension.PDF.value}"
+        "admission_ticket_${ReceiptNumber.of(applicantId)}.${FileExtension.PDF.value}"
 
     fun photoFileName(extension: FileExtension): String =
         "photo_${randomToken()}.${extension.value}"
