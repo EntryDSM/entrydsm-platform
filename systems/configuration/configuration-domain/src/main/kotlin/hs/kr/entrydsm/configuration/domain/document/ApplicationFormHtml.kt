@@ -41,16 +41,20 @@ object ApplicationFormHtml {
                 h1 { font-size: 15pt; text-align: center; margin: 0 0 4mm 0; }
                 .caption { font-size: 8pt; margin: 0 0 2mm 0; }
                 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-                td { border: 1px solid #000000; padding: 1.2mm 1.5mm; height: 5.6mm; }
+                td { border: 1px solid #000000; padding: 1.2mm 1.5mm; height: 7.5mm; }
                 .label { background-color: #efefef; text-align: center; }
                 .value { text-align: center; }
                 .left { text-align: left; }
+                /* 출결 표의 값과 단위. 요강은 한 칸처럼 보이므로 맞닿은 테두리를 지운다. */
+                .count { text-align: center; border-right: 0; }
+                .unit { text-align: right; border-left: 0; }
                 .head { background-color: #efefef; text-align: center; font-weight: bold; }
                 .photo { text-align: center; vertical-align: middle; }
-                .photo img { display: block; width: 100%; }
-                .pledge { text-align: left; vertical-align: top; height: 34mm; }
-                .sign { text-align: center; font-size: 10pt; font-weight: bold; }
-                .recommend { text-align: left; vertical-align: top; height: 30mm; }
+                .photo img { display: block; width: 30mm; height: 40mm; margin: 0 auto; }
+                .pledge { text-align: left; vertical-align: top; height: 52mm; }
+                .sign { font-size: 10pt; font-weight: bold; }
+                .title { text-align: center; font-size: 10pt; font-weight: bold; }
+                .recommend { text-align: left; vertical-align: top; height: 56mm; }
               </style>
             </head>
             <body>
@@ -84,7 +88,7 @@ object ApplicationFormHtml {
     /** 출신지역은 요강이 정의하지 않고 원서에 저장하는 값도 없어 비운다. */
     private fun applicantRows(form: ApplicationForm, photoDataUri: String?) = """
         <tr>
-          <td class="label" rowspan="5">지원자</td>
+          <td class="label" rowspan="5" colspan="3">지원자</td>
           ${label("성명", 3)}${value(form.name, 5)}${label("전화번호", 3)}${value(form.phoneNumber, 5)}
           <td class="photo" rowspan="5" colspan="5">${photoCell(photoDataUri)}</td>
         </tr>
@@ -104,9 +108,9 @@ object ApplicationFormHtml {
 
     private fun guardianRow(form: ApplicationForm) = """
         <tr>
-          ${label("보호자", 3)}${label("성명", 3)}${value(form.guardianName, 6)}
-          ${label("관계", 3)}${value(form.guardianRelation, 3)}
-          ${label("휴대전화", 3)}${value(form.guardianPhoneNumber, 3)}
+          ${label("보호자", 3)}${label("성명", 3)}${value(form.guardianName, 5)}
+          ${label("관계", 2)}${value(form.guardianRelation, 3)}
+          ${label("휴대전화", 3)}${value(form.guardianPhoneNumber, 5)}
         </tr>
     """.trimIndent()
 
@@ -154,11 +158,14 @@ object ApplicationFormHtml {
         return header + leftRows.indices.joinToString("") { "<tr>${leftRows[it]}${rightRows[it]}</tr>" }
     }
 
+    /** 요강은 단위(일·회·시간)를 칸 오른쪽에 미리 찍어 두고 숫자를 그 왼쪽에 쓴다. */
     private fun attendanceCells(label: String, count: Int?, unit: String) =
-        label(label, 6) + value(count?.let { "$it$unit" }, 3)
+        label(label, 5) +
+            """<td class="count" colspan="2">${escape(count?.toString().orEmpty())}</td>""" +
+            """<td class="unit" colspan="2">${escape(unit)}</td>"""
 
     private fun markCells(label: String, awarded: Boolean?) =
-        label(label, 6) + value(if (awarded == true) "O" else "", 3)
+        label(label, 5) + value(if (awarded == true) "O" else "", 4)
 
     /** 좌측은 지원 서약, 우측은 국가유공자 자녀 확인란이다. 보훈번호는 원서에 없어 비운다. */
     private fun pledgeRow(signatureYear: Int) = """
@@ -171,7 +178,7 @@ object ApplicationFormHtml {
             &#160;&#160;&#160;&#160;지원자 :&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;(서명 또는 인)<br />
             &#160;&#160;&#160;&#160;보호자 :&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;(서명 또는 인)<br />
             <br />
-            <span class="sign">$PRINCIPAL_LINE</span>
+            <div class="sign">$PRINCIPAL_LINE</div>
           </td>
           <td class="pledge" colspan="8">
             보훈번호:(&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;)<br />
@@ -188,13 +195,13 @@ object ApplicationFormHtml {
     private fun recommendationRow(signatureYear: Int) = """
         <tr>
           <td class="recommend" colspan="24">
-            <span class="sign">추&#160;&#160;&#160;&#160;천&#160;&#160;&#160;&#160;서</span><br />
+            <div class="title">추&#160;&#160;&#160;&#160;천&#160;&#160;&#160;&#160;서</div>
             본 입학원서의 내용은 사실과 다름이 없으며, 위 학생은 귀교에 입학 적격자로 인정되므로 추천합니다.<br />
             <br />
             &#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;${signatureYear}년&#160;&#160;&#160;&#160;월&#160;&#160;&#160;&#160;일<br />
             &#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;(&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;)중학교장&#160;&#160;(직인)<br />
             <br />
-            <span class="sign">$PRINCIPAL_LINE</span>
+            <div class="sign">$PRINCIPAL_LINE</div>
           </td>
         </tr>
     """.trimIndent()
