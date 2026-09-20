@@ -36,16 +36,13 @@ private val APPLICANT_LIST_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = li
     "성명" to { it.name },
     "생년월일" to { it.birthDate },
     "연락처" to { it.phoneNumber },
-    "지역" to { it.region.label },
-    "전형" to { it.admissionType.label },
-    "학력" to { it.graduationStatus.label },
+    "지역" to { it.region?.label },
+    "전형" to { it.admissionType?.label },
+    "학력" to { it.graduationStatus?.label },
     "출신학교" to { it.schoolName },
-    "원서 도착" to { if (it.isSubmitted) "도착" else "미도착" },
+    "원서 도착" to { if (it.isArrived) "도착" else "미도착" },
     "상태" to { it.status.label },
-    "교과 점수" to { it.score?.subjectScore },
-    "출결 점수" to { it.score?.attendanceScore },
-    "봉사 점수" to { it.score?.volunteerScore },
-    "총점" to { it.score?.totalScore },
+    "총점" to { it.totalScore },
 )
 
 /**

@@ -21,7 +21,6 @@ data class UpdateScorePolicyRequest(
     @field:Min(0)
     @field:Max(6)
     val roundingScale: Int?,
-    val recalculate: Boolean = false,
 )
 
 data class ScoreWeightsRequest(
@@ -59,9 +58,9 @@ data class ExportFilterRequest(
     val regions: Set<Region>? = null,
     val admissionTypes: Set<AdmissionType>? = null,
     val graduationStatuses: Set<GraduationStatus>? = null,
-    @param:JsonProperty("isSubmitted")
-    @get:JsonProperty("isSubmitted")
-    val isSubmitted: Boolean? = null,
+    @param:JsonProperty("isArrived")
+    @get:JsonProperty("isArrived")
+    val isArrived: Boolean? = null,
     val statuses: Set<ApplicantStatus>? = null,
 )
 

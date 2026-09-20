@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.domain.document.AdmissionTicketHtml
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.AdmissionTicket
+import hs.kr.entrydsm.admin.domain.model.Applicant
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,14 +13,15 @@ class AdmissionTicketHtmlTest {
 
     private fun ticket(
         examineeNumber: String? = null,
-        name: String = "홍길동",
+        name: String? = "홍길동",
+        region: Region? = Region.NATIONWIDE,
     ) = AdmissionTicket(
         admissionYear = 2027,
-        receiptNumber = 2,
+        receiptNumber = "0002",
         examineeNumber = examineeNumber,
         name = name,
         schoolName = "서울중학교",
-        region = Region.NATIONWIDE,
+        region = region,
         admissionType = AdmissionType.GENERAL,
     )
 
@@ -50,6 +52,21 @@ class AdmissionTicketHtmlTest {
 
         assertTrue(html.contains("전국"))
         assertTrue(html.contains("일반전형"))
+    }
+
+    @Test
+    fun `원서를 덜 채운 지원자도 빈 칸으로 인쇄한다`() {
+        val html = AdmissionTicketHtml.render(ticket(name = null, region = null))
+
+        assertTrue(html.contains("2027학년도 대덕소프트웨어마이스터고등학교 입학전형 수험표"))
+        assertFalse(html.contains("전국"))
+    }
+
+    @Test
+    fun `접수 번호는 지원자 번호를 네 자리로 채워 인쇄한다`() {
+        val html = AdmissionTicketHtml.render(AdmissionTicket.of(Applicant(id = 2), admissionYear = 2027))
+
+        assertTrue(html.contains("0002"))
     }
 
     @Test

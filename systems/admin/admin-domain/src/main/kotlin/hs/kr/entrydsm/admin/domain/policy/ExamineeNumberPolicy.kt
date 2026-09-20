@@ -7,7 +7,7 @@ private const val FIRST_EXAMINEE_NUMBER = 100001
 /**
  * 수험 번호 일괄 발급 규칙입니다.
  *
- * 원서 원본이 도착한 지원자에게만, 접수 번호 오름차순으로 빈 번호 없이 순차 발급합니다.
+ * 원서 원본이 도착한 지원자에게만, 지원자 번호 오름차순으로 빈 번호 없이 순차 발급합니다.
  * 이미 번호를 받은 지원자는 재발급하지 않습니다.
  */
 object ExamineeNumberPolicy {
@@ -18,7 +18,7 @@ object ExamineeNumberPolicy {
      * @param applicants 회차에 속한 지원자 전체
      */
     fun issue(applicants: List<Applicant>): ExamineeNumberIssuance {
-        val targets = applicants.filter { it.isSubmitted }
+        val targets = applicants.filter { it.isArrived }
         val (alreadyIssued, pending) = targets.partition { it.examineeNumber != null }
 
         var nextNumber = alreadyIssued
@@ -29,7 +29,7 @@ object ExamineeNumberPolicy {
             ?: FIRST_EXAMINEE_NUMBER
 
         val issued = pending
-            .sortedBy { it.receiptNumber }
+            .sortedBy { it.id }
             .map { it.copy(examineeNumber = (nextNumber++).toString()) }
 
         return ExamineeNumberIssuance(

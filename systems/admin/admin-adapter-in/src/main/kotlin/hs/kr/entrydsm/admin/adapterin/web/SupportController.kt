@@ -55,7 +55,7 @@ class SupportController(
                     regions = request.filter?.regions.orEmpty(),
                     admissionTypes = request.filter?.admissionTypes.orEmpty(),
                     graduationStatuses = request.filter?.graduationStatuses.orEmpty(),
-                    isSubmitted = request.filter?.isSubmitted,
+                    isArrived = request.filter?.isArrived,
                     statuses = request.filter?.statuses.orEmpty(),
                 ),
             ),

@@ -17,11 +17,12 @@ object AdmissionTicketHtml {
     fun render(ticket: AdmissionTicket): String {
         val rows = listOf(
             "수험번호" to (ticket.examineeNumber ?: UNISSUED_EXAMINEE_NUMBER),
-            "성명" to ticket.name,
-            "출신 중학교" to ticket.schoolName,
-            "지역" to ticket.region.label,
-            "전형 유형" to ticket.admissionType.label,
-            "접수 번호" to ticket.receiptNumber.toString(),
+            // 원서를 덜 채운 지원자도 수험표를 뽑을 수 있어야 해서 빈 칸으로 찍는다.
+            "성명" to ticket.name.orEmpty(),
+            "출신 중학교" to ticket.schoolName.orEmpty(),
+            "지역" to ticket.region?.label.orEmpty(),
+            "전형 유형" to ticket.admissionType?.label.orEmpty(),
+            "접수 번호" to ticket.receiptNumber,
         )
 
         return """

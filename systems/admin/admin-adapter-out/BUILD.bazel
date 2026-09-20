@@ -49,3 +49,12 @@ kt_jvm_test(
     test_class = "hs.kr.entrydsm.admin.adapterout.persistence.ExportJobPersistenceAdapterTest",
     deps = MODULE_DEPS + TEST_DEPS + [":main"],
 )
+
+kt_jvm_test(
+    name = "grpc_applicant_data_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.admin.adapterout.grpc.GrpcApplicantDataAdapterTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
