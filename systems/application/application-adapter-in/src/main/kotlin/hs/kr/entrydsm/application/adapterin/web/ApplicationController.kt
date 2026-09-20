@@ -128,6 +128,7 @@ class ApplicationController(
         applicationPort.updateMiddleSchool(
             UpdateMiddleSchoolCommand(
                 accountId = accountId,
+                schoolCode = request.schoolCode,
                 schoolName = request.schoolName,
                 studentNumber = request.studentNumber,
                 schoolPhone = request.schoolPhone,

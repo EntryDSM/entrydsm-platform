@@ -6,6 +6,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
 import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
+import jakarta.persistence.ManyToOne
 import jakarta.persistence.MapsId
 import jakarta.persistence.OneToOne
 import jakarta.persistence.Table
@@ -21,6 +22,18 @@ open class MiddleSchoolInfoJpaEntity(
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "applicant_id")
     var applicant: ApplicantJpaEntity? = null,
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+        name = "school_code",
+        referencedColumnName = "code",
+        insertable = false,
+        updatable = false,
+    )
+    var institutionCode: InstitutionCodeJpaEntity? = null,
+
+    @Column(name = "school_code", nullable = false, length = 20)
+    var schoolCode: String = "",
 
     @Column(name = "school_name", nullable = false, length = 50)
     var schoolName: String = "",
@@ -43,6 +56,7 @@ open class MiddleSchoolInfoJpaEntity(
 
     fun toDomain(): MiddleSchoolInfo =
         MiddleSchoolInfo(
+            schoolCode = schoolCode,
             schoolName = schoolName,
             studentNumber = studentNumber,
             schoolPhone = schoolPhone,
