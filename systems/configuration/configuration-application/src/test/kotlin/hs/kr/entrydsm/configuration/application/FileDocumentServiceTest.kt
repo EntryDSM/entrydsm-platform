@@ -320,6 +320,7 @@ class FileDocumentServiceTest {
             gender = null, address = null, photoFileId = null, region = null, admissionType = null, specialNote = null,
             graduationType = null, graduationDate = null, guardianName = null, guardianRelation = null,
             guardianPhoneNumber = null, school = null, semesterGrades = emptyList(), academicRecord = null,
+            introduction = null, studyPlan = null,
         )
     }
 
