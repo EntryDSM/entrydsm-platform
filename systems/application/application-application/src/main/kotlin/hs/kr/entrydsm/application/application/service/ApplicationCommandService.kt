@@ -32,6 +32,7 @@ import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import hs.kr.entrydsm.application.domain.nowUtc
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -362,7 +363,7 @@ class ApplicationCommandService(
     private fun markSubmitted(applicant: Applicant) {
         applicant.status = ApplicantStatus.SUBMITTED
         applicant.statusVersion += 1
-        applicant.submittedAt = LocalDateTime.now()
+        applicant.submittedAt = nowUtc()
         publishStatus(saveTouched(applicant))
     }
 

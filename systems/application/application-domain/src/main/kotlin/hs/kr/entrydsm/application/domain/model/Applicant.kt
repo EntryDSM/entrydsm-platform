@@ -9,6 +9,7 @@ import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
+import hs.kr.entrydsm.application.domain.nowUtc
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -45,11 +46,11 @@ data class Applicant(
     var passStatus: PassResultStatus = PassResultStatus.PENDING,
     var announcedAt: LocalDateTime? = null,
     var statusVersion: Long = 0,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    var updatedAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: LocalDateTime = nowUtc(),
+    var updatedAt: LocalDateTime = nowUtc(),
 ) {
     fun touch() {
-        updatedAt = LocalDateTime.now()
+        updatedAt = nowUtc()
     }
 }
 
