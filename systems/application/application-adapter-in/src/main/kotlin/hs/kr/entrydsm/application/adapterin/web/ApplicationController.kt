@@ -187,7 +187,7 @@ class ApplicationController(
     }
 
     private companion object {
-        const val USER_ID_HEADER = "user-id"
+        const val USER_ID_HEADER = "X-USER-ID"
         const val SENSITIVE_AGREE_HEADER = "X-Sensitive-Agree"
     }
 }
