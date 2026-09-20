@@ -5,6 +5,7 @@ import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundExcepti
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
@@ -197,6 +198,10 @@ class ApplicationCommandServiceTest {
             this.applicant = applicant
             return applicant
         }
+
+        // 목록은 쿼리가 거른다. ApplicantSummaryQueryTest 가 덮는다.
+        override fun findSummariesByStatusIn(statuses: Set<ApplicantStatus>): List<ApplicantResult> =
+            emptyList()
 
         override fun findById(id: Long): Applicant? =
             applicant.takeIf { it.id == id }

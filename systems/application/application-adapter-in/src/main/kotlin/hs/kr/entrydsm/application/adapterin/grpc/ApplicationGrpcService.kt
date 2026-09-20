@@ -30,6 +30,8 @@ import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
+import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
+import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
 import hs.kr.entrydsm.application.grpc.MiddleSchool as GrpcMiddleSchool
 import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
@@ -77,6 +79,15 @@ class ApplicationGrpcService(
         request.applicantId.validate()
         (applicationPort.findApplicant(request.applicantId) ?: throw ApplicantNotFoundException(request.applicantId))
             .toResponse()
+    }
+
+    override fun listApplicants(
+        request: ListApplicantsRequest,
+        responseObserver: StreamObserver<ListApplicantsResponse>,
+    ) = responseObserver.respondWith {
+        ListApplicantsResponse.newBuilder()
+            .addAllApplicants(applicationPort.listApplicants().map { it.toResponse() })
+            .build()
     }
 
     override fun getApplicationForm(
@@ -143,11 +154,19 @@ class ApplicationGrpcService(
             .setUserId(accountId)
             .setRegion(region.toGrpc())
             .setAdmissionType(admissionType.toGrpc())
+            .setGraduationType(graduationType.toGrpc())
+            .setApplicantStatus(status.toGrpc())
             // apply 안에서는 name 이 빌더의 getName() 으로 잡히므로 also 로 넘긴다.
             .also { builder ->
                 name?.let(builder::setName)
                 schoolName?.let(builder::setSchoolName)
                 photoFileId?.let(builder::setPhotoFileId)
+                birthdate?.let { builder.setBirthdate(it.toString()) }
+                phoneNumber?.let(builder::setPhoneNumber)
+                totalScore?.let(builder::setTotalScore)
+                submittedAt?.let {
+                    builder.setSubmittedAtEpochMillis(it.toInstant(ZoneOffset.UTC).toEpochMilli())
+                }
             }
             .build()
 
