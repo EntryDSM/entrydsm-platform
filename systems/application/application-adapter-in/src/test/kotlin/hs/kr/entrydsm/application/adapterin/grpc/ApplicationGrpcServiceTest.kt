@@ -148,7 +148,7 @@ class ApplicationGrpcServiceTest {
             guardianName = "홍판서",
             guardianRelation = "부",
             guardianPhoneNumber = null,
-            middleSchool = MiddleSchoolInfo("대덕중학교", "30115", "042-000-0000", "김선생"),
+            middleSchool = MiddleSchoolInfo("D100000", "대덕중학교", "30115", "042-000-0000", "김선생"),
             thirdGradeSecondSemester = null,
             thirdGradeFirstSemester = SubjectGrades(
                 koreanGrade = SubjectGrade.A,
