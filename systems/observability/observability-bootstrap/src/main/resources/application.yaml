@@ -24,9 +24,6 @@ management:
     health:
       probes:
         enabled: true
-logging:
-  level:
-    root: INFO
 auth:
   jwt:
     # 기본값을 두지 않는다. 미설정이면 기동에 실패해야 알려진 시크릿으로 토큰이 검증되는 일이 없다.
@@ -53,3 +50,6 @@ monitor:
     name: ${MONITOR_ROUND_NAME:current}
     from: ${MONITOR_ROUND_FROM:2026-01-01T00:00:00+09:00}
     to: ${MONITOR_ROUND_TO:2026-12-31T23:59:59+09:00}
+logging:
+  level:
+    root: ${LOGGING_LEVEL_ROOT:INFO}
