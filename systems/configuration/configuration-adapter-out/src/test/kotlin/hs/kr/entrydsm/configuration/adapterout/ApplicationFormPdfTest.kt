@@ -66,6 +66,13 @@ class ApplicationFormPdfTest {
         assertA4SinglePage(pdf)
     }
 
+    @Test
+    fun `접수번호는 네 자리로 채워 찍는다`() {
+        val html = ApplicationFormHtml.render(admissionYear = 2027, form = form(), photoDataUri = null)
+
+        assertTrue(html.contains("0012"))
+    }
+
     private fun render(form: ApplicationForm, photo: Boolean = false): ByteArray =
         OpenHtmlToPdfAdapter().render(
             ApplicationFormHtml.render(
