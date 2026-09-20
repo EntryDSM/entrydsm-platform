@@ -162,6 +162,8 @@ class ApplicationGrpcServiceTest {
             previousSemester = null,
             secondPreviousSemester = null,
             academicRecord = AcademicRecord(volunteerTime = 30, isDsmAlgorithmAwarded = true),
+            introduction = "저는 …",
+            studyPlan = "입학 후 …",
         )
 
         val found = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build())

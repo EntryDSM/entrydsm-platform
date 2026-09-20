@@ -184,6 +184,8 @@ class ApplicationGrpcService(
                 guardianName?.let(builder::setGuardianName)
                 guardianRelation?.let(builder::setGuardianRelation)
                 guardianPhoneNumber?.let(builder::setGuardianPhoneNumber)
+                introduction?.let(builder::setIntroduction)
+                studyPlan?.let(builder::setStudyPlan)
                 middleSchool?.let {
                     builder.setMiddleSchool(
                         GrpcMiddleSchool.newBuilder()

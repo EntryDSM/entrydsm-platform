@@ -48,4 +48,7 @@ data class ApplicationFormResult(
     val secondPreviousSemester: SubjectGrades?,
     /** 출결·봉사·가산점. 성적을 한 번도 넣지 않았으면 null 이라 전부 0 인 것과 구분된다. */
     val academicRecord: AcademicRecord?,
+    /** 서식 3 자기소개서·학업계획서 본문. 제출 검증이 요구하므로 제출본에는 차 있다. */
+    val introduction: String?,
+    val studyPlan: String?,
 )
