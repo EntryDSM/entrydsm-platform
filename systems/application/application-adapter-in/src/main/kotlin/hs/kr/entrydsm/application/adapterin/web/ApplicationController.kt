@@ -128,6 +128,7 @@ class ApplicationController(
         applicationPort.updateMiddleSchool(
             UpdateMiddleSchoolCommand(
                 accountId = accountId,
+                schoolCode = request.schoolCode,
                 schoolName = request.schoolName,
                 studentNumber = request.studentNumber,
                 schoolPhone = request.schoolPhone,
@@ -186,7 +187,7 @@ class ApplicationController(
     }
 
     private companion object {
-        const val USER_ID_HEADER = "user-id"
+        const val USER_ID_HEADER = "X-USER-ID"
         const val SENSITIVE_AGREE_HEADER = "X-Sensitive-Agree"
     }
 }

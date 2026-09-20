@@ -90,6 +90,7 @@ class ApplicationCommandService(
     override fun updateMiddleSchool(command: UpdateMiddleSchoolCommand) {
         updateMiddleSchool(
             accountId = command.accountId,
+            schoolCode = command.schoolCode,
             schoolName = command.schoolName,
             studentNumber = command.studentNumber,
             schoolPhone = command.schoolPhone,
@@ -290,6 +291,7 @@ class ApplicationCommandService(
 
     fun updateMiddleSchool(
         accountId: Long?,
+        schoolCode: String,
         schoolName: String,
         studentNumber: String,
         schoolPhone: String,
@@ -299,12 +301,14 @@ class ApplicationCommandService(
         require(applicant.graduationType != GraduationType.GED) {
             "middle school info is unavailable for GED applicants"
         }
+        require(schoolCode.isNotBlank()) { "schoolCode is required" }
         require(schoolName.isNotBlank()) { "schoolName is required" }
         require(studentNumber.isNotBlank()) { "studentNumber is required" }
         require(schoolPhone.isNotBlank()) { "schoolPhone is required" }
         require(teacherName.isNotBlank()) { "teacherName is required" }
 
         applicant.middleSchoolInfo = MiddleSchoolInfo(
+            schoolCode = schoolCode,
             schoolName = schoolName,
             studentNumber = studentNumber,
             schoolPhone = schoolPhone,

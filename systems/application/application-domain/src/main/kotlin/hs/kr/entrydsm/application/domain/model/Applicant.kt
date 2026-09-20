@@ -54,6 +54,7 @@ data class Applicant(
 }
 
 data class MiddleSchoolInfo(
+    val schoolCode: String,
     val schoolName: String,
     val studentNumber: String,
     val schoolPhone: String,
