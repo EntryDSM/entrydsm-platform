@@ -8,5 +8,5 @@ package hs.kr.entrydsm.configuration.domain.document
  */
 object ReceiptNumber {
 
-    fun of(applicantId: Long): String = "%04d".format(applicantId)
+    fun of(applicantId: Long): String = applicantId.toString().padStart(4, '0')
 }
