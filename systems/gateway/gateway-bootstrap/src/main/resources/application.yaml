@@ -99,4 +99,4 @@ management:
         enabled: true
 logging:
   level:
-    root: INFO
+    root: ${LOGGING_LEVEL_ROOT:INFO}
