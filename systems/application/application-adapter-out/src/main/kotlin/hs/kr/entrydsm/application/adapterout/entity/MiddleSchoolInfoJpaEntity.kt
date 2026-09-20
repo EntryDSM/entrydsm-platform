@@ -48,6 +48,7 @@ open class MiddleSchoolInfoJpaEntity(
     var teacherName: String = "",
 ) {
     fun updateFrom(domain: MiddleSchoolInfo) {
+        schoolCode = domain.schoolCode
         schoolName = domain.schoolName
         studentNumber = domain.studentNumber
         schoolPhone = domain.schoolPhone
