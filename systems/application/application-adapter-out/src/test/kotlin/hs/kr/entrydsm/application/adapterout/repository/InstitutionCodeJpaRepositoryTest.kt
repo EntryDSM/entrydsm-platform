@@ -1,11 +1,15 @@
 package hs.kr.entrydsm.application.adapterout.repository
 
+import hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity
+import hs.kr.entrydsm.application.application.port.`in`.command.SearchMiddleSchoolCommand
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.SpringBootConfiguration
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest
 import org.springframework.boot.persistence.autoconfigure.EntityScan
-import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.junit4.SpringRunner
@@ -97,7 +101,7 @@ class InstitutionCodeJpaRepositoryTest {
         faxNumber = "042-123-4568",
     )
 
-    @TestConfiguration
+    @SpringBootConfiguration
     @EnableJpaRepositories(basePackageClasses = [InstitutionCodeJpaRepository::class])
     @EntityScan(basePackageClasses = [InstitutionCodeJpaEntity::class])
     class JpaTestConfig
