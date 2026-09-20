@@ -4,6 +4,8 @@ import hs.kr.entrydsm.configuration.domain.document.Applicant
 import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
 import hs.kr.entrydsm.configuration.domain.document.ApplicationFormHtml
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.text.PDFTextStripper
+import org.apache.pdfbox.text.TextPosition
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -29,6 +31,18 @@ class ApplicationFormPdfTest {
 
         // 눈으로 확인할 때 쓴다. bazel-testlogs/.../test.outputs/outputs.zip 에 담긴다.
         System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "application-form.pdf").writeBytes(pdf) }
+    }
+
+    /**
+     * 요강의 서식은 표가 페이지 아래 여백까지 찬다. 절반만 차면 서명·날인란이 좁아져 인쇄물로 쓸 수 없다.
+     * 칸 높이를 줄이는 변경이 이 단언을 깨면 [ApplicationFormHtml] 의 행 높이를 다시 맞춰야 한다.
+     */
+    @Test
+    fun `표가 A4 아래 여백까지 채운다`() {
+        val bottom = lowestTextBaseline(render(form(), photo = true))
+
+        // A4 세로 842pt, 아래 여백 12mm(34pt). 마지막 행이 여백에서 40pt 안쪽까지는 내려와야 한다.
+        assertTrue("표가 $bottom pt 에서 끝나 페이지 아래가 빈다", bottom > 842 - 34 - 40)
     }
 
     @Test
@@ -74,6 +88,18 @@ class ApplicationFormPdfTest {
                 photoDataUri = if (photo) "data:image/png;base64," + Base64.getEncoder().encodeToString(png()) else null,
             ),
         )
+
+    /** 페이지 맨 아래 글자의 기준선. 위에서부터 잰다. */
+    private fun lowestTextBaseline(pdf: ByteArray): Float = Loader.loadPDF(pdf).use { document ->
+        var lowest = 0f
+        val stripper = object : PDFTextStripper() {
+            override fun writeString(text: String, textPositions: List<TextPosition>) {
+                textPositions.forEach { lowest = maxOf(lowest, it.yDirAdj) }
+            }
+        }
+        stripper.getText(document)
+        lowest
+    }
 
     private fun assertA4SinglePage(pdf: ByteArray) = Loader.loadPDF(pdf).use { document ->
         assertEquals(1, document.numberOfPages)
