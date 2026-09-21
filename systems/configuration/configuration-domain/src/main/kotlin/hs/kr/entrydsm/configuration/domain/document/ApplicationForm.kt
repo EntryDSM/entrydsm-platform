@@ -59,7 +59,30 @@ data class ApplicationForm(
         val studentNumber: String,
         val phone: String,
         val teacherName: String,
-    )
+        /** 서식의 학교코드 칸에 찍는 교육청 기관코드 */
+        val code: String,
+        /** 기관코드 표의 학교 도로명 주소. 표에 주소가 없는 학교는 null 이다. */
+        val address: String?,
+    ) {
+        /**
+         * 서식의 출신지역 칸. 요강이 정의하지 않아 지난해 원서처럼 출신 중학교 소재지를 찍되 "OO시"까지만 자른다.
+         * 주소 토큰을 앞에서부터 이어 처음 '시'·'군'으로 끝나는 토큰에서 멈춘다. 군 지역 학교도 많아 '군'까지 본다.
+         * 그런 토큰이 없으면(`서울 마포구 …` 같은 축약 표기) 첫 토큰인 시·도만 쓴다.
+         *
+         * - `대전광역시 유성구 가정북로 76` → `대전광역시`
+         * - `경기도 연천군 군남면 진상17길 46` → `경기도 연천군`
+         *
+         * ponytail: 토큰 끝 글자로 시·군을 가려 광역·특별시 안의 시·군(`대구광역시 달성군`, `전남광주통합특별시 여수시`)은
+         * 앞 토큰에서 끊긴다. 기관코드 표 3,281개 주소는 모두 두 토큰 안에서 끊긴다. 표 밖 주소를 받게 되면 행정구역
+         * 코드로 자른다.
+         */
+        val originRegion: String?
+            get() {
+                val tokens = address?.trim()?.takeIf { it.isNotEmpty() }?.split(Regex("\\s+")) ?: return null
+                val cityIndex = tokens.indexOfFirst { it.endsWith("시") || it.endsWith("군") }
+                return if (cityIndex < 0) tokens.first() else tokens.take(cityIndex + 1).joinToString(" ")
+            }
+    }
 
     /** 한 학기 7과목의 성취도. 미이수(자유학기 등)는 빈 문자열이라 칸이 빈다. */
     data class SemesterGrades(

@@ -18,8 +18,7 @@ private val SEMESTER_LABELS = listOf("3학년 2학기", "3학년 1학기", "직�
  * ponytail: 요강의 `기술∙가정`(U+2219)은 NanumGothic 에 글리프가 없어 `#` 로 찍힌다. `기술·가정`(U+00B7)을 쓴다.
  * 폰트를 바꾸면 요강 표기를 그대로 쓸 수 있다.
  *
- * ponytail: 학교코드·보훈번호·출신지역은 원서에 저장하는 값이 없어 빈칸으로 둔다. 수집하기로 하면
- * [ApplicationForm] 에 담아 넣는다.
+ * ponytail: 보훈번호는 원서에 저장하는 값이 없어 빈칸으로 둔다. 수집하기로 하면 [ApplicationForm] 에 담아 넣는다.
  */
 object ApplicationFormHtml {
 
@@ -100,16 +99,22 @@ object ApplicationFormHtml {
         </table>
     """.trimIndent()
 
-    /** 학교코드는 원서에 없어 비운다. 수험번호는 서식이 "기재하지 않음"이라고 적어 뒀다. */
+    /**
+     * 학교코드는 출신 중학교의 기관코드다. 검정고시 지원자는 중학교 정보가 없어 빈다.
+     * 수험번호는 서식이 "기재하지 않음"이라고 적어 뒀다.
+     */
     private fun identityRow(form: ApplicationForm) = """
         <tr>
           ${label("접수번호", 3)}${value(ReceiptNumber.of(form.applicantId), 5)}
-          ${label("학교코드", 3)}${value("", 5)}
+          ${label("학교코드", 3)}${value(form.school?.code, 5)}
           ${label("수험번호", 3)}${value("*기재하지 않음", 5)}
         </tr>
     """.trimIndent()
 
-    /** 출신지역은 요강이 정의하지 않고 원서에 저장하는 값도 없어 비운다. */
+    /**
+     * 출신지역은 출신 중학교 소재지다([ApplicationForm.MiddleSchool.originRegion]). 검정고시 지원자는 중학교
+     * 정보가 없어 학교코드와 같이 빈다.
+     */
     private fun applicantRows(form: ApplicationForm, photoDataUri: String?) = """
         <tr>
           <td class="label" rowspan="5" colspan="3">지원자</td>
@@ -117,7 +122,7 @@ object ApplicationFormHtml {
           <td class="photo" rowspan="5" colspan="5">${photoCell(photoDataUri)}</td>
         </tr>
         <tr>
-          ${label("생년월일", 3)}${value(form.birthdate, 5)}${label("출신지역", 3)}${value("", 5)}
+          ${label("생년월일", 3)}${value(form.birthdate, 5)}${label("출신지역", 3)}${value(form.school?.originRegion, 5)}
         </tr>
         <tr>
           ${label("성별", 3)}${value(form.gender?.label, 5)}${label("출신학교", 3)}${value(form.school?.name, 5)}

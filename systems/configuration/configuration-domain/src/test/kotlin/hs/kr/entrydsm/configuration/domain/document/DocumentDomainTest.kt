@@ -156,7 +156,37 @@ class DocumentDomainTest {
         assertFalse(FileCategory.PHOTO.canDelete(student(11), ownerUserId = 10))
     }
 
+    @Test
+    fun `출신지역은 학교 주소를 처음 나오는 시·군까지 자른다`() {
+        mapOf(
+            "대전광역시 유성구 가정북로 76" to "대전광역시",
+            "경기도 수원시 장안구 송정로21번길 42" to "경기도 수원시",
+            // '시'만 보면 군 지역 학교는 도까지만 찍힌다.
+            "경기도 연천군 군남면 진상17길 46" to "경기도 연천군",
+            "세종특별자치시 한누리대로 2130" to "세종특별자치시",
+            "제주특별자치도 서귀포시 중산간서로 1" to "제주특별자치도 서귀포시",
+            // 시·군 토큰이 없는 축약 표기는 첫 토큰(시·도)만 쓴다.
+            "서울 마포구 신수로8길 20" to "서울",
+        ).forEach { (address, region) -> assertEquals(address, region, school(address).originRegion) }
+    }
+
+    @Test
+    fun `학교 주소가 없으면 출신지역도 없다`() {
+        assertNull(school(null).originRegion)
+        assertNull(school("").originRegion)
+        assertNull(school("   ").originRegion)
+    }
+
     private val admin = Requester(1, Requester.Role.ADMIN)
 
     private fun student(userId: Long) = Requester(userId, Requester.Role.STUDENT)
+
+    private fun school(address: String?) = ApplicationForm.MiddleSchool(
+        name = "대덕중학교",
+        studentNumber = "30115",
+        phone = "042-000-0000",
+        teacherName = "김선생",
+        code = "7451012",
+        address = address,
+    )
 }
