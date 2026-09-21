@@ -30,6 +30,13 @@ object ApplicationFormHtml {
         // 서식의 서명·날인 연도는 입학 학년도의 전 해다.
         val signatureYear = admissionYear - 1
 
+        // 서식 4 는 특별전형 지원자만 내는 추천서다. 일반전형이거나 아직 전형을 고르지 않았으면 장을 통째로 뺀다.
+        val recommendationSheet = when (form.admissionType) {
+            Applicant.AdmissionType.MEISTER, Applicant.AdmissionType.SOCIAL ->
+                principalRecommendationPage(admissionYear, form)
+            else -> ""
+        }
+
         return """
             <html xmlns="http://www.w3.org/1999/xhtml">
             <head>
@@ -63,7 +70,7 @@ object ApplicationFormHtml {
               ${applicationPage(admissionYear, signatureYear, form, photoDataUri)}
               ${privacyConsentPage(signatureYear)}
               ${selfIntroductionPage(form)}
-              ${principalRecommendationPage(admissionYear, form)}
+              $recommendationSheet
               ${nonSmokingConsentPage(signatureYear, form)}
               ${smokingTestConsentPage(signatureYear, form)}
             </body>
@@ -404,8 +411,8 @@ object ApplicationFormHtml {
     }
 
     /**
-     * 요강 <서식 4> 학교장 추천서 한 장. 특별전형 지원자만 내는 서식이라 추천분야 표에는 지원한 전형 칸에만 ○ 를
-     * 찍고, 일반전형이거나 아직 고르지 않았으면 두 칸 다 비운다.
+     * 요강 <서식 4> 학교장 추천서 한 장. 특별전형 지원자만 내는 서식이라 [render] 가 특별전형일 때만 부르고,
+     * 추천분야 표에는 지원한 전형 칸에만 ○ 를 찍는다.
      *
      * 학교·반·날짜·담임 이름은 원본이 손으로 쓰게 비워 둔 칸이라 인쇄 문구만 그린다. 값을 채우는 곳은
      * 접수번호와 성명뿐이다.

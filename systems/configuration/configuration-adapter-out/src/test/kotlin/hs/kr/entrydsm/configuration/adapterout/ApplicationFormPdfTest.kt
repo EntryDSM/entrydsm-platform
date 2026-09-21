@@ -19,11 +19,16 @@ import kotlin.math.roundToInt
 /**
  * 요강이 "인터넷접수 후 출력"이라고 적은 서식은 6개다. 지원자가 한 번 내려받아 그대로 인쇄해 우편으로 보내는
  * 종이라 **서식마다 정확히 A4 한 장**이어야 한다. 한 서식이 넘치면 뒤 서식이 통째로 밀리므로 쪽수를 단언한다.
+ *
+ * 학교장 추천서(서식 4)만 특별전형 지원자에게만 붙어 일반전형 원서는 다섯 장이다.
  */
 class ApplicationFormPdfTest {
 
     /** 요강의 인터넷접수 후 출력 서식 수 — 입학원서·개인정보 동의·자기소개서·추천서·금연 동의·흡연검사 동의 */
     private val FORM_COUNT = 6
+
+    /** 학교장 추천서(서식 4)는 특별전형 지원자만 내는 서식이라 일반전형 원서에는 없다. */
+    private val FORM_COUNT_WITHOUT_RECOMMENDATION = FORM_COUNT - 1
 
     @Test
     fun `칸을 다 채운 원서를 A4 여섯 장으로 찍는다`() {
@@ -69,7 +74,14 @@ class ApplicationFormPdfTest {
     }
 
     @Test
-    fun `작성 중이라 이름만 있는 원서도 빈 칸인 채로 여섯 장을 찍는다`() {
+    fun `일반전형 원서는 학교장 추천서를 빼고 다섯 장을 찍는다`() {
+        val pdf = render(form().copy(admissionType = Applicant.AdmissionType.REGULAR))
+
+        assertA4Pages(pdf, FORM_COUNT_WITHOUT_RECOMMENDATION)
+    }
+
+    @Test
+    fun `작성 중이라 전형을 고르지 않은 원서도 빈 칸인 채로 다섯 장을 찍는다`() {
         val pdf = render(
             ApplicationForm(
                 applicantId = 12, userId = 10, name = "홍길동", phoneNumber = null, birthdate = null,
@@ -80,7 +92,7 @@ class ApplicationFormPdfTest {
             ),
         )
 
-        assertA4Pages(pdf)
+        assertA4Pages(pdf, FORM_COUNT_WITHOUT_RECOMMENDATION)
     }
 
     private fun render(form: ApplicationForm, photo: Boolean = false): ByteArray =
@@ -106,8 +118,8 @@ class ApplicationFormPdfTest {
         lowest
     }
 
-    private fun assertA4Pages(pdf: ByteArray) = Loader.loadPDF(pdf).use { document ->
-        assertEquals(FORM_COUNT, document.numberOfPages)
+    private fun assertA4Pages(pdf: ByteArray, pages: Int = FORM_COUNT) = Loader.loadPDF(pdf).use { document ->
+        assertEquals(pages, document.numberOfPages)
         repeat(document.numberOfPages) { index ->
             val page = document.getPage(index).mediaBox
             // A4 세로 = 595 x 842 pt (소수점은 반올림해 본다)
