@@ -94,6 +94,9 @@ message ApplicationFormResponse {
     optional SemesterGrades previous_semester = 21;
     optional SemesterGrades second_previous_semester = 22;
     optional AcademicRecord academic_record = 23;
+    // 서식 3 자기소개서·학업계획서 본문. 지원자가 쓴 줄바꿈까지 그대로다.
+    optional string introduction = 24;
+    optional string study_plan = 25;
 }
 
 message MiddleSchool {

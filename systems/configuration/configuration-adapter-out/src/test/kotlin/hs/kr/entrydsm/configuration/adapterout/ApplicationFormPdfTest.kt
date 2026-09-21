@@ -17,17 +17,25 @@ import javax.imageio.ImageIO
 import kotlin.math.roundToInt
 
 /**
- * 서식 1 은 인쇄해서 우편으로 보내는 종이라 **A4 한 장**이어야 한다.
- * 칸이 넘쳐 두 장이 되면 요강이 요구하는 서식이 아니게 되므로 쪽수를 단언한다.
+ * 요강이 "인터넷접수 후 출력"이라고 적은 서식은 6개다. 지원자가 한 번 내려받아 그대로 인쇄해 우편으로 보내는
+ * 종이라 **서식마다 정확히 A4 한 장**이어야 한다. 한 서식이 넘치면 뒤 서식이 통째로 밀리므로 쪽수를 단언한다.
+ *
+ * 학교장 추천서(서식 4)만 특별전형 지원자에게만 붙어 일반전형 원서는 다섯 장이다.
  */
 class ApplicationFormPdfTest {
 
+    /** 요강의 인터넷접수 후 출력 서식 수 — 입학원서·개인정보 동의·자기소개서·추천서·금연 동의·흡연검사 동의 */
+    private val FORM_COUNT = 6
+
+    /** 학교장 추천서(서식 4)는 특별전형 지원자만 내는 서식이라 일반전형 원서에는 없다. */
+    private val FORM_COUNT_WITHOUT_RECOMMENDATION = FORM_COUNT - 1
+
     @Test
-    fun `칸을 다 채운 원서를 A4 한 장으로 찍는다`() {
+    fun `칸을 다 채운 원서를 A4 여섯 장으로 찍는다`() {
         val pdf = render(form(), photo = true)
 
         assertTrue(String(pdf.copyOfRange(0, 5)) == "%PDF-")
-        assertA4SinglePage(pdf)
+        assertA4Pages(pdf)
 
         // 눈으로 확인할 때 쓴다. bazel-testlogs/.../test.outputs/outputs.zip 에 담긴다.
         System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "application-form.pdf").writeBytes(pdf) }
@@ -39,7 +47,7 @@ class ApplicationFormPdfTest {
      */
     @Test
     fun `표가 A4 아래 여백까지 채운다`() {
-        val bottom = lowestTextBaseline(render(form(), photo = true))
+        val bottom = lowestTextBaseline(render(form(), photo = true), page = 1)
 
         // A4 세로 842pt, 아래 여백 12mm(34pt). 마지막 행이 여백에서 40pt 안쪽까지는 내려와야 한다.
         assertTrue("표가 $bottom pt 에서 끝나 페이지 아래가 빈다", bottom > 842 - 34 - 40)
@@ -62,22 +70,29 @@ class ApplicationFormPdfTest {
             ),
         )
 
-        assertA4SinglePage(pdf)
+        assertA4Pages(pdf)
     }
 
     @Test
-    fun `작성 중이라 이름만 있는 원서도 빈 칸인 채로 한 장을 찍는다`() {
+    fun `일반전형 원서는 학교장 추천서를 빼고 다섯 장을 찍는다`() {
+        val pdf = render(form().copy(admissionType = Applicant.AdmissionType.REGULAR))
+
+        assertA4Pages(pdf, FORM_COUNT_WITHOUT_RECOMMENDATION)
+    }
+
+    @Test
+    fun `작성 중이라 전형을 고르지 않은 원서도 빈 칸인 채로 다섯 장을 찍는다`() {
         val pdf = render(
             ApplicationForm(
                 applicantId = 12, userId = 10, name = "홍길동", phoneNumber = null, birthdate = null,
                 gender = null, address = null, photoFileId = null, region = null, admissionType = null,
                 specialNote = null, graduationType = null, graduationDate = null, guardianName = null,
                 guardianRelation = null, guardianPhoneNumber = null, school = null,
-                semesterGrades = emptyList(), academicRecord = null,
+                semesterGrades = emptyList(), academicRecord = null, introduction = null, studyPlan = null,
             ),
         )
 
-        assertA4SinglePage(pdf)
+        assertA4Pages(pdf, FORM_COUNT_WITHOUT_RECOMMENDATION)
     }
 
     private fun render(form: ApplicationForm, photo: Boolean = false): ByteArray =
@@ -89,24 +104,28 @@ class ApplicationFormPdfTest {
             ),
         )
 
-    /** 페이지 맨 아래 글자의 기준선. 위에서부터 잰다. */
-    private fun lowestTextBaseline(pdf: ByteArray): Float = Loader.loadPDF(pdf).use { document ->
+    /** 한 쪽에서 맨 아래 글자의 기준선. 위에서부터 잰다. */
+    private fun lowestTextBaseline(pdf: ByteArray, page: Int): Float = Loader.loadPDF(pdf).use { document ->
         var lowest = 0f
         val stripper = object : PDFTextStripper() {
             override fun writeString(text: String, textPositions: List<TextPosition>) {
                 textPositions.forEach { lowest = maxOf(lowest, it.yDirAdj) }
             }
         }
+        stripper.startPage = page
+        stripper.endPage = page
         stripper.getText(document)
         lowest
     }
 
-    private fun assertA4SinglePage(pdf: ByteArray) = Loader.loadPDF(pdf).use { document ->
-        assertEquals(1, document.numberOfPages)
-        val page = document.getPage(0).mediaBox
-        // A4 세로 = 595 x 842 pt (소수점은 반올림해 본다)
-        assertEquals(595, page.width.roundToInt())
-        assertEquals(842, page.height.roundToInt())
+    private fun assertA4Pages(pdf: ByteArray, pages: Int = FORM_COUNT) = Loader.loadPDF(pdf).use { document ->
+        assertEquals(pages, document.numberOfPages)
+        repeat(document.numberOfPages) { index ->
+            val page = document.getPage(index).mediaBox
+            // A4 세로 = 595 x 842 pt (소수점은 반올림해 본다)
+            assertEquals(595, page.width.roundToInt())
+            assertEquals(842, page.height.roundToInt())
+        }
     }
 
     /** 졸업예정자라 3학년 2학기 열은 비고 나머지 세 열이 찬다. */
@@ -143,6 +162,8 @@ class ApplicationFormPdfTest {
             dsmAlgorithmAwarded = true,
             programmingCertified = true,
         ),
+        introduction = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했습니다.\n중학교에서는 정보 동아리 부장을 맡았습니다.",
+        studyPlan = "입학 후에는 알고리즘과 웹 개발을 깊게 공부하고 싶습니다.\n3학년에는 팀 프로젝트로 서비스를 배포해 보겠습니다.",
     )
 
     private fun grades(grade: String) = ApplicationForm.SemesterGrades(

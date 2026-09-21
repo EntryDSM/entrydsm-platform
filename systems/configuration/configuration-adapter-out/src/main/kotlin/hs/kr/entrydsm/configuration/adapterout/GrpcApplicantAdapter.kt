@@ -99,6 +99,8 @@ class GrpcApplicantAdapter(
         guardianName = guardianName.takeIf { hasGuardianName() },
         guardianRelation = guardianRelation.takeIf { hasGuardianRelation() },
         guardianPhoneNumber = guardianPhoneNumber.takeIf { hasGuardianPhoneNumber() },
+        introduction = introduction.takeIf { hasIntroduction() },
+        studyPlan = studyPlan.takeIf { hasStudyPlan() },
         school = middleSchool.takeIf { hasMiddleSchool() }?.let {
             ApplicationForm.MiddleSchool(
                 name = it.name,
