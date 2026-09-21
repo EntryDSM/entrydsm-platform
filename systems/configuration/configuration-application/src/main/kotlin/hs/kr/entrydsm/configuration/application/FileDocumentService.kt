@@ -63,15 +63,25 @@ class FileDocumentService(
     override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {
         val category = FileCategory.ADMISSION_TICKET
         val applicant = requireApplicant(applicantId, requester, category::canDownload)
-        val pdf = pdfRenderPort.render(
-            AdmissionTicketHtml.render(
-                admissionYear, applicant,
-                photoDataUri = applicant.photoFileId?.let { photoDataUri(it, applicant.userId) },
-            )
-        )
+        val pdf = renderTicket(applicantId, applicant, examineeNumber = null)
         val fileName = FileNaming.admissionTicketFileName(applicantId)
         return store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), applicant.userId)
     }
+
+    override fun renderAdmissionTicket(applicantId: Long, examineeNumber: String?): ByteArray =
+        renderTicket(
+            applicantId,
+            applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId),
+            examineeNumber,
+        )
+
+    private fun renderTicket(applicantId: Long, applicant: Applicant, examineeNumber: String?): ByteArray =
+        pdfRenderPort.render(
+            AdmissionTicketHtml.render(
+                admissionYear, applicantId, applicant, examineeNumber,
+                photoDataUri = applicant.photoFileId?.let { photoDataUri(it, applicant.userId) },
+            )
+        )
 
     override fun upload(command: UploadFileCommand, content: InputStream): DownloadableFile {
         val category = command.category

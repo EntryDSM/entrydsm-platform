@@ -198,8 +198,19 @@ class FileDocumentServiceTest {
         assertEquals("application/pdf", ticket.document.contentType)
         assertEquals(STUDENT_ID, ticket.document.ownerUserId)
         assertTrue(ticket.downloadUrl.contains("admission_ticket_0012.pdf"))
-        listOf("2027학년도", "미발급", "홍&lt;길동&gt;", "대덕중학교", "대전", "마이스터전형", "data:image/png;base64,")
+        listOf("2027학년도", "미발급", "홍&lt;길동&gt;", "대덕중학교", "대전", "마이스터전형", "접수 번호", "0012", "data:image/png;base64,")
             .forEach { assertTrue(it, it in pdf.lastHtml) }
+    }
+
+    @Test
+    fun `관리자 일괄 출력용 수험표는 넘어온 수험번호를 찍고 저장소에 올리지 않는다`() {
+        val ticket = service.renderAdmissionTicket(APPLICANT_ID, examineeNumber = "100001")
+
+        assertArrayEquals("%PDF-".toByteArray(), ticket)
+        assertTrue("100001" in pdf.lastHtml)
+        assertFalse("미발급" in pdf.lastHtml)
+        assertTrue(storage.uploaded.isEmpty())
+        assertThrows(ApplicantNotFoundException::class.java) { service.renderAdmissionTicket(404, "100002") }
     }
 
     @Test

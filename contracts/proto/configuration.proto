@@ -12,6 +12,8 @@ service ConfigurationService {
     rpc GetAllEnvironmentVariables(GetAllEnvironmentVariablesRequest) returns (GetAllEnvironmentVariablesResponse);
     rpc UpdateEnvironmentVariable(UpdateEnvironmentVariableRequest) returns (EnvironmentVariableResponse);
     rpc DeleteEnvironmentVariable(DeleteEnvironmentVariableRequest) returns (DeleteEnvironmentVariableResponse);
+    // 관리자 수험표 일괄 출력에 쓰는 수험표 한 장. 저장하지 않고 PDF 를 돌려준다.
+    rpc RenderAdmissionTicket(RenderAdmissionTicketRequest) returns (RenderAdmissionTicketResponse);
 }
 
 message CreateEnvironmentVariableRequest {
@@ -49,4 +51,15 @@ message GetAllEnvironmentVariablesResponse {
 
 message DeleteEnvironmentVariableResponse {
     bool success = 1;
+}
+
+message RenderAdmissionTicketRequest {
+    int64 applicant_id = 1;
+    // admin 이 발급한 수험번호. 없으면 "미발급" 으로 찍는다.
+    optional string examinee_number = 2;
+}
+
+message RenderAdmissionTicketResponse {
+    // A4 한 장짜리 수험표 PDF. 증명사진이 들어가 수 MB 까지 커질 수 있다.
+    bytes pdf = 1;
 }
