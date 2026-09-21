@@ -38,6 +38,7 @@ class Account(
     fun delete(now: Instant) {
         if (profile.applicantStatus in setOf(
                 ApplicantStatus.SUBMITTED,
+                ApplicantStatus.ARRIVAL,
                 ApplicantStatus.REVIEWING,
                 ApplicantStatus.COMPLETED,
             )

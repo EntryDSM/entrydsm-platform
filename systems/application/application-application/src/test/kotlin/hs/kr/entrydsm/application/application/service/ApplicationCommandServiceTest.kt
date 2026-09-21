@@ -5,6 +5,7 @@ import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundExcepti
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
@@ -88,6 +89,26 @@ class ApplicationCommandServiceTest {
         assertThrows(ApplicationCancelNotAllowedException::class.java) {
             service.cancel(10L, null)
         }
+    }
+
+    @Test
+    fun arrivalChangePersistsAndPublishesOnlyWhenValueChanges() {
+        val repository = FakeApplicantRepository(
+            Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED, statusVersion = 2),
+        )
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val service = ApplicationCommandService(repository, events::add)
+
+        val arrived = service.updateArrival(UpdateApplicantArrivalCommand(1L, true))
+        assertEquals(ApplicantStatus.ARRIVAL, arrived.applicantStatus)
+        assertEquals(3L, events.single().version)
+
+        service.updateArrival(UpdateApplicantArrivalCommand(1L, true))
+        assertEquals(1, events.size)
+
+        val canceled = service.updateArrival(UpdateApplicantArrivalCommand(1L, false))
+        assertEquals(ApplicantStatus.SUBMITTED, canceled.applicantStatus)
+        assertEquals(4L, events.last().version)
     }
 
     @Test

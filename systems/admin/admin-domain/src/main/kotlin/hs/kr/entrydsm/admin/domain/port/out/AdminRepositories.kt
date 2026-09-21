@@ -28,6 +28,10 @@ interface ApplicantRepository {
 
 }
 
+fun interface ApplicantArrivalPort {
+    fun update(applicantId: Long, isArrived: Boolean)
+}
+
 interface ScorePolicyRepository {
     fun findCurrent(): ScorePolicy?
 

@@ -13,12 +13,14 @@ import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
+import hs.kr.entrydsm.application.grpc.ApplicationResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
+import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import io.grpc.ServerBuilder
 import io.grpc.Status
@@ -168,6 +170,26 @@ class GrpcApplicantDataAdapterTest {
         }
     }
 
+    @Test
+    fun `원서 도착 변경을 application 에 전달한다`() {
+        val service = FakeApplicationService(listOf(applicant(id = 1L)))
+
+        withAdapter(service) { it.update(1L, true) }
+
+        assertEquals(1L, service.arrival?.applicantId)
+        assertTrue(service.arrival?.isArrived == true)
+    }
+
+    @Test
+    fun `제출되지 않은 원서의 도착 변경은 상태 전이 오류로 옮긴다`() {
+        val exception = withAdapter(FakeApplicationService(emptyList(), failure = Status.FAILED_PRECONDITION)) {
+            runCatching { it.update(1L, true) }.exceptionOrNull()
+        }
+
+        assertTrue(exception is AdminDomainException)
+        assertEquals(ErrorCode.INVALID_STATUS_TRANSITION, (exception as AdminDomainException).errorCode)
+    }
+
     private fun applicant(id: Long, name: String = "지원자$id"): ApplicantResponse =
         ApplicantResponse.newBuilder()
             .setApplicantId(id)
@@ -212,6 +234,18 @@ class GrpcApplicantDataAdapterTest {
         private val failure: Status? = null,
         private val forms: List<ApplicationFormResponse> = emptyList(),
     ) : ApplicationServiceGrpc.ApplicationServiceImplBase() {
+        var arrival: UpdateApplicantArrivalRequest? = null
+
+        override fun updateApplicantArrival(
+            request: UpdateApplicantArrivalRequest,
+            responseObserver: StreamObserver<ApplicationResponse>,
+        ) {
+            arrival = request
+            respond(
+                responseObserver,
+                ApplicationResponse.newBuilder().setUserId(1L).build(),
+            )
+        }
 
         override fun getApplicationForm(
             request: GetApplicationFormRequest,

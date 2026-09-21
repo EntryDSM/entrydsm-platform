@@ -8,6 +8,7 @@ import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateFamilyCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateIntroductionCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleSchoolCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
@@ -109,6 +110,21 @@ class ApplicationCommandService(
 
     override fun submit(command: SubmitApplicationCommand) {
         submit(command.accountId)
+    }
+
+    override fun updateArrival(command: UpdateApplicantArrivalCommand): ApplicationSnapshotResult {
+        val applicant = applicantRepository.findById(command.applicantId)
+            ?: throw ApplicantNotFoundException(command.applicantId)
+        val target = if (command.isArrived) ApplicantStatus.ARRIVAL else ApplicantStatus.SUBMITTED
+
+        if (applicant.status == target) return applicant.toSnapshot()
+        require(applicant.status in setOf(ApplicantStatus.SUBMITTED, ApplicantStatus.ARRIVAL)) {
+            "arrival can only be changed for a submitted application"
+        }
+
+        applicant.status = target
+        applicant.statusVersion += 1
+        return saveTouched(applicant).also(::publishStatus).toSnapshot()
     }
 
     override fun getLanding(accountId: Long?): LandingResult {
@@ -392,6 +408,7 @@ class ApplicationCommandService(
         /** 원서를 낸 것으로 보는 상태. 작성 중(DRAFT)과 취소(CANCELED)는 지원자가 아니다. */
         private val APPLIED_STATUSES = setOf(
             ApplicantStatus.SUBMITTED,
+            ApplicantStatus.ARRIVAL,
             ApplicantStatus.REVIEWING,
             ApplicantStatus.COMPLETED,
         )

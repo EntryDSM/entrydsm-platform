@@ -13,6 +13,12 @@ service ApplicationService {
     rpc GetApplicant(GetApplicantRequest) returns (ApplicantResponse);
     rpc ListApplicants(ListApplicantsRequest) returns (ListApplicantsResponse);
     rpc GetApplicationForm(GetApplicationFormRequest) returns (ApplicationFormResponse);
+    rpc UpdateApplicantArrival(UpdateApplicantArrivalRequest) returns (ApplicationResponse);
+}
+
+message UpdateApplicantArrivalRequest {
+    int64 applicant_id = 1;
+    bool is_arrived = 2;
 }
 
 message CreateApplicationRequest {
@@ -167,6 +173,7 @@ enum ApplicantStatus {
     APPLICANT_STATUS_REVIEWING = 4;
     APPLICANT_STATUS_COMPLETED = 5;
     APPLICANT_STATUS_CANCELED = 6;
+    APPLICANT_STATUS_ARRIVAL = 7;
 }
 
 enum PassStatus {

@@ -84,6 +84,7 @@ class GrpcApplicationDataAdapter(
             GrpcApplicantStatus.APPLICANT_STATUS_NONE -> ApplicantStatus.NONE
             GrpcApplicantStatus.APPLICANT_STATUS_DRAFT -> ApplicantStatus.DRAFT
             GrpcApplicantStatus.APPLICANT_STATUS_SUBMITTED -> ApplicantStatus.SUBMITTED
+            GrpcApplicantStatus.APPLICANT_STATUS_ARRIVAL -> ApplicantStatus.ARRIVAL
             GrpcApplicantStatus.APPLICANT_STATUS_REVIEWING -> ApplicantStatus.REVIEWING
             GrpcApplicantStatus.APPLICANT_STATUS_COMPLETED -> ApplicantStatus.COMPLETED
             GrpcApplicantStatus.APPLICANT_STATUS_CANCELED -> ApplicantStatus.CANCELED

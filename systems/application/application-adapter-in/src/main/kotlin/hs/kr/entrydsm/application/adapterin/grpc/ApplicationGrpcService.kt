@@ -4,6 +4,7 @@ import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundExcepti
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
@@ -32,6 +33,7 @@ import hs.kr.entrydsm.application.grpc.GetApplicationRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
+import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
 import hs.kr.entrydsm.application.grpc.MiddleSchool as GrpcMiddleSchool
 import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
@@ -99,6 +101,14 @@ class ApplicationGrpcService(
             .toResponse()
     }
 
+    override fun updateApplicantArrival(
+        request: UpdateApplicantArrivalRequest,
+        responseObserver: StreamObserver<ApplicationResponse>,
+    ) = responseObserver.respond {
+        request.applicantId.validate()
+        applicationPort.updateArrival(UpdateApplicantArrivalCommand(request.applicantId, request.isArrived))
+    }
+
     private fun Long.validate() {
         require(this > 0) { "id must be positive" }
     }
@@ -143,6 +153,7 @@ class ApplicationGrpcService(
     private fun ApplicantStatus.toGrpc(): GrpcApplicantStatus = when (this) {
         ApplicantStatus.DRAFT -> GrpcApplicantStatus.APPLICANT_STATUS_DRAFT
         ApplicantStatus.SUBMITTED -> GrpcApplicantStatus.APPLICANT_STATUS_SUBMITTED
+        ApplicantStatus.ARRIVAL -> GrpcApplicantStatus.APPLICANT_STATUS_ARRIVAL
         ApplicantStatus.REVIEWING -> GrpcApplicantStatus.APPLICANT_STATUS_REVIEWING
         ApplicantStatus.COMPLETED -> GrpcApplicantStatus.APPLICANT_STATUS_COMPLETED
         ApplicantStatus.CANCELED -> GrpcApplicantStatus.APPLICANT_STATUS_CANCELED

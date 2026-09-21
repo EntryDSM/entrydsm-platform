@@ -54,6 +54,7 @@ class StudentProfile(
     fun announceResult(result: PassStatus, now: Instant) {
         if (applicantStatus !in setOf(
                 ApplicantStatus.SUBMITTED,
+                ApplicantStatus.ARRIVAL,
                 ApplicantStatus.REVIEWING,
                 ApplicantStatus.COMPLETED,
             ) || passStatus != PassStatus.NOT_ANNOUNCED || result == PassStatus.NOT_ANNOUNCED
