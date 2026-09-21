@@ -6,6 +6,8 @@ package hs.kr.entrydsm.admin.domain.enum
 enum class StatisticsMetric {
     APPLICANT_COUNT,
     COMPETITION_RATE,
+    GENDER_RATIO,
+    REGION_STATUS,
     REGION_DISTRIBUTION,
     TYPE_DISTRIBUTION,
     DAILY_TREND,

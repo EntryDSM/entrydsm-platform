@@ -156,6 +156,13 @@ class ApplicationGrpcService(
             .setAdmissionType(admissionType.toGrpc())
             .setGraduationType(graduationType.toGrpc())
             .setApplicantStatus(status.toGrpc())
+            .setGender(
+                when (gender) {
+                    Gender.MALE -> GrpcGender.GENDER_MALE
+                    Gender.FEMALE -> GrpcGender.GENDER_FEMALE
+                    null -> GrpcGender.GENDER_UNSPECIFIED
+                },
+            )
             // apply 안에서는 name 이 빌더의 getName() 으로 잡히므로 also 로 넘긴다.
             .also { builder ->
                 name?.let(builder::setName)
@@ -167,6 +174,7 @@ class ApplicationGrpcService(
                 submittedAt?.let {
                     builder.setSubmittedAtEpochMillis(it.toInstant(ZoneOffset.UTC).toEpochMilli())
                 }
+                address?.let(builder::setAddress)
             }
             .build()
 

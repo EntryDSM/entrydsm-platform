@@ -51,6 +51,8 @@ class ApplicantPersistenceAdapter(
                 totalScore = it.totalScore,
                 status = it.status,
                 submittedAt = it.submittedAt,
+                gender = it.gender,
+                address = it.address,
             )
         }
 }

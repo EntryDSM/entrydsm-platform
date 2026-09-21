@@ -5,6 +5,7 @@ import hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
+import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
@@ -76,6 +77,8 @@ class ApplicantSummaryQueryTest {
                 graduationType = GraduationType.PROSPECTIVE
                 totalScore = 150.5
                 submittedAt = SUBMITTED_AT
+                gender = Gender.FEMALE
+                addressBase = "충청남도 천안시"
                 middleSchoolInfo = MiddleSchoolInfo(
                     schoolCode = "7031234",
                     schoolName = "대덕중학교",
@@ -100,6 +103,8 @@ class ApplicantSummaryQueryTest {
         assertEquals(150.5, summary.totalScore!!, 0.0)
         assertEquals(ApplicantStatus.SUBMITTED, summary.status)
         assertEquals(SUBMITTED_AT, summary.submittedAt)
+        assertEquals(Gender.FEMALE, summary.gender)
+        assertEquals("충청남도 천안시", summary.address)
     }
 
     /** 제출 검증이 중학교를 요구하지 않으므로 낸 원서에도 없을 수 있다. 목록이 그 지원자를 빠뜨리면 안 된다. */

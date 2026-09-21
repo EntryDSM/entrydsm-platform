@@ -143,6 +143,8 @@ class ApplicationCommandService(
         totalScore = totalScore,
         status = status,
         submittedAt = submittedAt,
+        gender = gender,
+        address = addressBase,
     )
 
     private fun Applicant.toApplicationFormResult(): ApplicationFormResult {

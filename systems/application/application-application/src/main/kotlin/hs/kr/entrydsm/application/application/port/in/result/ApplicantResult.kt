@@ -3,6 +3,7 @@ package hs.kr.entrydsm.application.application.port.`in`.result
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
+import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.Region
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -27,4 +28,6 @@ data class ApplicantResult(
     val totalScore: Double?,
     val status: ApplicantStatus,
     val submittedAt: LocalDateTime?,
+    val gender: Gender? = null,
+    val address: String? = null,
 )

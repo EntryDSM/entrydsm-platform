@@ -2,10 +2,15 @@ package hs.kr.entrydsm.admin.application
 
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
+import hs.kr.entrydsm.admin.domain.enum.Gender
+import hs.kr.entrydsm.admin.domain.enum.Region
+import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantCount
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.DailyApplicantCount
+import hs.kr.entrydsm.admin.domain.model.GenderRatio
+import hs.kr.entrydsm.admin.domain.model.RegionStatus
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadStatisticsUseCase
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
@@ -18,6 +23,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 private const val COMPETITION_RATE_SCALE = 2
+private const val RATIO_SCALE = 3
 private val KOREA_ZONE = ZoneId.of("Asia/Seoul")
 
 @Service
@@ -46,6 +52,12 @@ class StatisticsService(
             competitionRate = metrics.ifRequested(StatisticsMetric.COMPETITION_RATE) {
                 competitionRate(countByType)
             },
+            genderRatio = metrics.ifRequested(StatisticsMetric.GENDER_RATIO) {
+                genderRatio(applicants)
+            },
+            regionStatus = metrics.ifRequested(StatisticsMetric.REGION_STATUS) {
+                regionStatus(applicants)
+            },
             regionDistribution = metrics.ifRequested(StatisticsMetric.REGION_DISTRIBUTION) {
                 applicants.countBy { it.region }
             },
@@ -71,10 +83,44 @@ class StatisticsService(
         admissionQuotaRepository.find()?.byType.orEmpty()
             .filterValues { it > 0 }
             .mapValues { (type, quota) ->
-                BigDecimal.valueOf((countByType[type] ?: 0L).toDouble() / quota)
-                    .setScale(COMPETITION_RATE_SCALE, RoundingMode.HALF_UP)
+                BigDecimal.valueOf(countByType[type] ?: 0L)
+                    .divide(BigDecimal.valueOf(quota.toLong()), COMPETITION_RATE_SCALE, RoundingMode.HALF_UP)
                     .toDouble()
             }
+
+    private fun genderRatio(applicants: List<Applicant>): GenderRatio {
+        val byGender = applicants.countBy { it.gender }
+        val total = applicants.size.toLong()
+        return GenderRatio(
+            total = total,
+            byGender = byGender,
+            maleRatio = if (total == 0L) 0.0 else BigDecimal.valueOf(
+                (byGender[Gender.MALE] ?: 0L).toDouble() / total,
+            ).setScale(RATIO_SCALE, RoundingMode.HALF_UP).toDouble(),
+            byType = applicants
+                .filter { it.admissionType != null && it.gender != null }
+                .groupBy { it.admissionType!! }
+                .mapValues { (_, values) -> values.countBy { it.gender } },
+        )
+    }
+
+    private fun regionStatus(applicants: List<Applicant>): RegionStatus = RegionStatus(
+        total = applicants.size.toLong(),
+        byScope = applicants.countBy {
+            when (it.region) {
+                Region.DAEJEON -> "LOCAL"
+                Region.NATIONWIDE -> "NATIONWIDE"
+                null -> null
+            }
+        },
+        byRegion = applicants.groupingBy { residenceRegion(it.address) }.eachCount().mapValues { it.value.toLong() },
+    )
+
+    private fun residenceRegion(address: String?): ResidenceRegion {
+        val value = address.orEmpty()
+        return REGION_NAMES.entries.firstOrNull { (name, _) -> value.contains(name) }?.value
+            ?: ResidenceRegion.ETC
+    }
 
     /** 지역·전형이 비어 있는 원서는 분포에 넣을 칸이 없어 뺀다. 총 지원자 수에는 그대로 든다. */
     private fun <K : Any> List<Applicant>.countBy(key: (Applicant) -> K?): Map<K, Long> =
@@ -84,4 +130,29 @@ class StatisticsService(
         metric: StatisticsMetric,
         block: () -> T,
     ): T? = if (metric in this) block() else null
+
+    private companion object {
+        val REGION_NAMES = linkedMapOf(
+            "서울특별시" to ResidenceRegion.SEOUL,
+            "부산광역시" to ResidenceRegion.BUSAN,
+            "대구광역시" to ResidenceRegion.DAEGU,
+            "인천광역시" to ResidenceRegion.INCHEON,
+            "광주광역시" to ResidenceRegion.GWANGJU,
+            "대전광역시" to ResidenceRegion.DAEJEON,
+            "울산광역시" to ResidenceRegion.ULSAN,
+            "세종특별자치시" to ResidenceRegion.SEJONG,
+            "경기도" to ResidenceRegion.GYEONGGI,
+            "강원특별자치도" to ResidenceRegion.GANGWON,
+            "강원도" to ResidenceRegion.GANGWON,
+            "충청북도" to ResidenceRegion.CHUNGBUK,
+            "충청남도" to ResidenceRegion.CHUNGNAM,
+            "전북특별자치도" to ResidenceRegion.JEONBUK,
+            "전라북도" to ResidenceRegion.JEONBUK,
+            "전라남도" to ResidenceRegion.JEONNAM,
+            "경상북도" to ResidenceRegion.GYEONGBUK,
+            "경상남도" to ResidenceRegion.GYEONGNAM,
+            "제주특별자치도" to ResidenceRegion.JEJU,
+            "제주도" to ResidenceRegion.JEJU,
+        )
+    }
 }

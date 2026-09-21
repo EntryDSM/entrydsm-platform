@@ -6,6 +6,7 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
+import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
@@ -19,6 +20,7 @@ import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
+import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import io.grpc.Status
@@ -140,6 +142,12 @@ class GrpcApplicantDataAdapter(
         status = screening?.status ?: ApplicantStatus.PENDING,
         arrivedAt = screening?.arrivedAt,
         updatedAt = screening?.updatedAt,
+        gender = when (gender) {
+            GrpcGender.GENDER_MALE -> Gender.MALE
+            GrpcGender.GENDER_FEMALE -> Gender.FEMALE
+            else -> null
+        },
+        address = address.takeIf { hasAddress() },
     )
 
     private fun Applicant.toScreening() = ScreeningJpaEntity(
