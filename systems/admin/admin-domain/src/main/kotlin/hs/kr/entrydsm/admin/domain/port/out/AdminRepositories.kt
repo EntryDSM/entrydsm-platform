@@ -3,6 +3,7 @@ package hs.kr.entrydsm.admin.domain.port.out
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.Notice
@@ -17,6 +18,9 @@ interface ApplicantRepository {
     fun findAll(filter: ApplicantFilter = ApplicantFilter()): List<Applicant>
 
     fun findById(applicantId: Long): Applicant?
+
+    /** 상세 화면용. 자기소개서·학업계획서·증명사진 ID 까지 읽는다. */
+    fun findDetailById(applicantId: Long): ApplicantDetail?
 
     fun save(applicant: Applicant): Applicant
 

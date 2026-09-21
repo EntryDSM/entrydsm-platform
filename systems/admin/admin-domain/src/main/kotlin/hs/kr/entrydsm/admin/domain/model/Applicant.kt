@@ -42,3 +42,17 @@ data class Applicant(
     /** 서류에 찍는 접수 번호. 접수 순서인 [id] 를 네 자리로 채운다. 9999 번을 넘으면 자릿수가 늘어난다. */
     val receiptNumber: String get() = id.toString().padStart(4, '0')
 }
+
+/**
+ * 지원자 상세 화면에만 싣는 원서 본문입니다. 목록·전형·내보내기는 쓰지 않아 [Applicant] 에 두지 않습니다.
+ *
+ * @property photoFileId document 증명사진 ID (`photo_` 로 시작). 사진 파일은 document 가 준다
+ * @property introduction 자기소개서. 지원자가 쓴 줄바꿈까지 그대로다
+ * @property studyPlan 학업계획서. 지원자가 쓴 줄바꿈까지 그대로다
+ */
+data class ApplicantDetail(
+    val applicant: Applicant,
+    val photoFileId: String?,
+    val introduction: String?,
+    val studyPlan: String?,
+)
