@@ -33,7 +33,15 @@ fun ApplicantDetail.toDetailResponse(): ApplicantDetailResponse = ApplicantDetai
     examineeNumber = applicant.examineeNumber,
     isArrived = applicant.isArrived,
     status = applicant.status,
-    score = applicant.totalScore?.let(::ScoreResponse),
+    score = score?.let {
+        ScoreResponse(
+            subjectScore = it.subjectScore,
+            attendanceScore = it.attendanceScore,
+            volunteerScore = it.volunteerScore,
+            additionalScore = it.additionalScore,
+            totalScore = it.totalScore,
+        )
+    },
     submittedAt = applicant.submittedAt,
     arrivedAt = applicant.arrivedAt,
     updatedAt = applicant.updatedAt,

@@ -9,6 +9,7 @@ import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
+import hs.kr.entrydsm.admin.domain.model.ApplicantScore
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
@@ -88,6 +89,15 @@ class GrpcApplicantDataAdapter(
             photoFileId = form.photoFileId.takeIf { form.hasPhotoFileId() },
             introduction = form.introduction.takeIf { form.hasIntroduction() },
             studyPlan = form.studyPlan.takeIf { form.hasStudyPlan() },
+            score = form.takeIf { it.hasTotalScore() }?.let {
+                ApplicantScore(
+                    subjectScore = it.subjectScore,
+                    attendanceScore = it.attendanceScore,
+                    volunteerScore = it.volunteerScore,
+                    additionalScore = it.additionalScore,
+                    totalScore = it.totalScore,
+                )
+            },
         )
     }
 

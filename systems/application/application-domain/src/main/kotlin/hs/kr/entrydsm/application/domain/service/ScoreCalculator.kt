@@ -31,12 +31,16 @@ class ScoreCalculator {
      * 반올림하여 소수 셋째 자리까지 구한다.
      */
     fun calculate(applicant: Applicant): Double {
+        return calculateBreakdown(applicant).totalScore
+    }
+
+    fun calculateBreakdown(applicant: Applicant): ScoreBreakdown {
         val admissionType = requireNotNull(applicant.admissionType) {
             "admissionType is required"
         }
         val isRegular = admissionType == AdmissionType.REGULAR
 
-        val record = applicant.academicRecord ?: return EMPTY_SCORE
+        val record = applicant.academicRecord ?: return ScoreBreakdown.EMPTY
 
         val isGed = applicant.graduationType == GraduationType.GED
 
@@ -59,13 +63,14 @@ class ScoreCalculator {
          * 두 항목의 30점도 교과 환산 점수에 비례해서 준다.
          * (만점이면 일반전형 170점, 특별전형 110점)
          */
-        val attendanceAndVolunteerScore = if (isGed) {
-            subjectBaseScore /
-                    SUBJECT_MAX_SCORE *
-                    (ATTENDANCE_MAX_SCORE + VOLUNTEER_MAX_SCORE)
+        val attendanceScore: Double
+        val volunteerScore: Double
+        if (isGed) {
+            attendanceScore = subjectBaseScore / SUBJECT_MAX_SCORE * ATTENDANCE_MAX_SCORE
+            volunteerScore = subjectBaseScore / SUBJECT_MAX_SCORE * VOLUNTEER_MAX_SCORE
         } else {
-            calculateAttendanceScore(record) +
-                    calculateVolunteerScore(record.volunteerTime)
+            attendanceScore = calculateAttendanceScore(record)
+            volunteerScore = calculateVolunteerScore(record.volunteerTime)
         }
 
         val subjectScore = subjectBaseScore * if (isRegular) {
@@ -74,10 +79,8 @@ class ScoreCalculator {
             SPECIAL_SUBJECT_SCORE_RATIO
         }
 
-        val score =
-            subjectScore +
-                    attendanceAndVolunteerScore +
-                    calculateAdditionalScore(record, isRegular)
+        val additionalScore = calculateAdditionalScore(record, isRegular)
+        val score = subjectScore + attendanceScore + volunteerScore + additionalScore
 
         val maxScore = if (isRegular) {
             REGULAR_FIRST_SCREENING_MAX_SCORE
@@ -85,11 +88,15 @@ class ScoreCalculator {
             SPECIAL_FIRST_SCREENING_MAX_SCORE
         }
 
-        return roundToThirdDecimal(
-            score.coerceIn(
+        return ScoreBreakdown(
+            subjectScore = roundToThirdDecimal(subjectScore),
+            attendanceScore = roundToThirdDecimal(attendanceScore),
+            volunteerScore = roundToThirdDecimal(volunteerScore),
+            additionalScore = roundToThirdDecimal(additionalScore),
+            totalScore = roundToThirdDecimal(score.coerceIn(
                 minimumValue = EMPTY_SCORE,
                 maximumValue = maxScore,
-            ),
+            )),
         )
     }
 
@@ -516,5 +523,17 @@ class ScoreCalculator {
             SchoolSemester.FIRST_GRADE_SECOND_SEMESTER,
             SchoolSemester.FIRST_GRADE_FIRST_SEMESTER,
         )
+    }
+}
+
+data class ScoreBreakdown(
+    val subjectScore: Double,
+    val attendanceScore: Double,
+    val volunteerScore: Double,
+    val additionalScore: Double,
+    val totalScore: Double,
+) {
+    companion object {
+        val EMPTY = ScoreBreakdown(0.0, 0.0, 0.0, 0.0, 0.0)
     }
 }

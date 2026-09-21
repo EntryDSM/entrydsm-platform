@@ -234,6 +234,13 @@ class ApplicationGrpcService(
                             .build(),
                     )
                 }
+                score?.let {
+                    builder.setSubjectScore(it.subjectScore)
+                    builder.setAttendanceScore(it.attendanceScore)
+                    builder.setVolunteerScore(it.volunteerScore)
+                    builder.setAdditionalScore(it.additionalScore)
+                    builder.setTotalScore(it.totalScore)
+                }
             }
             .build()
 

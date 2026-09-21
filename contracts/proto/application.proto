@@ -113,6 +113,11 @@ message ApplicationFormResponse {
     // 서식 3 자기소개서·학업계획서 본문. 지원자가 쓴 줄바꿈까지 그대로다.
     optional string introduction = 24;
     optional string study_plan = 25;
+    optional double subject_score = 26;
+    optional double attendance_score = 27;
+    optional double volunteer_score = 28;
+    optional double additional_score = 29;
+    optional double total_score = 30;
 }
 
 message MiddleSchool {
