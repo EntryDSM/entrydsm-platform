@@ -58,7 +58,7 @@ class DocumentControllerTest {
     fun `원서는 경로의 applicantId로도 만든다 - 관리자가 지원자를 지목한다`() {
         mvc.perform(get("/api/document/v11/applications/12").with(admin()))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.fileName").value("application_12.pdf"))
+            .andExpect(jsonPath("$.data.fileName").value("application_0012.pdf"))
             .andExpect(jsonPath("$.data.id").doesNotExist())
 
         assertEquals(12L to Requester(1, Requester.Role.ADMIN), applicantFiles.formGenerated)
@@ -245,7 +245,7 @@ class DocumentControllerTest {
         override fun generateApplicationForm(applicantId: Long, requester: Requester): DownloadableFile {
             formGenerated = applicantId to requester
             if (denied) throw DocumentAccessDeniedException()
-            return downloadable(FileCategory.APPLICATION.objectKeyOf("application_$applicantId.pdf"))
+            return downloadable(FileCategory.APPLICATION.objectKeyOf(FileNaming.applicationFileName(applicantId)))
         }
 
         override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {

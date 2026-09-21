@@ -76,7 +76,7 @@ class FileDocumentServiceTest {
     fun `관리자는 applicant id 로 지목한 지원자의 원서를 받고, 파일 주인은 그 지원자다`() {
         val generated = service.generateApplicationForm(APPLICANT_ID, admin)
 
-        assertEquals("dsm_Entry/Backend/application/application_12.pdf", generated.document.objectKey)
+        assertEquals("dsm_Entry/Backend/application/application_0012.pdf", generated.document.objectKey)
         assertEquals(STUDENT_ID, generated.document.ownerUserId)
         assertTrue("홍길동" in pdf.lastHtml)
     }
