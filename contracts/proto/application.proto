@@ -120,6 +120,10 @@ message MiddleSchool {
     string student_number = 2;
     string phone = 3;
     string teacher_name = 4;
+    // 기관코드(institution_codes.code). 서식 1 학교코드 칸
+    string code = 5;
+    // 학교 도로명 주소. 서식 1 출신지역 칸의 원본이다. 기관코드 표에 주소가 없는 학교는 담지 않는다.
+    optional string address = 6;
 }
 
 // 성취도 A~E. 미이수(자유학기 등)는 요강에 없는 값이라 빈 문자열로 준다.

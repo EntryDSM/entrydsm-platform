@@ -101,12 +101,14 @@ class GrpcApplicantAdapter(
         guardianPhoneNumber = guardianPhoneNumber.takeIf { hasGuardianPhoneNumber() },
         introduction = introduction.takeIf { hasIntroduction() },
         studyPlan = studyPlan.takeIf { hasStudyPlan() },
-        school = middleSchool.takeIf { hasMiddleSchool() }?.let {
+        school = middleSchool.takeIf { hasMiddleSchool() }?.let { school ->
             ApplicationForm.MiddleSchool(
-                name = it.name,
-                studentNumber = it.studentNumber,
-                phone = it.phone,
-                teacherName = it.teacherName,
+                code = school.code,
+                name = school.name,
+                studentNumber = school.studentNumber,
+                phone = school.phone,
+                teacherName = school.teacherName,
+                address = school.address.takeIf { school.hasAddress() },
             )
         },
         // 서식의 열 순서 그대로다 — 3학년 2학기, 3학년 1학기, 직전학기, 직전전학기.

@@ -60,6 +60,11 @@ data class MiddleSchoolInfo(
     val studentNumber: String,
     val schoolPhone: String,
     val teacherName: String,
+    /**
+     * 기관코드 표에서 읽는 학교 도로명 주소. 원서 서식의 출신지역에 쓴다.
+     * 원서로 받는 값이 아니라 저장하지 않고, 조회할 때만 찬다.
+     */
+    val schoolAddress: String? = null,
 )
 
 data class AcademicRecord(

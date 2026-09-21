@@ -208,10 +208,12 @@ class ApplicationGrpcService(
                 middleSchool?.let {
                     builder.setMiddleSchool(
                         GrpcMiddleSchool.newBuilder()
+                            .setCode(it.schoolCode)
                             .setName(it.schoolName)
                             .setStudentNumber(it.studentNumber)
                             .setPhone(it.schoolPhone)
                             .setTeacherName(it.teacherName)
+                            .also { schoolBuilder -> it.schoolAddress?.let(schoolBuilder::setAddress) }
                             .build(),
                     )
                 }

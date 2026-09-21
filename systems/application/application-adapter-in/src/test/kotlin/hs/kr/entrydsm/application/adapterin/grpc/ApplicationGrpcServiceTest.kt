@@ -154,7 +154,14 @@ class ApplicationGrpcServiceTest {
             guardianName = "홍판서",
             guardianRelation = "부",
             guardianPhoneNumber = null,
-            middleSchool = MiddleSchoolInfo("D100000", "대덕중학교", "30115", "042-000-0000", "김선생"),
+            middleSchool = MiddleSchoolInfo(
+                "D100000",
+                "대덕중학교",
+                "30115",
+                "042-000-0000",
+                "김선생",
+                schoolAddress = "대전광역시 대덕구 중리로 1",
+            ),
             thirdGradeSecondSemester = null,
             thirdGradeFirstSemester = SubjectGrades(
                 koreanGrade = SubjectGrade.A,
@@ -191,8 +198,10 @@ class ApplicationGrpcServiceTest {
             GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NATIONAL_MERIT,
             found.specialAdmissionType,
         )
+        assertEquals("D100000", found.middleSchool.code)
         assertEquals("대덕중학교", found.middleSchool.name)
         assertEquals("김선생", found.middleSchool.teacherName)
+        assertEquals("대전광역시 대덕구 중리로 1", found.middleSchool.address)
         // 성취도 미이수(X)는 요강에 없는 값이라 빈 문자열로 나가 칸이 빈다.
         assertEquals("A", found.thirdGradeFirstSemester.korean)
         assertEquals("", found.thirdGradeFirstSemester.math)
@@ -207,6 +216,14 @@ class ApplicationGrpcServiceTest {
 
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
         assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
+
+        // 기관코드 표에 주소가 없는 학교는 주소를 담지 않아 출신지역 칸이 빈다.
+        port.form = port.form?.copy(
+            middleSchool = MiddleSchoolInfo("D100000", "대덕중학교", "30115", "042-000-0000", "김선생"),
+        )
+        val withoutAddress = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build())
+        assertEquals("D100000", withoutAddress.middleSchool.code)
+        assertFalse(withoutAddress.middleSchool.hasAddress())
     }
 
     private class FakeApplicationPort : ApplicationPort {

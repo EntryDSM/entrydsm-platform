@@ -66,6 +66,8 @@ class ApplicationFormPdfTest {
                     studentNumber = "30125",
                     phone = "042-000-0000",
                     teacherName = "황보구양선우제갈남궁",
+                    code = "9299013",
+                    address = "제주특별자치도 서귀포시 천제연로232번길 10",
                 ),
             ),
         )
@@ -93,6 +95,15 @@ class ApplicationFormPdfTest {
         )
 
         assertA4Pages(pdf, FORM_COUNT_WITHOUT_RECOMMENDATION)
+    }
+
+    @Test
+    fun `학교코드와 출신지역은 출신 중학교 값으로 찍는다`() {
+        val text = Loader.loadPDF(render(form())).use { PDFTextStripper().apply { endPage = 1 }.getText(it) }
+
+        assertTrue(text, text.contains("9299009"))
+        // 가장 긴 출신지역이다. 칸이 두 줄로 접히면 두 토큰 사이에 줄바꿈이 끼어 이 단언이 깨진다.
+        assertTrue(text, text.contains("제주특별자치도 서귀포시"))
     }
 
     @Test
@@ -153,11 +164,14 @@ class ApplicationFormPdfTest {
         guardianName = "홍판서",
         guardianRelation = "부",
         guardianPhoneNumber = "010-9876-5432",
+        // 기관코드 표에서 출신지역이 가장 길게 찍히는 곳(제주특별자치도 서귀포시)의 학교다.
         school = ApplicationForm.MiddleSchool(
-            name = "대덕중학교",
+            name = "서귀포중학교",
             studentNumber = "30115",
-            phone = "042-000-0000",
+            phone = "064-730-7900",
             teacherName = "김선생",
+            code = "9299009",
+            address = "제주특별자치도 서귀포시 태평로 474",
         ),
         semesterGrades = listOf(null, grades("A"), grades("B"), grades("C")),
         academicRecord = ApplicationForm.AcademicRecord(

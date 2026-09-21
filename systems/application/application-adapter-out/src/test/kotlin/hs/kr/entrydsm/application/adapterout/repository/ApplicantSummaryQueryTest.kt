@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.application.adapterout.repository
 
 import hs.kr.entrydsm.application.adapterout.entity.ApplicantJpaEntity
+import hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
@@ -35,6 +36,9 @@ class ApplicantSummaryQueryTest {
     @Autowired
     private lateinit var applicantJpaRepository: ApplicantJpaRepository
 
+    @Autowired
+    private lateinit var institutionCodeJpaRepository: InstitutionCodeJpaRepository
+
     @Test
     fun `원서를 낸 지원자만 지원자 번호 순으로 준다`() {
         save(submitted(accountId = 101))
@@ -49,6 +53,18 @@ class ApplicantSummaryQueryTest {
 
     @Test
     fun `원서 내용을 제자리에 담는다`() {
+        // middle_school_infos.school_code 는 기관코드 표를 참조한다.
+        institutionCodeJpaRepository.save(
+            InstitutionCodeJpaEntity(
+                code = "7031234",
+                fullName = "대전광역시교육청 대전서부교육지원청 대덕중학교",
+                name = "대덕중학교",
+                postalCode = null,
+                address = null,
+                phoneNumber = null,
+                faxNumber = null,
+            ),
+        )
         save(
             submitted(accountId = 101).apply {
                 name = "김철수"
@@ -61,6 +77,7 @@ class ApplicantSummaryQueryTest {
                 totalScore = 150.5
                 submittedAt = SUBMITTED_AT
                 middleSchoolInfo = MiddleSchoolInfo(
+                    schoolCode = "7031234",
                     schoolName = "대덕중학교",
                     studentNumber = "30101",
                     schoolPhone = "0421234567",
