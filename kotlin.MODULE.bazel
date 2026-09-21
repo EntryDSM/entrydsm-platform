@@ -10,6 +10,7 @@ maven.artifact(artifact = "spring-boot-starter-actuator", group = "org.springfra
 maven.artifact(artifact = "spring-boot-starter-test", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-boot-starter-data-jpa-test", group = "org.springframework.boot", version = "4.0.7")
 maven.artifact(artifact = "spring-security-crypto", group = "org.springframework.security", version = "7.0.4")
+maven.artifact(artifact = "spring-security-test", group = "org.springframework.security", version = "7.0.4")
 
 # SpringDoc
 maven.artifact(artifact = "springdoc-openapi-starter-webmvc-ui", group = "org.springdoc", version = "3.1.1")

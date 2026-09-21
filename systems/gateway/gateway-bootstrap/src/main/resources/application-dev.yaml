@@ -21,6 +21,8 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 gateway:
+  security:
+    secure-cookies: ${GATEWAY_SECURE_COOKIES:false}
   downstream:
     connect-timeout-millis: ${GATEWAY_DOWNSTREAM_CONNECT_TIMEOUT_MILLIS:2000}
     response-timeout-millis: ${GATEWAY_DOWNSTREAM_RESPONSE_TIMEOUT_MILLIS:5000}

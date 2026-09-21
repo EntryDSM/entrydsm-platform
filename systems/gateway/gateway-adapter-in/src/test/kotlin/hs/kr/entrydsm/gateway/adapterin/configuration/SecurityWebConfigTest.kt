@@ -10,18 +10,21 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
-import org.springframework.core.ParameterizedTypeReference
+import org.springframework.cloud.gateway.config.GlobalCorsProperties
 import org.springframework.http.ResponseCookie
 import org.springframework.http.ResponseEntity
 import org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.springSecurity
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig
+import org.springframework.test.context.TestPropertySource
 import org.springframework.test.web.reactive.server.WebTestClient
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.reactive.config.EnableWebFlux
+import org.springframework.web.cors.CorsConfiguration
 
 @SpringJUnitConfig(SecurityWebConfigTest.TestConfig::class)
+@TestPropertySource(properties = ["gateway.security.secure-cookies=false"])
 class SecurityWebConfigTest {
 
     private lateinit var client: WebTestClient
@@ -128,11 +131,10 @@ class SecurityWebConfigTest {
             .uri(CSRF_PATH)
             .exchange()
             .expectStatus().isOk
-            .expectBody(CSRF_RESPONSE_TYPE)
+            .expectBody(String::class.java)
             .returnResult()
 
-        val body = requireNotNull(result.responseBody)
-        val token = requireNotNull(body.data).token
+        val token = requireNotNull(TOKEN_PATTERN.find(requireNotNull(result.responseBody))?.groupValues?.get(1))
 
         val cookie = requireNotNull(
             result.responseCookies.getFirst(CSRF_COOKIE),
@@ -158,10 +160,14 @@ class SecurityWebConfigTest {
     class TestConfig {
 
         @Bean
-        fun secureCookies(): Boolean = false
+        fun testController(): TestController = TestController()
 
         @Bean
-        fun testController(): TestController = TestController()
+        fun globalCorsProperties(): GlobalCorsProperties = GlobalCorsProperties().apply {
+            corsConfigurations["/**"] = CorsConfiguration().apply {
+                allowedOrigins = listOf("http://localhost")
+            }
+        }
     }
 
     @RestController
@@ -178,6 +184,10 @@ class SecurityWebConfigTest {
         @PostMapping(PASS_POPUP)
         fun passPopup(): ResponseEntity<Void> =
             ResponseEntity.ok().build()
+
+        @PostMapping(LOGOUT)
+        fun logout(): ResponseEntity<Void> =
+            ResponseEntity.ok().build()
     }
 
     private companion object {
@@ -186,8 +196,8 @@ class SecurityWebConfigTest {
         const val CSRF_HEADER = "X-XSRF-TOKEN"
 
         const val PASS_POPUP = "/api/identity/v11/auth/pass/popup"
+        const val LOGOUT = "/api/identity/v11/auth/logout"
 
-        val CSRF_RESPONSE_TYPE =
-            object : ParameterizedTypeReference<ApiResponse<CsrfTokenResponse>>() {}
+        val TOKEN_PATTERN = Regex("\\\"token\\\":\\\"([^\\\"]+)\\\"")
     }
 }

@@ -12,6 +12,7 @@ import org.springframework.security.web.server.csrf.ServerCsrfTokenRequestAttrib
 import org.springframework.security.web.server.util.matcher.OrServerWebExchangeMatcher
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.web.cors.reactive.CorsWebFilter
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
 
@@ -30,6 +31,7 @@ class SecurityWebConfig {
     @Bean
     fun securityWebFilterChain(
         http: ServerHttpSecurity,
+        @Value("\${gateway.security.secure-cookies:true}") secureCookies: Boolean,
     ): SecurityWebFilterChain {
         val csrfTokenRepository =
             CookieServerCsrfTokenRepository().also {
@@ -38,7 +40,7 @@ class SecurityWebConfig {
 
                 it.setCookieCustomizer { cookie ->
                     cookie
-                        .secure(true)
+                        .secure(secureCookies)
                         .httpOnly(true)
                         .sameSite("Lax")
                         .path("/")
@@ -64,7 +66,8 @@ class SecurityWebConfig {
 
     private fun csrfProtectionMatcher(): ServerWebExchangeMatcher {
         val excludedMatchers = OrServerWebExchangeMatcher(
-            PathPatternParserServerWebExchangeMatcher("/api/identity/v11/auth/pass/popup")
+            PathPatternParserServerWebExchangeMatcher("/api/identity/v11/auth/pass/popup"),
+            PathPatternParserServerWebExchangeMatcher("/api/identity/v11/auth/logout"),
         )
 
         return ServerWebExchangeMatcher { exchange ->
