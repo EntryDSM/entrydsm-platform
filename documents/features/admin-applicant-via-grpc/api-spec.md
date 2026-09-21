@@ -134,13 +134,25 @@
     "score": { "totalScore": 172.5 },
     "submittedAt": "2026-09-10T12:30:00Z",
     "arrivedAt": "2026-09-12T01:00:00Z",
-    "updatedAt": "2026-09-12T01:00:00Z"
+    "updatedAt": "2026-09-12T01:00:00Z",
+    "photoFileId": "photo_c2f877a986e7414781328fbdc838b4af",
+    "introduction": "저는 홍길동입니다.\n둘째 줄",
+    "studyPlan": "1학년: 알고리즘\n2학년: 서버"
   },
   "timestamp": "2026-09-18T13:38:16.659838Z"
 }
 ```
 
 `score` 는 application 이 산출한 총점이 없으면 `null` 이다.
+
+| 필드 | 설명 |
+| --- | --- |
+| `photoFileId` | 증명사진 ID. 올리지 않았으면 `null` |
+| `introduction` | 자기소개서. 지원자가 쓴 줄바꿈(`\n`)이 그대로 있다. 쓰지 않았으면 `null` |
+| `studyPlan` | 학업계획서. `introduction` 과 같다 |
+
+증명사진 파일은 document 가 준다. `GET /api/document/v11/photos/{photoFileId}` 를 관리자 토큰으로 부르면
+`data.downloadUrl`(서명 URL, `expiresIn` 초 동안 유효)이 온다.
 
 지원자 한 명의 수험표·원서 원본 파일은 document 가 같은 `applicantId` 로 준다
 (`GET /api/document/v11/admission-tickets/{applicantId}`, `/applications/{applicantId}`, #195).
@@ -198,8 +210,10 @@ admin 이 부르는 쪽이다. `contracts/proto/application.proto`.
 ```proto
 rpc GetApplicant(GetApplicantRequest) returns (ApplicantResponse);
 rpc ListApplicants(ListApplicantsRequest) returns (ListApplicantsResponse);
+rpc GetApplicationForm(GetApplicationFormRequest) returns (ApplicationFormResponse);
 ```
 
+- 지원자 상세는 `GetApplicant` 가 준 `user_id` 로 `GetApplicationForm` 을 한 번 더 불러 자기소개서·학업계획서·증명사진 ID 를 읽는다. `ApplicantResponse` 에 얹지 않는 것은 `ListApplicants` 가 제출 원서 전체의 본문을 한 메시지로 나르게 되기 때문이다. document 가 관리자 원서 출력에 쓰는 순서와 같다
 - `ListApplicants` 는 인자가 없고, `SUBMITTED`·`REVIEWING`·`COMPLETED` 상태의 원서 전체를 `applicantId` 순으로 준다. 필터·페이징은 admin 이 자기 전형 정보와 합친 뒤에 건다(수험 번호 검색이 admin 쪽 값이라 그 전에는 걸 수 없다)
 - `ApplicantResponse` 에 `birthdate`(ISO-8601 문자열), `phone_number`, `graduation_type`, `total_score`, `applicant_status`, `submitted_at_epoch_millis` 를 더했다. 기존 필드 번호는 그대로라 configuration·document 에 영향이 없다
 

@@ -8,6 +8,7 @@ import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
@@ -16,6 +17,7 @@ import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
+import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
@@ -67,16 +69,35 @@ class GrpcApplicantDataAdapter(
             .sortedBy { it.id }
     }
 
-    override fun findById(applicantId: Long): Applicant? {
-        val response = try {
+    override fun findById(applicantId: Long): Applicant? =
+        getApplicant(applicantId)?.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null))
+
+    /**
+     * 자기소개서·학업계획서는 원서 주인 계정으로 찾는 원서 내용(`GetApplicationForm`)에만 있다.
+     * `ApplicantResponse` 에 얹으면 `ListApplicants` 가 제출 원서 전체의 본문을 한 메시지로 나르게 된다.
+     * document 가 관리자 원서 출력에 쓰는 순서(지원자 → 주인 계정 → 원서 내용)와 같다.
+     */
+    override fun findDetailById(applicantId: Long): ApplicantDetail? {
+        val response = getApplicant(applicantId) ?: return null
+        val form = call {
+            oneStub().getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(response.userId).build())
+        }
+
+        return ApplicantDetail(
+            applicant = response.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null)),
+            photoFileId = form.photoFileId.takeIf { form.hasPhotoFileId() },
+            introduction = form.introduction.takeIf { form.hasIntroduction() },
+            studyPlan = form.studyPlan.takeIf { form.hasStudyPlan() },
+        )
+    }
+
+    private fun getApplicant(applicantId: Long): ApplicantResponse? =
+        try {
             oneStub().getApplicant(GetApplicantRequest.newBuilder().setApplicantId(applicantId).build())
         } catch (exception: StatusRuntimeException) {
             // 0 이하 id 는 application 이 INVALID_ARGUMENT 로 거절한다. 없는 지원자와 같다.
-            if (exception.status.code in NO_APPLICANT) return null else throw exception.toApplicationException()
+            if (exception.status.code in NO_APPLICANT) null else throw exception.toApplicationException()
         }
-
-        return response.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null))
-    }
 
     override fun save(applicant: Applicant): Applicant {
         screeningJpaRepository.save(applicant.toScreening())

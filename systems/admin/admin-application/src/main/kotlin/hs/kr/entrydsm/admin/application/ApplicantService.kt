@@ -5,6 +5,7 @@ import hs.kr.entrydsm.admin.domain.command.UpdateArrivalCommand
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExamineeNumberIssueResult
 import hs.kr.entrydsm.admin.domain.model.Page
@@ -34,7 +35,9 @@ class ApplicantService(
     override fun search(filter: ApplicantFilter, pageRequest: PageRequest): Page<Applicant> =
         applicantRepository.search(filter, pageRequest)
 
-    override fun findById(applicantId: Long): Applicant = requireApplicant(applicantId)
+    override fun findDetail(applicantId: Long): ApplicantDetail =
+        applicantRepository.findDetailById(applicantId)
+            ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
 
     @Transactional
     override fun updateArrival(command: UpdateArrivalCommand) {

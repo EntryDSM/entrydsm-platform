@@ -12,8 +12,10 @@ import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
+import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
+import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
@@ -115,10 +117,39 @@ class GrpcApplicantDataAdapterTest {
         assertEquals(2, page.totalPages)
     }
 
+    /** 원서 내용은 applicant id 가 아니라 원서 주인 계정(user_id)으로 찾는다. */
+    @Test
+    fun `상세는 원서 주인의 자기소개서 학업계획서 증명사진 ID 를 싣는다`() {
+        val service = FakeApplicationService(
+            listOf(applicant(id = 1L), applicant(id = 2L)),
+            forms = listOf(
+                ApplicationFormResponse.newBuilder()
+                    .setApplicantId(1L)
+                    .setUserId(101L)
+                    .setPhotoFileId("photo_1")
+                    .setIntroduction("첫 줄\n둘째 줄")
+                    .setStudyPlan("계획")
+                    .build(),
+                ApplicationFormResponse.newBuilder().setApplicantId(2L).setUserId(102L).build(),
+            ),
+        )
+
+        val (written, empty) = withAdapter(service) { it.findDetailById(1L)!! to it.findDetailById(2L)!! }
+
+        assertEquals("지원자1", written.applicant.name)
+        assertEquals("photo_1", written.photoFileId)
+        assertEquals("첫 줄\n둘째 줄", written.introduction)
+        assertEquals("계획", written.studyPlan)
+        assertNull(empty.photoFileId)
+        assertNull(empty.introduction)
+        assertNull(empty.studyPlan)
+    }
+
     @Test
     fun `없는 지원자는 null 이고 application 장애는 503 으로 옮긴다`() {
         withAdapter(FakeApplicationService(listOf(applicant(id = 1L)))) { adapter ->
             assertNull(adapter.findById(404L))
+            assertNull(adapter.findDetailById(404L))
         }
 
         // UNIMPLEMENTED 는 ListApplicants 가 없는 옛 application 이 떠 있을 때다. 500 으로 나가면
@@ -179,7 +210,17 @@ class GrpcApplicantDataAdapterTest {
     private class FakeApplicationService(
         private val applicants: List<ApplicantResponse>,
         private val failure: Status? = null,
+        private val forms: List<ApplicationFormResponse> = emptyList(),
     ) : ApplicationServiceGrpc.ApplicationServiceImplBase() {
+
+        override fun getApplicationForm(
+            request: GetApplicationFormRequest,
+            responseObserver: StreamObserver<ApplicationFormResponse>,
+        ) {
+            val found = forms.find { it.userId == request.accountId }
+                ?: return responseObserver.onError(Status.NOT_FOUND.asRuntimeException())
+            respond(responseObserver, found)
+        }
 
         override fun listApplicants(
             request: ListApplicantsRequest,

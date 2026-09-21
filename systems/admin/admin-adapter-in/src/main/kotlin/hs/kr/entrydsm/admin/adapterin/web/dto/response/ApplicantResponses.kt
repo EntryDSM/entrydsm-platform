@@ -27,6 +27,9 @@ data class ApplicantSummaryResponse(
 /**
  * @property submittedAt 원서를 제출한 시각
  * @property arrivedAt 원서 원본(우편)이 도착한 시각
+ * @property photoFileId 증명사진 ID. 사진은 document `GET /api/document/v11/photos/{photoFileId}` 가 관리자에게 준다
+ * @property introduction 자기소개서. 지원자가 쓴 줄바꿈(`\n`)이 그대로 있다
+ * @property studyPlan 학업계획서. 지원자가 쓴 줄바꿈(`\n`)이 그대로 있다
  */
 data class ApplicantDetailResponse(
     val applicantId: Long,
@@ -45,6 +48,9 @@ data class ApplicantDetailResponse(
     val submittedAt: Instant?,
     val arrivedAt: Instant?,
     val updatedAt: Instant?,
+    val photoFileId: String?,
+    val introduction: String?,
+    val studyPlan: String?,
 )
 
 data class ScoreResponse(
