@@ -5,6 +5,7 @@ import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundExcepti
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
@@ -18,6 +19,11 @@ import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import java.lang.reflect.Modifier
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.util.TimeZone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -187,6 +193,52 @@ class ApplicationCommandServiceTest {
         assertNull(service.findApplicationForm(11L))
     }
 
+    /**
+     * 시각을 시간대 없이 쓰면 UTC 로 도는 컨테이너에서만 맞습니다. gRPC 와 이벤트가 UTC 로
+     * 되읽으므로, 기기 시간대가 무엇이든 저장하는 값은 UTC 여야 합니다. 어긋나면 통계의
+     * 일자별 추이가 시차만큼 밀립니다.
+     */
+    @Test
+    fun recordsTimestampsInUtcWhateverTheMachineZoneIs() {
+        withDefaultTimeZone("Asia/Seoul") {
+            val repository = FakeApplicantRepository(
+                Applicant(
+                    id = 1L,
+                    accountId = 10L,
+                    admissionType = AdmissionType.REGULAR,
+                    name = "홍길동",
+                    guardianName = "보호자",
+                    introduction = "소개",
+                    studyPlan = "학업 계획",
+                ),
+            )
+
+            ApplicationCommandService(repository).submit(accountId = 10L)
+
+            val saved = repository.savedApplicant!!
+            assertRecordedInUtc(saved.submittedAt!!)
+            assertRecordedInUtc(saved.updatedAt)
+        }
+    }
+
+    private fun assertRecordedInUtc(recorded: LocalDateTime) {
+        val gap = Duration.between(recorded.toInstant(ZoneOffset.UTC), Instant.now()).abs()
+        assertTrue(
+            "UTC 로 읽으면 지금과 ${gap.toMinutes()}분 어긋난다: $recorded",
+            gap < Duration.ofMinutes(1),
+        )
+    }
+
+    private fun withDefaultTimeZone(zoneId: String, block: () -> Unit) {
+        val original = TimeZone.getDefault()
+        TimeZone.setDefault(TimeZone.getTimeZone(zoneId))
+        try {
+            block()
+        } finally {
+            TimeZone.setDefault(original)
+        }
+    }
+
     private class FakeApplicantRepository(
         private var applicant: Applicant,
     ) : ApplicantRepository {
@@ -197,6 +249,10 @@ class ApplicationCommandServiceTest {
             this.applicant = applicant
             return applicant
         }
+
+        // 목록은 쿼리가 거른다. ApplicantSummaryQueryTest 가 덮는다.
+        override fun findSummariesByStatusIn(statuses: Set<ApplicantStatus>): List<ApplicantResult> =
+            emptyList()
 
         override fun findById(id: Long): Applicant? =
             applicant.takeIf { it.id == id }

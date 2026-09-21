@@ -31,4 +31,5 @@ enum class ErrorCode(
     STORAGE_UNAVAILABLE(500, "파일 저장소를 사용할 수 없습니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다."),
     NOTIFICATION_SERVICE_UNAVAILABLE(503, "알림 서비스를 일시적으로 사용할 수 없습니다."),
+    APPLICATION_SERVICE_UNAVAILABLE(503, "원서 서비스를 일시적으로 사용할 수 없습니다."),
 }

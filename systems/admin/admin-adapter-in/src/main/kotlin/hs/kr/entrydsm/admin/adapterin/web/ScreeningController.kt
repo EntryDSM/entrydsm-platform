@@ -62,7 +62,6 @@ class ScreeningController(
                     volunteer = weights.volunteer!!,
                 ),
                 roundingScale = request.roundingScale!!,
-                recalculate = request.recalculate,
                 updatedBy = userId,
             ),
         )

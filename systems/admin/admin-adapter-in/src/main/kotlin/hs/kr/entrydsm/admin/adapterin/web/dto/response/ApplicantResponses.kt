@@ -13,41 +13,41 @@ import java.time.LocalDate
  * 명세의 필드명을 유지하려면 이름을 명시해야 합니다.
  */
 data class ApplicantSummaryResponse(
-    val applicantId: Long?,
-    val receiptNumber: Int,
-    val name: String,
-    val region: Region,
-    val admissionType: AdmissionType,
-    val graduationStatus: GraduationStatus,
+    val applicantId: Long,
+    val name: String?,
+    val region: Region?,
+    val admissionType: AdmissionType?,
+    val graduationStatus: GraduationStatus?,
     val examineeNumber: String?,
-    @get:JsonProperty("isSubmitted")
-    val isSubmitted: Boolean,
+    @get:JsonProperty("isArrived")
+    val isArrived: Boolean,
     val status: ApplicantStatus,
 )
 
+/**
+ * @property submittedAt 원서를 제출한 시각
+ * @property arrivedAt 원서 원본(우편)이 도착한 시각
+ */
 data class ApplicantDetailResponse(
-    val applicantId: Long?,
-    val receiptNumber: Int,
-    val name: String,
-    val birthDate: LocalDate,
-    val phoneNumber: String,
-    val region: Region,
-    val admissionType: AdmissionType,
-    val graduationStatus: GraduationStatus,
-    val schoolName: String,
+    val applicantId: Long,
+    val name: String?,
+    val birthDate: LocalDate?,
+    val phoneNumber: String?,
+    val region: Region?,
+    val admissionType: AdmissionType?,
+    val graduationStatus: GraduationStatus?,
+    val schoolName: String?,
     val examineeNumber: String?,
-    @get:JsonProperty("isSubmitted")
-    val isSubmitted: Boolean,
+    @get:JsonProperty("isArrived")
+    val isArrived: Boolean,
     val status: ApplicantStatus,
     val score: ScoreResponse?,
     val submittedAt: Instant?,
+    val arrivedAt: Instant?,
     val updatedAt: Instant?,
 )
 
 data class ScoreResponse(
-    val subjectScore: Double,
-    val attendanceScore: Double,
-    val volunteerScore: Double,
     val totalScore: Double,
 )
 

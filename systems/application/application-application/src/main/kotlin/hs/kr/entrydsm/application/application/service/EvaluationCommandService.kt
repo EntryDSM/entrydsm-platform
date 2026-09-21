@@ -16,6 +16,7 @@ import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import hs.kr.entrydsm.application.domain.nowUtc
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import java.time.LocalDateTime
 
@@ -135,7 +136,7 @@ class EvaluationCommandService(
     fun calculateResult(accountId: Long?) {
         val applicant = getApplicantByAccountId(accountId)
         applicant.totalScore = scoreCalculator.calculate(applicant)
-        applicant.totalScoreUpdatedAt = LocalDateTime.now()
+        applicant.totalScoreUpdatedAt = nowUtc()
         applicant.touch()
         applicantRepository.save(applicant)
     }

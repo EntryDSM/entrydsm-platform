@@ -41,9 +41,9 @@ class ApplicantService(
         val applicant = requireApplicant(command.applicantId)
         applicantRepository.save(
             applicant.copy(
-                isSubmitted = command.isSubmitted,
-                submittedAt = if (command.isSubmitted) {
-                    applicant.submittedAt ?: Instant.now(clock)
+                isArrived = command.isArrived,
+                arrivedAt = if (command.isArrived) {
+                    applicant.arrivedAt ?: Instant.now(clock)
                 } else {
                     null
                 },

@@ -8,9 +8,10 @@ import hs.kr.entrydsm.admin.domain.model.Applicant
 /**
  * 합격자 산출 규칙입니다.
  *
- * 단계별 대상 상태의 지원자만 평가하며, 원서 미도착·수험 번호 미발급·성적 미산출 지원자는
- * 평가에서 제외한다. 지원자를 모집 지역 × 전형 묶음으로 나눠 묶음 안에서 총점 내림차순으로
- * 해당 묶음의 정원까지 채우고, 동점이면 접수 번호가 빠른 지원자를 우선한다.
+ * 단계별 대상 상태의 지원자만 평가하며, 원서 미도착·수험 번호 미발급·성적 미산출 지원자와
+ * 지역·전형이 비어 묶을 수 없는 지원자는 평가에서 제외한다. 지원자를 모집 지역 × 전형 묶음으로
+ * 나눠 묶음 안에서 총점 내림차순으로 해당 묶음의 정원까지 채우고, 동점이면 지원자 번호가
+ * 빠른 지원자를 우선한다.
  */
 object ScreeningPolicy {
 
@@ -34,7 +35,7 @@ object ScreeningPolicy {
             .forEach { (bucket, group) ->
                 val quota = quotas[bucket.first]?.get(bucket.second) ?: 0
                 val ranked = group.sortedWith(
-                    compareByDescending<Applicant> { it.score!!.totalScore }.thenBy { it.receiptNumber },
+                    compareByDescending<Applicant> { it.totalScore!! }.thenBy { it.id },
                 )
                 passed += ranked.take(quota).map { it.copy(status = stage.pass) }
                 failed += ranked.drop(quota).map { it.copy(status = stage.fail) }
@@ -59,7 +60,7 @@ object ScreeningPolicy {
         quotas: Map<Region, Map<AdmissionType, Int>>,
     ): ApplicantStatus {
         val passed = evaluate(applicants, ScreeningStage.FINAL, quotas).passed
-        return if (passed.any { it.receiptNumber == applicant.receiptNumber }) {
+        return if (passed.any { it.id == applicant.id }) {
             ScreeningStage.FINAL.pass
         } else {
             ScreeningStage.FINAL.fail
@@ -67,7 +68,11 @@ object ScreeningPolicy {
     }
 
     private fun isEvaluable(applicant: Applicant): Boolean =
-        applicant.isSubmitted && applicant.examineeNumber != null && applicant.score != null
+        applicant.isArrived &&
+            applicant.examineeNumber != null &&
+            applicant.totalScore != null &&
+            applicant.region != null &&
+            applicant.admissionType != null
 }
 
 /**

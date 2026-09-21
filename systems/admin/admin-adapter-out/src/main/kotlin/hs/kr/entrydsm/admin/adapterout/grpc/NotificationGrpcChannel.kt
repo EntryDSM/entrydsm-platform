@@ -35,15 +35,18 @@ class NotificationGrpcChannel(
  * gRPC 실패를 admin 오류 코드로 옮깁니다.
  *
  * @param notFound 대상을 찾지 못했을 때 쓸 오류 코드. 없는 호출은 500 으로 둔다
+ * @param unavailable 상대 서비스가 응답하지 않을 때 쓸 오류 코드. 상대가 그 RPC 를 아직 모르는
+ *   UNIMPLEMENTED 도 여기로 둔다 — 상대를 나중에 배포하는 동안 500 이 나가면 게이트웨이 서킷이 열린다
  */
 internal fun StatusRuntimeException.toAdminException(
     notFound: ErrorCode = ErrorCode.INTERNAL_SERVER_ERROR,
+    unavailable: ErrorCode = ErrorCode.NOTIFICATION_SERVICE_UNAVAILABLE,
 ): AdminDomainException =
     AdminDomainException(
         when (status.code) {
             Status.Code.INVALID_ARGUMENT -> ErrorCode.INVALID_REQUEST_BODY
             Status.Code.NOT_FOUND -> notFound
-            Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED -> ErrorCode.NOTIFICATION_SERVICE_UNAVAILABLE
+            Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED, Status.Code.UNIMPLEMENTED -> unavailable
             else -> ErrorCode.INTERNAL_SERVER_ERROR
         },
         this,

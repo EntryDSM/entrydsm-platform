@@ -14,6 +14,8 @@ TEST_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_test_autoconfigure",
     "@maven//:org_springframework_boot_spring_boot_data_jpa_test",
     "@maven//:com_h2database_h2",
+    # Spring Data 가 코틀린 생성자를 찾을 때 쓴다.
+    "@maven//:org_jetbrains_kotlin_kotlin_reflect",
 ]
 
 MODULE_DEPS = KOTLIN_DEPS
