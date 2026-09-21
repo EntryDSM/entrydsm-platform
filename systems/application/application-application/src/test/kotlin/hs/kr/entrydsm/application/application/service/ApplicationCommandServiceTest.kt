@@ -98,6 +98,7 @@ class ApplicationCommandServiceTest {
                 accountId = 10L,
                 graduationType = GraduationType.PROSPECTIVE,
                 middleSchoolInfo = MiddleSchoolInfo(
+                    schoolCode = "D100000",
                     schoolName = "대덕중학교",
                     studentNumber = "30101",
                     schoolPhone = "042-000-0000",

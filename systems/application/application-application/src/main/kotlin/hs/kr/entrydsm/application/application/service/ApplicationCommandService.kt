@@ -177,6 +177,8 @@ class ApplicationCommandService(
             previousSemester = previous.getOrNull(0),
             secondPreviousSemester = previous.getOrNull(1),
             academicRecord = academicRecord,
+            introduction = introduction,
+            studyPlan = studyPlan,
         )
     }
 

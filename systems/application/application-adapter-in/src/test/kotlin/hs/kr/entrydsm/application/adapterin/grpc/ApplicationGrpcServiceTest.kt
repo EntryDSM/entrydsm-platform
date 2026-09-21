@@ -154,7 +154,7 @@ class ApplicationGrpcServiceTest {
             guardianName = "홍판서",
             guardianRelation = "부",
             guardianPhoneNumber = null,
-            middleSchool = MiddleSchoolInfo("대덕중학교", "30115", "042-000-0000", "김선생"),
+            middleSchool = MiddleSchoolInfo("D100000", "대덕중학교", "30115", "042-000-0000", "김선생"),
             thirdGradeSecondSemester = null,
             thirdGradeFirstSemester = SubjectGrades(
                 koreanGrade = SubjectGrade.A,
@@ -168,6 +168,8 @@ class ApplicationGrpcServiceTest {
             previousSemester = null,
             secondPreviousSemester = null,
             academicRecord = AcademicRecord(volunteerTime = 30, isDsmAlgorithmAwarded = true),
+            introduction = "저는 …",
+            studyPlan = "입학 후 …",
         )
 
         val found = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build())
