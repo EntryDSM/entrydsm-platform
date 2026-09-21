@@ -111,6 +111,12 @@ class ApplicationGrpcServiceTest {
             region = Region.DAEJEON,
             admissionType = null,
             photoFileId = "photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8",
+            birthdate = null,
+            phoneNumber = null,
+            graduationType = null,
+            totalScore = null,
+            status = ApplicantStatus.SUBMITTED,
+            submittedAt = null,
         )
 
         val found = stub.getApplicant(GetApplicantRequest.newBuilder().setApplicantId(APPLICANT_ID).build())
@@ -204,6 +210,7 @@ class ApplicationGrpcServiceTest {
     private class FakeApplicationPort : ApplicationPort {
         private var snapshot: ApplicationSnapshotResult? = null
         var applicant: ApplicantResult? = null
+        var applicants: List<ApplicantResult> = emptyList()
         var form: ApplicationFormResult? = null
         var cancelReason: String? = null
         var findCount = 0
@@ -212,6 +219,8 @@ class ApplicationGrpcServiceTest {
             snapshot = snapshot(command.accountId ?: error("accountId is required"), ApplicantStatus.DRAFT)
             return CreateApplicantResult(1L, requireNotNull(snapshot))
         }
+
+        override fun listApplicants(): List<ApplicantResult> = applicants
 
         override fun findByAccountId(accountId: Long): ApplicationSnapshotResult? {
             findCount += 1

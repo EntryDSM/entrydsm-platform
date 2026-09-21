@@ -1,11 +1,13 @@
 package hs.kr.entrydsm.application.application.service
 
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
@@ -52,6 +54,10 @@ class EvaluationCommandServiceTest {
             this.applicant = applicant
             return applicant
         }
+
+        // 목록은 쿼리가 거른다. ApplicantSummaryQueryTest 가 덮는다.
+        override fun findSummariesByStatusIn(statuses: Set<ApplicantStatus>): List<ApplicantResult> =
+            emptyList()
 
         override fun findById(id: Long): Applicant? =
             applicant.takeIf { it.id == id }

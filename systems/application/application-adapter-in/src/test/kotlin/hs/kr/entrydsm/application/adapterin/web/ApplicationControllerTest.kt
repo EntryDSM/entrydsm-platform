@@ -117,6 +117,8 @@ class ApplicationControllerTest {
     private class FakeApplicationPort : ApplicationPort {
         var createApplicantCommand: CreateApplicantCommand? = null
 
+        override fun listApplicants(): List<ApplicantResult> = emptyList()
+
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
             createApplicantCommand = command
             return CreateApplicantResult(

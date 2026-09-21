@@ -15,7 +15,7 @@ class AdmissionTicketPdfTest {
         val html = AdmissionTicketHtml.render(
             AdmissionTicket(
                 admissionYear = 2027,
-                receiptNumber = 2,
+                receiptNumber = "0002",
                 examineeNumber = null,
                 name = "홍길동",
                 schoolName = "서울중학교",

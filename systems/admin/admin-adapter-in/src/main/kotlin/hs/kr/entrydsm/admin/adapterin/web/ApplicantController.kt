@@ -44,7 +44,7 @@ class ApplicantController(
         @RequestParam(required = false) regions: Set<Region>?,
         @RequestParam(required = false) admissionTypes: Set<AdmissionType>?,
         @RequestParam(required = false) graduationStatuses: Set<GraduationStatus>?,
-        @RequestParam(required = false) isSubmitted: Boolean?,
+        @RequestParam(required = false) isArrived: Boolean?,
         @RequestParam(required = false) statuses: Set<ApplicantStatus>?,
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(defaultValue = "10") size: Int,
@@ -55,7 +55,7 @@ class ApplicantController(
                 regions = regions.orEmpty(),
                 admissionTypes = admissionTypes.orEmpty(),
                 graduationStatuses = graduationStatuses.orEmpty(),
-                isSubmitted = isSubmitted,
+                isArrived = isArrived,
                 statuses = statuses.orEmpty(),
             ),
             PageRequest(page = page, size = size),
@@ -80,7 +80,7 @@ class ApplicantController(
         @Valid @RequestBody request: UpdateArrivalRequest,
     ): ResponseEntity<Unit> {
         updateApplicantUseCase.updateArrival(
-            UpdateArrivalCommand(applicantId = applicantId, isSubmitted = request.isSubmitted!!),
+            UpdateArrivalCommand(applicantId = applicantId, isArrived = request.isArrived!!),
         )
         return ResponseEntity.noContent().build()
     }

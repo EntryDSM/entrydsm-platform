@@ -54,10 +54,10 @@ class FileDocumentServiceTest {
         val generated = service.generateApplicationForm(student(STUDENT_ID))
 
         // 파일명은 계정(10)이 아니라 원서가 알려 준 접수번호(12)로 짓는다.
-        assertEquals("dsm_Entry/Backend/application/application_12.pdf", generated.document.objectKey)
+        assertEquals("dsm_Entry/Backend/application/application_0012.pdf", generated.document.objectKey)
         assertEquals("application/pdf", generated.document.contentType)
         assertEquals(STUDENT_ID, generated.document.ownerUserId)
-        assertEquals("https://s3/dsm_Entry/Backend/application/application_12.pdf?expires=300", generated.downloadUrl)
+        assertEquals("https://s3/dsm_Entry/Backend/application/application_0012.pdf?expires=300", generated.downloadUrl)
         assertEquals(300L, generated.expiresIn)
         listOf("서식 1", "2027학년도", "홍길동").forEach { assertTrue(it, it in pdf.lastHtml) }
     }
@@ -176,10 +176,10 @@ class FileDocumentServiceTest {
 
         val ticket = service.generateAdmissionTicket(APPLICANT_ID, student(STUDENT_ID))
 
-        assertEquals("dsm_Entry/Backend/admission-ticket/admission_ticket_12.pdf", ticket.document.objectKey)
+        assertEquals("dsm_Entry/Backend/admission-ticket/admission_ticket_0012.pdf", ticket.document.objectKey)
         assertEquals("application/pdf", ticket.document.contentType)
         assertEquals(STUDENT_ID, ticket.document.ownerUserId)
-        assertTrue(ticket.downloadUrl.contains("admission_ticket_12.pdf"))
+        assertTrue(ticket.downloadUrl.contains("admission_ticket_0012.pdf"))
         listOf("2027학년도", "미발급", "홍&lt;길동&gt;", "대덕중학교", "대전", "마이스터전형", "data:image/png;base64,")
             .forEach { assertTrue(it, it in pdf.lastHtml) }
     }

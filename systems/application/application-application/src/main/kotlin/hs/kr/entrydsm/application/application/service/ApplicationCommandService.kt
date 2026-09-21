@@ -32,6 +32,7 @@ import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import hs.kr.entrydsm.application.domain.nowUtc
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -120,20 +121,29 @@ class ApplicationCommandService(
         applicantRepository.findByAccountId(accountId)?.toSnapshot()
 
     override fun findApplicant(applicantId: Long): ApplicantResult? =
-        applicantRepository.findById(applicantId)?.let {
-            ApplicantResult(
-                applicantId = it.id,
-                accountId = it.accountId,
-                name = it.name,
-                schoolName = it.middleSchoolInfo?.schoolName,
-                region = it.region,
-                admissionType = it.admissionType,
-                photoFileId = it.photoFileId,
-            )
-        }
+        applicantRepository.findById(applicantId)?.toApplicantResult()
+
+    override fun listApplicants(): List<ApplicantResult> =
+        applicantRepository.findSummariesByStatusIn(APPLIED_STATUSES)
 
     override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
         applicantRepository.findByAccountId(accountId)?.toApplicationFormResult()
+
+    private fun Applicant.toApplicantResult(): ApplicantResult = ApplicantResult(
+        applicantId = id,
+        accountId = accountId,
+        name = name,
+        schoolName = middleSchoolInfo?.schoolName,
+        region = region,
+        admissionType = admissionType,
+        photoFileId = photoFileId,
+        birthdate = birthdate,
+        phoneNumber = phoneNumber,
+        graduationType = graduationType,
+        totalScore = totalScore,
+        status = status,
+        submittedAt = submittedAt,
+    )
 
     private fun Applicant.toApplicationFormResult(): ApplicationFormResult {
         val grades = academicRecord?.subjectGrades.orEmpty()
@@ -357,7 +367,7 @@ class ApplicationCommandService(
     private fun markSubmitted(applicant: Applicant) {
         applicant.status = ApplicantStatus.SUBMITTED
         applicant.statusVersion += 1
-        applicant.submittedAt = LocalDateTime.now()
+        applicant.submittedAt = nowUtc()
         publishStatus(saveTouched(applicant))
     }
 
@@ -377,6 +387,12 @@ class ApplicationCommandService(
 
     companion object {
         private const val NEW_APPLICANT_ID = 0L
+        /** 원서를 낸 것으로 보는 상태. 작성 중(DRAFT)과 취소(CANCELED)는 지원자가 아니다. */
+        private val APPLIED_STATUSES = setOf(
+            ApplicantStatus.SUBMITTED,
+            ApplicantStatus.REVIEWING,
+            ApplicantStatus.COMPLETED,
+        )
         /** 서식 1 의 직전·직전전 학기 후보. ScoreCalculator 의 반영 학기 순서와 같다. */
         private val PREVIOUS_SEMESTERS = listOf(
             SchoolSemester.SECOND_GRADE_SECOND_SEMESTER,

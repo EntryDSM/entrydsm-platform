@@ -6,25 +6,22 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExamineeNumberIssueRespon
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.PageResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreResponse
 import hs.kr.entrydsm.admin.domain.model.Applicant
-import hs.kr.entrydsm.admin.domain.model.ApplicantScore
 import hs.kr.entrydsm.admin.domain.model.ExamineeNumberIssueResult
 import hs.kr.entrydsm.admin.domain.model.Page
 
 fun Applicant.toSummaryResponse(): ApplicantSummaryResponse = ApplicantSummaryResponse(
     applicantId = id,
-    receiptNumber = receiptNumber,
     name = name,
     region = region,
     admissionType = admissionType,
     graduationStatus = graduationStatus,
     examineeNumber = examineeNumber,
-    isSubmitted = isSubmitted,
+    isArrived = isArrived,
     status = status,
 )
 
 fun Applicant.toDetailResponse(): ApplicantDetailResponse = ApplicantDetailResponse(
     applicantId = id,
-    receiptNumber = receiptNumber,
     name = name,
     birthDate = birthDate,
     phoneNumber = phoneNumber,
@@ -33,18 +30,12 @@ fun Applicant.toDetailResponse(): ApplicantDetailResponse = ApplicantDetailRespo
     graduationStatus = graduationStatus,
     schoolName = schoolName,
     examineeNumber = examineeNumber,
-    isSubmitted = isSubmitted,
+    isArrived = isArrived,
     status = status,
-    score = score?.toResponse(),
+    score = totalScore?.let(::ScoreResponse),
     submittedAt = submittedAt,
+    arrivedAt = arrivedAt,
     updatedAt = updatedAt,
-)
-
-fun ApplicantScore.toResponse(): ScoreResponse = ScoreResponse(
-    subjectScore = subjectScore,
-    attendanceScore = attendanceScore,
-    volunteerScore = volunteerScore,
-    totalScore = totalScore,
 )
 
 fun <T, R> Page<T>.toResponse(transform: (T) -> R): PageResponse<R> = PageResponse(

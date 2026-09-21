@@ -75,7 +75,7 @@ object ApplicationFormHtml {
     /** 학교코드는 원서에 없어 비운다. 수험번호는 서식이 "기재하지 않음"이라고 적어 뒀다. */
     private fun identityRow(form: ApplicationForm) = """
         <tr>
-          ${label("접수번호", 3)}${value(form.applicantId.toString(), 5)}
+          ${label("접수번호", 3)}${value(ReceiptNumber.of(form.applicantId), 5)}
           ${label("학교코드", 3)}${value("", 5)}
           ${label("수험번호", 3)}${value("*기재하지 않음", 5)}
         </tr>

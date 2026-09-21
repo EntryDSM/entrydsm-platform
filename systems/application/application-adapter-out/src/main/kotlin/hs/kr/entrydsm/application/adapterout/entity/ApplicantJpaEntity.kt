@@ -11,6 +11,7 @@ import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
+import hs.kr.entrydsm.application.domain.nowUtc
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -121,10 +122,10 @@ open class ApplicantJpaEntity(
     var statusVersion: Long = 0,
 
     @Column(name = "created_at", nullable = false)
-    var createdAt: LocalDateTime = LocalDateTime.now(),
+    var createdAt: LocalDateTime = nowUtc(),
 
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: LocalDateTime = LocalDateTime.now(),
+    var updatedAt: LocalDateTime = nowUtc(),
 
     @OneToOne(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     open var middleSchoolInfo: MiddleSchoolInfoJpaEntity? = null,

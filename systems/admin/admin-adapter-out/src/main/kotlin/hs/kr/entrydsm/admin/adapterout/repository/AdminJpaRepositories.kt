@@ -1,15 +1,12 @@
 package hs.kr.entrydsm.admin.adapterout.repository
 
 import hs.kr.entrydsm.admin.adapterout.entity.AdmissionQuotaJpaEntity
-import hs.kr.entrydsm.admin.adapterout.entity.ApplicantJpaEntity
 import hs.kr.entrydsm.admin.adapterout.entity.ExportJobJpaEntity
 import hs.kr.entrydsm.admin.adapterout.entity.ScorePolicyJpaEntity
+import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor
 
-interface ApplicantJpaRepository :
-    JpaRepository<ApplicantJpaEntity, Long>,
-    JpaSpecificationExecutor<ApplicantJpaEntity>
+interface ScreeningJpaRepository : JpaRepository<ScreeningJpaEntity, Long>
 
 interface ScorePolicyJpaRepository : JpaRepository<ScorePolicyJpaEntity, Long> {
     fun findTopByOrderByPolicyVersionDesc(): ScorePolicyJpaEntity?

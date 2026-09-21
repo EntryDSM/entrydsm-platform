@@ -32,7 +32,7 @@ class StatisticsService(
      * 요청한 지표를 한 번의 조회로 모두 집계합니다.
      *
      * ponytail: 지표별 GROUP BY 대신 메모리에서 집계한다. 한 회차 지원자가 수천 명
-     * 규모라 충분하다. 만 단위로 커지면 집계 쿼리로 내린다.
+     * 규모라 충분하다. 만 단위로 커지면 application 에 집계 RPC 를 더한다.
      */
     override fun collect(metrics: Set<StatisticsMetric>): ApplicantStatistics {
         val applicants by lazy { applicantRepository.findAll() }
@@ -53,6 +53,7 @@ class StatisticsService(
                 countByType
             },
             dailyTrend = metrics.ifRequested(StatisticsMetric.DAILY_TREND) {
+                // 원서를 제출한 날 기준이다. 원본(우편) 도착일과 다르다.
                 applicants
                     .mapNotNull { it.submittedAt }
                     .groupingBy { it.atZone(KOREA_ZONE).toLocalDate() }
@@ -75,8 +76,9 @@ class StatisticsService(
                     .toDouble()
             }
 
-    private fun <K> List<Applicant>.countBy(key: (Applicant) -> K): Map<K, Long> =
-        groupingBy(key).eachCount().mapValues { it.value.toLong() }
+    /** 지역·전형이 비어 있는 원서는 분포에 넣을 칸이 없어 뺀다. 총 지원자 수에는 그대로 든다. */
+    private fun <K : Any> List<Applicant>.countBy(key: (Applicant) -> K?): Map<K, Long> =
+        mapNotNull(key).groupingBy { it }.eachCount().mapValues { it.value.toLong() }
 
     private fun <T> Set<StatisticsMetric>.ifRequested(
         metric: StatisticsMetric,

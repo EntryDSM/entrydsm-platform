@@ -4,6 +4,7 @@ import hs.kr.entrydsm.configuration.adapterin.common.DocumentExceptionHandler
 import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
+import hs.kr.entrydsm.configuration.domain.document.FileNaming
 import hs.kr.entrydsm.configuration.domain.document.FilePage
 import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.command.UploadFileCommand
@@ -43,9 +44,9 @@ class DocumentControllerTest {
         mvc.perform(get("/api/document/v11/applications").with(student(10)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.success").value(true))
-            .andExpect(jsonPath("$.data.fileName").value("application_12.pdf"))
+            .andExpect(jsonPath("$.data.fileName").value("application_0012.pdf"))
             .andExpect(jsonPath("$.data.size").value(7))
-            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/application/application_12.pdf"))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/application/application_0012.pdf"))
             .andExpect(jsonPath("$.data.expiresIn").value(300))
             .andExpect(jsonPath("$.data.id").doesNotExist())
             .andExpect(jsonPath("$.data.key").doesNotExist())
@@ -87,8 +88,8 @@ class DocumentControllerTest {
     fun `수험표는 GET으로 만들고 서명 URL을 준다, 올리는 요청은 405다`() {
         mvc.perform(get("/api/document/v11/admission-tickets/12").with(student(10)))
             .andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.fileName").value("admission_ticket_12.pdf"))
-            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/admission-ticket/admission_ticket_12.pdf"))
+            .andExpect(jsonPath("$.data.fileName").value("admission_ticket_0012.pdf"))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/admission-ticket/admission_ticket_0012.pdf"))
             .andExpect(jsonPath("$.data.id").doesNotExist())
 
         assertEquals(12L to Requester(10, Requester.Role.STUDENT), applicantFiles.generated)
@@ -238,7 +239,7 @@ class DocumentControllerTest {
         override fun generateApplicationForm(requester: Requester): DownloadableFile {
             formRequester = requester
             if (denied) throw DocumentAccessDeniedException()
-            return downloadable(FileCategory.APPLICATION.objectKeyOf("application_12.pdf"))
+            return downloadable(FileCategory.APPLICATION.objectKeyOf(FileNaming.applicationFileName(12)))
         }
 
         override fun generateApplicationForm(applicantId: Long, requester: Requester): DownloadableFile {
@@ -249,7 +250,7 @@ class DocumentControllerTest {
 
         override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {
             generated = applicantId to requester
-            return downloadable(FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_$applicantId.pdf"))
+            return downloadable(FileCategory.ADMISSION_TICKET.objectKeyOf(FileNaming.admissionTicketFileName(applicantId)))
         }
     }
 
