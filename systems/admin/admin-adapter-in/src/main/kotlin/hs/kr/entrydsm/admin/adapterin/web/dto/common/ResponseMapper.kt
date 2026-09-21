@@ -6,6 +6,7 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExamineeNumberIssueRespon
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.PageResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreResponse
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ExamineeNumberIssueResult
 import hs.kr.entrydsm.admin.domain.model.Page
 
@@ -20,22 +21,25 @@ fun Applicant.toSummaryResponse(): ApplicantSummaryResponse = ApplicantSummaryRe
     status = status,
 )
 
-fun Applicant.toDetailResponse(): ApplicantDetailResponse = ApplicantDetailResponse(
-    applicantId = id,
-    name = name,
-    birthDate = birthDate,
-    phoneNumber = phoneNumber,
-    region = region,
-    admissionType = admissionType,
-    graduationStatus = graduationStatus,
-    schoolName = schoolName,
-    examineeNumber = examineeNumber,
-    isArrived = isArrived,
-    status = status,
-    score = totalScore?.let(::ScoreResponse),
-    submittedAt = submittedAt,
-    arrivedAt = arrivedAt,
-    updatedAt = updatedAt,
+fun ApplicantDetail.toDetailResponse(): ApplicantDetailResponse = ApplicantDetailResponse(
+    applicantId = applicant.id,
+    name = applicant.name,
+    birthDate = applicant.birthDate,
+    phoneNumber = applicant.phoneNumber,
+    region = applicant.region,
+    admissionType = applicant.admissionType,
+    graduationStatus = applicant.graduationStatus,
+    schoolName = applicant.schoolName,
+    examineeNumber = applicant.examineeNumber,
+    isArrived = applicant.isArrived,
+    status = applicant.status,
+    score = applicant.totalScore?.let(::ScoreResponse),
+    submittedAt = applicant.submittedAt,
+    arrivedAt = applicant.arrivedAt,
+    updatedAt = applicant.updatedAt,
+    photoFileId = photoFileId,
+    introduction = introduction,
+    studyPlan = studyPlan,
 )
 
 fun <T, R> Page<T>.toResponse(transform: (T) -> R): PageResponse<R> = PageResponse(

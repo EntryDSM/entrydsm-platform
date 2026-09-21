@@ -71,7 +71,7 @@ class ApplicantController(
         @PathVariable applicantId: Long,
     ): ResponseEntity<ApiResponse<ApplicantDetailResponse>> =
         ResponseEntity.ok(
-            ApiResponse(data = readApplicantUseCase.findById(applicantId).toDetailResponse()),
+            ApiResponse(data = readApplicantUseCase.findDetail(applicantId).toDetailResponse()),
         )
 
     @PatchMapping(AdminEndpointPaths.APPLICANT_ARRIVAL)
