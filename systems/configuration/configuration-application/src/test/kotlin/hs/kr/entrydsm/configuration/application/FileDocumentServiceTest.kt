@@ -27,9 +27,14 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.awt.Color
+import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.time.Instant
+import java.util.Base64
+import javax.imageio.ImageIO
 
 class FileDocumentServiceTest {
 
@@ -214,6 +219,33 @@ class FileDocumentServiceTest {
     }
 
     @Test
+    fun `큰 증명사진은 수험표 칸 폭으로 줄여 흰 바탕 JPEG로 넣고 작은 사진은 그대로 넣는다`() {
+        val large = service.upload(photo(student(STUDENT_ID)), content())
+        // 투명 PNG. 휴대전화 사진처럼 크다.
+        storage.contents[large.document.objectKey] = image(BufferedImage(1800, 2400, BufferedImage.TYPE_INT_ARGB), "png")
+        applicants[APPLICANT_ID] = applicant(photoFileId = large.document.publicId)
+
+        service.renderAdmissionTicket(APPLICANT_ID, examineeNumber = null)
+
+        val (contentType, bytes) = embeddedPhoto(pdf.lastHtml)
+        val fitted = ImageIO.read(ByteArrayInputStream(bytes))
+        assertEquals("image/jpeg", contentType)
+        assertEquals(600 to 800, fitted.width to fitted.height)
+        val corner = Color(fitted.getRGB(0, 0))
+        assertTrue("$corner", minOf(corner.red, corner.green, corner.blue) > 250)
+
+        val small = service.upload(photo(student(STUDENT_ID)), content())
+        val original = image(BufferedImage(300, 400, BufferedImage.TYPE_INT_RGB), "png")
+        storage.contents[small.document.objectKey] = original
+        applicants[APPLICANT_ID] = applicant(photoFileId = small.document.publicId)
+
+        service.renderAdmissionTicket(APPLICANT_ID, examineeNumber = null)
+
+        assertEquals("image/png", embeddedPhoto(pdf.lastHtml).first)
+        assertArrayEquals(original, embeddedPhoto(pdf.lastHtml).second)
+    }
+
+    @Test
     fun `남의 지원자 수험표는 없어도 403이고, 관리자는 없는 지원자면 404다`() {
         assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket(APPLICANT_ID, student(11)) }
         assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket(404, student(11)) }
@@ -337,6 +369,15 @@ class FileDocumentServiceTest {
 
     private fun content(): InputStream = ByteArrayInputStream(ByteArray(4))
 
+    private fun image(image: BufferedImage, format: String): ByteArray =
+        ByteArrayOutputStream().also { ImageIO.write(image, format, it) }.toByteArray()
+
+    /** 수험표 HTML 의 사진 data URI 를 형식과 바이트로 푼다. */
+    private fun embeddedPhoto(html: String): Pair<String, ByteArray> {
+        val (contentType, base64) = checkNotNull(Regex("data:([^;]+);base64,([A-Za-z0-9+/=]+)").find(html)).destructured
+        return contentType to Base64.getDecoder().decode(base64)
+    }
+
     private companion object {
         const val APPLICANT_ID = 12L
         const val STUDENT_ID = 10L
@@ -356,6 +397,8 @@ class FileDocumentServiceTest {
     private class FakeStoragePort : StoragePort {
         val uploaded = mutableListOf<String>()
         val deleted = mutableListOf<String>()
+        /** 내용을 따로 넣지 않은 객체는 object key 를 내용으로 돌려준다. */
+        val contents = mutableMapOf<String, ByteArray>()
         var failOnDelete = false
         var failOnPresign = false
 
@@ -374,7 +417,7 @@ class FileDocumentServiceTest {
             return "https://s3/$objectKey?expires=$expiresInSeconds"
         }
 
-        override fun download(objectKey: String): ByteArray = objectKey.toByteArray()
+        override fun download(objectKey: String): ByteArray = contents[objectKey] ?: objectKey.toByteArray()
 
         override fun delete(objectKey: String) {
             if (failOnDelete) throw IllegalStateException("delete failed")

@@ -24,8 +24,14 @@ import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentReposit
 import hs.kr.entrydsm.configuration.domain.document.port.out.PdfRenderPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
 import org.slf4j.LoggerFactory
+import java.awt.Color
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.Base64
+import javax.imageio.ImageIO
 
 class FileDocumentService(
     private val storagePort: StoragePort,
@@ -205,7 +211,8 @@ class FileDocumentService(
 
     private fun photoDataUri(photoFileId: String, ownerUserId: Long): String? =
         findPhoto(photoFileId, ownerUserId)?.let {
-            "data:${it.contentType};base64," + Base64.getEncoder().encodeToString(storagePort.download(it.objectKey))
+            val (contentType, bytes) = fitTicketPhoto(it.contentType, storagePort.download(it.objectKey))
+            "data:$contentType;base64," + Base64.getEncoder().encodeToString(bytes)
         }
 
     /**
@@ -233,3 +240,35 @@ class FileDocumentService(
 /** 원서·수험표는 지원자마다 저장 키가 하나다. 나머지는 요청마다 새 키(임의값)다. */
 private val FileCategory.keyedByApplicant: Boolean
     get() = this == FileCategory.APPLICATION || this == FileCategory.ADMISSION_TICKET
+
+/** 수험표 사진 칸(폭 약 66mm)에 약 230dpi 로 찍히는 폭. */
+private const val TICKET_PHOTO_WIDTH = 600
+
+/**
+ * 증명사진을 수험표 사진 칸 크기로 줄여 JPEG 로 바꾼다. 관리자 일괄 출력은 수험표를 한 PDF 로 모으므로
+ * 원본(최대 5MB)을 그대로 넣으면 파일이 인원수만큼 커진다. 칸보다 작거나 ImageIO 가 못 읽는 사진
+ * (webp, CMYK JPEG)은 원본 그대로 둔다.
+ *
+ * ponytail: 원본을 통째로 디코딩한다(12MP 면 수십 MB). 동시 출력이 몰려 메모리가 모자라면 ImageReader 서브샘플링으로 읽는다.
+ */
+private fun fitTicketPhoto(contentType: String, bytes: ByteArray): Pair<String, ByteArray> {
+    val image = runCatching { ImageIO.read(ByteArrayInputStream(bytes)) }.getOrNull()
+    if (image == null || image.width <= TICKET_PHOTO_WIDTH) return contentType to bytes
+
+    // 한 번에 크게 줄이면 bilinear 가 픽셀을 건너뛰어 거칠어진다. 반씩 줄인다(getScaledInstance 보다 열 배 이상 빠르다).
+    var fitted: BufferedImage = image
+    while (fitted.width > TICKET_PHOTO_WIDTH) {
+        val width = maxOf(fitted.width / 2, TICKET_PHOTO_WIDTH)
+        val height = maxOf(fitted.height * width / fitted.width, 1)
+        val source = fitted
+        fitted = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB).also { target ->
+            target.createGraphics().run {
+                setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+                // JPEG 에는 투명도가 없어 투명 PNG 는 흰 바탕에 얹는다.
+                drawImage(source, 0, 0, width, height, Color.WHITE, null)
+                dispose()
+            }
+        }
+    }
+    return "image/jpeg" to ByteArrayOutputStream().also { ImageIO.write(fitted, "jpg", it) }.toByteArray()
+}
