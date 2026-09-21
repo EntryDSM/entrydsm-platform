@@ -71,7 +71,7 @@ GET  /api/v11/admin/exports/{exportJobId}
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `type` | string | O | `APPLICANT_LIST`: 지원자 목록 엑셀. (`ADMISSION_TICKET`: 수험표 PDF 묶음 zip) |
+| `type` | string | O | `APPLICANT_LIST`: 지원자 목록 엑셀. (`ADMISSION_TICKET`: 1차 합격자 수험표를 수험번호 순으로 이어 붙인 PDF 하나) |
 | `filter` | object | X | 없거나 `null` 이면 전체 지원자 |
 | `filter.keyword` | string | X | 이름 또는 수험번호 부분 일치. 대소문자·앞뒤 공백 무시, 공백만 있으면 거르지 않음 |
 | `filter.regions` | string[] | X | 모집 지역 |
@@ -83,7 +83,7 @@ GET  /api/v11/admin/exports/{exportJobId}
 - 조건끼리는 AND, 한 목록 안의 값끼리는 OR 로 거른다
 - 필드 없음, `null`, 빈 목록 `[]` 은 모두 그 조건으로 거르지 않는다
 - 지원자 목록 조회(`GET /api/v11/admin/applicants`)의 쿼리 파라미터와 이름·값이 같다. 화면의 검색 조건을 그대로 넣으면 같은 지원자가 나온다 (`page`, `size` 없이 전부)
-- 필터는 `ADMISSION_TICKET` 에도 똑같이 적용된다
+- `ADMISSION_TICKET` 은 보낸 `statuses` 를 버리고 1차 합격자(`FIRST_PASS`)만 뽑는다. 나머지 조건은 똑같이 적용된다. 수험표 한 장씩은 document 가 증명사진을 넣어 그린다(#254, `documents/features/admission-ticket-print`)
 
 조건 값과 엑셀 표기
 
@@ -114,7 +114,9 @@ GET  /api/v11/admin/exports/{exportJobId}
 | 400 | `INVALID_REQUEST_BODY` | `type` 없음, 알 수 없는 값(`"regions": ["SEOUL"]`), 타입 오류(`"isSubmitted": "yes"`), JSON 형식 오류 |
 | 401 | `AUTH_UNAUTHORIZED` | 인증 헤더 없음 |
 | 403 | `ACCESS_DENIED` | 관리자 권한 아님 |
+| 409 | `ADMISSION_TICKET_NO_TARGET` | `ADMISSION_TICKET` 인데 조건에 맞는 1차 합격자가 없음 (1차 산출 전 등). 메시지 "수험표를 발급할 1차 합격자가 없습니다." |
 | 500 | `INTERNAL_SERVER_ERROR` | 작업 저장 실패 |
+| 503 | `APPLICATION_SERVICE_UNAVAILABLE` | `ADMISSION_TICKET` 대상 확인 중 application 장애 |
 
 ## 2. 작업 상태 조회
 
