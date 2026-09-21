@@ -4,6 +4,7 @@ KOTLIN_DEPS = [
     "@maven//:software_amazon_awssdk_s3",
     "@maven//:io_github_openhtmltopdf_openhtmltopdf_core",
     "@maven//:io_github_openhtmltopdf_openhtmltopdf_pdfbox",
+    "@maven//:org_apache_pdfbox_pdfbox",
     "@maven//:io_grpc_grpc_netty_shaded",
     "@maven//:io_grpc_grpc_protobuf",
     "@maven//:io_grpc_grpc_stub",
