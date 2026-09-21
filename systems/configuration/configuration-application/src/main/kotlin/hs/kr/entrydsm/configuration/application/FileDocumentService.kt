@@ -3,7 +3,6 @@ package hs.kr.entrydsm.configuration.application
 import hs.kr.entrydsm.configuration.domain.document.AdmissionTicketHtml
 import hs.kr.entrydsm.configuration.domain.document.Applicant
 import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
-import hs.kr.entrydsm.configuration.domain.document.ApplicationFormHtml
 import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
@@ -20,6 +19,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatE
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.FileUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
+import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicationFormPdfPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
 import hs.kr.entrydsm.configuration.domain.document.port.out.PdfRenderPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
@@ -33,6 +33,7 @@ class FileDocumentService(
     private val presignExpirySeconds: Long,
     private val applicantPort: ApplicantPort,
     private val pdfRenderPort: PdfRenderPort,
+    private val applicationFormPdfPort: ApplicationFormPdfPort,
     private val admissionYear: Int,
 ) : ApplicantFileUseCase,
     FileUseCase {
@@ -51,11 +52,9 @@ class FileDocumentService(
 
     private fun renderApplicationForm(form: ApplicationForm): DownloadableFile {
         val category = FileCategory.APPLICATION
-        val pdf = pdfRenderPort.render(
-            ApplicationFormHtml.render(
-                admissionYear, form,
-                photoDataUri = form.photoFileId?.let { photoDataUri(it, form.userId) },
-            )
+        val pdf = applicationFormPdfPort.render(
+            form,
+            photo = form.photoFileId?.let { findPhoto(it, form.userId) }?.let { storagePort.download(it.objectKey) },
         )
         val fileName = FileNaming.applicationFileName(form.applicantId)
         return store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), form.userId)
@@ -194,23 +193,25 @@ class FileDocumentService(
         expiresIn = presignExpirySeconds,
     )
 
+    private fun photoDataUri(photoFileId: String, ownerUserId: Long): String? =
+        findPhoto(photoFileId, ownerUserId)?.let {
+            "data:${it.contentType};base64," + Base64.getEncoder().encodeToString(storagePort.download(it.objectKey))
+        }
+
     /**
      * 원서에 적힌 사진 ID 는 학생이 보낸 값이라, 그 학생이 올린 사진일 때만 원서·수험표에 넣는다.
      *
-     * ponytail: webp 사진은 openhtmltopdf(ImageIO)가 읽지 못해 빈 칸으로 찍힌다. 필요해지면 webp 디코더를 붙인다.
+     * ponytail: webp 사진은 openhtmltopdf·PDFBox(ImageIO)가 읽지 못해 빈 칸으로 찍힌다. 필요해지면 webp 디코더를 붙인다.
      *
      * ponytail: application V006 전에 숫자(`files.id`)로 저장된 사진 ID 도 찾는다. 본인 확인은 같아서 순번을 훑어도 남의 사진은
      * 못 넣는다. 운영 `applicants.photo_file_id` 가 모두 `photo_` 로 시작하게 되면 숫자 분기와 `findById` 를 지운다.
      */
-    private fun photoDataUri(photoFileId: String, ownerUserId: Long): String? {
+    private fun findPhoto(photoFileId: String, ownerUserId: Long): FileDocument? {
         val found = when (val legacyId = photoFileId.toLongOrNull()) {
             null -> fileDocumentRepository.findByPublicId(photoFileId)
             else -> fileDocumentRepository.findById(legacyId)
         }
-        val photo = found
-            ?.takeIf { FileCategory.PHOTO.holds(it.objectKey) && it.ownerUserId == ownerUserId }
-            ?: return null
-        return "data:${photo.contentType};base64," + Base64.getEncoder().encodeToString(storagePort.download(photo.objectKey))
+        return found?.takeIf { FileCategory.PHOTO.holds(it.objectKey) && it.ownerUserId == ownerUserId }
     }
 
     private fun deleteQuietly(objectKey: String) {
