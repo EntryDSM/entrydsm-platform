@@ -27,6 +27,8 @@ class RedisReportObjectStorageAdapter(
     override fun store(fileName: String, bytes: ByteArray): StoredReport {
         val token = UUID.randomUUID().toString()
         redis.opsForValue().set(contentKey(token), "$fileName\n${Base64.getEncoder().encodeToString(bytes)}", TTL)
+        redis.opsForZSet().add(REPORT_EXPIRY_KEY, token, Instant.now(clock).plus(TTL).toEpochMilli().toDouble())
+        redis.opsForHash<String, String>().put(REPORT_SIZE_KEY, token, bytes.size.toString())
         return StoredReport(
             downloadUrl = "/api/monitor/v11/reports/download?token=$token",
             expiresAt = Instant.now(clock).plus(TTL),
@@ -43,5 +45,7 @@ class RedisReportObjectStorageAdapter(
 
     companion object {
         private val TTL: Duration = Duration.ofMinutes(5)
+        const val REPORT_EXPIRY_KEY = "monitor:report:expiry"
+        const val REPORT_SIZE_KEY = "monitor:report:size"
     }
 }

@@ -43,8 +43,7 @@ class MetricsSeriesService(
             val points = buckets.map { bucketStart ->
                 val value = when (metric) {
                     MetricType.VISITOR -> metricsStorePort.visitorCount(bucketStart, bucketStart.plus(duration))
-                    // 다른 서비스로부터 API 요청 지표를 받는 수집 경로가 아직 없어 0으로 고정한다.
-                    MetricType.API_REQUEST -> 0L
+                    MetricType.API_REQUEST -> metricsStorePort.apiRequestCount(bucketStart, bucketStart.plus(duration))
                 }
                 MetricPointResult(bucketStart, value)
             }

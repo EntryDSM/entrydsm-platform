@@ -8,4 +8,8 @@ interface MetricsStorePort {
 
     /** [from, to) 구간의 고유 세션 수. */
     fun visitorCount(from: Instant, to: Instant): Long
+
+    fun apiRequestCount(from: Instant, to: Instant, success: Boolean? = null): Long
+
+    fun businessCount(type: String, from: Instant, to: Instant, success: Boolean): Long
 }

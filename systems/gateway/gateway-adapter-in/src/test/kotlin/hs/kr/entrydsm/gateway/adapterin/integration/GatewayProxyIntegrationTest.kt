@@ -43,6 +43,7 @@ import java.time.Duration
         "gateway.request.max-body-bytes=10",
         "gateway.resilience.state-store=memory",
         "spring.cloud.gateway.server.webflux.httpclient.response-timeout=2s",
+        "spring.autoconfigure.exclude=org.springframework.boot.security.autoconfigure.web.reactive.ReactiveWebSecurityAutoConfiguration,org.springframework.boot.security.autoconfigure.actuate.web.reactive.ReactiveManagementWebSecurityAutoConfiguration",
     ],
 )
 class GatewayProxyIntegrationTest {
@@ -105,6 +106,7 @@ class GatewayProxyIntegrationTest {
             client.get()
                 .uri("${service.pathPrefix}/protected")
                 .header("Authorization", "Bearer identity-test-token")
+                .cookie("access_token", "identity-test-token")
                 .exchange()
                 .expectStatus().isOk
                 .expectHeader().valueEquals("X-Downstream-Authorization", "Bearer identity-test-token")
@@ -113,6 +115,7 @@ class GatewayProxyIntegrationTest {
         client.get()
             .uri("/api/v11/admin/protected")
             .header("Authorization", "Bearer identity-test-token")
+            .cookie("access_token", "identity-test-token")
             .exchange()
             .expectStatus().isOk
             .expectHeader().valueEquals("X-Downstream-User-Id", "123")
@@ -148,6 +151,7 @@ class GatewayProxyIntegrationTest {
         client.get()
             .uri("/api/v11/admin/applicants")
             .header("Authorization", "Bearer invalid-token")
+            .cookie("access_token", "invalid-token")
             .exchange()
             .expectStatus().isUnauthorized
             .expectBody()
@@ -267,7 +271,7 @@ class GatewayProxyIntegrationTest {
                 .runOn(LoopResources.create("gateway-review-downstream", 1, true).also { downstreamLoops = it })
                 .handle { request, response ->
                     val isAuthorityRequest = request.uri() == "/api/identity/v11/accounts/me/authority"
-                    val invalidToken = request.requestHeaders().get("Authorization") == "Bearer invalid-token"
+                    val invalidToken = request.requestHeaders().get("Cookie")?.contains("access_token=invalid-token") == true
                     val body = if (isAuthorityRequest && !invalidToken) {
                         """{"success":true,"data":{"userId":"user_123","role":"ADMIN","status":"ACTIVE","isSensitiveAgree":true}}"""
                     } else {
