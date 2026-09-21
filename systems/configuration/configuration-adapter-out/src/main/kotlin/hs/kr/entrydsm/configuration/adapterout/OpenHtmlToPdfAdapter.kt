@@ -8,7 +8,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
 
-private const val FONT_RESOURCE = "/fonts/NanumGothic-Regular.ttf"
+internal const val FONT_RESOURCE = "/fonts/NanumGothic-Regular.ttf"
 
 /**
  * XHTML 을 PDF 로 바꾼다.

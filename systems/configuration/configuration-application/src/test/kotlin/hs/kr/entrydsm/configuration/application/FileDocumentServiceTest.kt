@@ -16,9 +16,11 @@ import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatE
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
+import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicationFormPdfPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
 import hs.kr.entrydsm.configuration.domain.document.port.out.PdfRenderPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -36,6 +38,7 @@ class FileDocumentServiceTest {
     private val applicants = mutableMapOf(APPLICANT_ID to applicant())
     private val forms = mutableMapOf(STUDENT_ID to applicationForm())
     private val pdf = RecordingPdfRenderPort()
+    private val formPdf = RecordingApplicationFormPdfPort()
     private val service = FileDocumentService(
         storage, repository, presignExpirySeconds = 300,
         // 수험표는 applicant id 로, 원서 전문은 계정으로 찾는다.
@@ -44,7 +47,7 @@ class FileDocumentServiceTest {
 
             override fun findApplicationForm(accountId: Long) = forms[accountId]
         },
-        pdfRenderPort = pdf, admissionYear = 2027,
+        pdfRenderPort = pdf, applicationFormPdfPort = formPdf, admissionYear = 2027,
     )
 
     private val admin = Requester(1, Requester.Role.ADMIN)
@@ -59,7 +62,22 @@ class FileDocumentServiceTest {
         assertEquals(STUDENT_ID, generated.document.ownerUserId)
         assertEquals("https://s3/dsm_Entry/Backend/application/application_0012.pdf?expires=300", generated.downloadUrl)
         assertEquals(300L, generated.expiresIn)
-        listOf("서식 1", "2027학년도", "홍길동").forEach { assertTrue(it, it in pdf.lastHtml) }
+        assertEquals("홍길동", formPdf.lastForm?.name)
+    }
+
+    @Test
+    fun `원서에는 그 학생이 올린 사진만 넣는다`() {
+        val own = service.upload(photo(student(STUDENT_ID)), content())
+        val others = service.upload(photo(student(11)), content())
+
+        forms[STUDENT_ID] = applicationForm().copy(photoFileId = own.document.publicId)
+        service.generateApplicationForm(student(STUDENT_ID))
+        // 가짜 저장소는 object key 를 내용으로 돌려준다.
+        assertArrayEquals(own.document.objectKey.toByteArray(), formPdf.lastPhoto)
+
+        forms[STUDENT_ID] = applicationForm().copy(photoFileId = others.document.publicId)
+        service.generateApplicationForm(student(STUDENT_ID))
+        assertNull(formPdf.lastPhoto)
     }
 
     @Test
@@ -78,7 +96,7 @@ class FileDocumentServiceTest {
 
         assertEquals("dsm_Entry/Backend/application/application_0012.pdf", generated.document.objectKey)
         assertEquals(STUDENT_ID, generated.document.ownerUserId)
-        assertTrue("홍길동" in pdf.lastHtml)
+        assertEquals("홍길동", formPdf.lastForm?.name)
     }
 
     @Test
@@ -358,6 +376,17 @@ class FileDocumentServiceTest {
 
         override fun render(html: String): ByteArray {
             lastHtml = html
+            return "%PDF-".toByteArray()
+        }
+    }
+
+    private class RecordingApplicationFormPdfPort : ApplicationFormPdfPort {
+        var lastForm: ApplicationForm? = null
+        var lastPhoto: ByteArray? = null
+
+        override fun render(form: ApplicationForm, photo: ByteArray?): ByteArray {
+            lastForm = form
+            lastPhoto = photo
             return "%PDF-".toByteArray()
         }
     }
