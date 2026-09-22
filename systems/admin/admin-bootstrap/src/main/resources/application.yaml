@@ -57,10 +57,10 @@ notification:
     deadline-ms: ${NOTIFICATION_GRPC_DEADLINE_MS:3000}
 configuration:
   grpc:
-    # 수험표 한 장(양식·증명사진)은 document(configuration) 가 그린다. 기본값은 docker compose 서비스 이름과 포트.
+    # 수험표(양식·증명사진)는 document(configuration) 가 그린다. 기본값은 docker compose 서비스 이름과 포트.
     host: ${CONFIGURATION_GRPC_HOST:configuration}
     port: ${CONFIGURATION_GRPC_PORT:9090}
-    # 한 장에 application 조회, 사진 받기, 렌더가 들어간다.
+    # 수험표 한 장 기준(application 조회, 사진 받기). 일괄 출력은 장수를 곱해 기다린다.
     deadline-ms: ${CONFIGURATION_GRPC_DEADLINE_MS:10000}
 management:
   endpoints:

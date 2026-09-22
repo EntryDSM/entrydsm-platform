@@ -71,7 +71,7 @@ GET  /api/v11/admin/exports/{exportJobId}
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `type` | string | O | `APPLICANT_LIST`: 지원자 목록 엑셀. (`ADMISSION_TICKET`: 1차 합격자 수험표를 수험번호 순으로 이어 붙인 PDF 하나) |
+| `type` | string | O | `APPLICANT_LIST`: 지원자 목록 엑셀. (`ADMISSION_TICKET`: 1차 합격자 수험표를 수험번호 순으로 한 시트에 이어 그린 xlsx 하나) |
 | `filter` | object | X | 없거나 `null` 이면 전체 지원자 |
 | `filter.keyword` | string | X | 이름 또는 수험번호 부분 일치. 대소문자·앞뒤 공백 무시, 공백만 있으면 거르지 않음 |
 | `filter.regions` | string[] | X | 모집 지역 |
@@ -83,7 +83,7 @@ GET  /api/v11/admin/exports/{exportJobId}
 - 조건끼리는 AND, 한 목록 안의 값끼리는 OR 로 거른다
 - 필드 없음, `null`, 빈 목록 `[]` 은 모두 그 조건으로 거르지 않는다
 - 지원자 목록 조회(`GET /api/v11/admin/applicants`)의 쿼리 파라미터와 이름·값이 같다. 화면의 검색 조건을 그대로 넣으면 같은 지원자가 나온다 (`page`, `size` 없이 전부)
-- `ADMISSION_TICKET` 은 보낸 `statuses` 를 버리고 1차 합격자(`FIRST_PASS`)만 뽑는다. 나머지 조건은 똑같이 적용된다. 수험표 한 장씩은 document 가 증명사진을 넣어 그린다(#254, `documents/features/admission-ticket-print`)
+- `ADMISSION_TICKET` 은 보낸 `statuses` 를 버리고 1차 합격자(`FIRST_PASS`)만 뽑는다. 나머지 조건은 똑같이 적용된다. 수험표는 document 가 증명사진을 넣어 지난해 원서 시스템(Casper) 관리자 출력물 `수험표.xlsx` 양식으로 그린다(#254, `documents/features/admission-ticket-print`)
 
 조건 값과 엑셀 표기
 
@@ -198,7 +198,7 @@ GET  /api/v11/admin/exports/{exportJobId}
 - 응답: `200`, `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 - **인증 헤더를 붙이지 않는다.** 서명이 쿼리에 들어 있어서 `Authorization` 을 함께 보내면 저장소가 400 으로 거절한다. 토큰을 자동으로 붙이는 공통 HTTP 클라이언트 대신 페이지 이동(`window.location.href = downloadUrl`)으로 연다
 - 파일 이름은 링크 경로의 마지막 부분인 `applicants_<exportJobId>.xlsx` 로 저장된다
-- 수험표(`ADMISSION_TICKET`)는 `Content-Type: application/pdf`, 파일 이름 `admission_tickets_<exportJobId>.pdf` 다. 1차 합격자 한 명이 한 쪽이고 수험번호 순이다. 새 창으로 열면 브라우저 PDF 뷰어로 보여 바로 인쇄할 수 있다
+- 수험표(`ADMISSION_TICKET`)는 같은 xlsx 형식이고 파일 이름은 `admission_tickets_<exportJobId>.xlsx` 다. 시트 `수험표` 하나에 1차 합격자 한 명이 20행씩 수험번호 순으로 이어진다. 한 장은 제목, 증명사진(A:B)과 수험번호·성명·출신 중학교·지역·전형 유형·접수 번호, 학교장 줄이다
 
 ### 엑셀 구성
 

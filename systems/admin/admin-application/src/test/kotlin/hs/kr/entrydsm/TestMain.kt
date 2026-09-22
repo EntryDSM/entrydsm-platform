@@ -22,7 +22,6 @@ import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.DistancePort
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
-import hs.kr.entrydsm.admin.domain.port.out.PdfMergePort
 import hs.kr.entrydsm.admin.domain.port.out.StoragePort
 import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
 import java.lang.reflect.Proxy
@@ -220,10 +219,7 @@ class AdminApplicationModuleTest {
                 }
             } as ApplicantRepository,
             admissionTicketPort = object : AdmissionTicketPort {
-                override fun render(applicantId: Long, examineeNumber: String?) = byteArrayOf()
-            },
-            pdfMergePort = object : PdfMergePort {
-                override fun merge(pdfs: List<ByteArray>) = byteArrayOf()
+                override fun render(tickets: List<Pair<Long, String?>>) = byteArrayOf()
             },
             xlsxRenderPort = object : XlsxRenderPort {
                 override fun render(sheetName: String, header: List<String>, rows: List<List<Any?>>): ByteArray {

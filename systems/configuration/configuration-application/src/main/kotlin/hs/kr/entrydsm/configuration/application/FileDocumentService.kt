@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.configuration.application
 
+import hs.kr.entrydsm.configuration.domain.document.AdmissionTicket
 import hs.kr.entrydsm.configuration.domain.document.AdmissionTicketHtml
 import hs.kr.entrydsm.configuration.domain.document.Applicant
 import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
@@ -18,6 +19,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeExcept
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.FileUseCase
+import hs.kr.entrydsm.configuration.domain.document.port.out.AdmissionTicketSheetPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicationFormPdfPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
@@ -30,7 +32,6 @@ import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
-import java.util.Base64
 import javax.imageio.ImageIO
 
 class FileDocumentService(
@@ -40,6 +41,7 @@ class FileDocumentService(
     private val applicantPort: ApplicantPort,
     private val pdfRenderPort: PdfRenderPort,
     private val applicationFormPdfPort: ApplicationFormPdfPort,
+    private val admissionTicketSheetPort: AdmissionTicketSheetPort,
     private val admissionYear: Int,
     private val storageEnvironment: String = "stag",
 ) : ApplicantFileUseCase,
@@ -70,16 +72,21 @@ class FileDocumentService(
     override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {
         val category = FileCategory.ADMISSION_TICKET
         val applicant = requireApplicant(applicantId, requester, category::canDownload)
-        val pdf = renderTicket(applicantId, applicant, examineeNumber = null)
+        val pdf = pdfRenderPort.render(AdmissionTicketHtml.render(ticket(applicantId, applicant, examineeNumber = null)))
         val fileName = FileNaming.admissionTicketFileName(applicantId)
         return store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), applicant.userId)
     }
 
-    override fun renderAdmissionTicket(applicantId: Long, examineeNumber: String?): ByteArray =
-        renderTicket(
-            applicantId,
-            applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId),
-            examineeNumber,
+    /**
+     * ponytail: 지원자마다 application 조회·사진 받기를 차례로 하고 사진을 모두 힙에 둔다. 1차 합격자(백여 명)는
+     * 줄인 사진이 한 장에 수십 KB 라 감당한다. 길어지면 application 을 한 번에 묻고 사진을 병렬로 받는다.
+     */
+    override fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>): ByteArray =
+        admissionTicketSheetPort.render(
+            tickets.map { (applicantId, examineeNumber) ->
+                val applicant = applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+                ticket(applicantId, applicant, examineeNumber)
+            },
         )
 
     override fun renderApplicationEssay(applicantId: Long): Pair<ByteArray?, ByteArray?> {
@@ -89,13 +96,14 @@ class FileDocumentService(
             form.studyPlan?.takeIf(String::isNotBlank)?.let { applicationFormPdfPort.renderEssay(form, false) }
     }
 
-    private fun renderTicket(applicantId: Long, applicant: Applicant, examineeNumber: String?): ByteArray =
-        pdfRenderPort.render(
-            AdmissionTicketHtml.render(
-                admissionYear, applicantId, applicant, examineeNumber,
-                photoDataUri = applicant.photoFileId?.let { photoDataUri(it, applicant.userId) },
-            )
-        )
+    private fun ticket(applicantId: Long, applicant: Applicant, examineeNumber: String?): AdmissionTicket {
+        val file = applicant.photoFileId?.let { findPhoto(it, applicant.userId) }
+        val photo = file?.let { fitTicketPhoto(storagePort.download(it.objectKey)) }
+        if (file != null && photo == null) {
+            log.warn("Unreadable photo left out of admission ticket [applicantId={}, objectKey={}]", applicantId, file.objectKey)
+        }
+        return AdmissionTicket.of(admissionYear, applicantId, applicant, examineeNumber, photo)
+    }
 
     override fun upload(command: UploadFileCommand, content: InputStream): DownloadableFile {
         val category = command.category
@@ -217,12 +225,6 @@ class FileDocumentService(
         expiresIn = presignExpirySeconds,
     )
 
-    private fun photoDataUri(photoFileId: String, ownerUserId: Long): String? =
-        findPhoto(photoFileId, ownerUserId)?.let {
-            val (contentType, bytes) = fitTicketPhoto(it.contentType, storagePort.download(it.objectKey))
-            "data:$contentType;base64," + Base64.getEncoder().encodeToString(bytes)
-        }
-
     /**
      * 원서에 적힌 사진 ID 는 학생이 보낸 값이라, 그 학생이 올린 사진일 때만 원서·수험표에 넣는다.
      *
@@ -249,25 +251,39 @@ class FileDocumentService(
 private val FileCategory.keyedByApplicant: Boolean
     get() = this == FileCategory.APPLICATION || this == FileCategory.ADMISSION_TICKET
 
-/** 수험표 사진 칸(폭 약 66mm)에 약 230dpi 로 찍히는 폭. */
+/** 수험표 사진 칸 크기(증명사진 3:4). PDF 사진 칸(폭 약 66mm)에 약 230dpi, xlsx 사진 칸(폭 약 50mm)에 약 300dpi 로 찍힌다. */
 private const val TICKET_PHOTO_WIDTH = 600
+private const val TICKET_PHOTO_HEIGHT = 800
 
 /**
- * 증명사진을 수험표 사진 칸 크기로 줄여 JPEG 로 바꾼다. 관리자 일괄 출력은 수험표를 한 PDF 로 모으므로
- * 원본(최대 5MB)을 그대로 넣으면 파일이 인원수만큼 커진다. 투명한 곳에는 사진 칸의 회색이 비치므로 투명 사진은
- * 칸보다 작아도 흰 바탕에 얹는다. 칸보다 작은 불투명 사진과 ImageIO 가 못 읽는 사진(webp, CMYK JPEG)은 원본 그대로 둔다.
+ * 원본을 그대로 넣는 사진의 최대 크기. 관리자 일괄 출력은 전원의 사진을 들고 xlsx 하나로 그려 gRPC 응답 하나로
+ * 보낸다(admin 수신 한도 64MB). 600×800 으로 다시 그린 JPEG 는 잡음 사진이어도 약 280KB 라 이 안에 들어, 사진은
+ * 모두 한 장 300KB 안이다. 200명이어도 약 59MB 다.
+ */
+private const val TICKET_PHOTO_MAX_BYTES = 300 * 1024
+
+/**
+ * 증명사진을 수험표 사진 칸(600×800) 안으로 줄여 JPEG 로 바꾼다. 원본(최대 5MB)을 그대로 넣으면 일괄 출력이
+ * 인원수만큼 커진다. PDF 사진 칸은 회색이라 투명한 곳에 비치므로 투명 사진은 칸보다 작아도 흰 바탕에 얹는다.
+ * 칸 안에 들고 300KB 이하인 불투명 JPEG·PNG 만 원본 그대로 둔다. ImageIO 가 못 읽는 사진(webp, CMYK JPEG,
+ * 깨진 파일)은 줄일 수도 확인할 수도 없어 null 이다.
  *
  * ponytail: 원본을 통째로 디코딩한다(12MP 면 수십 MB). 동시 출력이 몰려 메모리가 모자라면 ImageReader 서브샘플링으로 읽는다.
  */
-private fun fitTicketPhoto(contentType: String, bytes: ByteArray): Pair<String, ByteArray> {
-    val image = runCatching { ImageIO.read(ByteArrayInputStream(bytes)) }.getOrNull()
-    if (image == null || (image.width <= TICKET_PHOTO_WIDTH && !image.colorModel.hasAlpha())) return contentType to bytes
+private fun fitTicketPhoto(bytes: ByteArray): AdmissionTicket.Photo? {
+    val image = runCatching { ImageIO.read(ByteArrayInputStream(bytes)) }.getOrNull() ?: return null
+    // 세로로 긴 사진은 높이 800 에 맞춘 폭까지 줄인다.
+    val targetWidth = minOf(TICKET_PHOTO_WIDTH, maxOf(image.width * TICKET_PHOTO_HEIGHT / image.height, 1))
+    val originalType = sniffedImageType(bytes)
+    if (originalType != null && image.width <= targetWidth && !image.colorModel.hasAlpha() && bytes.size <= TICKET_PHOTO_MAX_BYTES) {
+        return AdmissionTicket.Photo(originalType, bytes)
+    }
 
     // 한 번에 크게 줄이면 bilinear 가 픽셀을 건너뛰어 거칠어진다. 반씩 줄인다(getScaledInstance 보다 열 배 이상 빠르다).
-    // 칸보다 작은 투명 사진은 크기 그대로 한 번만 다시 그린다.
+    // 칸보다 작은 사진(투명, 무거움, JPEG·PNG 아님)은 크기 그대로 한 번만 다시 그린다.
     var fitted: BufferedImage = image
     do {
-        val width = minOf(fitted.width, maxOf(fitted.width / 2, TICKET_PHOTO_WIDTH))
+        val width = minOf(fitted.width, maxOf(fitted.width / 2, targetWidth))
         val height = maxOf(fitted.height * width / fitted.width, 1)
         val source = fitted
         fitted = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB).also { target ->
@@ -278,6 +294,16 @@ private fun fitTicketPhoto(contentType: String, bytes: ByteArray): Pair<String, 
                 dispose()
             }
         }
-    } while (fitted.width > TICKET_PHOTO_WIDTH)
-    return "image/jpeg" to ByteArrayOutputStream().also { ImageIO.write(fitted, "jpg", it) }.toByteArray()
+    } while (fitted.width > targetWidth)
+    return AdmissionTicket.Photo("image/jpeg", ByteArrayOutputStream().also { ImageIO.write(fitted, "jpg", it) }.toByteArray())
 }
+
+/** 원본을 그대로 넣을 수 있는 형식. 올린 파일 이름으로 정한 contentType 은 내용과 다를 수 있어 앞 바이트로 본다. */
+private fun sniffedImageType(bytes: ByteArray): String? = when {
+    bytes.startsWith(0xFF, 0xD8, 0xFF) -> "image/jpeg"
+    bytes.startsWith(0x89, 'P'.code, 'N'.code, 'G'.code) -> "image/png"
+    else -> null
+}
+
+private fun ByteArray.startsWith(vararg prefix: Int): Boolean =
+    size >= prefix.size && prefix.indices.all { this[it] == prefix[it].toByte() }

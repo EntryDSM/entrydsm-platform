@@ -5,6 +5,8 @@ KOTLIN_DEPS = [
     "@maven//:io_github_openhtmltopdf_openhtmltopdf_core",
     "@maven//:io_github_openhtmltopdf_openhtmltopdf_pdfbox",
     "@maven//:org_apache_pdfbox_pdfbox",
+    "@maven//:org_apache_poi_poi",
+    "@maven//:org_apache_poi_poi_ooxml",
     "@maven//:io_grpc_grpc_netty_shaded",
     "@maven//:io_grpc_grpc_protobuf",
     "@maven//:io_grpc_grpc_stub",

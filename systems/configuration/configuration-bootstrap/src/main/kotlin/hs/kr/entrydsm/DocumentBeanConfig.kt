@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.configuration
 
 import hs.kr.entrydsm.configuration.application.FileDocumentService
+import hs.kr.entrydsm.configuration.domain.document.port.out.AdmissionTicketSheetPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicationFormPdfPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
@@ -20,11 +21,12 @@ class DocumentBeanConfig {
         applicantPort: ApplicantPort,
         pdfRenderPort: PdfRenderPort,
         applicationFormPdfPort: ApplicationFormPdfPort,
+        admissionTicketSheetPort: AdmissionTicketSheetPort,
         @Value("\${aws.s3.presign-expiry-seconds}") presignExpirySeconds: Long,
         @Value("\${document.admission-year}") admissionYear: Int,
         @Value("\${aws.s3.environment}") storageEnvironment: String,
     ) = FileDocumentService(
         storagePort, fileDocumentRepository, presignExpirySeconds, applicantPort, pdfRenderPort, applicationFormPdfPort,
-        admissionYear, storageEnvironment,
+        admissionTicketSheetPort, admissionYear, storageEnvironment,
     )
 }

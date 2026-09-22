@@ -23,15 +23,6 @@ kt_jvm_test(
 )
 
 kt_jvm_test(
-    name = "pdf_merge_test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
-    javac_opts = "//:javac_options",
-    kotlinc_opts = "//:kotlinc_options",
-    test_class = "hs.kr.entrydsm.admin.adapterout.document.PdfBoxMergeAdapterTest",
-    deps = MODULE_DEPS + TEST_DEPS + [":main"],
-)
-
-kt_jvm_test(
     name = "grpc_admission_ticket_test",
     srcs = glob(["src/test/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",

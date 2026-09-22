@@ -16,7 +16,6 @@ import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
-import hs.kr.entrydsm.admin.domain.port.out.PdfMergePort
 import hs.kr.entrydsm.admin.domain.port.out.StoragePort
 import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
 import java.time.Clock
@@ -29,7 +28,7 @@ import org.junit.Test
 import org.springframework.context.ApplicationEventPublisher
 
 /**
- * "수험표 출력" 내보내기. 1차 합격자만, 증명사진이 든 수험표를, PDF 하나로 받는다.
+ * "수험표 출력" 내보내기. 1차 합격자만, 증명사진이 든 수험표를, xlsx 하나로 받는다.
  */
 class AdmissionTicketExportTest {
 
@@ -85,7 +84,7 @@ class AdmissionTicketExportTest {
     }
 
     @Test
-    fun `1차 합격자 수험표를 수험 번호 순으로 받아 PDF 하나로 올린다`() {
+    fun `1차 합격자 수험표를 수험 번호 순으로 한 번에 받아 xlsx 하나로 올린다`() {
         applicants.all += applicant(1, ApplicantStatus.FIRST_PASS, "100002")
         applicants.all += applicant(2, ApplicantStatus.PENDING, "100003")
         applicants.all += applicant(3, ApplicantStatus.FIRST_PASS, "100001")
@@ -95,18 +94,18 @@ class AdmissionTicketExportTest {
 
         processor(tickets).onExportJobCreated(ExportJobCreatedEvent(ticketJob()))
 
-        assertEquals(listOf(3L to "100001", 1L to "100002", 4L to null), tickets.requested)
+        assertEquals(listOf(listOf(3L to "100001", 1L to "100002", 4L to null)), tickets.requested)
         val upload = storage.uploads.single()
-        assertEquals("dsm_Entry/backend/stag/admission-ticket/admission_tickets_exp_1.pdf", upload.first)
-        assertEquals("application/pdf", upload.second)
-        assertEquals("ticket-3|ticket-1|ticket-4", upload.third)
+        assertEquals("dsm_Entry/backend/stag/admission-ticket/admission_tickets_exp_1.xlsx", upload.first)
+        assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", upload.second)
+        assertEquals("tickets-3|1|4", upload.third)
         val finished = jobs.saved.last()
         assertEquals(ExportStatus.COMPLETED, finished.status)
         assertEquals(upload.first, finished.objectKey)
     }
 
     @Test
-    fun `수험표를 한 장이라도 못 받으면 작업을 실패로 끝내고 아무것도 올리지 않는다`() {
+    fun `document 가 수험표를 못 그리면 작업을 실패로 끝내고 아무것도 올리지 않는다`() {
         applicants.all += applicant(1, ApplicantStatus.FIRST_PASS, "100001")
         applicants.all += applicant(2, ApplicantStatus.FIRST_PASS, "100002")
         val tickets = RecordingAdmissionTicketPort(failingApplicantId = 2)
@@ -119,10 +118,6 @@ class AdmissionTicketExportTest {
 
     private fun processor(tickets: AdmissionTicketPort) = ExportJobProcessor(
         jobs, applicants, tickets,
-        // 받은 순서가 보이게 이어 붙인다.
-        object : PdfMergePort {
-            override fun merge(pdfs: List<ByteArray>) = pdfs.joinToString("|") { String(it) }.toByteArray()
-        },
         object : XlsxRenderPort {
             override fun render(sheetName: String, header: List<String>, rows: List<List<Any?>>): ByteArray =
                 error("unused")
@@ -142,12 +137,15 @@ class AdmissionTicketExportTest {
         Applicant(id = id, name = "지원자$id", examineeNumber = examineeNumber, isArrived = true, status = status)
 
     private class RecordingAdmissionTicketPort(private val failingApplicantId: Long? = null) : AdmissionTicketPort {
-        val requested = mutableListOf<Pair<Long, String?>>()
+        val requested = mutableListOf<List<Pair<Long, String?>>>()
 
-        override fun render(applicantId: Long, examineeNumber: String?): ByteArray {
-            if (applicantId == failingApplicantId) throw AdminDomainException(ErrorCode.ADMISSION_TICKET_GENERATION_FAILED)
-            requested += applicantId to examineeNumber
-            return "ticket-$applicantId".toByteArray()
+        override fun render(tickets: List<Pair<Long, String?>>): ByteArray {
+            if (tickets.any { (applicantId, _) -> applicantId == failingApplicantId }) {
+                throw AdminDomainException(ErrorCode.ADMISSION_TICKET_GENERATION_FAILED)
+            }
+            requested += tickets
+            // 받은 순서가 보이게 적는다.
+            return "tickets-${tickets.joinToString("|") { (applicantId, _) -> "$applicantId" }}".toByteArray()
         }
     }
 
