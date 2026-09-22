@@ -30,4 +30,7 @@ interface ApplicantFileUseCase {
      * @param tickets applicant id 와 admin 이 발급한 수험번호. 수험번호가 null 이면 미발급으로 찍는다
      */
     fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>): ByteArray
+
+    fun renderApplicationEssay(applicantId: Long): Pair<ByteArray?, ByteArray?> =
+        throw UnsupportedOperationException()
 }

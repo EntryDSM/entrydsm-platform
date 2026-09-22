@@ -56,11 +56,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 logging:
   level:

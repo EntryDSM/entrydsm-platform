@@ -16,6 +16,7 @@ service ConfigurationService {
     rpc RenderAdmissionTickets(RenderAdmissionTicketsRequest) returns (RenderAdmissionTicketsResponse);
     // 관리자가 등록한 일정 하나. application 이 원서 접수 기간을 확인할 때 쓴다. 없는 제목이면 NOT_FOUND.
     rpc GetSchedule(GetScheduleRequest) returns (ScheduleResponse);
+    rpc RenderApplicationEssay(RenderApplicationEssayRequest) returns (RenderApplicationEssayResponse);
 }
 
 message CreateEnvironmentVariableRequest {
@@ -81,4 +82,13 @@ message ScheduleResponse {
     // 일정은 한국 시각으로 저장한다. 받는 쪽이 시간대를 몰라도 되게 epoch 로 준다.
     int64 start_at_epoch_millis = 2;
     int64 end_at_epoch_millis = 3;
+}
+
+message RenderApplicationEssayRequest {
+    int64 applicant_id = 1;
+}
+
+message RenderApplicationEssayResponse {
+    optional bytes introduction_pdf = 1;
+    optional bytes study_plan_pdf = 2;
 }
