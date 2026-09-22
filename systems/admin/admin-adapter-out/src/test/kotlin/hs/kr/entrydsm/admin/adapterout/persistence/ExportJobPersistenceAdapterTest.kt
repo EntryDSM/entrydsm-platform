@@ -24,11 +24,15 @@ class ExportJobPersistenceAdapterTest {
                 type = ExportType.APPLICANT_LIST,
                 status = ExportStatus.PENDING,
                 filter = filter,
+                totalCount = 10,
+                processedCount = 7,
                 createdAt = Instant.EPOCH,
             ),
         )
 
         assertEquals(filter, saved.filter)
+        assertEquals(10, saved.totalCount)
+        assertEquals(7, saved.processedCount)
     }
 
     /** DB 없이 save 만 흉내 낸다. 받은 엔티티를 그대로 돌려준다. */

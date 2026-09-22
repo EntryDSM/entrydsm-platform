@@ -93,6 +93,12 @@ class ExportJobJpaEntity(
     @Column(name = "object_key", length = 255)
     val objectKey: String? = null,
 
+    @Column(name = "total_count", nullable = false)
+    val totalCount: Int = 0,
+
+    @Column(name = "processed_count", nullable = false)
+    val processedCount: Int = 0,
+
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant,
 
@@ -105,6 +111,8 @@ class ExportJobJpaEntity(
         type = type,
         status = status,
         objectKey = objectKey,
+        totalCount = totalCount,
+        processedCount = processedCount,
         createdAt = createdAt,
         completedAt = completedAt,
     )
@@ -116,6 +124,8 @@ class ExportJobJpaEntity(
             type = job.type,
             status = job.status,
             objectKey = job.objectKey,
+            totalCount = job.totalCount,
+            processedCount = job.processedCount,
             createdAt = job.createdAt,
             completedAt = job.completedAt,
         )

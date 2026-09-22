@@ -16,12 +16,16 @@ import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.application.grpc.ApplicationResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
+import hs.kr.entrydsm.application.grpc.AcademicRecord
+import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
+import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsResponse
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
+import hs.kr.entrydsm.application.grpc.SemesterGrades
 import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import io.grpc.ServerBuilder
@@ -163,6 +167,50 @@ class GrpcApplicantDataAdapterTest {
     }
 
     @Test
+    fun `1차 합격자 원서만 한 번에 받아 명단 행으로 옮긴다`() {
+        val service = FakeApplicationService(
+            applicants = listOf(applicant(1L), applicant(2L), applicant(3L)),
+            forms = listOf(
+                ApplicationFormResponse.newBuilder()
+                    .setApplicantId(1L)
+                    .setUserId(101L)
+                    .setName("홍길동")
+                    .setAdmissionType(GrpcAdmissionType.ADMISSION_TYPE_REGULAR)
+                    .setRegion(GrpcRegion.REGION_DAEJEON)
+                    .setAdmissionTypeCode("3")
+                    .setRegionCode("1")
+                    .setSpecialAdmissionTypeCode("0")
+                    .setClassNumber("2")
+                    .setGedAverage(95.5)
+                    .setThirdGradeFirstSemester(SemesterGrades.newBuilder().setKorean("A").setMath("B"))
+                    .setAcademicRecord(AcademicRecord.newBuilder().setVolunteerTime(12))
+                    .setSubjectScore(72.5)
+                    .setTotalScore(99.5)
+                    .build(),
+                ApplicationFormResponse.newBuilder().setApplicantId(3L).setUserId(103L).build(),
+            ),
+        )
+        val screenings = listOf(
+            ScreeningJpaEntity(applicantId = 1L, status = ApplicantStatus.FIRST_PASS),
+            ScreeningJpaEntity(applicantId = 2L, status = ApplicantStatus.FIRST_FAIL),
+            ScreeningJpaEntity(applicantId = 3L, status = ApplicantStatus.FIRST_PASS),
+        )
+
+        val rows = withAdapter(service, screenings) { it.findFirstPassRows() }
+
+        assertEquals(1, service.batchCalls)
+        assertEquals(listOf(101L, 103L), service.batchAccountIds)
+        assertEquals(listOf("0001", "0003"), rows.map { it.receiptNumber })
+        assertEquals("310", rows[0].combinedCode)
+        assertEquals("홍길동", rows[0].name)
+        assertEquals("A", rows[0].thirdGradeFirstSemester.korean)
+        assertEquals(9.0, rows[0].thirdGradeTotal)
+        assertEquals(95.5, rows[0].gedAverage)
+        assertNull(rows[1].combinedCode)
+        assertNull(rows[1].admissionType)
+    }
+
+    @Test
     fun `없는 지원자는 null 이고 application 장애는 503 으로 옮긴다`() {
         withAdapter(FakeApplicationService(listOf(applicant(id = 1L)))) { adapter ->
             assertNull(adapter.findById(404L))
@@ -252,6 +300,8 @@ class GrpcApplicantDataAdapterTest {
         private val forms: List<ApplicationFormResponse> = emptyList(),
     ) : ApplicationServiceGrpc.ApplicationServiceImplBase() {
         var arrival: UpdateApplicantArrivalRequest? = null
+        var batchCalls = 0
+        var batchAccountIds: List<Long> = emptyList()
 
         override fun updateApplicantArrival(
             request: UpdateApplicantArrivalRequest,
@@ -271,6 +321,20 @@ class GrpcApplicantDataAdapterTest {
             val found = forms.find { it.userId == request.accountId }
                 ?: return responseObserver.onError(Status.NOT_FOUND.asRuntimeException())
             respond(responseObserver, found)
+        }
+
+        override fun batchGetApplicationForms(
+            request: BatchGetApplicationFormsRequest,
+            responseObserver: StreamObserver<BatchGetApplicationFormsResponse>,
+        ) {
+            batchCalls += 1
+            batchAccountIds = request.accountIdList
+            respond(
+                responseObserver,
+                BatchGetApplicationFormsResponse.newBuilder()
+                    .addAllApplications(forms.filter { it.userId in request.accountIdList })
+                    .build(),
+            )
         }
 
         override fun listApplicants(
