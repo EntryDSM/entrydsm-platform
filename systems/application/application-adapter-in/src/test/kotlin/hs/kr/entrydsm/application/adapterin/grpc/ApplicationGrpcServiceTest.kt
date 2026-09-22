@@ -192,6 +192,7 @@ class ApplicationGrpcServiceTest {
             introduction = "저는 …",
             studyPlan = "입학 후 …",
             classNumber = "1",
+            studentNumber = "30115",
             gedAverage = 95.5,
         )
 
@@ -235,6 +236,7 @@ class ApplicationGrpcServiceTest {
         assertFalse(found.hasThirdGradeSecondSemester())
         assertEquals(GrpcAdmissionType.ADMISSION_TYPE_MEISTER, found.admissionType)
         assertEquals("1", found.classNumber)
+        assertEquals("30115", found.studentNumber)
         assertEquals(95.5, found.gedAverage, 0.0)
         assertEquals("1", found.admissionTypeCode)
         assertEquals("1", found.regionCode)

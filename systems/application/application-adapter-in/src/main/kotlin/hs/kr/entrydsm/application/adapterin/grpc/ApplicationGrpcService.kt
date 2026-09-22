@@ -273,6 +273,7 @@ class ApplicationGrpcService(
                     builder.setTotalScore(it.totalScore)
                 }
                 classNumber?.let(builder::setClassNumber)
+                studentNumber?.let(builder::setStudentNumber)
                 gedAverage?.let(builder::setGedAverage)
                 admissionType.code()?.let(builder::setAdmissionTypeCode)
                 region.code()?.let(builder::setRegionCode)
