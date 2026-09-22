@@ -61,7 +61,9 @@ class PoiAdmissionTicketSheetAdapter : AdmissionTicketSheetPort {
         val bodyTop = top + 3
         val bodyBottom = bodyTop + ticket.rows.size * 2 - 1
         createRow(top).heightInPoints = 48f
-        (top + 1..bodyBottom + 2).forEach { createRow(it).heightInPoints = 16.5f }
+        for (rowIndex in top + 1..bodyBottom + 2) {
+            createRow(rowIndex).heightInPoints = 16.5f
+        }
 
         fun box(firstRow: Int, lastRow: Int, firstColumn: Int, lastColumn: Int, style: XSSFCellStyle, value: String? = null) {
             val region = CellRangeAddress(firstRow, lastRow, firstColumn, lastColumn)
