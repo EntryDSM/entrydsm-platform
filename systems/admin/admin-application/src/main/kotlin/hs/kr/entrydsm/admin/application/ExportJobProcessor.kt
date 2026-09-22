@@ -159,7 +159,7 @@ class ExportJobProcessor(
         var current = exportJobRepository.save(job.started())
 
         runCatching {
-            if (job.type in setOf(ExportType.FIRST_PASS_LIST, ExportType.ADMISSION_FILE)) {
+            if (job.type in PROJECTION_EXPORT_TYPES) {
                 applicantRepository.syncExportProjection()
             }
             when (job.type) {
@@ -177,6 +177,15 @@ class ExportJobProcessor(
                         current = exportJobRepository.save(current.processed(rows.size))
                     }
                 }
+                ExportType.APPLICATION_CHECKLIST -> {
+                    val rows = applicantRepository.findApplicationChecklistRows()
+                    current = exportJobRepository.save(current.withTotal(rows.size))
+                    val objectKey = DocumentNaming.applicationChecklistObjectKey(job.exportJobId, storageEnvironment)
+                    val xlsx = xlsxRenderPort.renderApplicationChecklist(rows)
+                    current = exportJobRepository.save(current.processed(rows.size))
+                    storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
+                    objectKey
+                }
                 else -> {
                     val applicants = applicantRepository.findAll(job.filter)
                     current = exportJobRepository.save(current.withTotal(applicants.size))
@@ -185,6 +194,7 @@ class ExportJobProcessor(
                         ExportType.APPLICANT_LIST -> writeApplicantList(current, applicants)
                         ExportType.FIRST_PASS_LIST -> error("handled above")
                         ExportType.ADMISSION_FILE -> error("handled above")
+                        ExportType.APPLICATION_CHECKLIST -> error("handled above")
                     }.also {
                         current = exportJobRepository.save(current.processed(applicants.size))
                     }
@@ -192,7 +202,7 @@ class ExportJobProcessor(
             }
         }.onSuccess { objectKey ->
             val completed = exportJobRepository.save(current.completed(objectKey, Instant.now(clock)))
-            if (completed.type in setOf(ExportType.FIRST_PASS_LIST, ExportType.ADMISSION_FILE)) {
+            if (completed.type in PROJECTION_EXPORT_TYPES) {
                 deletePreviousExports(completed)
             }
         }.onFailure { cause ->
@@ -279,5 +289,13 @@ class ExportJobProcessor(
         rendered()
         storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
         return objectKey
+    }
+
+    private companion object {
+        val PROJECTION_EXPORT_TYPES = setOf(
+            ExportType.FIRST_PASS_LIST,
+            ExportType.ADMISSION_FILE,
+            ExportType.APPLICATION_CHECKLIST,
+        )
     }
 }

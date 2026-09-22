@@ -1,5 +1,7 @@
 package hs.kr.entrydsm.admin.adapterout.document
 
+import hs.kr.entrydsm.admin.domain.model.FirstPassRow
+import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import java.io.ByteArrayInputStream
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
@@ -27,6 +29,35 @@ class PoiXlsxAdapterTest {
             assertEquals(CellType.STRING, row.getCell(1).cellType)
             assertEquals("=HYPERLINK(\"http://x\")", row.getCell(1).stringCellValue)
             assertNull(row.getCell(2))
+        }
+    }
+
+    @Test
+    fun `지원자 점검표는 지원자마다 20행 양식으로 쓴다`() {
+        val xlsx = PoiXlsxAdapter().renderApplicationChecklist(
+            listOf(
+                FirstPassRow(
+                    receiptNumber = "0001",
+                    schoolName = "대전한빛중학교",
+                    graduationStatus = "졸업예정",
+                    graduationYear = "2027",
+                    studentNumber = "30512",
+                    thirdGradeFirstSemester = SemesterGrades(korean = "A"),
+                    subjectScore = 75.428,
+                    totalScore = 165.0,
+                ),
+            ),
+        )
+
+        XSSFWorkbook(ByteArrayInputStream(xlsx)).use { workbook ->
+            val sheet = workbook.getSheet("지원자 점검표")
+            assertEquals(1.0, sheet.getRow(1).getCell(2).numericCellValue, 0.0)
+            assertEquals("대전한빛중학교", sheet.getRow(1).getCell(3).stringCellValue)
+            assertEquals("졸업예정자", sheet.getRow(1).getCell(6).stringCellValue)
+            assertEquals("30512", sheet.getRow(3).getCell(6).stringCellValue)
+            assertEquals("A", sheet.getRow(11).getCell(3).stringCellValue)
+            assertEquals(75.428, sheet.getRow(18).getCell(7).numericCellValue, 0.0)
+            assertEquals(165.0, sheet.getRow(19).getCell(7).numericCellValue, 0.0)
         }
     }
 }

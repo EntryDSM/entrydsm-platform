@@ -145,6 +145,8 @@ class GrpcApplicantDataAdapter(
             .sortedBy { it.receiptNumber }
     }
 
+    override fun findApplicationChecklistRows(): List<FirstPassRow> = findAdmissionFileRows()
+
     override fun findFirstPassApplicants(): List<Applicant> {
         val screenings = screeningJpaRepository.findAll()
             .filter { it.status == ApplicantStatus.FIRST_PASS }
@@ -316,6 +318,7 @@ class GrpcApplicantDataAdapter(
             graduationYear = graduationDate.takeIf { hasGraduationDate() }?.take(4),
             schoolName = middleSchool.takeIf { hasMiddleSchool() }?.name,
             classNumber = classNumber.takeIf { hasClassNumber() },
+            studentNumber = studentNumber.takeIf { hasStudentNumber() },
             guardianName = guardianName.takeIf { hasGuardianName() },
             guardianPhoneNumber = guardianPhoneNumber.takeIf { hasGuardianPhoneNumber() },
             thirdGradeSecondSemester = thirdSecond,

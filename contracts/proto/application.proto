@@ -140,6 +140,8 @@ message ApplicationFormResponse {
     optional string admission_type_code = 33;
     optional string region_code = 34;
     optional string special_admission_type_code = 35;
+    // 지원자 점검표에 표시하는 전체 학번(학년·반·번호)
+    optional string student_number = 36;
 }
 
 message MiddleSchool {

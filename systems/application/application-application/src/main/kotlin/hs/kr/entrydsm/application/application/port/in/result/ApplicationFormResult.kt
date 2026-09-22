@@ -54,5 +54,6 @@ data class ApplicationFormResult(
     val introduction: String?,
     val studyPlan: String?,
     val classNumber: String? = null,
+    val studentNumber: String? = null,
     val gedAverage: Double? = null,
 )

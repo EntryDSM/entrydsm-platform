@@ -9,4 +9,5 @@ enum class ExportType {
     APPLICANT_LIST,
     FIRST_PASS_LIST,
     ADMISSION_FILE,
+    APPLICATION_CHECKLIST,
 }
