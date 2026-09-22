@@ -46,7 +46,7 @@ class DocumentControllerTest {
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.fileName").value("application_0012.pdf"))
             .andExpect(jsonPath("$.data.size").value(7))
-            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/application/application_0012.pdf"))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/backend/stag/application/application_0012.pdf"))
             .andExpect(jsonPath("$.data.expiresIn").value(300))
             .andExpect(jsonPath("$.data.id").doesNotExist())
             .andExpect(jsonPath("$.data.key").doesNotExist())
@@ -89,7 +89,7 @@ class DocumentControllerTest {
         mvc.perform(get("/api/document/v11/admission-tickets/12").with(student(10)))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.fileName").value("admission_ticket_0012.pdf"))
-            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/admission-ticket/admission_ticket_0012.pdf"))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/backend/stag/admission-ticket/admission_ticket_0012.pdf"))
             .andExpect(jsonPath("$.data.id").doesNotExist())
 
         assertEquals(12L to Requester(10, Requester.Role.STUDENT), applicantFiles.generated)
@@ -136,7 +136,7 @@ class DocumentControllerTest {
             .andExpect(jsonPath("$.data.id").value("photo_3f2c"))
             .andExpect(jsonPath("$.data.fileName").value("사진.png"))
             .andExpect(jsonPath("$.data.size").value(2))
-            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/Backend/photo/photo_3f2c.png"))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://s3/dsm_Entry/backend/stag/photo/photo_3f2c.png"))
             .andExpect(jsonPath("$.data.expiresIn").value(300))
         assertEquals(UploadFileCommand(FileCategory.PHOTO, "사진.png", 2, Requester(10, Requester.Role.STUDENT)), files.lastCommand)
 

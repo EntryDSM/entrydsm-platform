@@ -5,6 +5,7 @@ import hs.kr.entrydsm.configuration.adapterout.repository.FileDocumentJpaReposit
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Component
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class FileDocumentPersistenceAdapter(
     private val fileDocumentJpaRepository: FileDocumentJpaRepository,
+    @Value("\${aws.s3.environment}") private val storageEnvironment: String = "stag",
 ) : FileDocumentRepository {
 
     @Transactional
@@ -37,13 +39,15 @@ class FileDocumentPersistenceAdapter(
         fileDocumentJpaRepository.findById(id).orElse(null)?.toDomain()
 
     override fun findPage(category: FileCategory, page: Int, size: Int): List<FileDocument> =
-        fileDocumentJpaRepository.findByObjectKeyStartingWith(
-            category.keyPrefix,
+        fileDocumentJpaRepository.findByObjectKeyStartingWithOrObjectKeyStartingWith(
+            category.keyPrefix(storageEnvironment), category.legacyKeyPrefix,
             PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"))),
         ).map { it.toDomain() }
 
     override fun count(category: FileCategory): Long =
-        fileDocumentJpaRepository.countByObjectKeyStartingWith(category.keyPrefix)
+        fileDocumentJpaRepository.countByObjectKeyStartingWithOrObjectKeyStartingWith(
+            category.keyPrefix(storageEnvironment), category.legacyKeyPrefix,
+        )
 
     @Transactional
     override fun deleteByObjectKey(objectKey: String) =

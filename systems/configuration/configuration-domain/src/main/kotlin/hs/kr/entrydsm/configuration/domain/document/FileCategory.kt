@@ -44,8 +44,10 @@ enum class FileCategory(
     ;
 
     /** 이 종류의 객체가 모이는 저장소 폴더 */
-    val keyPrefix: String
-        get() = "$KEY_ROOT$prefix/"
+    val legacyKeyPrefix: String
+        get() = "$LEGACY_KEY_ROOT$prefix/"
+
+    fun keyPrefix(environment: String): String = "${keyRoot(environment)}$prefix/"
 
     fun supports(extension: FileExtension): Boolean = extension in allowedExtensions
 
@@ -61,13 +63,21 @@ enum class FileCategory(
     fun canDelete(requester: Requester, ownerUserId: Long?): Boolean =
         canStore(requester, ownerUserId) && (requester.role == Requester.Role.ADMIN || ownerUserId == requester.userId)
 
-    fun objectKeyOf(fileName: String): String =
-        FileNaming.requireStorableLength("$keyPrefix${FileNaming.requireSafeFileName(fileName)}")
+    fun objectKeyOf(fileName: String, environment: String = "stag"): String =
+        FileNaming.requireStorableLength("${keyPrefix(environment)}${FileNaming.requireSafeFileName(fileName)}")
 
-    fun holds(objectKey: String): Boolean = objectKey.startsWith(keyPrefix)
+    fun holds(objectKey: String): Boolean =
+        objectKey.startsWith(legacyKeyPrefix) ||
+            objectKey.startsWith("dsm_Entry/backend/prod/$prefix/") ||
+            objectKey.startsWith("dsm_Entry/backend/stag/$prefix/")
 
     companion object {
-        const val KEY_ROOT = "dsm_Entry/Backend/"
+        const val LEGACY_KEY_ROOT = "dsm_Entry/Backend/"
+
+        fun keyRoot(environment: String): String {
+            require(environment == "prod" || environment == "stag") { "STORAGE_ENV must be 'prod' or 'stag'" }
+            return "dsm_Entry/backend/$environment/"
+        }
     }
 }
 

@@ -98,7 +98,7 @@ class AdminApplicationModuleTest {
         assertEquals("0001", fixture.rows.single()[1])
         assertEquals("홍길동", fixture.rows.single()[5])
         assertNull(fixture.rows.single()[EXPECTED_ADMISSION_FILE_HEADERS.indexOf("nan")])
-        assertEquals("dsm_Entry/Backend/admission-file/admission_file_exp_test.xlsx", fixture.objectKey)
+        assertEquals("dsm_Entry/backend/stag/admission-file/admission_file_exp_test.xlsx", fixture.objectKey)
         assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fixture.contentType)
         assertEquals(
             listOf(ExportStatus.PROCESSING, ExportStatus.PROCESSING, ExportStatus.PROCESSING, ExportStatus.COMPLETED),
@@ -149,7 +149,7 @@ class AdminApplicationModuleTest {
 
         assertEquals(listOf("dsm_Entry/Backend/admission-file/admission_file_exp_previous.xlsx"), fixture.deletedObjectKeys)
         assertNull(fixture.saved.last { it.exportJobId == previous.exportJobId }.objectKey)
-        assertEquals("dsm_Entry/Backend/admission-file/admission_file_exp_test.xlsx", fixture.saved.last { it.exportJobId == fixture.job.exportJobId }.objectKey)
+        assertEquals("dsm_Entry/backend/stag/admission-file/admission_file_exp_test.xlsx", fixture.saved.last { it.exportJobId == fixture.job.exportJobId }.objectKey)
     }
 
     @Test

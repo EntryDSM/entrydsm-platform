@@ -7,18 +7,21 @@ package hs.kr.entrydsm.admin.domain.document
  */
 object DocumentNaming {
 
-    const val KEY_ROOT = "dsm_Entry/Backend/"
+    fun keyRoot(environment: String): String {
+        require(environment == "prod" || environment == "stag") { "STORAGE_ENV must be 'prod' or 'stag'" }
+        return "dsm_Entry/backend/$environment/"
+    }
 
-    fun applicantListObjectKey(exportJobId: String): String =
-        "${KEY_ROOT}applicant-list/applicants_$exportJobId.xlsx"
+    fun applicantListObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}applicant-list/applicants_$exportJobId.xlsx"
 
-    fun firstPassListObjectKey(exportJobId: String): String =
-        "${KEY_ROOT}first-pass/first_pass_$exportJobId.xlsx"
+    fun firstPassListObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}first-pass/first_pass_$exportJobId.xlsx"
 
-    fun admissionFileObjectKey(exportJobId: String): String =
-        "${KEY_ROOT}admission-file/admission_file_$exportJobId.xlsx"
+    fun admissionFileObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}admission-file/admission_file_$exportJobId.xlsx"
 
     /** 1차 합격자 수험표를 한 장씩 이어 붙인 PDF 하나입니다. */
-    fun admissionTicketBundleObjectKey(exportJobId: String): String =
-        "${KEY_ROOT}admission-ticket/admission_tickets_$exportJobId.pdf"
+    fun admissionTicketBundleObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}admission-ticket/admission_tickets_$exportJobId.pdf"
 }
