@@ -46,6 +46,7 @@ class ExportService(
             // 프론트가 보낸 조건에 맡기지 않는다. 수험표는 서버가 1차 합격자로 좁힌다.
             ExportType.ADMISSION_TICKET -> command.filter.forAdmissionTickets().also(::requireTicketTargets)
             ExportType.APPLICANT_LIST -> command.filter
+            ExportType.FIRST_PASS_LIST, ExportType.ADMISSION_FILE -> command.filter
         }
         val job = exportJobRepository.save(
             ExportJob(

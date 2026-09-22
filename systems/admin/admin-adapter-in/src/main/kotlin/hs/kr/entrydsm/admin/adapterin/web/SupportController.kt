@@ -9,6 +9,7 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.request.CreateNoticeRequest
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.UpdateNoticeRequest
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.CreateExportResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExportJobResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.response.FileDownloadResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.NoticeResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.QuestionAnswerResponse
 import hs.kr.entrydsm.admin.domain.command.AnswerQuestionCommand
@@ -18,6 +19,7 @@ import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.CreateFirstPassFileUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.DeleteNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadExportUseCase
@@ -36,6 +38,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 class SupportController(
     private val createExportUseCase: CreateExportUseCase,
+    private val createFirstPassFileUseCase: CreateFirstPassFileUseCase,
     private val readExportUseCase: ReadExportUseCase,
     private val createNoticeUseCase: CreateNoticeUseCase,
     private val updateNoticeUseCase: UpdateNoticeUseCase,
@@ -68,6 +71,14 @@ class SupportController(
         @PathVariable exportJobId: String,
     ): ResponseEntity<ApiResponse<ExportJobResponse>> =
         ResponseEntity.ok(ApiResponse(data = readExportUseCase.findById(exportJobId).toResponse()))
+
+    @GetMapping(AdminEndpointPaths.FIRST_PASS)
+    fun createFirstPassExport(): ResponseEntity<ApiResponse<FileDownloadResponse>> =
+        ResponseEntity.ok(
+            ApiResponse(
+                data = createFirstPassFileUseCase.create().let { FileDownloadResponse(it.downloadUrl, it.expiresAt) },
+            ),
+        )
 
     @PostMapping(AdminEndpointPaths.NOTICES)
     fun createNotice(

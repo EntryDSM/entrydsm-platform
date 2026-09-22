@@ -2,10 +2,8 @@ package hs.kr.entrydsm.admin.domain
 
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
-import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
-import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.policy.ExamineeNumberPolicy
 import hs.kr.entrydsm.admin.domain.policy.ScreeningPolicy
@@ -26,7 +24,6 @@ class AdminPolicyTest {
         status: ApplicantStatus = ApplicantStatus.PENDING,
         region: Region? = Region.DAEJEON,
         admissionType: AdmissionType? = AdmissionType.MEISTER,
-        address: String? = "대전광역시 유성구",
     ) = Applicant(
         id = id,
         name = "지원자$id",
@@ -40,79 +37,46 @@ class AdminPolicyTest {
         examineeNumber = examineeNumber,
         isArrived = isArrived,
         status = status,
-        address = address,
     )
 
     @Test
-    fun `전형과 지역별로 거리순 수험 번호를 발급하고 동률이면 지원자 번호를 사용한다`() {
+    fun `원서가 도착한 지원자에게만 지원자 번호 순으로 수험 번호를 발급한다`() {
         val result = ExamineeNumberPolicy.issue(
             listOf(
                 applicant(id = 3L),
                 applicant(id = 1L),
-                applicant(id = 2L, admissionType = AdmissionType.GENERAL, region = Region.NATIONWIDE),
+                applicant(id = 2L, isArrived = false),
             ),
-            mapOf(1L to 100L, 2L to 50L, 3L to 100L),
         )
 
-        assertEquals(listOf("11001", "11002", "32001"), result.issued.map { it.examineeNumber })
-        assertEquals(listOf(1L, 3L, 2L), result.issued.map { it.id })
-    }
-
-    @Test
-    fun `전형과 지역 코드를 조합한다`() {
-        val applicants = AdmissionType.entries.flatMap { type ->
-            Region.entries.map { region -> applicant(id = type.ordinal * 10L + region.ordinal, admissionType = type, region = region) }
-        }
-
-        val result = ExamineeNumberPolicy.issue(applicants, applicants.associate { it.id to 1L })
-
-        assertEquals(setOf("31001", "32001", "11001", "12001", "21001", "22001"), result.issued.map { it.examineeNumber }.toSet())
-    }
-
-    @Test
-    fun `미도착과 필수값 누락은 제외하고 기존 그룹 번호 다음부터 발급한다`() {
-        val result = ExamineeNumberPolicy.issue(
-            listOf(
-                applicant(id = 1L, examineeNumber = "11007"),
-                applicant(id = 2L),
-                applicant(id = 3L, isArrived = false),
-                applicant(id = 4L, address = null),
-            ),
-            mapOf(2L to 10L),
-        )
-
-        assertEquals(1, result.skippedCount)
-        assertEquals(listOf("11008"), result.issued.map { it.examineeNumber })
+        assertEquals(listOf("100001", "100002"), result.issued.map { it.examineeNumber })
+        assertEquals(listOf(1L, 3L), result.issued.map { it.id })
         assertEquals(2, result.totalTargets)
     }
 
     @Test
-    fun `형식이 잘못된 기존 번호는 덮어쓰지 않고 신규 번호 예약에서도 제외한다`() {
+    fun `이미 수험 번호가 있는 지원자는 건너뛰고 다음 번호부터 이어 발급한다`() {
         val result = ExamineeNumberPolicy.issue(
             listOf(
-                applicant(id = 1L, examineeNumber = "잘못된번호"),
+                applicant(id = 1L, examineeNumber = "100001"),
                 applicant(id = 2L),
             ),
-            mapOf(2L to 10L),
         )
 
-        assertEquals(listOf("11001"), result.issued.map { it.examineeNumber })
         assertEquals(1, result.skippedCount)
+        assertEquals(listOf("100002"), result.issued.map { it.examineeNumber })
     }
 
     @Test
-    fun `그룹 순번이 999를 넘으면 실패한다`() {
-        val exception = runCatching {
-            ExamineeNumberPolicy.issue(
-                listOf(
-                    applicant(id = 1L, examineeNumber = "11999"),
-                    applicant(id = 2L),
-                ),
-                mapOf(2L to 10L),
-            )
-        }.exceptionOrNull()
+    fun `기존 수험 번호가 시작 번호보다 작아도 시작 번호부터 발급한다`() {
+        val result = ExamineeNumberPolicy.issue(
+            listOf(
+                applicant(id = 1L, examineeNumber = "7"),
+                applicant(id = 2L),
+            ),
+        )
 
-        assertEquals(ErrorCode.EXAMINEE_NUMBER_LIMIT_EXCEEDED, (exception as AdminDomainException).errorCode)
+        assertEquals(listOf("100001"), result.issued.map { it.examineeNumber })
     }
 
     /** 모든 지역 × 전형 묶음에 같은 정원을 준다. */
