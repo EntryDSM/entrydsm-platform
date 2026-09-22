@@ -82,6 +82,13 @@ class FileDocumentService(
             examineeNumber,
         )
 
+    override fun renderApplicationEssay(applicantId: Long): Pair<ByteArray?, ByteArray?> {
+        val applicant = applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+        val form = applicantPort.findApplicationForm(applicant.userId) ?: throw ApplicantNotFoundException(applicantId)
+        return form.introduction?.takeIf(String::isNotBlank)?.let { applicationFormPdfPort.renderEssay(form, true) } to
+            form.studyPlan?.takeIf(String::isNotBlank)?.let { applicationFormPdfPort.renderEssay(form, false) }
+    }
+
     private fun renderTicket(applicantId: Long, applicant: Applicant, examineeNumber: String?): ByteArray =
         pdfRenderPort.render(
             AdmissionTicketHtml.render(

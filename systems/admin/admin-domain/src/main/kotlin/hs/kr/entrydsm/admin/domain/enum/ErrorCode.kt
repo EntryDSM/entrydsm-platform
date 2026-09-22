@@ -30,6 +30,7 @@ enum class ErrorCode(
     ADMISSION_TICKET_NO_TARGET(409, "수험표를 발급할 1차 합격자가 없습니다."),
     EXAMINEE_NUMBER_LIMIT_EXCEEDED(409, "같은 전형·지역의 수험 번호는 999개까지 발급할 수 있습니다."),
     ADMISSION_TICKET_GENERATION_FAILED(500, "수험표 생성에 실패했습니다."),
+    ESSAY_GENERATION_FAILED(500, "자기소개서·학업계획서 생성에 실패했습니다."),
     STORAGE_UNAVAILABLE(500, "파일 저장소를 사용할 수 없습니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다."),
     NOTIFICATION_SERVICE_UNAVAILABLE(503, "알림 서비스를 일시적으로 사용할 수 없습니다."),

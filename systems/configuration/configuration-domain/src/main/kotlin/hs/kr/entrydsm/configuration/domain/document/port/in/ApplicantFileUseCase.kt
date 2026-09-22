@@ -28,4 +28,7 @@ interface ApplicantFileUseCase {
      * 서비스 안쪽 gRPC 로만 부르므로 요청자 권한을 보지 않는다.
      */
     fun renderAdmissionTicket(applicantId: Long, examineeNumber: String?): ByteArray
+
+    fun renderApplicationEssay(applicantId: Long): Pair<ByteArray?, ByteArray?> =
+        throw UnsupportedOperationException()
 }

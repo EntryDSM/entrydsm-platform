@@ -23,6 +23,8 @@ import hs.kr.entrydsm.configuration.grpc.GetScheduleRequest
 import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketRequest
 import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketResponse
 import hs.kr.entrydsm.configuration.grpc.ScheduleResponse
+import hs.kr.entrydsm.configuration.grpc.RenderApplicationEssayRequest
+import hs.kr.entrydsm.configuration.grpc.RenderApplicationEssayResponse
 import hs.kr.entrydsm.configuration.grpc.UpdateEnvironmentVariableRequest
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
@@ -42,6 +44,30 @@ class ConfigurationGrpcService(
     private val applicantFileUseCase: ApplicantFileUseCase,
     private val scheduleUseCase: ScheduleUseCase,
 ) : ConfigurationServiceGrpc.ConfigurationServiceImplBase() {
+
+    override fun renderApplicationEssay(
+        request: RenderApplicationEssayRequest,
+        responseObserver: StreamObserver<RenderApplicationEssayResponse>,
+    ) {
+        val essays = try {
+            applicantFileUseCase.renderApplicationEssay(request.applicantId)
+        } catch (exception: Exception) {
+            return responseObserver.onError(
+                when (exception) {
+                    is ApplicantNotFoundException -> Status.NOT_FOUND
+                    is ApplicantLookupFailedException -> Status.UNAVAILABLE
+                    else -> Status.INTERNAL
+                }.withDescription(exception.message).withCause(exception).asRuntimeException(),
+            )
+        }
+        responseObserver.onNext(
+            RenderApplicationEssayResponse.newBuilder()
+                .also { builder -> essays.first?.let { builder.introductionPdf = ByteString.copyFrom(it) } }
+                .also { builder -> essays.second?.let { builder.studyPlanPdf = ByteString.copyFrom(it) } }
+                .build(),
+        )
+        responseObserver.onCompleted()
+    }
 
     /** admin 수험표 일괄 출력이 지원자마다 부른다. admin 은 실패를 작업 실패로만 쓴다. */
     override fun renderAdmissionTicket(
