@@ -1,7 +1,11 @@
 package hs.kr.entrydsm.configuration.adapterin.grpc
 
+import com.google.protobuf.ByteString
 import hs.kr.entrydsm.configuration.domain.command.CreateEnvironmentVariableCommand
 import hs.kr.entrydsm.configuration.domain.command.UpdateEnvironmentVariableCommand
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantLookupFailedException
+import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
+import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCase
 import hs.kr.entrydsm.configuration.domain.port.`in`.CreateEnvironmentVariableUseCase
 import hs.kr.entrydsm.configuration.domain.port.`in`.DeleteEnvironmentVariableUseCase
 import hs.kr.entrydsm.configuration.domain.port.`in`.ReadEnvironmentVariableUseCase
@@ -14,7 +18,10 @@ import hs.kr.entrydsm.configuration.grpc.EnvironmentVariableResponse
 import hs.kr.entrydsm.configuration.grpc.GetAllEnvironmentVariablesRequest
 import hs.kr.entrydsm.configuration.grpc.GetAllEnvironmentVariablesResponse
 import hs.kr.entrydsm.configuration.grpc.GetEnvironmentVariableRequest
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketRequest
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketResponse
 import hs.kr.entrydsm.configuration.grpc.UpdateEnvironmentVariableRequest
+import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import org.springframework.stereotype.Component
 
@@ -24,7 +31,31 @@ class ConfigurationGrpcService(
     private val readUseCase: ReadEnvironmentVariableUseCase,
     private val updateUseCase: UpdateEnvironmentVariableUseCase,
     private val deleteUseCase: DeleteEnvironmentVariableUseCase,
+    private val applicantFileUseCase: ApplicantFileUseCase,
 ) : ConfigurationServiceGrpc.ConfigurationServiceImplBase() {
+
+    /** admin 수험표 일괄 출력이 지원자마다 부른다. admin 은 실패를 작업 실패로만 쓴다. */
+    override fun renderAdmissionTicket(
+        request: RenderAdmissionTicketRequest,
+        responseObserver: StreamObserver<RenderAdmissionTicketResponse>,
+    ) {
+        val pdf = try {
+            applicantFileUseCase.renderAdmissionTicket(
+                request.applicantId,
+                request.examineeNumber.takeIf { request.hasExamineeNumber() },
+            )
+        } catch (exception: Exception) {
+            return responseObserver.onError(
+                when (exception) {
+                    is ApplicantNotFoundException -> Status.NOT_FOUND
+                    is ApplicantLookupFailedException -> Status.UNAVAILABLE
+                    else -> Status.INTERNAL
+                }.withDescription(exception.message).withCause(exception).asRuntimeException(),
+            )
+        }
+        responseObserver.onNext(RenderAdmissionTicketResponse.newBuilder().setPdf(ByteString.copyFrom(pdf)).build())
+        responseObserver.onCompleted()
+    }
 
     override fun createEnvironmentVariable(
         request: CreateEnvironmentVariableRequest,

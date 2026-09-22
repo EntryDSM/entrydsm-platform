@@ -3,12 +3,15 @@ package hs.kr.entrydsm.admin.application
 import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
+import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
+import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.DownloadLink
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.ExportJobView
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadExportUseCase
+import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
 import hs.kr.entrydsm.admin.domain.port.out.StoragePort
 import java.time.Clock
@@ -28,6 +31,7 @@ private const val EXPORT_JOB_ID_PREFIX = "exp_"
 @Transactional(readOnly = true)
 class ExportService(
     private val exportJobRepository: ExportJobRepository,
+    private val applicantRepository: ApplicantRepository,
     private val applicationEventPublisher: ApplicationEventPublisher,
     private val storagePort: StoragePort,
     private val clock: Clock,
@@ -38,18 +42,33 @@ class ExportService(
 
     @Transactional
     override fun create(command: CreateExportCommand): ExportJob {
+        val filter = when (command.type) {
+            // 프론트가 보낸 조건에 맡기지 않는다. 수험표는 서버가 1차 합격자로 좁힌다.
+            ExportType.ADMISSION_TICKET -> command.filter.forAdmissionTickets().also(::requireTicketTargets)
+            ExportType.APPLICANT_LIST -> command.filter
+        }
         val job = exportJobRepository.save(
             ExportJob(
                 exportJobId = EXPORT_JOB_ID_PREFIX + UUID.randomUUID().toString().replace("-", ""),
                 type = command.type,
                 status = ExportStatus.PENDING,
-                filter = command.filter,
+                filter = filter,
                 createdAt = Instant.now(clock),
             ),
         )
 
         applicationEventPublisher.publishEvent(ExportJobCreatedEvent(job))
         return job
+    }
+
+    /**
+     * 1차 산출 전처럼 대상이 없으면 접수하지 않는다. 비동기 작업의 실패로 두면 관리자 화면에는
+     * "잠시 후 다시 시도" 만 떠서 무엇이 모자란지 알 수 없다.
+     */
+    private fun requireTicketTargets(filter: ApplicantFilter) {
+        if (applicantRepository.findAll(filter).isEmpty()) {
+            throw AdminDomainException(ErrorCode.ADMISSION_TICKET_NO_TARGET)
+        }
     }
 
     override fun findById(exportJobId: String): ExportJobView {
