@@ -27,9 +27,11 @@ enum class ErrorCode(
     INVALID_STATUS_TRANSITION(409, "현재 상태에서는 변경할 수 없는 상태입니다."),
     EXAMINEE_NUMBER_NOT_ISSUED(409, "수험 번호가 발급되지 않은 지원자입니다."),
     EXPORT_NOT_COMPLETED(409, "아직 완료되지 않은 Export 작업입니다."),
+    EXAMINEE_NUMBER_LIMIT_EXCEEDED(409, "같은 전형·지역의 수험 번호는 999개까지 발급할 수 있습니다."),
     ADMISSION_TICKET_GENERATION_FAILED(500, "수험표 생성에 실패했습니다."),
     STORAGE_UNAVAILABLE(500, "파일 저장소를 사용할 수 없습니다."),
     INTERNAL_SERVER_ERROR(500, "서버 내부 오류가 발생했습니다."),
     NOTIFICATION_SERVICE_UNAVAILABLE(503, "알림 서비스를 일시적으로 사용할 수 없습니다."),
     APPLICATION_SERVICE_UNAVAILABLE(503, "원서 서비스를 일시적으로 사용할 수 없습니다."),
+    DISTANCE_SERVICE_UNAVAILABLE(503, "거리 계산 서비스를 일시적으로 사용할 수 없습니다."),
 }

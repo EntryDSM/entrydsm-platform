@@ -32,6 +32,10 @@ fun interface ApplicantArrivalPort {
     fun update(applicantId: Long, isArrived: Boolean)
 }
 
+fun interface DistancePort {
+    fun distanceFromSchool(address: String): Long
+}
+
 interface ScorePolicyRepository {
     fun findCurrent(): ScorePolicy?
 
