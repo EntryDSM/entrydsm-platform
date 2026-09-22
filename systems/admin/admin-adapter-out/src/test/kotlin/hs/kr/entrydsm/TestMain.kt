@@ -1,7 +1,5 @@
 package hs.kr.entrydsm.admin.adapterout
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import hs.kr.entrydsm.admin.adapterout.distance.GoogleMapsDistanceAdapter
 import hs.kr.entrydsm.admin.adapterout.grpc.GrpcNoticeAdapter
 import hs.kr.entrydsm.admin.adapterout.grpc.NotificationGrpcChannel
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
@@ -24,27 +22,6 @@ class AdminAdapterOutModuleTest {
     @Test
     fun moduleLoads() {
         assertTrue(true)
-    }
-
-    @Test
-    fun googleMapsDistanceReadsMeterValue() {
-        val adapter = GoogleMapsDistanceAdapter(ObjectMapper(), "key", "https://example.test", "학교", 1000)
-
-        val distance = adapter.parseDistance(
-            """{"status":"OK","rows":[{"elements":[{"status":"OK","distance":{"value":1234}}]}]}""",
-        )
-
-        assertEquals(1234L, distance)
-    }
-
-    @Test
-    fun googleMapsFailureDoesNotExposeApiKey() {
-        val adapter = GoogleMapsDistanceAdapter(ObjectMapper(), "super-secret", "::", "학교", 1)
-
-        val exception = runCatching { adapter.distanceFromSchool("집") }.exceptionOrNull()
-
-        assertTrue(exception is AdminDomainException)
-        assertFalse(exception?.message.orEmpty().contains("super-secret"))
     }
 
     /** false 와 빈 첨부 목록도 보낸 값이라 전송 뒤에도 필드가 살아 있어야 한다. */

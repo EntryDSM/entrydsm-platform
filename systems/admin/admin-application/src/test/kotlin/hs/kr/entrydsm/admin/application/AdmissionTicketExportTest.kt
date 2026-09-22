@@ -97,7 +97,7 @@ class AdmissionTicketExportTest {
 
         assertEquals(listOf(3L to "100001", 1L to "100002", 4L to null), tickets.requested)
         val upload = storage.uploads.single()
-        assertEquals("admission-ticket/admission_tickets_exp_1.pdf", upload.first)
+        assertEquals("dsm_Entry/Backend/admission-ticket/admission_tickets_exp_1.pdf", upload.first)
         assertEquals("application/pdf", upload.second)
         assertEquals("ticket-3|ticket-1|ticket-4", upload.third)
         val finished = jobs.saved.last()
@@ -188,5 +188,7 @@ class AdmissionTicketExportTest {
         }
 
         override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long): String = "https://s3/$objectKey"
+
+        override fun delete(objectKey: String) = Unit
     }
 }

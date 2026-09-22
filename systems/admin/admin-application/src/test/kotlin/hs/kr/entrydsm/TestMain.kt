@@ -9,18 +9,12 @@ import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
-import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
-import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
-import hs.kr.entrydsm.admin.domain.model.Page
-import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
-import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
-import hs.kr.entrydsm.admin.domain.port.out.DistancePort
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
 import hs.kr.entrydsm.admin.domain.port.out.PdfMergePort
 import hs.kr.entrydsm.admin.domain.port.out.StoragePort
@@ -281,38 +275,6 @@ class AdminApplicationModuleTest {
         val contentType get() = contentTypeProvider()
     }
 
-    @Test
-    fun doesNotSaveAnyNumberWhenOneDistanceLookupFailsAndSkipsAlreadyIssuedApplicant() {
-        val applicants = listOf(
-            Applicant(1L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON, address = "주소1", isArrived = true),
-            Applicant(2L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON, address = "주소2", isArrived = true),
-            Applicant(
-                3L,
-                admissionType = AdmissionType.MEISTER,
-                region = Region.DAEJEON,
-                address = "주소3",
-                isArrived = true,
-                examineeNumber = "11001",
-            ),
-        )
-        val repository = FakeApplicantRepository(applicants)
-        val requested = mutableListOf<String>()
-        val service = ApplicantService(
-            applicantRepository = repository,
-            applicantArrivalPort = ApplicantArrivalPort { _, _ -> },
-            distancePort = DistancePort { address ->
-                requested += address
-                if (address == "주소2") error("maps failed") else 100L
-            },
-            clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-        )
-
-        runCatching { service.issueAll() }
-
-        assertEquals(listOf("주소1", "주소2"), requested)
-        assertTrue(repository.saved.isEmpty())
-    }
-
     private fun applicant(
         id: Long,
         type: AdmissionType,
@@ -325,17 +287,6 @@ class AdminApplicationModuleTest {
         Proxy.newProxyInstance(javaClass.classLoader, arrayOf(type)) { _, method, _ ->
             if (method.name == response.first) response.second else error("unexpected call: ${method.name}")
         } as T
-
-    private class FakeApplicantRepository(private val applicants: List<Applicant>) : ApplicantRepository {
-        val saved = mutableListOf<Applicant>()
-
-        override fun search(filter: ApplicantFilter, pageRequest: PageRequest) = Page<Applicant>(emptyList(), 1, 20, 0L)
-        override fun findAll(filter: ApplicantFilter) = applicants
-        override fun findById(applicantId: Long) = applicants.find { it.id == applicantId }
-        override fun findDetailById(applicantId: Long): ApplicantDetail? = null
-        override fun save(applicant: Applicant) = applicant.also(saved::add)
-        override fun saveAll(applicants: List<Applicant>) = applicants.also(saved::addAll)
-    }
 
     private companion object {
         val EXPECTED_ADMISSION_FILE_HEADERS = "전형_지역_추가,접수번호,전형유형,지역,추가유형,성명,생년월일,주소,전화번호,성별,학력구분,졸업년도,출신학교,반,보호자 성명,보호자 전화번호,국어 3학년 2학기,사회 3학년 2학기,역사 3학년 2학기,수학 3학년 2학기,과학 3학년 2학기,기술가정 3학년 2학기,영어 3학년 2학기,국어 3학년 1학기,사회 3학년 1학기,역사 3학년 1학기,수학 3학년 1학기,과학 3학년 1학기,기술가정 3학년 1학기,영어 3학년 1학기,국어 직전 학기,사회 직전 학기,역사 직전 학기,수학 직전 학기,과학 직전 학기,기술가정 직전 학기,영어 직전 학기,국어 직전전 학기,사회 직전전 학기,역사 직전전 학기,수학 직전전 학기,과학 직전전 학기,기술가정 직전전 학기,영어 직전전 학기,3학년 성적 총합,직전 학기 성적 총합,직전전 학기 성적 총합,교과성적환산점수,봉사시간,봉사점수,결석,지각,조퇴,결과,출석점수,대회,자격증,가산점,1차전형 총점,nan,전형코드,지역코드,추가유형코드,검정고시 평균점".split(',')

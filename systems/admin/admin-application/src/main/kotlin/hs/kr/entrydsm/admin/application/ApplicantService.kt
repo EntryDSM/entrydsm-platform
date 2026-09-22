@@ -16,7 +16,6 @@ import hs.kr.entrydsm.admin.domain.port.`in`.ReadApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.UpdateApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
-import hs.kr.entrydsm.admin.domain.port.out.DistancePort
 import java.time.Clock
 import java.time.Instant
 import org.slf4j.LoggerFactory
@@ -28,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional
 class ApplicantService(
     private val applicantRepository: ApplicantRepository,
     private val applicantArrivalPort: ApplicantArrivalPort,
-    private val distancePort: DistancePort,
     private val clock: Clock,
 ) : ReadApplicantUseCase,
     UpdateApplicantUseCase,
@@ -89,18 +87,7 @@ class ApplicantService(
 
     @Transactional
     override fun issueAll(): ExamineeNumberIssueResult {
-        val applicants = applicantRepository.findAll()
-        applicants
-            .filter { it.examineeNumber != null && !ExamineeNumberPolicy.isValidExistingNumber(it) }
-            .forEach { logger.warn("Invalid existing examinee number skipped [applicantId={}]", it.id) }
-        val distances = applicants
-            .filter { it.isArrived && it.examineeNumber == null && it.admissionType != null && it.region != null }
-            .mapNotNull { applicant ->
-                applicant.address?.takeIf(String::isNotBlank)
-                    ?.let { applicant.id to distancePort.distanceFromSchool(it) }
-            }
-            .toMap()
-        val issuance = ExamineeNumberPolicy.issue(applicants, distances)
+        val issuance = ExamineeNumberPolicy.issue(applicantRepository.findAll())
         val now = Instant.now(clock)
 
         applicantRepository.saveAll(issuance.issued.map { it.copy(updatedAt = now) })

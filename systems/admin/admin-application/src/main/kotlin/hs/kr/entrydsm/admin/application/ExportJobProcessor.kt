@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.domain.document.DocumentNaming
 import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ExportJob
+import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
@@ -23,6 +24,8 @@ import org.springframework.transaction.event.TransactionalEventListener
 private const val PDF_CONTENT_TYPE = "application/pdf"
 private const val XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 private const val APPLICANT_LIST_SHEET = "지원자 목록"
+private const val FIRST_PASS_LIST_SHEET = "1차 합격자 명단"
+private const val ADMISSION_FILE_SHEET = "전형 자료"
 
 /** 지원자 목록 엑셀의 열. 머리글과 값을 한 줄에 두어 순서가 어긋나지 않게 한다. */
 private val APPLICANT_LIST_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = listOf(
@@ -38,6 +41,79 @@ private val APPLICANT_LIST_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = li
     "원서 도착" to { if (it.isArrived) "도착" else "미도착" },
     "상태" to { it.status.label },
     "총점" to { it.totalScore },
+)
+
+private val FIRST_PASS_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = listOf(
+    "수험번호" to { it.examineeNumber },
+    "접수번호" to { it.receiptNumber },
+    "성명" to { it.name },
+)
+
+private val ADMISSION_FILE_COLUMNS: List<Pair<String, (FirstPassRow) -> Any?>> = listOf(
+    "전형_지역_추가" to { it.combinedCode },
+    "접수번호" to { it.receiptNumber },
+    "전형유형" to { it.admissionType },
+    "지역" to { it.region },
+    "추가유형" to { it.specialAdmissionType },
+    "성명" to { it.name },
+    "생년월일" to { it.birthDate },
+    "주소" to { it.address },
+    "전화번호" to { it.phoneNumber },
+    "성별" to { it.gender },
+    "학력구분" to { it.graduationStatus },
+    "졸업년도" to { it.graduationYear },
+    "출신학교" to { it.schoolName },
+    "반" to { it.classNumber },
+    "보호자 성명" to { it.guardianName },
+    "보호자 전화번호" to { it.guardianPhoneNumber },
+    "국어 3학년 2학기" to { it.thirdGradeSecondSemester.korean },
+    "사회 3학년 2학기" to { it.thirdGradeSecondSemester.society },
+    "역사 3학년 2학기" to { it.thirdGradeSecondSemester.history },
+    "수학 3학년 2학기" to { it.thirdGradeSecondSemester.math },
+    "과학 3학년 2학기" to { it.thirdGradeSecondSemester.science },
+    "기술가정 3학년 2학기" to { it.thirdGradeSecondSemester.technology },
+    "영어 3학년 2학기" to { it.thirdGradeSecondSemester.english },
+    "국어 3학년 1학기" to { it.thirdGradeFirstSemester.korean },
+    "사회 3학년 1학기" to { it.thirdGradeFirstSemester.society },
+    "역사 3학년 1학기" to { it.thirdGradeFirstSemester.history },
+    "수학 3학년 1학기" to { it.thirdGradeFirstSemester.math },
+    "과학 3학년 1학기" to { it.thirdGradeFirstSemester.science },
+    "기술가정 3학년 1학기" to { it.thirdGradeFirstSemester.technology },
+    "영어 3학년 1학기" to { it.thirdGradeFirstSemester.english },
+    "국어 직전 학기" to { it.previousSemester.korean },
+    "사회 직전 학기" to { it.previousSemester.society },
+    "역사 직전 학기" to { it.previousSemester.history },
+    "수학 직전 학기" to { it.previousSemester.math },
+    "과학 직전 학기" to { it.previousSemester.science },
+    "기술가정 직전 학기" to { it.previousSemester.technology },
+    "영어 직전 학기" to { it.previousSemester.english },
+    "국어 직전전 학기" to { it.secondPreviousSemester.korean },
+    "사회 직전전 학기" to { it.secondPreviousSemester.society },
+    "역사 직전전 학기" to { it.secondPreviousSemester.history },
+    "수학 직전전 학기" to { it.secondPreviousSemester.math },
+    "과학 직전전 학기" to { it.secondPreviousSemester.science },
+    "기술가정 직전전 학기" to { it.secondPreviousSemester.technology },
+    "영어 직전전 학기" to { it.secondPreviousSemester.english },
+    "3학년 성적 총합" to { it.thirdGradeTotal },
+    "직전 학기 성적 총합" to { it.previousSemesterTotal },
+    "직전전 학기 성적 총합" to { it.secondPreviousSemesterTotal },
+    "교과성적환산점수" to { it.subjectScore },
+    "봉사시간" to { it.volunteerTime },
+    "봉사점수" to { it.volunteerScore },
+    "결석" to { it.absentCount },
+    "지각" to { it.lateCount },
+    "조퇴" to { it.earlyLeaveCount },
+    "결과" to { it.classAbsenceCount },
+    "출석점수" to { it.attendanceScore },
+    "대회" to { if (it.awarded == true) "Y" else null },
+    "자격증" to { if (it.certified == true) "Y" else null },
+    "가산점" to { it.additionalScore },
+    "1차전형 총점" to { it.totalScore },
+    "nan" to { null },
+    "전형코드" to { it.admissionTypeCode },
+    "지역코드" to { it.regionCode },
+    "추가유형코드" to { it.specialAdmissionTypeCode },
+    "검정고시 평균점" to { it.gedAverage },
 )
 
 /**
@@ -72,21 +148,69 @@ class ExportJobProcessor(
         process(event.job)
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    fun processNow(job: ExportJob) {
+        process(job)
+    }
+
     private fun process(job: ExportJob) {
-        exportJobRepository.save(job.started())
+        var current = exportJobRepository.save(job.started())
 
         runCatching {
-            val applicants = applicantRepository.findAll(job.filter)
+            if (job.type in setOf(ExportType.FIRST_PASS_LIST, ExportType.ADMISSION_FILE)) {
+                applicantRepository.syncExportProjection()
+            }
             when (job.type) {
-                ExportType.ADMISSION_TICKET -> bundleAdmissionTickets(job, applicants)
-                ExportType.APPLICANT_LIST -> writeApplicantList(job, applicants)
+                ExportType.FIRST_PASS_LIST -> {
+                    val applicants = applicantRepository.findFirstPassApplicants()
+                    current = exportJobRepository.save(current.withTotal(applicants.size))
+                    writeFirstPassList(current, applicants) {
+                        current = exportJobRepository.save(current.processed(applicants.size))
+                    }
+                }
+                ExportType.ADMISSION_FILE -> {
+                    val rows = applicantRepository.findAdmissionFileRows()
+                    current = exportJobRepository.save(current.withTotal(rows.size))
+                    writeAdmissionFile(current, rows) {
+                        current = exportJobRepository.save(current.processed(rows.size))
+                    }
+                }
+                else -> {
+                    val applicants = applicantRepository.findAll(job.filter)
+                    current = exportJobRepository.save(current.withTotal(applicants.size))
+                    when (job.type) {
+                        ExportType.ADMISSION_TICKET -> bundleAdmissionTickets(current, applicants)
+                        ExportType.APPLICANT_LIST -> writeApplicantList(current, applicants)
+                        ExportType.FIRST_PASS_LIST -> error("handled above")
+                        ExportType.ADMISSION_FILE -> error("handled above")
+                    }.also {
+                        current = exportJobRepository.save(current.processed(applicants.size))
+                    }
+                }
             }
         }.onSuccess { objectKey ->
-            exportJobRepository.save(job.completed(objectKey, Instant.now(clock)))
+            val completed = exportJobRepository.save(current.completed(objectKey, Instant.now(clock)))
+            if (completed.type in setOf(ExportType.FIRST_PASS_LIST, ExportType.ADMISSION_FILE)) {
+                deletePreviousExports(completed)
+            }
         }.onFailure { cause ->
             logger.error("Export job failed [exportJobId={}]", job.exportJobId, cause)
-            exportJobRepository.save(job.failed(Instant.now(clock)))
+            exportJobRepository.save(current.failed(Instant.now(clock)))
         }
+    }
+
+    private fun deletePreviousExports(latest: ExportJob) {
+        exportJobRepository.findDownloadableByType(latest.type)
+            .filter { it.exportJobId != latest.exportJobId }
+            .forEach { previous ->
+                val objectKey = previous.objectKey ?: return@forEach
+                runCatching {
+                    storagePort.delete(objectKey)
+                    exportJobRepository.save(previous.copy(objectKey = null))
+                }.onFailure { cause ->
+                    logger.error("Previous export deletion failed [exportJobId={}]", previous.exportJobId, cause)
+                }
+            }
     }
 
     /**
@@ -119,6 +243,38 @@ class ExportJobProcessor(
             },
         )
 
+        storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
+        return objectKey
+    }
+
+    private fun writeFirstPassList(
+        job: ExportJob,
+        applicants: List<Applicant>,
+        rendered: () -> Unit,
+    ): String {
+        val objectKey = DocumentNaming.firstPassListObjectKey(job.exportJobId)
+        val xlsx = xlsxRenderPort.render(
+            sheetName = FIRST_PASS_LIST_SHEET,
+            header = FIRST_PASS_COLUMNS.map { (title, _) -> title },
+            rows = applicants.map { applicant -> FIRST_PASS_COLUMNS.map { (_, value) -> value(applicant) } },
+        )
+        rendered()
+        storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
+        return objectKey
+    }
+
+    private fun writeAdmissionFile(
+        job: ExportJob,
+        rows: List<FirstPassRow>,
+        rendered: () -> Unit,
+    ): String {
+        val objectKey = DocumentNaming.admissionFileObjectKey(job.exportJobId)
+        val xlsx = xlsxRenderPort.render(
+            sheetName = ADMISSION_FILE_SHEET,
+            header = ADMISSION_FILE_COLUMNS.map { (title, _) -> title },
+            rows = rows.map { row -> ADMISSION_FILE_COLUMNS.map { (_, value) -> value(row) } },
+        )
+        rendered()
         storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
         return objectKey
     }

@@ -33,6 +33,7 @@ class ApplicantStatusOutboxAdapter(
         val payload = ApplicantStatusChangedEvent.newBuilder()
             .setEventId(event.eventId.toString())
             .setAccountId(event.accountId)
+            .setApplicantId(event.applicantId)
             .setApplicantStatus(ApplicantStatus.valueOf("APPLICANT_STATUS_${event.status.name}"))
             .setOccurredAtEpochMillis(event.occurredAt.toInstant(ZoneOffset.UTC).toEpochMilli())
             .setVersion(event.version)
