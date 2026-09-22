@@ -2,6 +2,7 @@ package hs.kr.entrydsm.admin.adapterin.web
 
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.ApiResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toCreateResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.common.toFirstPassResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.AnswerQuestionRequest
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.CreateExportRequest
@@ -9,6 +10,7 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.request.CreateNoticeRequest
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.UpdateNoticeRequest
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.CreateExportResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExportJobResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.response.FirstPassExportResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.NoticeResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.QuestionAnswerResponse
 import hs.kr.entrydsm.admin.domain.command.AnswerQuestionCommand
@@ -16,6 +18,7 @@ import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.command.CreateNoticeCommand
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
+import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
@@ -68,6 +71,14 @@ class SupportController(
         @PathVariable exportJobId: String,
     ): ResponseEntity<ApiResponse<ExportJobResponse>> =
         ResponseEntity.ok(ApiResponse(data = readExportUseCase.findById(exportJobId).toResponse()))
+
+    @GetMapping(AdminEndpointPaths.FIRST_PASS)
+    fun createFirstPassExport(): ResponseEntity<ApiResponse<FirstPassExportResponse>> =
+        ResponseEntity.ok(
+            ApiResponse(
+                data = createExportUseCase.create(CreateExportCommand(ExportType.FIRST_PASS_LIST)).toFirstPassResponse(),
+            ),
+        )
 
     @PostMapping(AdminEndpointPaths.NOTICES)
     fun createNotice(
