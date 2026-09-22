@@ -2,20 +2,31 @@ package hs.kr.entrydsm.admin.application
 
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
+import hs.kr.entrydsm.admin.domain.enum.ExportStatus
+import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ExportJob
+import hs.kr.entrydsm.admin.domain.model.FirstPassRow
+import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
+import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
+import hs.kr.entrydsm.admin.domain.port.out.PdfRenderPort
+import hs.kr.entrydsm.admin.domain.port.out.StoragePort
+import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
 import java.lang.reflect.Proxy
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
+import org.springframework.context.ApplicationEventPublisher
 
 class AdminApplicationModuleTest {
     @Test
@@ -63,6 +74,145 @@ class AdminApplicationModuleTest {
         assertEquals(1L, result.regionStatus?.byRegion?.get(ResidenceRegion.SEJONG))
     }
 
+    @Test
+    fun exportsFirstPassRowsInSpecifiedColumnOrderAndUpdatesCounts() {
+        val row = FirstPassRow(
+            receiptNumber = "0001",
+            combinedCode = "310",
+            name = "홍길동",
+            thirdGradeFirstSemester = SemesterGrades(korean = "A"),
+            totalScore = 99.5,
+        )
+        val fixture = exportFixture(listOf(row))
+
+        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+
+        assertEquals(EXPECTED_FIRST_PASS_HEADERS, fixture.header)
+        assertEquals("0001", fixture.rows.single()[1])
+        assertEquals("홍길동", fixture.rows.single()[5])
+        assertNull(fixture.rows.single()[EXPECTED_FIRST_PASS_HEADERS.indexOf("nan")])
+        assertEquals("first-pass/first_pass_exp_test.xlsx", fixture.objectKey)
+        assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fixture.contentType)
+        assertEquals(
+            listOf(ExportStatus.PROCESSING, ExportStatus.PROCESSING, ExportStatus.PROCESSING, ExportStatus.COMPLETED),
+            fixture.saved.map { it.status },
+        )
+        assertEquals(1, fixture.saved.last().totalCount)
+        assertEquals(1, fixture.saved.last().processedCount)
+    }
+
+    @Test
+    fun preservesProcessedCountWhenFirstPassUploadFails() {
+        val fixture = exportFixture(listOf(FirstPassRow(receiptNumber = "0001")), failUpload = true)
+
+        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+
+        assertEquals(ExportStatus.FAILED, fixture.saved.last().status)
+        assertEquals(1, fixture.saved.last().totalCount)
+        assertEquals(1, fixture.saved.last().processedCount)
+    }
+
+    @Test
+    fun returnsDownloadUrlAndExpiryForCompletedFirstPassExport() {
+        val completed = ExportJob(
+            exportJobId = "exp_test",
+            type = ExportType.FIRST_PASS_LIST,
+            status = ExportStatus.COMPLETED,
+            objectKey = "first-pass/first_pass_exp_test.xlsx",
+            totalCount = 2,
+            processedCount = 2,
+            createdAt = Instant.EPOCH,
+            completedAt = Instant.EPOCH,
+        )
+        val service = ExportService(
+            exportJobRepository = object : ExportJobRepository {
+                override fun findByExportJobId(exportJobId: String) = completed
+                override fun save(exportJob: ExportJob) = exportJob
+            },
+            applicationEventPublisher = repository(ApplicationEventPublisher::class.java, "unused" to Unit),
+            storagePort = object : StoragePort {
+                override fun upload(objectKey: String, contentType: String, content: ByteArray) = Unit
+                override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long) = "https://example.test/file"
+            },
+            clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+            downloadUrlExpiresInSeconds = 900,
+        )
+
+        val result = service.findById("exp_test")
+
+        assertEquals("https://example.test/file", result.download?.downloadUrl)
+        assertEquals(Instant.EPOCH.plusSeconds(900), result.download?.expiresAt)
+        assertEquals(2, result.job.totalCount)
+        assertEquals(2, result.job.processedCount)
+    }
+
+    private fun exportFixture(rows: List<FirstPassRow>, failUpload: Boolean = false): ExportFixture {
+        val saved = mutableListOf<ExportJob>()
+        val exportRepository = object : ExportJobRepository {
+            override fun findByExportJobId(exportJobId: String): ExportJob? = saved.lastOrNull()
+            override fun save(exportJob: ExportJob): ExportJob = exportJob.also(saved::add)
+        }
+        var capturedHeader = emptyList<String>()
+        var capturedRows = emptyList<List<Any?>>()
+        var capturedObjectKey: String? = null
+        var capturedContentType: String? = null
+        val processor = ExportJobProcessor(
+            exportJobRepository = exportRepository,
+            applicantRepository = repository(ApplicantRepository::class.java, "findFirstPassRows" to rows),
+            pdfRenderPort = object : PdfRenderPort {
+                override fun render(html: String) = byteArrayOf()
+            },
+            xlsxRenderPort = object : XlsxRenderPort {
+                override fun render(sheetName: String, header: List<String>, rows: List<List<Any?>>): ByteArray {
+                    capturedHeader = header
+                    capturedRows = rows
+                    return byteArrayOf(1)
+                }
+            },
+            storagePort = object : StoragePort {
+                override fun upload(objectKey: String, contentType: String, content: ByteArray) {
+                    capturedObjectKey = objectKey
+                    capturedContentType = contentType
+                    if (failUpload) error("upload failed")
+                }
+
+                override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long) = "unused"
+            },
+            clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+            admissionYear = 2027,
+        )
+        val job = ExportJob(
+            exportJobId = "exp_test",
+            type = ExportType.FIRST_PASS_LIST,
+            status = ExportStatus.PENDING,
+            createdAt = Instant.EPOCH,
+        )
+        return ExportFixture(
+            processor = processor,
+            job = job,
+            saved = saved,
+            headerProvider = { capturedHeader },
+            rowsProvider = { capturedRows },
+            objectKeyProvider = { capturedObjectKey },
+            contentTypeProvider = { capturedContentType },
+        )
+    }
+
+    private data class ExportFixture(
+        val processor: ExportJobProcessor,
+        val job: ExportJob,
+        val saved: List<ExportJob>,
+        private val headerProvider: () -> List<String>,
+        private val rowsProvider: () -> List<List<Any?>>,
+        private val objectKeyProvider: () -> String?,
+        private val contentTypeProvider: () -> String?,
+    ) {
+        val header get() = headerProvider()
+        val rows get() = rowsProvider()
+        val objectKey get() = objectKeyProvider()
+        val contentType get() = contentTypeProvider()
+    }
+
     private fun applicant(
         id: Long,
         type: AdmissionType,
@@ -75,4 +225,8 @@ class AdminApplicationModuleTest {
         Proxy.newProxyInstance(javaClass.classLoader, arrayOf(type)) { _, method, _ ->
             if (method.name == response.first) response.second else error("unexpected call: ${method.name}")
         } as T
+
+    private companion object {
+        val EXPECTED_FIRST_PASS_HEADERS = "전형_지역_추가,접수번호,전형유형,지역,추가유형,성명,생년월일,주소,전화번호,성별,학력구분,졸업년도,출신학교,반,보호자 성명,보호자 전화번호,국어 3학년 2학기,사회 3학년 2학기,역사 3학년 2학기,수학 3학년 2학기,과학 3학년 2학기,기술가정 3학년 2학기,영어 3학년 2학기,국어 3학년 1학기,사회 3학년 1학기,역사 3학년 1학기,수학 3학년 1학기,과학 3학년 1학기,기술가정 3학년 1학기,영어 3학년 1학기,국어 직전 학기,사회 직전 학기,역사 직전 학기,수학 직전 학기,과학 직전 학기,기술가정 직전 학기,영어 직전 학기,국어 직전전 학기,사회 직전전 학기,역사 직전전 학기,수학 직전전 학기,과학 직전전 학기,기술가정 직전전 학기,영어 직전전 학기,3학년 성적 총합,직전 학기 성적 총합,직전전 학기 성적 총합,교과성적환산점수,봉사시간,봉사점수,결석,지각,조퇴,결과,출석점수,대회,자격증,가산점,1차전형 총점,nan,전형코드,지역코드,추가유형코드,검정고시 평균점".split(',')
+    }
 }

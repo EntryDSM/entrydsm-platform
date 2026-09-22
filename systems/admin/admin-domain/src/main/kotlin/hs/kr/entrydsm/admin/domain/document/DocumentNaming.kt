@@ -10,6 +10,9 @@ object DocumentNaming {
     fun applicantListObjectKey(exportJobId: String): String =
         "applicant-list/applicants_$exportJobId.xlsx"
 
+    fun firstPassListObjectKey(exportJobId: String): String =
+        "first-pass/first_pass_$exportJobId.xlsx"
+
     fun admissionTicketBundleObjectKey(exportJobId: String): String =
         "admission-ticket/admission_tickets_$exportJobId.zip"
 }

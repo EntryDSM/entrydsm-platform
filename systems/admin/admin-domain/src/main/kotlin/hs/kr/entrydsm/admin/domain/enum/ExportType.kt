@@ -6,4 +6,5 @@ package hs.kr.entrydsm.admin.domain.enum
 enum class ExportType {
     ADMISSION_TICKET,
     APPLICANT_LIST,
+    FIRST_PASS_LIST,
 }

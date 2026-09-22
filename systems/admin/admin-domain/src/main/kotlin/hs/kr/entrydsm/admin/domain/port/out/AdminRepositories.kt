@@ -6,6 +6,7 @@ import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
+import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.model.Notice
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
@@ -25,6 +26,8 @@ interface ApplicantRepository {
     fun save(applicant: Applicant): Applicant
 
     fun saveAll(applicants: List<Applicant>): List<Applicant>
+
+    fun findFirstPassRows(): List<FirstPassRow> = emptyList()
 
 }
 
