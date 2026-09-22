@@ -53,4 +53,6 @@ data class ApplicationFormResult(
     /** 서식 3 자기소개서·학업계획서 본문. 제출 검증이 요구하므로 제출본에는 차 있다. */
     val introduction: String?,
     val studyPlan: String?,
+    val classNumber: String? = null,
+    val gedAverage: Double? = null,
 )

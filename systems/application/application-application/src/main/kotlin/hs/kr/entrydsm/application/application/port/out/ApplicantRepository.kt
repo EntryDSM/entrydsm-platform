@@ -8,6 +8,7 @@ interface ApplicantRepository {
     fun save(applicant: Applicant): Applicant
     fun findById(id: Long): Applicant?
     fun findByAccountId(accountId: Long): Applicant?
+    fun findAllByAccountIdIn(accountIds: List<Long>): List<Applicant> = accountIds.mapNotNull(::findByAccountId)
 
     /**
      * 목록에 쓰는 값만 읽습니다. 원서 전문([Applicant])이 아닙니다.

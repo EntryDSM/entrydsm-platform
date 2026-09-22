@@ -31,6 +31,8 @@ interface ApplicationPort {
     fun findApplicant(applicantId: Long): ApplicantResult?
     /** 요강 <서식 1> 입학원서를 찍는 데 쓰는 원서 내용. 그 계정의 원서가 없으면 null. */
     fun findApplicationForm(accountId: Long): ApplicationFormResult?
+    fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> =
+        accountIds.mapNotNull(::findApplicationForm)
 
     /** 제출·심사·완료 상태의 원서 전체. 작성 중이거나 취소된 원서는 지원자가 아니다. */
     fun listApplicants(): List<ApplicantResult>
