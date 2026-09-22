@@ -246,19 +246,20 @@ private const val TICKET_PHOTO_WIDTH = 600
 
 /**
  * 증명사진을 수험표 사진 칸 크기로 줄여 JPEG 로 바꾼다. 관리자 일괄 출력은 수험표를 한 PDF 로 모으므로
- * 원본(최대 5MB)을 그대로 넣으면 파일이 인원수만큼 커진다. 칸보다 작거나 ImageIO 가 못 읽는 사진
- * (webp, CMYK JPEG)은 원본 그대로 둔다.
+ * 원본(최대 5MB)을 그대로 넣으면 파일이 인원수만큼 커진다. 투명한 곳에는 사진 칸의 회색이 비치므로 투명 사진은
+ * 칸보다 작아도 흰 바탕에 얹는다. 칸보다 작은 불투명 사진과 ImageIO 가 못 읽는 사진(webp, CMYK JPEG)은 원본 그대로 둔다.
  *
  * ponytail: 원본을 통째로 디코딩한다(12MP 면 수십 MB). 동시 출력이 몰려 메모리가 모자라면 ImageReader 서브샘플링으로 읽는다.
  */
 private fun fitTicketPhoto(contentType: String, bytes: ByteArray): Pair<String, ByteArray> {
     val image = runCatching { ImageIO.read(ByteArrayInputStream(bytes)) }.getOrNull()
-    if (image == null || image.width <= TICKET_PHOTO_WIDTH) return contentType to bytes
+    if (image == null || (image.width <= TICKET_PHOTO_WIDTH && !image.colorModel.hasAlpha())) return contentType to bytes
 
     // 한 번에 크게 줄이면 bilinear 가 픽셀을 건너뛰어 거칠어진다. 반씩 줄인다(getScaledInstance 보다 열 배 이상 빠르다).
+    // 칸보다 작은 투명 사진은 크기 그대로 한 번만 다시 그린다.
     var fitted: BufferedImage = image
-    while (fitted.width > TICKET_PHOTO_WIDTH) {
-        val width = maxOf(fitted.width / 2, TICKET_PHOTO_WIDTH)
+    do {
+        val width = minOf(fitted.width, maxOf(fitted.width / 2, TICKET_PHOTO_WIDTH))
         val height = maxOf(fitted.height * width / fitted.width, 1)
         val source = fitted
         fitted = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB).also { target ->
@@ -269,6 +270,6 @@ private fun fitTicketPhoto(contentType: String, bytes: ByteArray): Pair<String, 
                 dispose()
             }
         }
-    }
+    } while (fitted.width > TICKET_PHOTO_WIDTH)
     return "image/jpeg" to ByteArrayOutputStream().also { ImageIO.write(fitted, "jpg", it) }.toByteArray()
 }

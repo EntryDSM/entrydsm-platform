@@ -246,6 +246,23 @@ class FileDocumentServiceTest {
     }
 
     @Test
+    fun `칸보다 작은 투명 사진도 흰 바탕 JPEG로 넣어 사진 칸의 회색이 비치지 않게 한다`() {
+        val transparent = service.upload(photo(student(STUDENT_ID)), content())
+        storage.contents[transparent.document.objectKey] =
+            image(BufferedImage(300, 400, BufferedImage.TYPE_INT_ARGB), "png")
+        applicants[APPLICANT_ID] = applicant(photoFileId = transparent.document.publicId)
+
+        service.renderAdmissionTicket(APPLICANT_ID, examineeNumber = null)
+
+        val (contentType, bytes) = embeddedPhoto(pdf.lastHtml)
+        val flattened = ImageIO.read(ByteArrayInputStream(bytes))
+        assertEquals("image/jpeg", contentType)
+        assertEquals(300 to 400, flattened.width to flattened.height)
+        val corner = Color(flattened.getRGB(0, 0))
+        assertTrue("$corner", minOf(corner.red, corner.green, corner.blue) > 250)
+    }
+
+    @Test
     fun `남의 지원자 수험표는 없어도 403이고, 관리자는 없는 지원자면 404다`() {
         assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket(APPLICANT_ID, student(11)) }
         assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket(404, student(11)) }
