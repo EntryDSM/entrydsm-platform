@@ -224,6 +224,8 @@ class ApplicationCommandService(
                     it.englishScore,
                 ).average()
             },
+            // 검정고시에서 다른 졸업구분으로 바꿔도 점수는 남아 있으니 졸업구분으로 거른다.
+            gedScores = academicRecord?.gedScores?.takeIf { graduationType == GraduationType.GED },
         )
     }
 

@@ -23,6 +23,7 @@ import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
+import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.domain.service.ScoreBreakdown
@@ -194,6 +195,15 @@ class ApplicationGrpcServiceTest {
             classNumber = "1",
             studentNumber = "30115",
             gedAverage = 95.5,
+            gedScores = GedScores(
+                koreanScore = 95,
+                societyScore = 90,
+                historyScore = 85,
+                mathScore = 80,
+                scienceScore = 75,
+                technologyScore = 70,
+                englishScore = 65,
+            ),
         )
 
         val found = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build())
@@ -238,6 +248,11 @@ class ApplicationGrpcServiceTest {
         assertEquals("1", found.classNumber)
         assertEquals("30115", found.studentNumber)
         assertEquals(95.5, found.gedAverage, 0.0)
+        // 과목 순서가 도메인과 proto 에서 달라 과목마다 다른 점수로 본다.
+        assertEquals(
+            listOf(95, 90, 85, 80, 75, 70, 65),
+            with(found.gedScores) { listOf(korean, society, history, math, science, technology, english) },
+        )
         assertEquals("1", found.admissionTypeCode)
         assertEquals("1", found.regionCode)
         assertEquals("1", found.specialAdmissionTypeCode)

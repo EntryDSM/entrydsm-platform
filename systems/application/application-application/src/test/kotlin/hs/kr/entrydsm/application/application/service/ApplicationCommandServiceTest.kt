@@ -26,6 +26,7 @@ import java.lang.reflect.Modifier
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.YearMonth
 import java.time.ZoneOffset
 import java.util.TimeZone
 import org.junit.Assert.assertEquals
@@ -280,6 +281,26 @@ class ApplicationCommandServiceTest {
         assertEquals(1, forms.size)
         assertEquals("2", forms.single().classNumber)
         assertEquals(70.0, forms.single().gedAverage)
+    }
+
+    @Test
+    fun applicationFormCarriesGedScoresOnlyWhileGraduationTypeIsGed() {
+        val scores = GedScores(100, 90, 80, 70, 60, 50, 40)
+        val repository = FakeApplicantRepository(
+            Applicant(
+                id = 1L,
+                accountId = 10L,
+                graduationType = GraduationType.GED,
+                academicRecord = AcademicRecord(gedScores = scores),
+            ),
+        )
+        val service = ApplicationCommandService(repository, OPEN)
+
+        assertEquals(scores, service.findApplicationForm(10L)?.gedScores)
+
+        // 졸업예정으로 바꿔도 학기 성적을 넣기 전까지 검정고시 점수가 남는다. 원서에는 싣지 않는다.
+        service.updateType(10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.PROSPECTIVE, YearMonth.of(2027, 2))
+        assertNull(service.findApplicationForm(10L)?.gedScores)
     }
 
     /**
