@@ -131,7 +131,7 @@
 ### 3.4 사진은 칸 크기로 줄여 넣는다 (document)
 
 - 한 파일로 모으면 크기가 한 장 × 인원이다. 예를 들어 5MB 사진 100명이면 500MB 다. 2.5 의 힙과 브라우저·프린터가 감당하기 어렵다
-- 사진 칸 폭은 약 66mm 다(A4 본문 170mm × 42% − 안쪽 여백). 가로 600px(약 230dpi)보다 크면 줄여서 JPEG(ImageIO 기본 품질)로 넣는다. 투명 PNG 는 흰 바탕에 얹는다
+- 사진 칸 폭은 약 66mm 다(A4 본문 170mm × 42% − 안쪽 여백). 가로 600px(약 230dpi)보다 크면 줄여서 JPEG(ImageIO 기본 품질)로 넣는다. 투명 사진은 칸보다 작아도 흰 바탕 JPEG 로 바꾼다. 그대로 두면 투명한 곳에 사진 칸의 회색(#d9d9d9)이 비친다(렌더해 확인, CodeRabbit 리뷰)
 - 반씩 줄이는 bilinear 를 쓴다. 12MP 사진에서 `getScaledInstance(SCALE_SMOOTH)` 는 약 450ms, 단계별 bilinear 는 약 35ms 였다(로컬 측정). 150명이면 1분과 5초 차이다
 - `ImageIO` 가 못 읽는 사진(webp, 일부 CMYK JPEG)은 줄이지 않고 원본을 넣는다. 지금 동작과 같다
 - 개별 수험표 REST 도 같은 코드라 같이 작아진다. 원서(`ApplicationFormPdfAdapter`)는 건드리지 않는다
@@ -215,7 +215,7 @@ message RenderAdmissionTicketResponse {
 
 - admin `AdmissionTicketExportTest`: 접수 때 보낸 `statuses` 를 버리고 `{FIRST_PASS}` 로 좁히고 다른 조건은 남긴다, 대상 0명(`PENDING`·`FIRST_FAIL`·`FINAL_FAIL` 뿐)이면 409 이고 작업·이벤트가 없다, `APPLICANT_LIST` 는 그대로 접수하고 지원자를 미리 읽지 않는다, 처리기가 수험번호 순(없으면 맨 뒤)으로 받아 PDF 하나로 올린다, 한 장이라도 실패하면 `FAILED` 이고 아무것도 올리지 않는다
 - admin `GrpcAdmissionTicketAdapterTest`: 실제 gRPC 서버로 요청 매핑, 6MB 응답 수신(한도), `NOT_FOUND`·`UNAVAILABLE`·`UNIMPLEMENTED` 옮기기. `PdfBoxMergeAdapterTest`: 받은 순서대로 이어 붙인다, 빈 목록은 실패
-- configuration `FileDocumentServiceTest`: 개별 수험표의 `접수 번호` 칸, 일괄 출력용은 넘어온 수험번호를 찍고 저장소에 올리지 않는다, 1800×2400 투명 PNG → 600×800 흰 바탕 JPEG, 300×400 PNG 는 바이트 그대로. `ConfigurationGrpcServiceTest`: 정상 응답과 Status 매핑
+- configuration `FileDocumentServiceTest`: 개별 수험표의 `접수 번호` 칸, 일괄 출력용은 넘어온 수험번호를 찍고 저장소에 올리지 않는다, 1800×2400 투명 PNG → 600×800 흰 바탕 JPEG, 300×400 불투명 PNG 는 바이트 그대로, 300×400 투명 PNG → 같은 크기 흰 바탕 JPEG. `ConfigurationGrpcServiceTest`: 정상 응답과 Status 매핑
 - 일부러 망가뜨려 확인했다: `forAdmissionTickets()` 를 빼면 좁히기·409 테스트 둘이, `maxInboundMessageSize` 를 빼면 6MB 테스트가 실패한다
 
 ### 8.2 로컬 E2E (2026-09-21 결과)

@@ -198,6 +198,7 @@ GET  /api/v11/admin/exports/{exportJobId}
 - 응답: `200`, `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`
 - **인증 헤더를 붙이지 않는다.** 서명이 쿼리에 들어 있어서 `Authorization` 을 함께 보내면 저장소가 400 으로 거절한다. 토큰을 자동으로 붙이는 공통 HTTP 클라이언트 대신 페이지 이동(`window.location.href = downloadUrl`)으로 연다
 - 파일 이름은 링크 경로의 마지막 부분인 `applicants_<exportJobId>.xlsx` 로 저장된다
+- 수험표(`ADMISSION_TICKET`)는 `Content-Type: application/pdf`, 파일 이름 `admission_tickets_<exportJobId>.pdf` 다. 1차 합격자 한 명이 한 쪽이고 수험번호 순이다. 새 창으로 열면 브라우저 PDF 뷰어로 보여 바로 인쇄할 수 있다
 
 ### 엑셀 구성
 
