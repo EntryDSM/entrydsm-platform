@@ -92,7 +92,7 @@ class AdminApplicationModuleTest {
         assertEquals("0001", fixture.rows.single()[1])
         assertEquals("홍길동", fixture.rows.single()[5])
         assertNull(fixture.rows.single()[EXPECTED_ADMISSION_FILE_HEADERS.indexOf("nan")])
-        assertEquals("admission-file/admission_file_exp_test.xlsx", fixture.objectKey)
+        assertEquals("dsm_Entry/Backend/admission-file/admission_file_exp_test.xlsx", fixture.objectKey)
         assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fixture.contentType)
         assertEquals(
             listOf(ExportStatus.PROCESSING, ExportStatus.PROCESSING, ExportStatus.PROCESSING, ExportStatus.COMPLETED),
@@ -133,7 +133,7 @@ class AdminApplicationModuleTest {
             exportJobId = "exp_previous",
             type = ExportType.ADMISSION_FILE,
             status = ExportStatus.COMPLETED,
-            objectKey = "admission-file/admission_file_exp_previous.xlsx",
+            objectKey = "dsm_Entry/Backend/admission-file/admission_file_exp_previous.xlsx",
             createdAt = Instant.EPOCH,
             completedAt = Instant.EPOCH,
         )
@@ -141,9 +141,9 @@ class AdminApplicationModuleTest {
 
         fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
 
-        assertEquals(listOf("admission-file/admission_file_exp_previous.xlsx"), fixture.deletedObjectKeys)
+        assertEquals(listOf("dsm_Entry/Backend/admission-file/admission_file_exp_previous.xlsx"), fixture.deletedObjectKeys)
         assertNull(fixture.saved.last { it.exportJobId == previous.exportJobId }.objectKey)
-        assertEquals("admission-file/admission_file_exp_test.xlsx", fixture.saved.last { it.exportJobId == fixture.job.exportJobId }.objectKey)
+        assertEquals("dsm_Entry/Backend/admission-file/admission_file_exp_test.xlsx", fixture.saved.last { it.exportJobId == fixture.job.exportJobId }.objectKey)
     }
 
     @Test
@@ -152,7 +152,7 @@ class AdminApplicationModuleTest {
             exportJobId = "exp_test",
             type = ExportType.FIRST_PASS_LIST,
             status = ExportStatus.COMPLETED,
-            objectKey = "first-pass/first_pass_exp_test.xlsx",
+            objectKey = "dsm_Entry/Backend/first-pass/first_pass_exp_test.xlsx",
             totalCount = 2,
             processedCount = 2,
             createdAt = Instant.EPOCH,
