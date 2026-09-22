@@ -212,6 +212,7 @@ class ApplicationCommandService(
                 ?.get(1)
                 ?.trimStart('0')
                 ?.ifEmpty { "0" },
+            studentNumber = middleSchoolInfo?.studentNumber,
             gedAverage = academicRecord?.gedScores?.let {
                 listOf(
                     it.koreanScore,

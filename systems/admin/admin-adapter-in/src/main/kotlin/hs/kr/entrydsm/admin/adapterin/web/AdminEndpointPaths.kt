@@ -24,6 +24,7 @@ object AdminEndpointPaths {
     const val STATISTICS = "$BASE/statistics"
     const val FIRST_PASS = "$BASE/first-pass"
     const val ADMISSION_FILE = "$BASE/admission-file"
+    const val APPLICATION_CHECKLIST = "$BASE/application-checklist"
     const val EXPORTS = "$BASE/exports"
     const val EXPORT = "$EXPORTS/{exportJobId}"
     const val NOTICES = "$BASE/notices"
