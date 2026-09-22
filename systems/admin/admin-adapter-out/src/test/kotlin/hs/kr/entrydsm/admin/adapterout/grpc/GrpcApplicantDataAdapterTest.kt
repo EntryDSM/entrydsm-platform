@@ -2,6 +2,8 @@ package hs.kr.entrydsm.admin.adapterout.grpc
 
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
 import hs.kr.entrydsm.admin.adapterout.repository.ScreeningJpaRepository
+import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportEventJpaRepository
+import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRepository
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
@@ -274,7 +276,14 @@ class GrpcApplicantDataAdapterTest {
         val server = ServerBuilder.forPort(0).addService(application).build().start()
         val channel = ApplicationGrpcChannel("localhost", server.port, 3000, 3000)
         return try {
-            block(GrpcApplicantDataAdapter(channel, screeningRepository(screenings)))
+            block(
+                GrpcApplicantDataAdapter(
+                    channel,
+                    screeningRepository(screenings),
+                    unusedRepository(ApplicantExportEventJpaRepository::class.java),
+                    unusedRepository(ApplicantExportProjectionJpaRepository::class.java),
+                ),
+            )
         } finally {
             channel.destroy()
             server.shutdownNow()
@@ -293,6 +302,11 @@ class GrpcApplicantDataAdapterTest {
                 else -> error("unexpected call: ${method.name}")
             }
         } as ScreeningJpaRepository
+
+    private fun <T> unusedRepository(type: Class<T>): T = Proxy.newProxyInstance(
+        javaClass.classLoader,
+        arrayOf(type),
+    ) { _, method, _ -> error("unexpected call: ${method.name}") } as T
 
     private class FakeApplicationService(
         private val applicants: List<ApplicantResponse>,

@@ -1,6 +1,9 @@
 package hs.kr.entrydsm.admin.adapterout.grpc
 
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
+import hs.kr.entrydsm.admin.adapterout.entity.ApplicantExportProjectionJpaEntity
+import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportEventJpaRepository
+import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ScreeningJpaRepository
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
@@ -53,6 +56,8 @@ import org.springframework.stereotype.Component
 class GrpcApplicantDataAdapter(
     private val grpc: ApplicationGrpcChannel,
     private val screeningJpaRepository: ScreeningJpaRepository,
+    private val exportEventRepository: ApplicantExportEventJpaRepository,
+    private val exportProjectionRepository: ApplicantExportProjectionJpaRepository,
 ) : ApplicantRepository, ApplicantArrivalPort {
     private val stub = ApplicationServiceGrpc.newBlockingStub(grpc.channel)
 
@@ -132,6 +137,65 @@ class GrpcApplicantDataAdapter(
         return applicants.mapNotNull { applicant ->
             forms[applicant.userId]?.toFirstPassRow()
         }.sortedBy { it.receiptNumber }
+    }
+
+    override fun findAdmissionFileRows(): List<FirstPassRow> {
+        return exportProjectionRepository.findAll()
+            .map { ApplicationFormResponse.parseFrom(it.payload).toFirstPassRow() }
+            .sortedBy { it.receiptNumber }
+    }
+
+    override fun findFirstPassApplicants(): List<Applicant> {
+        val screenings = screeningJpaRepository.findAll()
+            .filter { it.status == ApplicantStatus.FIRST_PASS }
+            .associateBy { it.applicantId }
+        return exportProjectionRepository.findAllById(screenings.keys).map { projection ->
+            val form = ApplicationFormResponse.parseFrom(projection.payload)
+            Applicant(
+                id = projection.applicantId,
+                name = form.name.takeIf { form.hasName() },
+                examineeNumber = screenings[projection.applicantId]?.examineeNumber,
+                status = ApplicantStatus.FIRST_PASS,
+            )
+        }.sortedBy { it.id }
+    }
+
+    override fun syncExportProjection() {
+        if (exportProjectionRepository.count() == 0L) {
+            val applicants = call { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }.applicantsList
+            if (applicants.isNotEmpty()) {
+                val initial = call {
+                    listStub().batchGetApplicationForms(
+                        BatchGetApplicationFormsRequest.newBuilder()
+                            .addAllAccountId(applicants.map { it.userId })
+                            .build(),
+                    )
+                }.applicationsList
+                exportProjectionRepository.saveAll(initial.map {
+                    ApplicantExportProjectionJpaEntity(it.applicantId, it.userId, it.toByteArray())
+                })
+            }
+        }
+        val events = exportEventRepository.findAllByProcessedFalse()
+        val latestEvents = events.groupBy { it.applicantId }.values.map { applicantEvents ->
+            applicantEvents.maxBy { it.eventVersion }
+        }
+        val removedStatuses = setOf("APPLICANT_STATUS_NONE", "APPLICANT_STATUS_DRAFT", "APPLICANT_STATUS_CANCELED")
+        latestEvents.filter { it.applicantStatus in removedStatuses }
+            .forEach { exportProjectionRepository.deleteById(it.applicantId) }
+
+        val active = latestEvents.filterNot { it.applicantStatus in removedStatuses }
+        if (active.isNotEmpty()) {
+            val forms = call {
+                listStub().batchGetApplicationForms(
+                    BatchGetApplicationFormsRequest.newBuilder().addAllAccountId(active.map { it.accountId }.distinct()).build(),
+                )
+            }.applicationsList
+            exportProjectionRepository.saveAll(forms.map {
+                ApplicantExportProjectionJpaEntity(it.applicantId, it.userId, it.toByteArray())
+            })
+        }
+        exportEventRepository.saveAll(events.onEach { it.processed = true })
     }
 
     private fun getApplicant(applicantId: Long): ApplicantResponse? =
