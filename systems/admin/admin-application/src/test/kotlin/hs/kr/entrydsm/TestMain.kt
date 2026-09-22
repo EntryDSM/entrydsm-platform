@@ -7,8 +7,14 @@ import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
+import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
+import hs.kr.entrydsm.admin.domain.model.Page
+import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
+import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
+import hs.kr.entrydsm.admin.domain.port.out.DistancePort
 import java.lang.reflect.Proxy
 import java.time.Clock
 import java.time.Instant
@@ -63,6 +69,38 @@ class AdminApplicationModuleTest {
         assertEquals(1L, result.regionStatus?.byRegion?.get(ResidenceRegion.SEJONG))
     }
 
+    @Test
+    fun doesNotSaveAnyNumberWhenOneDistanceLookupFailsAndSkipsAlreadyIssuedApplicant() {
+        val applicants = listOf(
+            Applicant(1L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON, address = "주소1", isArrived = true),
+            Applicant(2L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON, address = "주소2", isArrived = true),
+            Applicant(
+                3L,
+                admissionType = AdmissionType.MEISTER,
+                region = Region.DAEJEON,
+                address = "주소3",
+                isArrived = true,
+                examineeNumber = "11001",
+            ),
+        )
+        val repository = FakeApplicantRepository(applicants)
+        val requested = mutableListOf<String>()
+        val service = ApplicantService(
+            applicantRepository = repository,
+            applicantArrivalPort = ApplicantArrivalPort { _, _ -> },
+            distancePort = DistancePort { address ->
+                requested += address
+                if (address == "주소2") error("maps failed") else 100L
+            },
+            clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+        )
+
+        runCatching { service.issueAll() }
+
+        assertEquals(listOf("주소1", "주소2"), requested)
+        assertTrue(repository.saved.isEmpty())
+    }
+
     private fun applicant(
         id: Long,
         type: AdmissionType,
@@ -75,4 +113,15 @@ class AdminApplicationModuleTest {
         Proxy.newProxyInstance(javaClass.classLoader, arrayOf(type)) { _, method, _ ->
             if (method.name == response.first) response.second else error("unexpected call: ${method.name}")
         } as T
+
+    private class FakeApplicantRepository(private val applicants: List<Applicant>) : ApplicantRepository {
+        val saved = mutableListOf<Applicant>()
+
+        override fun search(filter: ApplicantFilter, pageRequest: PageRequest) = Page<Applicant>(emptyList(), 1, 20, 0L)
+        override fun findAll(filter: ApplicantFilter) = applicants
+        override fun findById(applicantId: Long) = applicants.find { it.id == applicantId }
+        override fun findDetailById(applicantId: Long): ApplicantDetail? = null
+        override fun save(applicant: Applicant) = applicant.also(saved::add)
+        override fun saveAll(applicants: List<Applicant>) = applicants.also(saved::addAll)
+    }
 }
