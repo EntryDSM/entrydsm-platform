@@ -3,6 +3,7 @@ package hs.kr.entrydsm.application.application.port.`in`
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateFamilyCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateIntroductionCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleSchoolCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
@@ -23,6 +24,8 @@ interface ApplicationPort {
     fun updateIntroduction(command: UpdateIntroductionCommand)
     fun updateStudyPlan(command: UpdateStudyPlanCommand)
     fun submit(command: SubmitApplicationCommand)
+    fun updateArrival(command: UpdateApplicantArrivalCommand): ApplicationSnapshotResult =
+        throw UnsupportedOperationException("updateArrival is not implemented")
     fun getLanding(accountId: Long?): LandingResult
     fun findByAccountId(accountId: Long): ApplicationSnapshotResult?
     fun findApplicant(applicantId: Long): ApplicantResult?

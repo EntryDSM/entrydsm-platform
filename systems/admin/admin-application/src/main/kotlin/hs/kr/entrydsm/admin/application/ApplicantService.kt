@@ -15,6 +15,7 @@ import hs.kr.entrydsm.admin.domain.port.`in`.IssueExamineeNumberUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.UpdateApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
+import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
 import java.time.Clock
 import java.time.Instant
 import org.slf4j.LoggerFactory
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class ApplicantService(
     private val applicantRepository: ApplicantRepository,
+    private val applicantArrivalPort: ApplicantArrivalPort,
     private val clock: Clock,
 ) : ReadApplicantUseCase,
     UpdateApplicantUseCase,
@@ -42,6 +44,9 @@ class ApplicantService(
     @Transactional
     override fun updateArrival(command: UpdateArrivalCommand) {
         val applicant = requireApplicant(command.applicantId)
+        if (applicant.isArrived == command.isArrived) return
+
+        applicantArrivalPort.update(command.applicantId, command.isArrived)
         applicantRepository.save(
             applicant.copy(
                 isArrived = command.isArrived,

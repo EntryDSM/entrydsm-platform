@@ -4,6 +4,7 @@ enum class ApplicantStatus {
     NONE,
     DRAFT,
     SUBMITTED,
+    ARRIVAL,
     REVIEWING,
     COMPLETED,
     CANCELED,

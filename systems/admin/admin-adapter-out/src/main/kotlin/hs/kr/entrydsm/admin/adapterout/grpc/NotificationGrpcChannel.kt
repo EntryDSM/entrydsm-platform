@@ -41,11 +41,13 @@ class NotificationGrpcChannel(
 internal fun StatusRuntimeException.toAdminException(
     notFound: ErrorCode = ErrorCode.INTERNAL_SERVER_ERROR,
     unavailable: ErrorCode = ErrorCode.NOTIFICATION_SERVICE_UNAVAILABLE,
+    failedPrecondition: ErrorCode = ErrorCode.INTERNAL_SERVER_ERROR,
 ): AdminDomainException =
     AdminDomainException(
         when (status.code) {
             Status.Code.INVALID_ARGUMENT -> ErrorCode.INVALID_REQUEST_BODY
             Status.Code.NOT_FOUND -> notFound
+            Status.Code.FAILED_PRECONDITION -> failedPrecondition
             Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED, Status.Code.UNIMPLEMENTED -> unavailable
             else -> ErrorCode.INTERNAL_SERVER_ERROR
         },

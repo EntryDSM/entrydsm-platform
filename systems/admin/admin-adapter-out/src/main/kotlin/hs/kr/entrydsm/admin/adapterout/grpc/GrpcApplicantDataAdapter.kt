@@ -13,6 +13,7 @@ import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
+import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
@@ -20,6 +21,7 @@ import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
+import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
@@ -43,7 +45,7 @@ import org.springframework.stereotype.Component
 class GrpcApplicantDataAdapter(
     private val grpc: ApplicationGrpcChannel,
     private val screeningJpaRepository: ScreeningJpaRepository,
-) : ApplicantRepository {
+) : ApplicantRepository, ApplicantArrivalPort {
     private val stub = ApplicationServiceGrpc.newBlockingStub(grpc.channel)
 
     override fun search(filter: ApplicantFilter, pageRequest: PageRequest): Page<Applicant> {
@@ -107,6 +109,17 @@ class GrpcApplicantDataAdapter(
     override fun saveAll(applicants: List<Applicant>): List<Applicant> {
         screeningJpaRepository.saveAll(applicants.map { it.toScreening() })
         return applicants
+    }
+
+    override fun update(applicantId: Long, isArrived: Boolean) {
+        call {
+            oneStub().updateApplicantArrival(
+                UpdateApplicantArrivalRequest.newBuilder()
+                    .setApplicantId(applicantId)
+                    .setIsArrived(isArrived)
+                    .build(),
+            )
+        }
     }
 
     private fun ApplicantResponse.toApplicant(screening: ScreeningJpaEntity?) = Applicant(
@@ -181,6 +194,7 @@ class GrpcApplicantDataAdapter(
         toAdminException(
             notFound = ErrorCode.APPLICANT_NOT_FOUND,
             unavailable = ErrorCode.APPLICATION_SERVICE_UNAVAILABLE,
+            failedPrecondition = ErrorCode.INVALID_STATUS_TRANSITION,
         )
 
     private companion object {
