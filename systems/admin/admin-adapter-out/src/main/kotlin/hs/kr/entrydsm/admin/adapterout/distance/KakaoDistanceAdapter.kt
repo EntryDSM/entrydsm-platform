@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.admin.adapterout.distance
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.port.out.DistancePort
@@ -13,6 +12,7 @@ import java.nio.charset.StandardCharsets
 import java.time.Duration
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import tools.jackson.databind.ObjectMapper
 
 @Component
 class KakaoDistanceAdapter(

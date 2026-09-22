@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.admin.adapterout
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import hs.kr.entrydsm.admin.adapterout.distance.KakaoDistanceAdapter
 import hs.kr.entrydsm.admin.adapterout.grpc.GrpcNoticeAdapter
 import hs.kr.entrydsm.admin.adapterout.grpc.NotificationGrpcChannel
@@ -19,6 +18,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import tools.jackson.databind.ObjectMapper
 
 class AdminAdapterOutModuleTest {
     @Test
