@@ -12,6 +12,7 @@ import jakarta.persistence.Enumerated
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
+import jakarta.persistence.Lob
 import jakarta.persistence.Table
 import java.time.Instant
 
@@ -66,6 +67,37 @@ class ScorePolicyJpaEntity(
         )
     }
 }
+
+@Entity
+@Table(name = "applicant_export_event")
+class ApplicantExportEventJpaEntity(
+    @Id
+    @Column(name = "event_id", length = 36)
+    val eventId: String,
+    @Column(name = "applicant_id", nullable = false)
+    val applicantId: Long,
+    @Column(name = "account_id", nullable = false)
+    val accountId: Long,
+    @Column(name = "applicant_status", nullable = false, length = 30)
+    val applicantStatus: String,
+    @Column(name = "event_version", nullable = false)
+    val eventVersion: Long,
+    @Column(name = "processed", nullable = false)
+    var processed: Boolean = false,
+)
+
+@Entity
+@Table(name = "applicant_export_projection")
+class ApplicantExportProjectionJpaEntity(
+    @Id
+    @Column(name = "applicant_id")
+    val applicantId: Long,
+    @Column(name = "account_id", nullable = false)
+    val accountId: Long,
+    @Lob
+    @Column(name = "payload", nullable = false, columnDefinition = "LONGBLOB")
+    val payload: ByteArray,
+)
 
 /**
  * ponytail: 필터 조건은 저장하지 않는다. 작업 객체를 그대로 처리기에 넘기므로 지금은 필요 없다.
