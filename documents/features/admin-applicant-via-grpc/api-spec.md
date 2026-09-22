@@ -29,7 +29,7 @@
 | 통계 `DAILY_TREND` | 원본 도착일 기준 | **원서 제출일** 기준 |
 | 통계 `REGION_DISTRIBUTION`·`TYPE_DISTRIBUTION` | 전원 집계 | 지역·전형이 빈 원서는 빠진다. `APPLICANT_COUNT.total` 에는 든다 |
 | 엑셀 열 | 15열 | 12열 ("교과 점수"·"출결 점수"·"봉사 점수" 삭제, "접수번호" 값은 `applicantId` 를 네 자리로 채운 `0001` 꼴) |
-| 수험표 ZIP 파일명 | `admission_ticket_{receiptNumber}.pdf` | `admission_ticket_{접수번호}.pdf` (`applicantId` 를 네 자리로 채운 `0001` 꼴) |
+| 수험표 내보내기 파일 | ZIP 안에 지원자별 `admission_ticket_{receiptNumber}.pdf` | 1차 합격자 수험표를 수험번호 순으로 이어 붙인 PDF 하나. 객체 키 `admission-ticket/admission_tickets_{exportJobId}.pdf`, 내보내기 완료 응답의 `downloadUrl` 로 받는다 (#254, `documents/features/admission-ticket-print`) |
 | application 장애 | 해당 없음 | `503 APPLICATION_SERVICE_UNAVAILABLE` |
 
 ## 공통
