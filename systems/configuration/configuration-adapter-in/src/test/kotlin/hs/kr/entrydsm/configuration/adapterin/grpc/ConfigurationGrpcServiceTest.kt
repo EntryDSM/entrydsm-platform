@@ -5,17 +5,22 @@ import hs.kr.entrydsm.configuration.domain.document.Requester
 import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantLookupFailedException
 import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCase
-import hs.kr.entrydsm.configuration.grpc.AdmissionTicketTarget
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsResponse
+import hs.kr.entrydsm.configuration.domain.schedule.Schedule
+import hs.kr.entrydsm.configuration.domain.schedule.port.`in`.ScheduleUseCase
+import hs.kr.entrydsm.configuration.grpc.GetScheduleRequest
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketRequest
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketResponse
+import hs.kr.entrydsm.configuration.grpc.ScheduleResponse
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import java.lang.reflect.Proxy
+import java.time.Instant
+import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** admin 수험표 일괄 출력이 부르는 RPC. admin 은 지원자와 수험번호 목록을 넘기고 xlsx 하나를 받는다. */
+/** admin 수험표 일괄 출력과 application 원서 접수 기간 확인이 부르는 RPC. */
 class ConfigurationGrpcServiceTest {
 
     @Test
@@ -26,8 +31,9 @@ class ConfigurationGrpcServiceTest {
             "xlsx-${tickets.size}".toByteArray()
         }
 
-        val observer = RecordingObserver()
-        service.renderAdmissionTickets(request(13L to "100002", 12L to null), observer)
+        val issued = RecordingObserver<RenderAdmissionTicketResponse>()
+        service.renderAdmissionTicket(request(12, "100001"), issued)
+        service.renderAdmissionTicket(request(13, examineeNumber = null), RecordingObserver<RenderAdmissionTicketResponse>())
 
         assertEquals("xlsx-2", observer.value?.xlsx?.toStringUtf8())
         assertTrue(observer.completed)
@@ -41,26 +47,42 @@ class ConfigurationGrpcServiceTest {
             ApplicantLookupFailedException(12) to Status.Code.UNAVAILABLE,
             IllegalStateException("render failed") to Status.Code.INTERNAL,
         ).forEach { (failure, code) ->
-            val observer = RecordingObserver()
-            service { throw failure }.renderAdmissionTickets(request(12L to null), observer)
+            val observer = RecordingObserver<RenderAdmissionTicketResponse>()
+            service { _, _ -> throw failure }.renderAdmissionTicket(request(12, examineeNumber = null), observer)
 
             assertEquals(code, Status.fromThrowable(observer.error).code)
         }
     }
 
-    private fun request(vararg tickets: Pair<Long, String?>) =
-        RenderAdmissionTicketsRequest.newBuilder()
-            .addAllTickets(
-                tickets.map { (applicantId, examineeNumber) ->
-                    AdmissionTicketTarget.newBuilder()
-                        .setApplicantId(applicantId)
-                        .also { builder -> examineeNumber?.let(builder::setExamineeNumber) }
-                        .build()
-                },
-            )
+    @Test
+    fun `일정은 한국 시각으로 읽어 epoch 로 주고 없는 제목은 NOT_FOUND 다`() {
+        val service = service(
+            schedules = schedules(
+                Schedule(1, "원서 접수", LocalDateTime.of(2026, 9, 19, 9, 0), LocalDateTime.of(2026, 10, 22, 17, 0)),
+            ),
+        )
+
+        val found = RecordingObserver<ScheduleResponse>()
+        service.getSchedule(GetScheduleRequest.newBuilder().setTitle("원서 접수").build(), found)
+        val missing = RecordingObserver<ScheduleResponse>()
+        service.getSchedule(GetScheduleRequest.newBuilder().setTitle("면접").build(), missing)
+
+        assertEquals(Instant.parse("2026-09-19T00:00:00Z").toEpochMilli(), found.value?.startAtEpochMillis)
+        assertEquals(Instant.parse("2026-10-22T08:00:00Z").toEpochMilli(), found.value?.endAtEpochMillis)
+        assertTrue(found.completed)
+        assertEquals(Status.Code.NOT_FOUND, Status.fromThrowable(missing.error).code)
+    }
+
+    private fun request(applicantId: Long, examineeNumber: String?) =
+        RenderAdmissionTicketRequest.newBuilder()
+            .setApplicantId(applicantId)
+            .also { builder -> examineeNumber?.let(builder::setExamineeNumber) }
             .build()
 
-    private fun service(render: (List<Pair<Long, String?>>) -> ByteArray) = ConfigurationGrpcService(
+    private fun service(
+        schedules: ScheduleUseCase = unused(),
+        ticket: (Long, String?) -> ByteArray = { _, _ -> error("unused") },
+    ) = ConfigurationGrpcService(
         unused(), unused(), unused(), unused(),
         object : ApplicantFileUseCase {
             override fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>) = render(tickets)
@@ -71,20 +93,31 @@ class ConfigurationGrpcServiceTest {
 
             override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile = error("unused")
         },
+        schedules,
     )
 
-    /** 환경변수 RPC 는 이 테스트에서 부르지 않는다. */
+    private fun schedules(vararg schedules: Schedule) = object : ScheduleUseCase {
+        override fun findByTitle(title: String) = schedules.find { it.title == title }
+
+        override fun findByYear(year: Int): List<Schedule> = error("unused")
+
+        override fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule = error("unused")
+
+        override fun updateAll(schedules: List<Schedule>): List<Schedule> = error("unused")
+    }
+
+    /** 환경변수 RPC 처럼 이 테스트에서 부르지 않는 유스케이스. */
     private inline fun <reified T : Any> unused(): T =
         Proxy.newProxyInstance(javaClass.classLoader, arrayOf(T::class.java)) { _, method, _ ->
             error("unexpected call: ${method.name}")
         } as T
 
-    private class RecordingObserver : StreamObserver<RenderAdmissionTicketsResponse> {
-        var value: RenderAdmissionTicketsResponse? = null
+    private class RecordingObserver<T> : StreamObserver<T> {
+        var value: T? = null
         var error: Throwable? = null
         var completed = false
 
-        override fun onNext(value: RenderAdmissionTicketsResponse) {
+        override fun onNext(value: T) {
             this.value = value
         }
 

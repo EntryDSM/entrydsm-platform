@@ -2,6 +2,7 @@ package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
+import hs.kr.entrydsm.application.application.exception.ApplicationPeriodClosedException
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
@@ -9,6 +10,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantA
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
+import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
@@ -44,7 +46,7 @@ class ApplicationCommandServiceTest {
     fun createReturnsExistingApplicantWithoutSavingAndAllowsNewAccount() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
         var event: ApplicantStatusChanged? = null
-        val service = ApplicationCommandService(repository) { event = it }
+        val service = ApplicationCommandService(repository, OPEN) { event = it }
 
         val existing = service.createApplicant(CreateApplicantCommand(10L))
         assertEquals(1L, existing.applicantId)
@@ -72,7 +74,7 @@ class ApplicationCommandServiceTest {
                 studyPlan = "학업 계획",
             ),
         )
-        val service = ApplicationCommandService(repository)
+        val service = ApplicationCommandService(repository, OPEN)
 
         service.submit(accountId = 10L)
         assertEquals(ApplicantStatus.SUBMITTED, repository.savedApplicant?.status)
@@ -85,7 +87,7 @@ class ApplicationCommandServiceTest {
 
     @Test
     fun cancelRejectsDraftApplication() {
-        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)))
+        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)), OPEN)
 
         assertThrows(ApplicationCancelNotAllowedException::class.java) {
             service.cancel(10L, null)
@@ -98,7 +100,7 @@ class ApplicationCommandServiceTest {
             Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED, statusVersion = 2),
         )
         val events = mutableListOf<ApplicantStatusChanged>()
-        val service = ApplicationCommandService(repository, events::add)
+        val service = ApplicationCommandService(repository, OPEN, events::add)
 
         val arrived = service.updateArrival(UpdateApplicantArrivalCommand(1L, true))
         assertEquals(ApplicantStatus.ARRIVAL, arrived.applicantStatus)
@@ -111,6 +113,49 @@ class ApplicationCommandServiceTest {
         val canceled = service.updateArrival(UpdateApplicantArrivalCommand(1L, false))
         assertEquals(ApplicantStatus.SUBMITTED, canceled.applicantStatus)
         assertEquals(4L, events.last().version)
+    }
+
+    @Test
+    fun outsideApplicationPeriodRejectsWritingButStillReturnsExistingApplicant() {
+        val repository = FakeApplicantRepository(
+            Applicant(
+                id = 1L,
+                accountId = 10L,
+                admissionType = AdmissionType.REGULAR,
+                name = "홍길동",
+                guardianName = "보호자",
+                introduction = "소개",
+                studyPlan = "학업 계획",
+            ),
+        )
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val service = ApplicationCommandService(repository, CLOSED, events::add)
+
+        // applicantId 를 받는 유일한 경로라 기간이 끝나도 이미 있는 원서는 돌려준다.
+        assertEquals(1L, service.createApplicant(CreateApplicantCommand(10L)).applicantId)
+        assertThrows(ApplicationPeriodClosedException::class.java) {
+            service.createApplicant(CreateApplicantCommand(11L))
+        }
+        assertThrows(ApplicationPeriodClosedException::class.java) {
+            service.updateIntroduction(accountId = 10L, introduction = "고친 소개")
+        }
+        assertThrows(ApplicationPeriodClosedException::class.java) { service.submit(accountId = 10L) }
+
+        assertNull(repository.savedApplicant)
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
+    fun cancelAndArrivalDoNotDependOnApplicationPeriod() {
+        fun submitted() = FakeApplicantRepository(
+            Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED, statusVersion = 2),
+        )
+
+        val canceled = ApplicationCommandService(submitted(), CLOSED).cancel(10L, null)
+        val arrived = ApplicationCommandService(submitted(), CLOSED).updateArrival(UpdateApplicantArrivalCommand(1L, true))
+
+        assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
+        assertEquals(ApplicantStatus.ARRIVAL, arrived.applicantStatus)
     }
 
     @Test
@@ -134,7 +179,7 @@ class ApplicationCommandServiceTest {
                 ),
             ),
         )
-        val service = ApplicationCommandService(repository)
+        val service = ApplicationCommandService(repository, OPEN)
 
         service.updateType(
             accountId = 10L,
@@ -151,7 +196,7 @@ class ApplicationCommandServiceTest {
 
     @Test
     fun socialAdmissionRequiresSensitiveConsent() {
-        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)))
+        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)), OPEN)
         val command = UpdateTypeCommand(
             accountId = 10L,
             admissionType = AdmissionType.SOCIAL,
@@ -167,7 +212,7 @@ class ApplicationCommandServiceTest {
     @Test
     fun updateFindsApplicantByRequesterAccount() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
-        val service = ApplicationCommandService(repository)
+        val service = ApplicationCommandService(repository, OPEN)
 
         service.updateIntroduction(accountId = 10L, introduction = "자기소개")
         assertEquals("자기소개", repository.savedApplicant?.introduction)
@@ -198,7 +243,7 @@ class ApplicationCommandServiceTest {
                 ),
             ),
         )
-        val service = ApplicationCommandService(repository)
+        val service = ApplicationCommandService(repository, OPEN)
 
         val form = requireNotNull(service.findApplicationForm(10L))
 
@@ -230,7 +275,7 @@ class ApplicationCommandServiceTest {
             ),
         )
 
-        val forms = ApplicationCommandService(repository).findApplicationForms(listOf(10L, 11L))
+        val forms = ApplicationCommandService(repository, OPEN).findApplicationForms(listOf(10L, 11L))
 
         assertEquals(1, forms.size)
         assertEquals("2", forms.single().classNumber)
@@ -257,7 +302,7 @@ class ApplicationCommandServiceTest {
                 ),
             )
 
-            ApplicationCommandService(repository).submit(accountId = 10L)
+            ApplicationCommandService(repository, OPEN).submit(accountId = 10L)
 
             val saved = repository.savedApplicant!!
             assertRecordedInUtc(saved.submittedAt!!)
@@ -306,6 +351,9 @@ class ApplicationCommandServiceTest {
     }
 
     private companion object {
+        val OPEN = ApplicationPeriodReader { Instant.MIN..Instant.MAX }
+        val CLOSED = ApplicationPeriodReader { null }
+
         fun all(grade: SubjectGrade): SubjectGrades =
             SubjectGrades(
                 koreanGrade = grade,

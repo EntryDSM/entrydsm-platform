@@ -2,7 +2,13 @@ KOTLIN_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_data_jpa",
     "@maven//:org_springframework_boot_spring_boot_starter_data_redis",
     "@maven//:com_mysql_mysql_connector_j",
+    "@maven//:io_grpc_grpc_netty_shaded",
+    "@maven//:io_grpc_grpc_protobuf",
+    "@maven//:io_grpc_grpc_stub",
+    "@maven//:javax_annotation_javax_annotation_api",
     "//contracts:application_java_proto",
+    "//contracts:configuration_grpc_java",
+    "//contracts:configuration_java_proto",
     "//systems/application/application-application:main",
     "//systems/application/application-domain:main",
 ]

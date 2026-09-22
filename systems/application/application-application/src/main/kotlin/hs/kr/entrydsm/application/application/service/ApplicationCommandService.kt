@@ -22,6 +22,7 @@ import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
+import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
@@ -43,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional
 class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
+    private val applicationPeriod: ApplicationPeriodReader,
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
     private val scoreCalculator = ScoreCalculator()
@@ -243,7 +245,9 @@ class ApplicationCommandService(
     }
 
     fun createApplicant(accountId: Long = 0): Applicant {
+        // 이미 있는 원서는 기간이 끝나도 돌려준다. applicantId 를 받는 유일한 경로라 수험표 출력에 쓴다.
         applicantRepository.findByAccountId(accountId)?.let { return it }
+        applicationPeriod.requireOpen()
         val applicant = applicantRepository.save(
             Applicant(
                 id = NEW_APPLICANT_ID,
@@ -262,7 +266,7 @@ class ApplicationCommandService(
         graduationType: GraduationType,
         graduationDate: YearMonth?,
     ) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         require(graduationType == GraduationType.GED || graduationDate != null) {
             "graduationDate is required unless graduationType is GED"
         }
@@ -307,7 +311,7 @@ class ApplicationCommandService(
         require(name.isNotBlank()) { "name is required" }
         require(phoneNumber.matches(PHONE_NUMBER_REGEX)) { "phoneNumber format is invalid" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.photoFileId = photoFileId
         applicant.name = name
         applicant.phoneNumber = phoneNumber
@@ -333,7 +337,7 @@ class ApplicationCommandService(
         require(addressBase.isNotBlank()) { "addressBase is required" }
         require(addressDetail.isNotBlank()) { "addressDetail is required" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.guardianName = guardianName
         applicant.guardianPhoneNumber = guardianPhoneNumber
         applicant.guardianGender = guardianGender
@@ -352,7 +356,7 @@ class ApplicationCommandService(
         schoolPhone: String,
         teacherName: String,
     ) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         require(applicant.graduationType != GraduationType.GED) {
             "middle school info is unavailable for GED applicants"
         }
@@ -376,7 +380,7 @@ class ApplicationCommandService(
         require(introduction.isNotBlank()) { "introduction is required" }
         require(introduction.length <= MAX_ESSAY_LENGTH) { "introduction is too long" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.introduction = introduction
         saveTouched(applicant)
     }
@@ -385,19 +389,28 @@ class ApplicationCommandService(
         require(studyPlan.isNotBlank()) { "studyPlan is required" }
         require(studyPlan.length <= MAX_ESSAY_LENGTH) { "studyPlan is too long" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.studyPlan = studyPlan
         saveTouched(applicant)
     }
 
     fun submit(accountId: Long?) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         require(applicant.admissionType != null) { "admission type is required" }
         require(!applicant.name.isNullOrBlank()) { "personal info is required" }
         require(!applicant.guardianName.isNullOrBlank()) { "family info is required" }
         require(!applicant.introduction.isNullOrBlank()) { "introduction is required" }
         require(!applicant.studyPlan.isNullOrBlank()) { "studyPlan is required" }
         markSubmitted(applicant)
+    }
+
+    /**
+     * 학생이 원서를 쓰는 요청은 원서 접수 기간에만 받는다.
+     * 취소(identity 경유)와 도착 처리(admin)는 기간과 상관없어 [getApplicantByAccountId] 를 쓴다.
+     */
+    private fun getWritableApplicant(accountId: Long?): Applicant {
+        applicationPeriod.requireOpen()
+        return getApplicantByAccountId(accountId)
     }
 
     private fun getApplicantByAccountId(accountId: Long?): Applicant {
