@@ -5,6 +5,7 @@ import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
 import hs.kr.entrydsm.application.application.port.`in`.MiddleSchoolPort
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
+import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
 import hs.kr.entrydsm.application.application.port.out.MiddleSchoolRepository
 import hs.kr.entrydsm.application.application.service.ApplicationCommandService
 import hs.kr.entrydsm.application.application.service.EvaluationCommandService
@@ -21,14 +22,16 @@ class ApplicationUseCaseConfig {
     @Bean
     fun applicationService(
         applicantRepository: ApplicantRepository,
+        applicationPeriodReader: ApplicationPeriodReader,
         applicantStatusEventOutbox: ApplicantStatusEventOutbox,
-    ): ApplicationPort = ApplicationCommandService(applicantRepository, applicantStatusEventOutbox)
+    ): ApplicationPort = ApplicationCommandService(applicantRepository, applicationPeriodReader, applicantStatusEventOutbox)
 
     @Bean
     fun evaluationService(
         applicantRepository: ApplicantRepository,
         scoreCalculator: ScoreCalculator,
-    ): EvaluationPort = EvaluationCommandService(applicantRepository, scoreCalculator)
+        applicationPeriodReader: ApplicationPeriodReader,
+    ): EvaluationPort = EvaluationCommandService(applicantRepository, scoreCalculator, applicationPeriodReader)
 
     @Bean
     fun middleSchoolService(

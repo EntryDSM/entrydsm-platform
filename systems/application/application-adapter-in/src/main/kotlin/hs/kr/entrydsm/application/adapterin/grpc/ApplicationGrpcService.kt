@@ -2,6 +2,8 @@ package hs.kr.entrydsm.application.adapterin.grpc
 
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
+import hs.kr.entrydsm.application.application.exception.ApplicationPeriodClosedException
+import hs.kr.entrydsm.application.application.exception.ApplicationPeriodLookupFailedException
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
@@ -138,6 +140,9 @@ class ApplicationGrpcService(
                     is IllegalArgumentException -> Status.INVALID_ARGUMENT
                     is ApplicantNotFoundException -> Status.NOT_FOUND
                     is ApplicationCancelNotAllowedException -> Status.FAILED_PRECONDITION
+                    // CreateApplication 이 새 원서를 만들 때 원서 접수 기간을 본다.
+                    is ApplicationPeriodClosedException -> Status.FAILED_PRECONDITION
+                    is ApplicationPeriodLookupFailedException -> Status.UNAVAILABLE
                     else -> Status.INTERNAL
                 }.withCause(exception).asRuntimeException(),
             )
