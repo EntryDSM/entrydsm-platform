@@ -4,6 +4,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameExc
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,14 +46,23 @@ class DocumentDomainTest {
     @Test
     fun `object key는 루트 prefix와 카테고리 prefix를 붙인다`() {
         assertEquals(
-            "dsm_Entry/Backend/admission-ticket/admission_ticket_12.pdf",
+            "dsm_Entry/backend/stag/admission-ticket/admission_ticket_12.pdf",
             FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_12.pdf"),
         )
+        assertEquals(
+            "dsm_Entry/backend/prod/admission-ticket/admission_ticket_12.pdf",
+            FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_12.pdf", "prod"),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_12.pdf", "dev")
+        }
     }
 
     @Test
     fun `카테고리는 자기 prefix 아래의 object key만 담는다`() {
         assertTrue(FileCategory.GUIDELINE.holds("dsm_Entry/Backend/guideline/a_guide.pdf"))
+        assertTrue(FileCategory.GUIDELINE.holds("dsm_Entry/backend/prod/guideline/a_guide.pdf"))
+        assertTrue(FileCategory.GUIDELINE.holds("dsm_Entry/backend/stag/guideline/a_guide.pdf"))
         assertFalse(FileCategory.GUIDELINE.holds("dsm_Entry/Backend/application/application_12.pdf"))
     }
 

@@ -41,6 +41,7 @@ class FileDocumentService(
     private val pdfRenderPort: PdfRenderPort,
     private val applicationFormPdfPort: ApplicationFormPdfPort,
     private val admissionYear: Int,
+    private val storageEnvironment: String = "stag",
 ) : ApplicantFileUseCase,
     FileUseCase {
 
@@ -174,7 +175,7 @@ class FileDocumentService(
         content: InputStream,
         ownerUserId: Long?,
     ): DownloadableFile {
-        val objectKey = category.objectKeyOf(fileName)
+        val objectKey = category.objectKeyOf(fileName, storageEnvironment)
         val downloadUrl = storagePort.issueDownloadUrl(objectKey, presignExpirySeconds)
         val stored = storagePort.upload(objectKey, extension.contentType, sizeBytes, content)
         val document = FileDocument(

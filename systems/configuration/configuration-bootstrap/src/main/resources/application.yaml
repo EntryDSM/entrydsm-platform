@@ -34,6 +34,7 @@ aws:
     bucket: ${AWS_S3_BUCKET}
     region: ${AWS_S3_REGION}
     presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS}
+    environment: ${STORAGE_ENV}
 
 server:
   port: ${SERVER_PORT}

@@ -22,8 +22,9 @@ class DocumentBeanConfig {
         applicationFormPdfPort: ApplicationFormPdfPort,
         @Value("\${aws.s3.presign-expiry-seconds}") presignExpirySeconds: Long,
         @Value("\${document.admission-year}") admissionYear: Int,
+        @Value("\${aws.s3.environment}") storageEnvironment: String,
     ) = FileDocumentService(
         storagePort, fileDocumentRepository, presignExpirySeconds, applicantPort, pdfRenderPort, applicationFormPdfPort,
-        admissionYear,
+        admissionYear, storageEnvironment,
     )
 }

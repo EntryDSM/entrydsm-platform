@@ -62,10 +62,10 @@ class FileDocumentServiceTest {
         val generated = service.generateApplicationForm(student(STUDENT_ID))
 
         // 파일명은 계정(10)이 아니라 원서가 알려 준 접수번호(12)로 짓는다.
-        assertEquals("dsm_Entry/Backend/application/application_0012.pdf", generated.document.objectKey)
+        assertEquals("dsm_Entry/backend/stag/application/application_0012.pdf", generated.document.objectKey)
         assertEquals("application/pdf", generated.document.contentType)
         assertEquals(STUDENT_ID, generated.document.ownerUserId)
-        assertEquals("https://s3/dsm_Entry/Backend/application/application_0012.pdf?expires=300", generated.downloadUrl)
+        assertEquals("https://s3/dsm_Entry/backend/stag/application/application_0012.pdf?expires=300", generated.downloadUrl)
         assertEquals(300L, generated.expiresIn)
         assertEquals("홍길동", formPdf.lastForm?.name)
     }
@@ -99,7 +99,7 @@ class FileDocumentServiceTest {
     fun `관리자는 applicant id 로 지목한 지원자의 원서를 받고, 파일 주인은 그 지원자다`() {
         val generated = service.generateApplicationForm(APPLICANT_ID, admin)
 
-        assertEquals("dsm_Entry/Backend/application/application_0012.pdf", generated.document.objectKey)
+        assertEquals("dsm_Entry/backend/stag/application/application_0012.pdf", generated.document.objectKey)
         assertEquals(STUDENT_ID, generated.document.ownerUserId)
         assertEquals("홍길동", formPdf.lastForm?.name)
     }
@@ -199,7 +199,7 @@ class FileDocumentServiceTest {
 
         val ticket = service.generateAdmissionTicket(APPLICANT_ID, student(STUDENT_ID))
 
-        assertEquals("dsm_Entry/Backend/admission-ticket/admission_ticket_0012.pdf", ticket.document.objectKey)
+        assertEquals("dsm_Entry/backend/stag/admission-ticket/admission_ticket_0012.pdf", ticket.document.objectKey)
         assertEquals("application/pdf", ticket.document.contentType)
         assertEquals(STUDENT_ID, ticket.document.ownerUserId)
         assertTrue(ticket.downloadUrl.contains("admission_ticket_0012.pdf"))
@@ -303,7 +303,7 @@ class FileDocumentServiceTest {
         val photo = service.upload(photo(student(STUDENT_ID)), content())
         val photoId = photo.document.publicId
 
-        assertTrue(photo.document.objectKey.matches(Regex("dsm_Entry/Backend/photo/photo_[0-9a-f]{32}\\.png")))
+        assertTrue(photo.document.objectKey.matches(Regex("dsm_Entry/backend/stag/photo/photo_[0-9a-f]{32}\\.png")))
         assertTrue(photoId.matches(Regex("photo_[0-9a-f]{32}")))
         assertEquals(photo.document.objectKey, service.find(FileCategory.PHOTO, photoId, student(STUDENT_ID)).document.objectKey)
         assertEquals(photo.document.objectKey, service.find(FileCategory.PHOTO, photoId, admin).document.objectKey)
@@ -316,7 +316,7 @@ class FileDocumentServiceTest {
         val attachment = service.upload(attachment(), content())
 
         assertEquals("notice.pdf", attachment.document.originalName)
-        assertTrue(attachment.document.objectKey.matches(Regex("dsm_Entry/Backend/attachment/[0-9a-f]{32}_notice\\.pdf")))
+        assertTrue(attachment.document.objectKey.matches(Regex("dsm_Entry/backend/stag/attachment/[0-9a-f]{32}_notice\\.pdf")))
         assertThrows(DocumentAccessDeniedException::class.java) { service.upload(attachment(student(STUDENT_ID)), content()) }
     }
 
@@ -342,7 +342,7 @@ class FileDocumentServiceTest {
         assertEquals(listOf(newer.document.publicId), first.items.map { it.document.publicId })
         assertEquals(listOf(older.document.publicId), second.items.map { it.document.publicId })
         assertEquals(2L, first.totalElements)
-        assertTrue(first.items.single().downloadUrl.startsWith("https://s3/dsm_Entry/Backend/guideline/"))
+        assertTrue(first.items.single().downloadUrl.startsWith("https://s3/dsm_Entry/backend/stag/guideline/"))
     }
 
     @Test

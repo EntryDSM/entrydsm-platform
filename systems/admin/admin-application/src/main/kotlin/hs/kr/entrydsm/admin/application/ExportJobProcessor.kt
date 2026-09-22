@@ -14,6 +14,7 @@ import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
 import java.time.Clock
 import java.time.Instant
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
@@ -134,6 +135,7 @@ class ExportJobProcessor(
     private val xlsxRenderPort: XlsxRenderPort,
     private val storagePort: StoragePort,
     private val clock: Clock,
+    @Value("\${admin.storage.environment}") private val storageEnvironment: String = "stag",
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -221,7 +223,7 @@ class ExportJobProcessor(
      * 규모면 1~2분 안이다. 프론트가 5분까지 기다리므로 그보다 길어지면 병렬로 부른다.
      */
     private fun bundleAdmissionTickets(job: ExportJob, applicants: List<Applicant>): String {
-        val objectKey = DocumentNaming.admissionTicketBundleObjectKey(job.exportJobId)
+        val objectKey = DocumentNaming.admissionTicketBundleObjectKey(job.exportJobId, storageEnvironment)
 
         val tickets = applicants
             // 수험 번호가 없는 1차 합격자(강제 변경)는 뒤로 간다. 같은 자리끼리는 접수 번호 순 그대로다.
@@ -233,7 +235,7 @@ class ExportJobProcessor(
     }
 
     private fun writeApplicantList(job: ExportJob, applicants: List<Applicant>): String {
-        val objectKey = DocumentNaming.applicantListObjectKey(job.exportJobId)
+        val objectKey = DocumentNaming.applicantListObjectKey(job.exportJobId, storageEnvironment)
 
         val xlsx = xlsxRenderPort.render(
             sheetName = APPLICANT_LIST_SHEET,
@@ -252,7 +254,7 @@ class ExportJobProcessor(
         applicants: List<Applicant>,
         rendered: () -> Unit,
     ): String {
-        val objectKey = DocumentNaming.firstPassListObjectKey(job.exportJobId)
+        val objectKey = DocumentNaming.firstPassListObjectKey(job.exportJobId, storageEnvironment)
         val xlsx = xlsxRenderPort.render(
             sheetName = FIRST_PASS_LIST_SHEET,
             header = FIRST_PASS_COLUMNS.map { (title, _) -> title },
@@ -268,7 +270,7 @@ class ExportJobProcessor(
         rows: List<FirstPassRow>,
         rendered: () -> Unit,
     ): String {
-        val objectKey = DocumentNaming.admissionFileObjectKey(job.exportJobId)
+        val objectKey = DocumentNaming.admissionFileObjectKey(job.exportJobId, storageEnvironment)
         val xlsx = xlsxRenderPort.render(
             sheetName = ADMISSION_FILE_SHEET,
             header = ADMISSION_FILE_COLUMNS.map { (title, _) -> title },

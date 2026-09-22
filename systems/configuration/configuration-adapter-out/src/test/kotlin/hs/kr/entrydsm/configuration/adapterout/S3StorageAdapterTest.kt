@@ -2,6 +2,7 @@ package hs.kr.entrydsm.configuration.adapterout
 
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
 import org.junit.Test
+import org.junit.Assert.assertEquals
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse
@@ -23,6 +24,15 @@ class S3StorageAdapterTest {
         adapter(FakeS3Client()).delete("photo/a.jpg")
     }
 
+    @Test
+    fun `legacy object key는 변경하지 않고 삭제한다`() {
+        val client = FakeS3Client()
+
+        adapter(client).delete("dsm_Entry/Backend/photo/a.jpg")
+
+        assertEquals("dsm_Entry/Backend/photo/a.jpg", client.deletedKey)
+    }
+
     private fun adapter(client: S3Client) = S3StorageAdapter(client, stubPresigner(), "entrydsm")
 
     // presign 은 이 테스트에서 쓰지 않는다. 메서드가 7개라 프록시로 대신한다.
@@ -38,12 +48,15 @@ class S3StorageAdapterTest {
     private class FakeS3Client(
         private val deleteFailure: RuntimeException? = null,
     ) : S3Client {
+        var deletedKey: String? = null
+
         override fun serviceName(): String = "s3"
 
         override fun close() = Unit
 
         override fun deleteObject(request: DeleteObjectRequest): DeleteObjectResponse {
             deleteFailure?.let { throw it }
+            deletedKey = request.key()
             return DeleteObjectResponse.builder().build()
         }
     }
