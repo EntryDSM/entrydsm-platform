@@ -37,6 +37,14 @@ entrydsm:
       application-end-at: ${APPLICATION_END_AT}
       result-announced-at: ${RESULT_ANNOUNCED_AT:}
 
+configuration:
+  grpc:
+    # 원서 접수 일정은 관리자가 configuration 에 등록한다. 기본값은 docker compose 서비스 이름과 포트.
+    host: ${CONFIGURATION_GRPC_HOST:configuration}
+    port: ${CONFIGURATION_GRPC_PORT:9090}
+    # 원서를 쓰는 요청마다 부르므로 짧게 둔다.
+    deadline-ms: ${CONFIGURATION_GRPC_DEADLINE_MS:1000}
+
 server:
   port: ${SERVER_PORT}
   shutdown: graceful

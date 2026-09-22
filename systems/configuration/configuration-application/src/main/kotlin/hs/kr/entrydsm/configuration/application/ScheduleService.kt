@@ -20,6 +20,8 @@ class ScheduleService(
             LocalDateTime.of(year + 1, 1, 1, 0, 0),
         )
 
+    override fun findByTitle(title: String): Schedule? = scheduleRepository.findByTitle(title)
+
     @Transactional
     override fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule =
         scheduleRepository.save(Schedule(title = title, startAt = startAt, endAt = endAt))
