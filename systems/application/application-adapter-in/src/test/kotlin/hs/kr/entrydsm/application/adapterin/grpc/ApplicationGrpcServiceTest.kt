@@ -24,6 +24,7 @@ import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import hs.kr.entrydsm.application.domain.service.ScoreBreakdown
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
@@ -175,6 +176,13 @@ class ApplicationGrpcServiceTest {
             previousSemester = null,
             secondPreviousSemester = null,
             academicRecord = AcademicRecord(volunteerTime = 30, isDsmAlgorithmAwarded = true),
+            score = ScoreBreakdown(
+                subjectScore = 72.5,
+                attendanceScore = 15.0,
+                volunteerScore = 12.0,
+                additionalScore = 3.0,
+                totalScore = 102.5,
+            ),
             introduction = "저는 …",
             studyPlan = "입학 후 …",
         )
@@ -208,6 +216,11 @@ class ApplicationGrpcServiceTest {
         assertEquals(30, found.academicRecord.volunteerTime)
         assertTrue(found.academicRecord.dsmAlgorithmAwarded)
         assertFalse(found.academicRecord.programmingCertified)
+        assertEquals(72.5, found.subjectScore, 0.0)
+        assertEquals(15.0, found.attendanceScore, 0.0)
+        assertEquals(12.0, found.volunteerScore, 0.0)
+        assertEquals(3.0, found.additionalScore, 0.0)
+        assertEquals(102.5, found.totalScore, 0.0)
         // 비어 있는 값은 담지 않아 서식의 칸이 빈다.
         assertFalse(found.hasPhoneNumber())
         assertFalse(found.hasGuardianPhoneNumber())

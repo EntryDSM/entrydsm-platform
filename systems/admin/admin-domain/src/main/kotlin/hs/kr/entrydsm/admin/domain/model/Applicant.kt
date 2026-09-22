@@ -55,4 +55,13 @@ data class ApplicantDetail(
     val photoFileId: String?,
     val introduction: String?,
     val studyPlan: String?,
+    val score: ApplicantScore?,
+)
+
+data class ApplicantScore(
+    val subjectScore: Double,
+    val attendanceScore: Double,
+    val volunteerScore: Double,
+    val additionalScore: Double,
+    val totalScore: Double,
 )

@@ -131,6 +131,11 @@ class GrpcApplicantDataAdapterTest {
                     .setPhotoFileId("photo_1")
                     .setIntroduction("첫 줄\n둘째 줄")
                     .setStudyPlan("계획")
+                    .setSubjectScore(72.5)
+                    .setAttendanceScore(15.0)
+                    .setVolunteerScore(12.0)
+                    .setAdditionalScore(3.0)
+                    .setTotalScore(102.5)
                     .build(),
                 ApplicationFormResponse.newBuilder().setApplicantId(2L).setUserId(102L).build(),
             ),
@@ -142,9 +147,15 @@ class GrpcApplicantDataAdapterTest {
         assertEquals("photo_1", written.photoFileId)
         assertEquals("첫 줄\n둘째 줄", written.introduction)
         assertEquals("계획", written.studyPlan)
+        assertEquals(72.5, written.score?.subjectScore)
+        assertEquals(15.0, written.score?.attendanceScore)
+        assertEquals(12.0, written.score?.volunteerScore)
+        assertEquals(3.0, written.score?.additionalScore)
+        assertEquals(102.5, written.score?.totalScore)
         assertNull(empty.photoFileId)
         assertNull(empty.introduction)
         assertNull(empty.studyPlan)
+        assertNull(empty.score)
     }
 
     @Test

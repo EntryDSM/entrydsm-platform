@@ -34,6 +34,7 @@ import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.domain.nowUtc
+import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -44,6 +45,8 @@ class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
+    private val scoreCalculator = ScoreCalculator()
+
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
         val accountId = requireAccountId(command.accountId)
         val existing = applicantRepository.findByAccountId(accountId)
@@ -193,6 +196,7 @@ class ApplicationCommandService(
             previousSemester = previous.getOrNull(0),
             secondPreviousSemester = previous.getOrNull(1),
             academicRecord = academicRecord,
+            score = totalScore?.let { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) },
             introduction = introduction,
             studyPlan = studyPlan,
         )
