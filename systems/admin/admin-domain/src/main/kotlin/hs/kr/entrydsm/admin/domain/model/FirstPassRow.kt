@@ -15,6 +15,7 @@ data class FirstPassRow(
     val graduationYear: String? = null,
     val schoolName: String? = null,
     val classNumber: String? = null,
+    val studentNumber: String? = null,
     val guardianName: String? = null,
     val guardianPhoneNumber: String? = null,
     val thirdGradeSecondSemester: SemesterGrades = SemesterGrades(),

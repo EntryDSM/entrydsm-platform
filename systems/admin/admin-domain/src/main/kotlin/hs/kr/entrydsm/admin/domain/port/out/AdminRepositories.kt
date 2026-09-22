@@ -32,6 +32,8 @@ interface ApplicantRepository {
 
     fun findAdmissionFileRows(): List<FirstPassRow> = emptyList()
 
+    fun findApplicationChecklistRows(): List<FirstPassRow> = emptyList()
+
     fun syncExportProjection() = Unit
 
     fun findFirstPassApplicants(): List<Applicant> = emptyList()

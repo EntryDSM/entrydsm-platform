@@ -21,6 +21,9 @@ object DocumentNaming {
     fun admissionFileObjectKey(exportJobId: String, environment: String): String =
         "${keyRoot(environment)}admission-file/admission_file_$exportJobId.xlsx"
 
+    fun applicationChecklistObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}application-checklist/application_checklist_$exportJobId.xlsx"
+
     /** 1차 합격자 수험표를 한 장씩 이어 붙인 PDF 하나입니다. */
     fun admissionTicketBundleObjectKey(exportJobId: String, environment: String): String =
         "${keyRoot(environment)}admission-ticket/admission_tickets_$exportJobId.pdf"
