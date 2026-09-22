@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.admin.domain.port.out
 
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
+import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
@@ -52,6 +53,8 @@ interface ExportJobRepository {
     fun findByExportJobId(exportJobId: String): ExportJob?
 
     fun save(exportJob: ExportJob): ExportJob
+
+    fun findDownloadableByType(type: ExportType): List<ExportJob> = emptyList()
 }
 
 interface NoticeRepository {

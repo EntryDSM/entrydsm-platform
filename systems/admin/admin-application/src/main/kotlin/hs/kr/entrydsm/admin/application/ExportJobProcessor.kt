@@ -171,11 +171,28 @@ class ExportJobProcessor(
                 }
             }
         }.onSuccess { objectKey ->
-            exportJobRepository.save(current.completed(objectKey, Instant.now(clock)))
+            val completed = exportJobRepository.save(current.completed(objectKey, Instant.now(clock)))
+            if (completed.type == ExportType.FIRST_PASS_LIST) {
+                deletePreviousFirstPassExports(completed)
+            }
         }.onFailure { cause ->
             logger.error("Export job failed [exportJobId={}]", job.exportJobId, cause)
             exportJobRepository.save(current.failed(Instant.now(clock)))
         }
+    }
+
+    private fun deletePreviousFirstPassExports(latest: ExportJob) {
+        exportJobRepository.findDownloadableByType(ExportType.FIRST_PASS_LIST)
+            .filter { it.exportJobId != latest.exportJobId }
+            .forEach { previous ->
+                val objectKey = previous.objectKey ?: return@forEach
+                runCatching {
+                    storagePort.delete(objectKey)
+                    exportJobRepository.save(previous.copy(objectKey = null))
+                }.onFailure { cause ->
+                    logger.error("Previous first-pass export deletion failed [exportJobId={}]", previous.exportJobId, cause)
+                }
+            }
     }
 
     /**

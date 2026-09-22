@@ -113,6 +113,25 @@ class AdminApplicationModuleTest {
     }
 
     @Test
+    fun deletesPreviousFirstPassObjectAfterNewExportCompletes() {
+        val previous = ExportJob(
+            exportJobId = "exp_previous",
+            type = ExportType.FIRST_PASS_LIST,
+            status = ExportStatus.COMPLETED,
+            objectKey = "first-pass/first_pass_exp_previous.xlsx",
+            createdAt = Instant.EPOCH,
+            completedAt = Instant.EPOCH,
+        )
+        val fixture = exportFixture(emptyList(), previous)
+
+        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+
+        assertEquals(listOf("first-pass/first_pass_exp_previous.xlsx"), fixture.deletedObjectKeys)
+        assertNull(fixture.saved.last { it.exportJobId == previous.exportJobId }.objectKey)
+        assertEquals("first-pass/first_pass_exp_test.xlsx", fixture.saved.last { it.exportJobId == fixture.job.exportJobId }.objectKey)
+    }
+
+    @Test
     fun returnsDownloadUrlAndExpiryForCompletedFirstPassExport() {
         val completed = ExportJob(
             exportJobId = "exp_test",
@@ -132,6 +151,7 @@ class AdminApplicationModuleTest {
             applicationEventPublisher = repository(ApplicationEventPublisher::class.java, "unused" to Unit),
             storagePort = object : StoragePort {
                 override fun upload(objectKey: String, contentType: String, content: ByteArray) = Unit
+                override fun delete(objectKey: String) = Unit
                 override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long) = "https://example.test/file"
             },
             clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
@@ -146,16 +166,22 @@ class AdminApplicationModuleTest {
         assertEquals(2, result.job.processedCount)
     }
 
-    private fun exportFixture(rows: List<FirstPassRow>, failUpload: Boolean = false): ExportFixture {
+    private fun exportFixture(
+        rows: List<FirstPassRow>,
+        previous: ExportJob? = null,
+        failUpload: Boolean = false,
+    ): ExportFixture {
         val saved = mutableListOf<ExportJob>()
         val exportRepository = object : ExportJobRepository {
             override fun findByExportJobId(exportJobId: String): ExportJob? = saved.lastOrNull()
             override fun save(exportJob: ExportJob): ExportJob = exportJob.also(saved::add)
+            override fun findDownloadableByType(type: ExportType) = listOfNotNull(previous)
         }
         var capturedHeader = emptyList<String>()
         var capturedRows = emptyList<List<Any?>>()
         var capturedObjectKey: String? = null
         var capturedContentType: String? = null
+        val deletedObjectKeys = mutableListOf<String>()
         val processor = ExportJobProcessor(
             exportJobRepository = exportRepository,
             applicantRepository = repository(ApplicantRepository::class.java, "findFirstPassRows" to rows),
@@ -177,6 +203,10 @@ class AdminApplicationModuleTest {
                 }
 
                 override fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long) = "unused"
+
+                override fun delete(objectKey: String) {
+                    deletedObjectKeys += objectKey
+                }
             },
             clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
             admissionYear = 2027,
@@ -195,6 +225,7 @@ class AdminApplicationModuleTest {
             rowsProvider = { capturedRows },
             objectKeyProvider = { capturedObjectKey },
             contentTypeProvider = { capturedContentType },
+            deletedObjectKeys = deletedObjectKeys,
         )
     }
 
@@ -206,6 +237,7 @@ class AdminApplicationModuleTest {
         private val rowsProvider: () -> List<List<Any?>>,
         private val objectKeyProvider: () -> String?,
         private val contentTypeProvider: () -> String?,
+        val deletedObjectKeys: List<String>,
     ) {
         val header get() = headerProvider()
         val rows get() = rowsProvider()

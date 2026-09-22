@@ -4,7 +4,11 @@ import hs.kr.entrydsm.admin.adapterout.entity.AdmissionQuotaJpaEntity
 import hs.kr.entrydsm.admin.adapterout.entity.ExportJobJpaEntity
 import hs.kr.entrydsm.admin.adapterout.entity.ScorePolicyJpaEntity
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
+import hs.kr.entrydsm.admin.domain.enum.ExportStatus
+import hs.kr.entrydsm.admin.domain.enum.ExportType
+import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Lock
 
 interface ScreeningJpaRepository : JpaRepository<ScreeningJpaEntity, Long>
 
@@ -16,4 +20,10 @@ interface AdmissionQuotaJpaRepository : JpaRepository<AdmissionQuotaJpaEntity, L
 
 interface ExportJobJpaRepository : JpaRepository<ExportJobJpaEntity, Long> {
     fun findByExportJobId(exportJobId: String): ExportJobJpaEntity?
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    fun findAllByTypeAndStatusAndObjectKeyIsNotNull(
+        type: ExportType,
+        status: ExportStatus,
+    ): List<ExportJobJpaEntity>
 }
