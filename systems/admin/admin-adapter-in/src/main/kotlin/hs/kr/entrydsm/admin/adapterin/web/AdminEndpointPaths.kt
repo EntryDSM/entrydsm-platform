@@ -22,6 +22,7 @@ object AdminEndpointPaths {
     const val FIRST_SCREENING_RESULTS = "$BASE/screenings/first/results"
     const val FINAL_SCREENING_RESULT = "$BASE/screenings/final/results/{applicantId}"
     const val STATISTICS = "$BASE/statistics"
+    const val ADMISSION_FILE = "$BASE/admission-file"
     const val EXPORTS = "$BASE/exports"
     const val EXPORT = "$EXPORTS/{exportJobId}"
     const val NOTICES = "$BASE/notices"
