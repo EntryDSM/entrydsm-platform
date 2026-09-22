@@ -17,7 +17,6 @@ import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
-import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import java.lang.reflect.Modifier
@@ -102,7 +101,6 @@ class ApplicationCommandServiceTest {
 
         val arrived = service.updateArrival(UpdateApplicantArrivalCommand(1L, true))
         assertEquals(ApplicantStatus.ARRIVAL, arrived.applicantStatus)
-        assertEquals(1L, events.single().applicantId)
         assertEquals(3L, events.single().version)
 
         service.updateArrival(UpdateApplicantArrivalCommand(1L, true))
@@ -215,26 +213,6 @@ class ApplicationCommandServiceTest {
 
         // 원서는 계정으로 찾는다. 남의 계정으로는 나오지 않는다.
         assertNull(service.findApplicationForm(11L))
-    }
-
-    @Test
-    fun batchApplicationFormsIncludeClassAndGedAverage() {
-        val repository = FakeApplicantRepository(
-            Applicant(
-                id = 1L,
-                accountId = 10L,
-                middleSchoolInfo = MiddleSchoolInfo("code", "중학교", "30215", "phone", "teacher"),
-                academicRecord = AcademicRecord(
-                    gedScores = GedScores(100, 90, 80, 70, 60, 50, 40),
-                ),
-            ),
-        )
-
-        val forms = ApplicationCommandService(repository).findApplicationForms(listOf(10L, 11L))
-
-        assertEquals(1, forms.size)
-        assertEquals("2", forms.single().classNumber)
-        assertEquals(70.0, forms.single().gedAverage)
     }
 
     /**

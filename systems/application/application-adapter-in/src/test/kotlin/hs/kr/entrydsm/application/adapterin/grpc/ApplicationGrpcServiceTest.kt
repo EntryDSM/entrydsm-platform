@@ -15,7 +15,6 @@ import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapsh
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
-import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
@@ -29,7 +28,6 @@ import hs.kr.entrydsm.application.domain.service.ScoreBreakdown
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
-import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
@@ -154,7 +152,7 @@ class ApplicationGrpcServiceTest {
             address = "(34503) 대전광역시 유성구 가정북로 76 101동 1001호",
             photoFileId = "photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8",
             region = Region.DAEJEON,
-            admissionType = AdmissionType.MEISTER,
+            admissionType = null,
             specialAdmissionType = SpecialAdmissionType.NATIONAL_MERIT,
             graduationType = GraduationType.PROSPECTIVE,
             graduationDate = YearMonth.of(2027, 2),
@@ -191,8 +189,6 @@ class ApplicationGrpcServiceTest {
             ),
             introduction = "저는 …",
             studyPlan = "입학 후 …",
-            classNumber = "1",
-            gedAverage = 95.5,
         )
 
         val found = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build())
@@ -233,12 +229,7 @@ class ApplicationGrpcServiceTest {
         assertFalse(found.hasPhoneNumber())
         assertFalse(found.hasGuardianPhoneNumber())
         assertFalse(found.hasThirdGradeSecondSemester())
-        assertEquals(GrpcAdmissionType.ADMISSION_TYPE_MEISTER, found.admissionType)
-        assertEquals("1", found.classNumber)
-        assertEquals(95.5, found.gedAverage, 0.0)
-        assertEquals("1", found.admissionTypeCode)
-        assertEquals("1", found.regionCode)
-        assertEquals("1", found.specialAdmissionTypeCode)
+        assertEquals(GrpcAdmissionType.ADMISSION_TYPE_UNSPECIFIED, found.admissionType)
 
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
         assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
@@ -252,47 +243,6 @@ class ApplicationGrpcServiceTest {
         assertFalse(withoutAddress.middleSchool.hasAddress())
     }
 
-    @Test
-    fun servesApplicationFormsInOneBatch() {
-        port.form = ApplicationFormResult(
-            applicantId = APPLICANT_ID,
-            accountId = USER_ID,
-            status = ApplicantStatus.SUBMITTED,
-            name = null,
-            phoneNumber = null,
-            birthdate = null,
-            gender = null,
-            address = null,
-            photoFileId = null,
-            region = null,
-            admissionType = null,
-            specialAdmissionType = SpecialAdmissionType.NONE,
-            graduationType = null,
-            graduationDate = null,
-            guardianName = null,
-            guardianRelation = null,
-            guardianPhoneNumber = null,
-            middleSchool = null,
-            thirdGradeSecondSemester = null,
-            thirdGradeFirstSemester = null,
-            previousSemester = null,
-            secondPreviousSemester = null,
-            academicRecord = null,
-            score = null,
-            introduction = null,
-            studyPlan = null,
-        )
-
-        val response = stub.batchGetApplicationForms(
-            BatchGetApplicationFormsRequest.newBuilder().addAccountId(USER_ID).build(),
-        )
-
-        assertEquals(listOf(USER_ID), port.batchAccountIds)
-        assertEquals(APPLICANT_ID, response.applicationsList.single().applicantId)
-        assertFalse(response.applicationsList.single().hasAdmissionTypeCode())
-        assertFalse(response.applicationsList.single().hasRegionCode())
-    }
-
     private class FakeApplicationPort : ApplicationPort {
         private var snapshot: ApplicationSnapshotResult? = null
         var applicant: ApplicantResult? = null
@@ -300,7 +250,6 @@ class ApplicationGrpcServiceTest {
         var form: ApplicationFormResult? = null
         var cancelReason: String? = null
         var findCount = 0
-        var batchAccountIds: List<Long> = emptyList()
 
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
             snapshot = snapshot(command.accountId ?: error("accountId is required"), ApplicantStatus.DRAFT)
@@ -319,11 +268,6 @@ class ApplicationGrpcServiceTest {
 
         override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
             form?.takeIf { it.accountId == accountId }
-
-        override fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> {
-            batchAccountIds = accountIds
-            return listOfNotNull(form?.takeIf { it.accountId in accountIds })
-        }
 
         override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason

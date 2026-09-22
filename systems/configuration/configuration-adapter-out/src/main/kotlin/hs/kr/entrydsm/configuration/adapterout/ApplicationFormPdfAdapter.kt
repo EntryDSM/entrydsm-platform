@@ -46,7 +46,7 @@ private val log = LoggerFactory.getLogger(ApplicationFormPdfAdapter::class.java)
  *
  * 해마다 요강이 바뀌면 [TEMPLATE_RESOURCE] 를 새 서식으로 갈고 칸 좌표를 다시 잰다. 학년도·날짜 골격도 서식에 인쇄돼 있다.
  *
- * 날짜·서명 칸과 `( )`·`[ ]` 안은 지원자·학교가 손으로 쓰는 칸이라 비운다. 서식 5 다짐 문장의 이름 괄호만 채운다.
+ * 날짜·서명 칸과 `( )`·`[ ]` 안은 지원자·학교가 손으로 쓰는 칸이라 비운다.
  */
 @Component
 class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
@@ -64,9 +64,6 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
             Sheet(document, pages[2], font).use { it.essays(form, receipt) }
             Sheet(document, pages[4], font).use {
                 it.personalInfo(form, receipt, rows = floatArrayOf(136.44f, 162.60f, 188.76f, 215.04f))
-                // 다짐 문장 "나 (    )은(는)" 의 괄호 사이. 나눔고딕 12pt 가 인쇄된 본문 글자와 크기가 같다.
-                // 칸 높이 검사로 글자가 줄지 않게 위아래는 본문 줄 가운데(341.65)에서 넉넉히 잡는다.
-                it.text(112.24f, 330.65f, 202.83f, 352.65f, form.name, size = 12f)
             }
             Sheet(document, pages[5], font).use {
                 it.personalInfo(form, receipt, rows = floatArrayOf(136.44f, 156.96f, 177.48f, 198.00f))

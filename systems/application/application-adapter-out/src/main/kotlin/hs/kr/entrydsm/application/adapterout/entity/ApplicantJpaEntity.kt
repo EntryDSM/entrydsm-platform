@@ -136,8 +136,8 @@ open class ApplicantJpaEntity(
     @OneToMany(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true)
     open var passResults: MutableList<PassResultJpaEntity> = mutableListOf(),
 ) {
-    fun toDomain(includePassResults: Boolean = true): Applicant {
-        val finalResult = if (includePassResults) passResults.firstOrNull { it.id.resultType == ResultType.FINAL } else null
+    fun toDomain(): Applicant {
+        val finalResult = passResults.firstOrNull { it.id.resultType == ResultType.FINAL }
         return Applicant(
             id = requireNotNull(id),
             accountId = accountId,

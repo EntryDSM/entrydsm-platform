@@ -35,10 +35,6 @@ class ApplicantPersistenceAdapter(
         applicantJpaRepository.findByAccountId(accountId)?.toDomain()
 
     @Transactional(readOnly = true)
-    override fun findAllByAccountIdIn(accountIds: List<Long>): List<Applicant> =
-        applicantJpaRepository.findAllByAccountIdIn(accountIds).map { it.toDomain(includePassResults = false) }
-
-    @Transactional(readOnly = true)
     override fun findSummariesByStatusIn(statuses: Set<ApplicantStatus>): List<ApplicantResult> =
         applicantJpaRepository.findSummariesByStatusIn(statuses).map {
             ApplicantResult(

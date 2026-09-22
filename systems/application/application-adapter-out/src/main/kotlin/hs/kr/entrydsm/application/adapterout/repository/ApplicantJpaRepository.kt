@@ -9,14 +9,10 @@ import hs.kr.entrydsm.application.domain.enum.Region
 import java.time.LocalDate
 import java.time.LocalDateTime
 import org.springframework.data.jpa.repository.JpaRepository
-import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.Query
 
 interface ApplicantJpaRepository : JpaRepository<ApplicantJpaEntity, Long> {
     fun findByAccountId(accountId: Long): ApplicantJpaEntity?
-
-    @EntityGraph(attributePaths = ["middleSchoolInfo", "academicRecord", "academicRecord.subjectGrades", "academicRecord.gedScores"])
-    fun findAllByAccountIdIn(accountIds: List<Long>): List<ApplicantJpaEntity>
 
     /**
      * 목록에 쓰는 열만 한 번에 읽습니다.

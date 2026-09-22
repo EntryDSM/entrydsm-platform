@@ -24,8 +24,6 @@ import hs.kr.entrydsm.application.grpc.AcademicRecord as GrpcAcademicRecord
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.application.grpc.ApplicationResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
-import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
-import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsResponse
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
@@ -101,16 +99,6 @@ class ApplicationGrpcService(
         request.accountId.validate()
         (applicationPort.findApplicationForm(request.accountId) ?: throw ApplicantNotFoundException(request.accountId))
             .toResponse()
-    }
-
-    override fun batchGetApplicationForms(
-        request: BatchGetApplicationFormsRequest,
-        responseObserver: StreamObserver<BatchGetApplicationFormsResponse>,
-    ) = responseObserver.respondWith {
-        request.accountIdList.forEach { it.validate() }
-        BatchGetApplicationFormsResponse.newBuilder()
-            .addAllApplications(applicationPort.findApplicationForms(request.accountIdList).map { it.toResponse() })
-            .build()
     }
 
     override fun updateApplicantArrival(
@@ -272,32 +260,8 @@ class ApplicationGrpcService(
                     builder.setAdditionalScore(it.additionalScore)
                     builder.setTotalScore(it.totalScore)
                 }
-                classNumber?.let(builder::setClassNumber)
-                gedAverage?.let(builder::setGedAverage)
-                admissionType.code()?.let(builder::setAdmissionTypeCode)
-                region.code()?.let(builder::setRegionCode)
-                builder.setSpecialAdmissionTypeCode(specialAdmissionType.code())
             }
             .build()
-
-    private fun AdmissionType?.code(): String? = when (this) {
-        AdmissionType.MEISTER -> "1"
-        AdmissionType.SOCIAL -> "2"
-        AdmissionType.REGULAR -> "3"
-        null -> null
-    }
-
-    private fun Region?.code(): String? = when (this) {
-        Region.DAEJEON -> "1"
-        Region.NATIONAL -> "2"
-        null -> null
-    }
-
-    private fun SpecialAdmissionType.code(): String = when (this) {
-        SpecialAdmissionType.NONE -> "0"
-        SpecialAdmissionType.NATIONAL_MERIT -> "1"
-        SpecialAdmissionType.SPECIAL_ADMISSION -> "2"
-    }
 
     /** 성취도 A~E. 미이수(X)는 요강에 없는 값이라 빈 문자열로 준다. */
     private fun SubjectGrades.toGrpc(): GrpcSemesterGrades =

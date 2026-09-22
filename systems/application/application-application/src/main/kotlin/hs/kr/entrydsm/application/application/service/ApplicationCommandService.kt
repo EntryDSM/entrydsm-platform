@@ -148,9 +148,6 @@ class ApplicationCommandService(
     override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
         applicantRepository.findByAccountId(accountId)?.toApplicationFormResult()
 
-    override fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> =
-        applicantRepository.findAllByAccountIdIn(accountIds.distinct()).map { it.toApplicationFormResult() }
-
     private fun Applicant.toApplicantResult(): ApplicantResult = ApplicantResult(
         applicantId = id,
         accountId = accountId,
@@ -204,23 +201,6 @@ class ApplicationCommandService(
             score = totalScore?.let { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) },
             introduction = introduction,
             studyPlan = studyPlan,
-            classNumber = middleSchoolInfo?.studentNumber
-                ?.let(STUDENT_NUMBER::matchEntire)
-                ?.groupValues
-                ?.get(1)
-                ?.trimStart('0')
-                ?.ifEmpty { "0" },
-            gedAverage = academicRecord?.gedScores?.let {
-                listOf(
-                    it.koreanScore,
-                    it.societyScore,
-                    it.historyScore,
-                    it.mathScore,
-                    it.scienceScore,
-                    it.technologyScore,
-                    it.englishScore,
-                ).average()
-            },
         )
     }
 
@@ -284,7 +264,6 @@ class ApplicationCommandService(
     private fun publishStatus(applicant: Applicant) = applicantStatusEventOutbox.add(
         ApplicantStatusChanged(
             accountId = applicant.accountId,
-            applicantId = applicant.id,
             status = applicant.status,
             occurredAt = applicant.updatedAt,
             version = applicant.statusVersion,
@@ -446,7 +425,6 @@ class ApplicationCommandService(
             SchoolSemester.FIRST_GRADE_SECOND_SEMESTER,
             SchoolSemester.FIRST_GRADE_FIRST_SEMESTER,
         )
-        private val STUDENT_NUMBER = Regex("^\\d(\\d{2})\\d{2}$")
         private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
         private const val MAX_ESSAY_LENGTH = 1600
         // applicants.photo_file_id 컬럼 길이. document 증명사진 ID 는 photo_ 와 32자 임의값이다.

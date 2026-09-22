@@ -6,7 +6,5 @@ package hs.kr.entrydsm.admin.domain.port.out
 interface StoragePort {
     fun upload(objectKey: String, contentType: String, content: ByteArray)
 
-    fun delete(objectKey: String)
-
     fun issueDownloadUrl(objectKey: String, expiresInSeconds: Long): String
 }

@@ -93,19 +93,6 @@ class ApplicationFormPdfTest {
     }
 
     @Test
-    fun `금연 동의서 다짐 문장 괄호 사이에 이름을 찍고 20자 이름도 글자를 줄여 다 넣는다`() {
-        // 괄호 사이는 이름을 찍는 칸 중 가장 좁다. 이름은 20자까지 저장된다(application applicants.name).
-        listOf("홍길동", "가".repeat(20)).forEach { name ->
-            val pdf = adapter.render(form().copy(name = name), photo = null)
-
-            assertInside(
-                stamped(pdf, page = 5), name.length,
-                left = 112.24f, top = 330.65f, right = 202.83f, bottom = 352.65f,
-            )
-        }
-    }
-
-    @Test
     fun `빈칸 포함 1,600자 자기소개서도 본문 칸을 넘치지 않고 다 찍는다`() {
         val sentence = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했고 중학교에서는 정보 동아리 부장을 맡았습니다. "
         val introduction = sentence.repeat(30).take(1596).chunked(320).joinToString("\n")

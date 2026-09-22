@@ -6,8 +6,6 @@ import hs.kr.entrydsm.admin.adapterout.entity.ScorePolicyJpaEntity
 import hs.kr.entrydsm.admin.adapterout.repository.AdmissionQuotaJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ExportJobJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ScorePolicyJpaRepository
-import hs.kr.entrydsm.admin.domain.enum.ExportStatus
-import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.ScorePolicy
@@ -73,10 +71,6 @@ class ExportJobPersistenceAdapter(
 
     override fun findByExportJobId(exportJobId: String): ExportJob? =
         exportJobJpaRepository.findByExportJobId(exportJobId)?.toDomain()
-
-    override fun findDownloadableByType(type: ExportType): List<ExportJob> =
-        exportJobJpaRepository.findAllByTypeAndStatusAndObjectKeyIsNotNull(type, ExportStatus.COMPLETED)
-            .map { it.toDomain() }
 
     /**
      * 필터는 테이블에 컬럼이 없어 엔티티를 거치면 사라집니다. 처리기가 반환값의 필터로

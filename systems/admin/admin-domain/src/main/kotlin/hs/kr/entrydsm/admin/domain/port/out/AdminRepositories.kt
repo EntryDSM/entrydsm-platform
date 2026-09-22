@@ -1,13 +1,11 @@
 package hs.kr.entrydsm.admin.domain.port.out
 
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
-import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
-import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.model.Notice
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
@@ -28,18 +26,14 @@ interface ApplicantRepository {
 
     fun saveAll(applicants: List<Applicant>): List<Applicant>
 
-    fun findFirstPassRows(): List<FirstPassRow> = emptyList()
-
-    fun findAdmissionFileRows(): List<FirstPassRow> = emptyList()
-
-    fun syncExportProjection() = Unit
-
-    fun findFirstPassApplicants(): List<Applicant> = emptyList()
-
 }
 
 fun interface ApplicantArrivalPort {
     fun update(applicantId: Long, isArrived: Boolean)
+}
+
+fun interface DistancePort {
+    fun distanceFromSchool(address: String): Long
 }
 
 interface ScorePolicyRepository {
@@ -59,8 +53,6 @@ interface ExportJobRepository {
     fun findByExportJobId(exportJobId: String): ExportJob?
 
     fun save(exportJob: ExportJob): ExportJob
-
-    fun findDownloadableByType(type: ExportType): List<ExportJob> = emptyList()
 }
 
 interface NoticeRepository {

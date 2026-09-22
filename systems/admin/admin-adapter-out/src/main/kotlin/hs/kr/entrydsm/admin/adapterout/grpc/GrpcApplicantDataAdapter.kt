@@ -1,9 +1,6 @@
 package hs.kr.entrydsm.admin.adapterout.grpc
 
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
-import hs.kr.entrydsm.admin.adapterout.entity.ApplicantExportProjectionJpaEntity
-import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportEventJpaRepository
-import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ScreeningJpaRepository
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
@@ -15,17 +12,13 @@ import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ApplicantScore
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
-import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
-import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
-import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
-import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
@@ -33,7 +26,6 @@ import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
-import hs.kr.entrydsm.application.grpc.SpecialAdmissionType as GrpcSpecialAdmissionType
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import java.time.Instant
@@ -56,8 +48,6 @@ import org.springframework.stereotype.Component
 class GrpcApplicantDataAdapter(
     private val grpc: ApplicationGrpcChannel,
     private val screeningJpaRepository: ScreeningJpaRepository,
-    private val exportEventRepository: ApplicantExportEventJpaRepository,
-    private val exportProjectionRepository: ApplicantExportProjectionJpaRepository,
 ) : ApplicantRepository, ApplicantArrivalPort {
     private val stub = ApplicationServiceGrpc.newBlockingStub(grpc.channel)
 
@@ -113,89 +103,6 @@ class GrpcApplicantDataAdapter(
                 )
             },
         )
-    }
-
-    override fun findFirstPassRows(): List<FirstPassRow> {
-        val firstPassIds = screeningJpaRepository.findAll()
-            .filter { it.status == ApplicantStatus.FIRST_PASS }
-            .mapTo(hashSetOf()) { it.applicantId }
-        if (firstPassIds.isEmpty()) return emptyList()
-
-        val applicants = call { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }
-            .applicantsList
-            .filter { it.applicantId in firstPassIds }
-        if (applicants.isEmpty()) return emptyList()
-
-        val forms = call {
-            listStub().batchGetApplicationForms(
-                BatchGetApplicationFormsRequest.newBuilder()
-                    .addAllAccountId(applicants.map { it.userId })
-                    .build(),
-            )
-        }.applicationsList.associateBy { it.userId }
-
-        return applicants.mapNotNull { applicant ->
-            forms[applicant.userId]?.toFirstPassRow()
-        }.sortedBy { it.receiptNumber }
-    }
-
-    override fun findAdmissionFileRows(): List<FirstPassRow> {
-        return exportProjectionRepository.findAll()
-            .map { ApplicationFormResponse.parseFrom(it.payload).toFirstPassRow() }
-            .sortedBy { it.receiptNumber }
-    }
-
-    override fun findFirstPassApplicants(): List<Applicant> {
-        val screenings = screeningJpaRepository.findAll()
-            .filter { it.status == ApplicantStatus.FIRST_PASS }
-            .associateBy { it.applicantId }
-        return exportProjectionRepository.findAllById(screenings.keys).map { projection ->
-            val form = ApplicationFormResponse.parseFrom(projection.payload)
-            Applicant(
-                id = projection.applicantId,
-                name = form.name.takeIf { form.hasName() },
-                examineeNumber = screenings[projection.applicantId]?.examineeNumber,
-                status = ApplicantStatus.FIRST_PASS,
-            )
-        }.sortedBy { it.id }
-    }
-
-    override fun syncExportProjection() {
-        if (exportProjectionRepository.count() == 0L) {
-            val applicants = call { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }.applicantsList
-            if (applicants.isNotEmpty()) {
-                val initial = call {
-                    listStub().batchGetApplicationForms(
-                        BatchGetApplicationFormsRequest.newBuilder()
-                            .addAllAccountId(applicants.map { it.userId })
-                            .build(),
-                    )
-                }.applicationsList
-                exportProjectionRepository.saveAll(initial.map {
-                    ApplicantExportProjectionJpaEntity(it.applicantId, it.userId, it.toByteArray())
-                })
-            }
-        }
-        val events = exportEventRepository.findAllByProcessedFalse()
-        val latestEvents = events.groupBy { it.applicantId }.values.map { applicantEvents ->
-            applicantEvents.maxBy { it.eventVersion }
-        }
-        val removedStatuses = setOf("APPLICANT_STATUS_NONE", "APPLICANT_STATUS_DRAFT", "APPLICANT_STATUS_CANCELED")
-        latestEvents.filter { it.applicantStatus in removedStatuses }
-            .forEach { exportProjectionRepository.deleteById(it.applicantId) }
-
-        val active = latestEvents.filterNot { it.applicantStatus in removedStatuses }
-        if (active.isNotEmpty()) {
-            val forms = call {
-                listStub().batchGetApplicationForms(
-                    BatchGetApplicationFormsRequest.newBuilder().addAllAccountId(active.map { it.accountId }.distinct()).build(),
-                )
-            }.applicationsList
-            exportProjectionRepository.saveAll(forms.map {
-                ApplicantExportProjectionJpaEntity(it.applicantId, it.userId, it.toByteArray())
-            })
-        }
-        exportEventRepository.saveAll(events.onEach { it.processed = true })
     }
 
     private fun getApplicant(applicantId: Long): ApplicantResponse? =
@@ -265,95 +172,6 @@ class GrpcApplicantDataAdapter(
         },
         address = address.takeIf { hasAddress() },
     )
-
-    private fun ApplicationFormResponse.toFirstPassRow(): FirstPassRow {
-        val thirdSecond = thirdGradeSecondSemester.takeIf { hasThirdGradeSecondSemester() }.toGrades()
-        val thirdFirst = thirdGradeFirstSemester.takeIf { hasThirdGradeFirstSemester() }.toGrades()
-        val previous = previousSemester.takeIf { hasPreviousSemester() }.toGrades()
-        val secondPrevious = secondPreviousSemester.takeIf { hasSecondPreviousSemester() }.toGrades()
-        val codes = listOf(
-            admissionTypeCode.takeIf { hasAdmissionTypeCode() },
-            regionCode.takeIf { hasRegionCode() },
-            specialAdmissionTypeCode.takeIf { hasSpecialAdmissionTypeCode() },
-        )
-
-        return FirstPassRow(
-            combinedCode = codes.takeIf { it.all { code -> !code.isNullOrBlank() } }
-                ?.joinToString(""),
-            receiptNumber = applicantId.toString().padStart(4, '0'),
-            admissionType = when (admissionType) {
-                GrpcAdmissionType.ADMISSION_TYPE_REGULAR -> "일반전형"
-                GrpcAdmissionType.ADMISSION_TYPE_MEISTER -> "마이스터전형"
-                GrpcAdmissionType.ADMISSION_TYPE_SOCIAL -> "사회통합전형"
-                else -> null
-            },
-            region = when (region) {
-                GrpcRegion.REGION_DAEJEON -> "대전"
-                GrpcRegion.REGION_NATIONAL -> "전국"
-                else -> null
-            },
-            specialAdmissionType = when (specialAdmissionType) {
-                GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NONE -> "해당없음"
-                GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NATIONAL_MERIT -> "국가유공자"
-                GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_SPECIAL_ADMISSION -> "특례입학"
-                else -> null
-            },
-            name = name.takeIf { hasName() },
-            birthDate = birthdate.takeIf { hasBirthdate() },
-            address = address.takeIf { hasAddress() },
-            phoneNumber = phoneNumber.takeIf { hasPhoneNumber() },
-            gender = when (gender) {
-                GrpcGender.GENDER_MALE -> "남"
-                GrpcGender.GENDER_FEMALE -> "여"
-                else -> null
-            },
-            graduationStatus = when (graduationType) {
-                GrpcGraduationType.GRADUATION_TYPE_PROSPECTIVE -> "졸업예정"
-                GrpcGraduationType.GRADUATION_TYPE_GRADUATED -> "졸업"
-                GrpcGraduationType.GRADUATION_TYPE_GED -> "검정고시"
-                else -> null
-            },
-            graduationYear = graduationDate.takeIf { hasGraduationDate() }?.take(4),
-            schoolName = middleSchool.takeIf { hasMiddleSchool() }?.name,
-            classNumber = classNumber.takeIf { hasClassNumber() },
-            guardianName = guardianName.takeIf { hasGuardianName() },
-            guardianPhoneNumber = guardianPhoneNumber.takeIf { hasGuardianPhoneNumber() },
-            thirdGradeSecondSemester = thirdSecond,
-            thirdGradeFirstSemester = thirdFirst,
-            previousSemester = previous,
-            secondPreviousSemester = secondPrevious,
-            thirdGradeTotal = listOfNotNull(thirdSecond.total, thirdFirst.total).takeIf { it.isNotEmpty() }?.sum(),
-            previousSemesterTotal = previous.total,
-            secondPreviousSemesterTotal = secondPrevious.total,
-            subjectScore = subjectScore.takeIf { hasSubjectScore() },
-            volunteerTime = academicRecord.takeIf { hasAcademicRecord() }?.volunteerTime,
-            volunteerScore = volunteerScore.takeIf { hasVolunteerScore() },
-            absentCount = academicRecord.takeIf { hasAcademicRecord() }?.absentCount,
-            lateCount = academicRecord.takeIf { hasAcademicRecord() }?.lateCount,
-            earlyLeaveCount = academicRecord.takeIf { hasAcademicRecord() }?.earlyLeaveCount,
-            classAbsenceCount = academicRecord.takeIf { hasAcademicRecord() }?.classAbsenceCount,
-            attendanceScore = attendanceScore.takeIf { hasAttendanceScore() },
-            awarded = academicRecord.takeIf { hasAcademicRecord() }?.dsmAlgorithmAwarded,
-            certified = academicRecord.takeIf { hasAcademicRecord() }?.programmingCertified,
-            additionalScore = additionalScore.takeIf { hasAdditionalScore() },
-            totalScore = totalScore.takeIf { hasTotalScore() },
-            admissionTypeCode = codes[0],
-            regionCode = codes[1],
-            specialAdmissionTypeCode = codes[2],
-            gedAverage = gedAverage.takeIf { hasGedAverage() },
-        )
-    }
-
-    private fun hs.kr.entrydsm.application.grpc.SemesterGrades?.toGrades(): SemesterGrades =
-        SemesterGrades(
-            korean = this?.korean?.takeIf(String::isNotBlank),
-            society = this?.society?.takeIf(String::isNotBlank),
-            history = this?.history?.takeIf(String::isNotBlank),
-            math = this?.math?.takeIf(String::isNotBlank),
-            science = this?.science?.takeIf(String::isNotBlank),
-            technology = this?.technology?.takeIf(String::isNotBlank),
-            english = this?.english?.takeIf(String::isNotBlank),
-        )
 
     private fun Applicant.toScreening() = ScreeningJpaEntity(
         applicantId = id,

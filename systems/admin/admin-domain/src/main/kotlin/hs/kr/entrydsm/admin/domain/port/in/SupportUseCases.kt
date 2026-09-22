@@ -6,7 +6,6 @@ import hs.kr.entrydsm.admin.domain.command.CreateNoticeCommand
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.ExportJobView
-import hs.kr.entrydsm.admin.domain.model.DownloadLink
 import hs.kr.entrydsm.admin.domain.model.Notice
 import hs.kr.entrydsm.admin.domain.model.QuestionAnswer
 
@@ -19,10 +18,6 @@ interface ReadExportUseCase {
      * 작업 상태를 조회합니다. 완료된 작업이면 서명된 다운로드 링크를 함께 채웁니다.
      */
     fun findById(exportJobId: String): ExportJobView
-}
-
-fun interface CreateFirstPassFileUseCase {
-    fun create(): DownloadLink
 }
 
 interface CreateNoticeUseCase {

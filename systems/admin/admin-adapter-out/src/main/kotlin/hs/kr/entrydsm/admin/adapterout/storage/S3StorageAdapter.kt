@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import software.amazon.awssdk.core.sync.RequestBody
 import software.amazon.awssdk.services.s3.S3Client
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
@@ -49,14 +48,4 @@ class S3StorageAdapter(
         }.getOrElse { cause ->
             throw AdminDomainException(ErrorCode.STORAGE_UNAVAILABLE, cause)
         }
-
-    override fun delete(objectKey: String) {
-        runCatching {
-            s3Client.deleteObject(
-                DeleteObjectRequest.builder().bucket(bucket).key(objectKey).build(),
-            )
-        }.getOrElse { cause ->
-            throw AdminDomainException(ErrorCode.STORAGE_UNAVAILABLE, cause)
-        }
-    }
 }

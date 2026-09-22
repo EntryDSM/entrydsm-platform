@@ -1,26 +1,13 @@
 package hs.kr.entrydsm.admin.adapterin
 
-import hs.kr.entrydsm.admin.adapterin.web.SupportController
 import hs.kr.entrydsm.admin.adapterin.web.exception.GlobalExceptionHandler
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
-import hs.kr.entrydsm.admin.domain.enum.ExportStatus
-import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.GenderRatio
 import hs.kr.entrydsm.admin.domain.model.RegionStatus
-import hs.kr.entrydsm.admin.domain.model.ExportJob
-import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
-import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
-import hs.kr.entrydsm.admin.domain.port.`in`.CreateFirstPassFileUseCase
-import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
-import hs.kr.entrydsm.admin.domain.port.`in`.DeleteNoticeUseCase
-import hs.kr.entrydsm.admin.domain.port.`in`.ReadExportUseCase
-import hs.kr.entrydsm.admin.domain.port.`in`.UpdateNoticeUseCase
-import java.lang.reflect.Proxy
 import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -28,8 +15,6 @@ import org.junit.Test
 import org.springframework.http.HttpMethod
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.servlet.resource.NoResourceFoundException
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
 class AdminAdapterInModuleTest {
     @Test
@@ -82,43 +67,4 @@ class AdminAdapterInModuleTest {
         assertTrue(response.metrics.containsKey("GENDER_RATIO"))
         assertTrue(response.metrics.containsKey("REGION_STATUS"))
     }
-
-    @Test
-    fun createsFirstPassExportJob() {
-        val controller = SupportController(
-            createExportUseCase = object : CreateExportUseCase {
-                override fun create(command: CreateExportCommand): ExportJob {
-                    return ExportJob(
-                        exportJobId = "exp_test",
-                        type = command.type,
-                        status = ExportStatus.PENDING,
-                        createdAt = Instant.EPOCH,
-                    )
-                }
-            },
-            createFirstPassFileUseCase = CreateFirstPassFileUseCase {
-                hs.kr.entrydsm.admin.domain.model.DownloadLink("https://example.test/first-pass", Instant.EPOCH)
-            },
-            readExportUseCase = unused(ReadExportUseCase::class.java),
-            createNoticeUseCase = unused(CreateNoticeUseCase::class.java),
-            updateNoticeUseCase = unused(UpdateNoticeUseCase::class.java),
-            deleteNoticeUseCase = unused(DeleteNoticeUseCase::class.java),
-            answerQuestionUseCase = unused(AnswerQuestionUseCase::class.java),
-        )
-
-        val response = MockMvcBuilders.standaloneSetup(controller).build()
-            .perform(get("/api/v11/admin/first-pass"))
-            .andReturn()
-            .response
-        val body = response.getContentAsString(Charsets.UTF_8)
-
-        assertEquals(200, response.status)
-        assertTrue(body, body.contains("\"downloadUrl\":\"https://example.test/first-pass\""))
-        assertTrue(body, body.contains("\"expiresAt\":\"1970-01-01T00:00:00Z\""))
-    }
-
-    private fun <T> unused(type: Class<T>): T = Proxy.newProxyInstance(
-        javaClass.classLoader,
-        arrayOf(type),
-    ) { _, method, _ -> error("unexpected call: ${method.name}") } as T
 }

@@ -8,7 +8,6 @@ import java.util.UUID
 data class ApplicantStatusChanged(
     val eventId: UUID = UUID.randomUUID(),
     val accountId: Long,
-    val applicantId: Long,
     val status: ApplicantStatus,
     val occurredAt: LocalDateTime,
     val version: Long,
