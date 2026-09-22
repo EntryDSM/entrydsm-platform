@@ -1,7 +1,7 @@
 package hs.kr.entrydsm.admin.adapterout
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import hs.kr.entrydsm.admin.adapterout.distance.GoogleMapsDistanceAdapter
+import hs.kr.entrydsm.admin.adapterout.distance.KakaoDistanceAdapter
 import hs.kr.entrydsm.admin.adapterout.grpc.GrpcNoticeAdapter
 import hs.kr.entrydsm.admin.adapterout.grpc.NotificationGrpcChannel
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
@@ -27,19 +27,21 @@ class AdminAdapterOutModuleTest {
     }
 
     @Test
-    fun googleMapsDistanceReadsMeterValue() {
-        val adapter = GoogleMapsDistanceAdapter(ObjectMapper(), "key", "https://example.test", "학교", 1000)
+    fun kakaoDistanceReadsCoordinatesAndMeterValue() {
+        val adapter = KakaoDistanceAdapter(ObjectMapper(), "key", "https://local.test", "https://directions.test", "학교", 1000)
 
         val distance = adapter.parseDistance(
-            """{"status":"OK","rows":[{"elements":[{"status":"OK","distance":{"value":1234}}]}]}""",
+            """{"routes":[{"result_code":0,"summary":{"distance":1234}}]}""",
         )
+        val coordinates = adapter.parseCoordinates("""{"documents":[{"x":"127.1","y":"36.3"}]}""")
 
         assertEquals(1234L, distance)
+        assertEquals(KakaoDistanceAdapter.Coordinates(127.1, 36.3), coordinates)
     }
 
     @Test
-    fun googleMapsFailureDoesNotExposeApiKey() {
-        val adapter = GoogleMapsDistanceAdapter(ObjectMapper(), "super-secret", "::", "학교", 1)
+    fun kakaoFailureDoesNotExposeApiKey() {
+        val adapter = KakaoDistanceAdapter(ObjectMapper(), "super-secret", "::", "::", "학교", 1)
 
         val exception = runCatching { adapter.distanceFromSchool("집") }.exceptionOrNull()
 

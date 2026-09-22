@@ -35,10 +35,11 @@ admin:
     bucket: ${STORAGE_BUCKET:entrydsm-admin}
     download-url-expires-seconds: ${DOWNLOAD_URL_EXPIRES_SECONDS:900}
   maps:
-    api-key: ${GOOGLE_MAPS_API_KEY:}
-    base-url: ${GOOGLE_MAPS_BASE_URL:https://maps.googleapis.com/maps/api/distancematrix/json}
+    api-key: ${KAKAO_REST_API_KEY:}
+    geocoding-url: ${KAKAO_GEOCODING_URL:https://dapi.kakao.com/v2/local/search/keyword.json}
+    directions-url: ${KAKAO_DIRECTIONS_URL:https://apis-navi.kakaomobility.com/v1/directions}
     school-address: ${SCHOOL_ADDRESS:대덕소프트웨어마이스터고등학교}
-    timeout-ms: ${GOOGLE_MAPS_TIMEOUT_MS:3000}
+    timeout-ms: ${KAKAO_API_TIMEOUT_MS:3000}
 application:
   grpc:
     # 지원자 원서는 application 이 갖는다. 기본값은 docker compose 서비스 이름과 포트.
