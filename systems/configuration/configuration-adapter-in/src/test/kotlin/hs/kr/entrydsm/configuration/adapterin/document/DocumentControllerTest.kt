@@ -252,6 +252,9 @@ class DocumentControllerTest {
             generated = applicantId to requester
             return downloadable(FileCategory.ADMISSION_TICKET.objectKeyOf(FileNaming.admissionTicketFileName(applicantId)))
         }
+
+        override fun renderAdmissionTicket(applicantId: Long, examineeNumber: String?): ByteArray =
+            error("REST 가 부르지 않는다")
     }
 
     private class RecordingFileUseCase : FileUseCase {

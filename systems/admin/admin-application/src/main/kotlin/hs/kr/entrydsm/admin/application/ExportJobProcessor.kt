@@ -1,24 +1,19 @@
 package hs.kr.entrydsm.admin.application
 
-import hs.kr.entrydsm.admin.domain.document.AdmissionTicketHtml
 import hs.kr.entrydsm.admin.domain.document.DocumentNaming
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.model.AdmissionTicket
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.FirstPassRow
+import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
-import hs.kr.entrydsm.admin.domain.port.out.PdfRenderPort
+import hs.kr.entrydsm.admin.domain.port.out.PdfMergePort
 import hs.kr.entrydsm.admin.domain.port.out.StoragePort
 import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
-import java.io.ByteArrayOutputStream
 import java.time.Clock
 import java.time.Instant
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Propagation
@@ -26,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
-private const val ZIP_CONTENT_TYPE = "application/zip"
+private const val PDF_CONTENT_TYPE = "application/pdf"
 private const val XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 private const val APPLICANT_LIST_SHEET = "지원자 목록"
 private const val FIRST_PASS_LIST_SHEET = "1차 합격자 명단"
@@ -134,11 +129,11 @@ private val ADMISSION_FILE_COLUMNS: List<Pair<String, (FirstPassRow) -> Any?>> =
 class ExportJobProcessor(
     private val exportJobRepository: ExportJobRepository,
     private val applicantRepository: ApplicantRepository,
-    private val pdfRenderPort: PdfRenderPort,
+    private val admissionTicketPort: AdmissionTicketPort,
+    private val pdfMergePort: PdfMergePort,
     private val xlsxRenderPort: XlsxRenderPort,
     private val storagePort: StoragePort,
     private val clock: Clock,
-    @Value("\${admin.admission-year}") private val admissionYear: Int,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -219,26 +214,21 @@ class ExportJobProcessor(
     }
 
     /**
-     * ponytail: ZIP 전체를 힙에 올린다. 한 회차 수천 명 규모면 감당되지만, 규모가 커지면
-     * StoragePort에 스트림 업로드를 더하고 임시 파일로 흘려보낸다.
+     * 1차 합격자 수험표를 수험 번호 순으로 이어 붙여 PDF 하나로 올립니다. 대상은 접수할 때 1차 합격자로
+     * 좁혀 둡니다. 한 장씩은 document 가 증명사진을 넣어 그리고, 수험 번호는 admin 이 넘겨줍니다.
+     *
+     * ponytail: 지원자마다 document 를 차례로 부른다(한 장에 application 조회·사진 받기·렌더). 1차 합격자
+     * 규모면 1~2분 안이다. 프론트가 5분까지 기다리므로 그보다 길어지면 병렬로 부른다.
      */
     private fun bundleAdmissionTickets(job: ExportJob, applicants: List<Applicant>): String {
         val objectKey = DocumentNaming.admissionTicketBundleObjectKey(job.exportJobId)
 
-        val archive = ByteArrayOutputStream().also { output ->
-            ZipOutputStream(output).use { zip ->
-                applicants.forEach { applicant ->
-                    val pdf = pdfRenderPort.render(
-                        AdmissionTicketHtml.render(AdmissionTicket.of(applicant, admissionYear)),
-                    )
-                    zip.putNextEntry(ZipEntry("admission_ticket_${applicant.receiptNumber}.pdf"))
-                    zip.write(pdf)
-                    zip.closeEntry()
-                }
-            }
-        }.toByteArray()
+        val tickets = applicants
+            // 수험 번호가 없는 1차 합격자(강제 변경)는 뒤로 간다. 같은 자리끼리는 접수 번호 순 그대로다.
+            .sortedWith(compareBy(nullsLast<String>()) { it.examineeNumber })
+            .map { admissionTicketPort.render(it.id, it.examineeNumber) }
 
-        storagePort.upload(objectKey, ZIP_CONTENT_TYPE, archive)
+        storagePort.upload(objectKey, PDF_CONTENT_TYPE, pdfMergePort.merge(tickets))
         return objectKey
     }
 

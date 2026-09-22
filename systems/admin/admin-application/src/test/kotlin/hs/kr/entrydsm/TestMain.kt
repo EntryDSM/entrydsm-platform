@@ -13,9 +13,10 @@ import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
+import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
-import hs.kr.entrydsm.admin.domain.port.out.PdfRenderPort
+import hs.kr.entrydsm.admin.domain.port.out.PdfMergePort
 import hs.kr.entrydsm.admin.domain.port.out.StoragePort
 import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
 import java.lang.reflect.Proxy
@@ -162,6 +163,7 @@ class AdminApplicationModuleTest {
                 override fun findByExportJobId(exportJobId: String) = completed
                 override fun save(exportJob: ExportJob) = exportJob
             },
+            applicantRepository = repository(ApplicantRepository::class.java, "unused" to Unit),
             applicationEventPublisher = repository(ApplicationEventPublisher::class.java, "unused" to Unit),
             storagePort = object : StoragePort {
                 override fun upload(objectKey: String, contentType: String, content: ByteArray) = Unit
@@ -211,8 +213,11 @@ class AdminApplicationModuleTest {
                     else -> error("unexpected call: ${method.name}")
                 }
             } as ApplicantRepository,
-            pdfRenderPort = object : PdfRenderPort {
-                override fun render(html: String) = byteArrayOf()
+            admissionTicketPort = object : AdmissionTicketPort {
+                override fun render(applicantId: Long, examineeNumber: String?) = byteArrayOf()
+            },
+            pdfMergePort = object : PdfMergePort {
+                override fun merge(pdfs: List<ByteArray>) = byteArrayOf()
             },
             xlsxRenderPort = object : XlsxRenderPort {
                 override fun render(sheetName: String, header: List<String>, rows: List<List<Any?>>): ByteArray {
@@ -235,7 +240,6 @@ class AdminApplicationModuleTest {
                 }
             },
             clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            admissionYear = 2027,
         )
         val job = ExportJob(
             exportJobId = "exp_test",

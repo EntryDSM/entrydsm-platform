@@ -27,9 +27,14 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.awt.Color
+import java.awt.image.BufferedImage
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.time.Instant
+import java.util.Base64
+import javax.imageio.ImageIO
 
 class FileDocumentServiceTest {
 
@@ -198,8 +203,63 @@ class FileDocumentServiceTest {
         assertEquals("application/pdf", ticket.document.contentType)
         assertEquals(STUDENT_ID, ticket.document.ownerUserId)
         assertTrue(ticket.downloadUrl.contains("admission_ticket_0012.pdf"))
-        listOf("2027학년도", "미발급", "홍&lt;길동&gt;", "대덕중학교", "대전", "마이스터전형", "data:image/png;base64,")
+        listOf("2027학년도", "미발급", "홍&lt;길동&gt;", "대덕중학교", "대전", "마이스터전형", "접수 번호", "0012", "data:image/png;base64,")
             .forEach { assertTrue(it, it in pdf.lastHtml) }
+    }
+
+    @Test
+    fun `관리자 일괄 출력용 수험표는 넘어온 수험번호를 찍고 저장소에 올리지 않는다`() {
+        val ticket = service.renderAdmissionTicket(APPLICANT_ID, examineeNumber = "100001")
+
+        assertArrayEquals("%PDF-".toByteArray(), ticket)
+        assertTrue("100001" in pdf.lastHtml)
+        assertFalse("미발급" in pdf.lastHtml)
+        assertTrue(storage.uploaded.isEmpty())
+        assertThrows(ApplicantNotFoundException::class.java) { service.renderAdmissionTicket(404, "100002") }
+    }
+
+    @Test
+    fun `큰 증명사진은 수험표 칸 폭으로 줄여 흰 바탕 JPEG로 넣고 작은 사진은 그대로 넣는다`() {
+        val large = service.upload(photo(student(STUDENT_ID)), content())
+        // 투명 PNG. 휴대전화 사진처럼 크다.
+        storage.contents[large.document.objectKey] = image(BufferedImage(1800, 2400, BufferedImage.TYPE_INT_ARGB), "png")
+        applicants[APPLICANT_ID] = applicant(photoFileId = large.document.publicId)
+
+        service.renderAdmissionTicket(APPLICANT_ID, examineeNumber = null)
+
+        val (contentType, bytes) = embeddedPhoto(pdf.lastHtml)
+        val fitted = ImageIO.read(ByteArrayInputStream(bytes))
+        assertEquals("image/jpeg", contentType)
+        assertEquals(600 to 800, fitted.width to fitted.height)
+        val corner = Color(fitted.getRGB(0, 0))
+        assertTrue("$corner", minOf(corner.red, corner.green, corner.blue) > 250)
+
+        val small = service.upload(photo(student(STUDENT_ID)), content())
+        val original = image(BufferedImage(300, 400, BufferedImage.TYPE_INT_RGB), "png")
+        storage.contents[small.document.objectKey] = original
+        applicants[APPLICANT_ID] = applicant(photoFileId = small.document.publicId)
+
+        service.renderAdmissionTicket(APPLICANT_ID, examineeNumber = null)
+
+        assertEquals("image/png", embeddedPhoto(pdf.lastHtml).first)
+        assertArrayEquals(original, embeddedPhoto(pdf.lastHtml).second)
+    }
+
+    @Test
+    fun `칸보다 작은 투명 사진도 흰 바탕 JPEG로 넣어 사진 칸의 회색이 비치지 않게 한다`() {
+        val transparent = service.upload(photo(student(STUDENT_ID)), content())
+        storage.contents[transparent.document.objectKey] =
+            image(BufferedImage(300, 400, BufferedImage.TYPE_INT_ARGB), "png")
+        applicants[APPLICANT_ID] = applicant(photoFileId = transparent.document.publicId)
+
+        service.renderAdmissionTicket(APPLICANT_ID, examineeNumber = null)
+
+        val (contentType, bytes) = embeddedPhoto(pdf.lastHtml)
+        val flattened = ImageIO.read(ByteArrayInputStream(bytes))
+        assertEquals("image/jpeg", contentType)
+        assertEquals(300 to 400, flattened.width to flattened.height)
+        val corner = Color(flattened.getRGB(0, 0))
+        assertTrue("$corner", minOf(corner.red, corner.green, corner.blue) > 250)
     }
 
     @Test
@@ -326,6 +386,15 @@ class FileDocumentServiceTest {
 
     private fun content(): InputStream = ByteArrayInputStream(ByteArray(4))
 
+    private fun image(image: BufferedImage, format: String): ByteArray =
+        ByteArrayOutputStream().also { ImageIO.write(image, format, it) }.toByteArray()
+
+    /** 수험표 HTML 의 사진 data URI 를 형식과 바이트로 푼다. */
+    private fun embeddedPhoto(html: String): Pair<String, ByteArray> {
+        val (contentType, base64) = checkNotNull(Regex("data:([^;]+);base64,([A-Za-z0-9+/=]+)").find(html)).destructured
+        return contentType to Base64.getDecoder().decode(base64)
+    }
+
     private companion object {
         const val APPLICANT_ID = 12L
         const val STUDENT_ID = 10L
@@ -345,6 +414,8 @@ class FileDocumentServiceTest {
     private class FakeStoragePort : StoragePort {
         val uploaded = mutableListOf<String>()
         val deleted = mutableListOf<String>()
+        /** 내용을 따로 넣지 않은 객체는 object key 를 내용으로 돌려준다. */
+        val contents = mutableMapOf<String, ByteArray>()
         var failOnDelete = false
         var failOnPresign = false
 
@@ -363,7 +434,7 @@ class FileDocumentServiceTest {
             return "https://s3/$objectKey?expires=$expiresInSeconds"
         }
 
-        override fun download(objectKey: String): ByteArray = objectKey.toByteArray()
+        override fun download(objectKey: String): ByteArray = contents[objectKey] ?: objectKey.toByteArray()
 
         override fun delete(objectKey: String) {
             if (failOnDelete) throw IllegalStateException("delete failed")

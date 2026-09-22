@@ -20,6 +20,12 @@ interface ApplicantFileUseCase {
      */
     fun generateApplicationForm(applicantId: Long, requester: Requester): DownloadableFile
 
-    /** 수험표 PDF 를 원서 내용으로 새로 만들어 올린다. */
+    /** 수험표 PDF 를 원서 내용으로 새로 만들어 올린다. 수험번호는 받을 길이 없어 미발급으로 찍는다. */
     fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile
+
+    /**
+     * admin 수험표 일괄 출력용 수험표 한 장. admin 이 발급한 [examineeNumber] 를 찍고, 올리지 않고 PDF 를 돌려준다.
+     * 서비스 안쪽 gRPC 로만 부르므로 요청자 권한을 보지 않는다.
+     */
+    fun renderAdmissionTicket(applicantId: Long, examineeNumber: String?): ByteArray
 }
