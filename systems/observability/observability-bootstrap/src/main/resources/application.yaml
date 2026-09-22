@@ -19,11 +19,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 auth:
   jwt:
     # 기본값을 두지 않는다. 미설정이면 기동에 실패해야 알려진 시크릿으로 토큰이 검증되는 일이 없다.
