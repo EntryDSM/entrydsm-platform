@@ -7,4 +7,5 @@ enum class ExportType {
     ADMISSION_TICKET,
     APPLICANT_LIST,
     FIRST_PASS_LIST,
+    ADMISSION_FILE,
 }

@@ -30,6 +30,7 @@ private const val ZIP_CONTENT_TYPE = "application/zip"
 private const val XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 private const val APPLICANT_LIST_SHEET = "지원자 목록"
 private const val FIRST_PASS_LIST_SHEET = "1차 합격자 명단"
+private const val ADMISSION_FILE_SHEET = "전형 자료"
 
 /** 지원자 목록 엑셀의 열. 머리글과 값을 한 줄에 두어 순서가 어긋나지 않게 한다. */
 private val APPLICANT_LIST_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = listOf(
@@ -47,7 +48,13 @@ private val APPLICANT_LIST_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = li
     "총점" to { it.totalScore },
 )
 
-private val FIRST_PASS_COLUMNS: List<Pair<String, (FirstPassRow) -> Any?>> = listOf(
+private val FIRST_PASS_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = listOf(
+    "수험번호" to { it.examineeNumber },
+    "접수번호" to { it.receiptNumber },
+    "성명" to { it.name },
+)
+
+private val ADMISSION_FILE_COLUMNS: List<Pair<String, (FirstPassRow) -> Any?>> = listOf(
     "전형_지역_추가" to { it.combinedCode },
     "접수번호" to { it.receiptNumber },
     "전형유형" to { it.admissionType },
@@ -146,15 +153,30 @@ class ExportJobProcessor(
         process(event.job)
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    fun processNow(job: ExportJob) {
+        process(job)
+    }
+
     private fun process(job: ExportJob) {
         var current = exportJobRepository.save(job.started())
 
         runCatching {
+            if (job.type in setOf(ExportType.FIRST_PASS_LIST, ExportType.ADMISSION_FILE)) {
+                applicantRepository.syncExportProjection()
+            }
             when (job.type) {
                 ExportType.FIRST_PASS_LIST -> {
-                    val rows = applicantRepository.findFirstPassRows()
+                    val applicants = applicantRepository.findFirstPassApplicants()
+                    current = exportJobRepository.save(current.withTotal(applicants.size))
+                    writeFirstPassList(current, applicants) {
+                        current = exportJobRepository.save(current.processed(applicants.size))
+                    }
+                }
+                ExportType.ADMISSION_FILE -> {
+                    val rows = applicantRepository.findAdmissionFileRows()
                     current = exportJobRepository.save(current.withTotal(rows.size))
-                    writeFirstPassList(current, rows) {
+                    writeAdmissionFile(current, rows) {
                         current = exportJobRepository.save(current.processed(rows.size))
                     }
                 }
@@ -165,6 +187,7 @@ class ExportJobProcessor(
                         ExportType.ADMISSION_TICKET -> bundleAdmissionTickets(current, applicants)
                         ExportType.APPLICANT_LIST -> writeApplicantList(current, applicants)
                         ExportType.FIRST_PASS_LIST -> error("handled above")
+                        ExportType.ADMISSION_FILE -> error("handled above")
                     }.also {
                         current = exportJobRepository.save(current.processed(applicants.size))
                     }
@@ -172,8 +195,8 @@ class ExportJobProcessor(
             }
         }.onSuccess { objectKey ->
             val completed = exportJobRepository.save(current.completed(objectKey, Instant.now(clock)))
-            if (completed.type == ExportType.FIRST_PASS_LIST) {
-                deletePreviousFirstPassExports(completed)
+            if (completed.type in setOf(ExportType.FIRST_PASS_LIST, ExportType.ADMISSION_FILE)) {
+                deletePreviousExports(completed)
             }
         }.onFailure { cause ->
             logger.error("Export job failed [exportJobId={}]", job.exportJobId, cause)
@@ -181,8 +204,8 @@ class ExportJobProcessor(
         }
     }
 
-    private fun deletePreviousFirstPassExports(latest: ExportJob) {
-        exportJobRepository.findDownloadableByType(ExportType.FIRST_PASS_LIST)
+    private fun deletePreviousExports(latest: ExportJob) {
+        exportJobRepository.findDownloadableByType(latest.type)
             .filter { it.exportJobId != latest.exportJobId }
             .forEach { previous ->
                 val objectKey = previous.objectKey ?: return@forEach
@@ -190,7 +213,7 @@ class ExportJobProcessor(
                     storagePort.delete(objectKey)
                     exportJobRepository.save(previous.copy(objectKey = null))
                 }.onFailure { cause ->
-                    logger.error("Previous first-pass export deletion failed [exportJobId={}]", previous.exportJobId, cause)
+                    logger.error("Previous export deletion failed [exportJobId={}]", previous.exportJobId, cause)
                 }
             }
     }
@@ -236,14 +259,30 @@ class ExportJobProcessor(
 
     private fun writeFirstPassList(
         job: ExportJob,
-        rows: List<FirstPassRow>,
+        applicants: List<Applicant>,
         rendered: () -> Unit,
     ): String {
         val objectKey = DocumentNaming.firstPassListObjectKey(job.exportJobId)
         val xlsx = xlsxRenderPort.render(
             sheetName = FIRST_PASS_LIST_SHEET,
             header = FIRST_PASS_COLUMNS.map { (title, _) -> title },
-            rows = rows.map { row -> FIRST_PASS_COLUMNS.map { (_, value) -> value(row) } },
+            rows = applicants.map { applicant -> FIRST_PASS_COLUMNS.map { (_, value) -> value(applicant) } },
+        )
+        rendered()
+        storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
+        return objectKey
+    }
+
+    private fun writeAdmissionFile(
+        job: ExportJob,
+        rows: List<FirstPassRow>,
+        rendered: () -> Unit,
+    ): String {
+        val objectKey = DocumentNaming.admissionFileObjectKey(job.exportJobId)
+        val xlsx = xlsxRenderPort.render(
+            sheetName = ADMISSION_FILE_SHEET,
+            header = ADMISSION_FILE_COLUMNS.map { (title, _) -> title },
+            rows = rows.map { row -> ADMISSION_FILE_COLUMNS.map { (_, value) -> value(row) } },
         )
         rendered()
         storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
