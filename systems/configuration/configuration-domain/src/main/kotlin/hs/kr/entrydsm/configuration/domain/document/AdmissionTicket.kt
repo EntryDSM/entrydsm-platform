@@ -4,7 +4,7 @@ private const val SCHOOL_NAME = "대덕소프트웨어마이스터고등학교"
 private const val UNISSUED_EXAMINEE_NUMBER = "미발급"
 
 /**
- * 수험표 한 장에 찍는 내용. 개별 수험표(REST)와 관리자 일괄 출력(admin gRPC)이 같은 칸을 쓴다.
+ * 수험표 한 장에 찍는 내용. 개별 수험표(PDF, [AdmissionTicketHtml])와 관리자 일괄 출력(xlsx)이 같은 칸을 쓴다.
  *
  * ponytail: 수험번호는 admin 이 발급해 일괄 출력만 넘겨준다. 개별 수험표는 받을 길이 없어 미발급으로 찍는다.
  * 학생 화면에 수험표 출력이 붙으면 admin 에서 수험번호와 1차 합격 여부를 함께 받아 온다.

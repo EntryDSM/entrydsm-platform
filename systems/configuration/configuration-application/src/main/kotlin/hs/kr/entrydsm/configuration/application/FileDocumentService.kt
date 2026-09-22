@@ -19,6 +19,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeExcept
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCase
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.FileUseCase
+import hs.kr.entrydsm.configuration.domain.document.port.out.AdmissionTicketSheetPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicantPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.ApplicationFormPdfPort
 import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
@@ -40,6 +41,7 @@ class FileDocumentService(
     private val applicantPort: ApplicantPort,
     private val pdfRenderPort: PdfRenderPort,
     private val applicationFormPdfPort: ApplicationFormPdfPort,
+    private val admissionTicketSheetPort: AdmissionTicketSheetPort,
     private val admissionYear: Int,
     private val storageEnvironment: String = "stag",
 ) : ApplicantFileUseCase,
@@ -75,10 +77,17 @@ class FileDocumentService(
         return store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), applicant.userId)
     }
 
-    override fun renderAdmissionTicket(applicantId: Long, examineeNumber: String?): ByteArray {
-        val applicant = applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
-        return pdfRenderPort.render(AdmissionTicketHtml.render(ticket(applicantId, applicant, examineeNumber)))
-    }
+    /**
+     * ponytail: 지원자마다 application 조회·사진 받기를 차례로 하고 사진을 모두 힙에 둔다. 1차 합격자(백여 명)는
+     * 줄인 사진이 한 장에 수십 KB 라 감당한다. 길어지면 application 을 한 번에 묻고 사진을 병렬로 받는다.
+     */
+    override fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>): ByteArray =
+        admissionTicketSheetPort.render(
+            tickets.map { (applicantId, examineeNumber) ->
+                val applicant = applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+                ticket(applicantId, applicant, examineeNumber)
+            },
+        )
 
     private fun ticket(applicantId: Long, applicant: Applicant, examineeNumber: String?): AdmissionTicket =
         AdmissionTicket.of(
@@ -233,12 +242,12 @@ class FileDocumentService(
 private val FileCategory.keyedByApplicant: Boolean
     get() = this == FileCategory.APPLICATION || this == FileCategory.ADMISSION_TICKET
 
-/** 수험표 사진 칸(폭 약 66mm)에 약 230dpi 로 찍히는 폭. */
+/** PDF 수험표 사진 칸(폭 약 66mm)에 약 230dpi, xlsx 사진 칸(폭 약 50mm)에 약 300dpi 로 찍히는 폭. */
 private const val TICKET_PHOTO_WIDTH = 600
 
 /**
- * 증명사진을 수험표 사진 칸 크기로 줄여 JPEG 로 바꾼다. 관리자 일괄 출력은 수험표를 한 PDF 로 모으므로
- * 원본(최대 5MB)을 그대로 넣으면 파일이 인원수만큼 커진다. 투명한 곳에는 사진 칸의 회색이 비치므로 투명 사진은
+ * 증명사진을 수험표 사진 칸 크기로 줄여 JPEG 로 바꾼다. 관리자 일괄 출력은 수험표를 한 xlsx 로 모으므로
+ * 원본(최대 5MB)을 그대로 넣으면 파일이 인원수만큼 커진다. PDF 사진 칸은 회색이라 투명한 곳에 비치므로 투명 사진은
  * 칸보다 작아도 흰 바탕에 얹는다. 칸보다 작은 불투명 사진과 ImageIO 가 못 읽는 사진(webp, CMYK JPEG)은 원본 그대로 둔다.
  *
  * ponytail: 원본을 통째로 디코딩한다(12MP 면 수십 MB). 동시 출력이 몰려 메모리가 모자라면 ImageReader 서브샘플링으로 읽는다.

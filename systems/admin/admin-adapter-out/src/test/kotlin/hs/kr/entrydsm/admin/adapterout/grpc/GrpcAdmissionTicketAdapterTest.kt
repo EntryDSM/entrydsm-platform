@@ -4,39 +4,55 @@ import com.google.protobuf.ByteString
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.configuration.grpc.ConfigurationServiceGrpc
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketResponse
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsRequest
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsResponse
+import io.grpc.Context
 import io.grpc.ServerBuilder
 import io.grpc.Status
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** 수험표 한 장을 document 에서 받는다. 실제 직렬화를 거쳐 확인한다. */
+/** 수험표 xlsx 를 document 에서 받는다. 실제 직렬화를 거쳐 확인한다. */
 class GrpcAdmissionTicketAdapterTest {
 
     @Test
-    fun `지원자 번호와 수험 번호를 넘기고 PDF 바이트를 받는다`() {
+    fun `지원자 번호와 수험 번호를 순서대로 넘기고 xlsx 바이트를 받는다`() {
         val service = FakeConfigurationService { request ->
-            val examineeNumber = request.examineeNumber.takeIf { request.hasExamineeNumber() }
-            "%PDF-${request.applicantId}-$examineeNumber".toByteArray()
+            request.ticketsList.joinToString("|") { target ->
+                "${target.applicantId}-${target.examineeNumber.takeIf { target.hasExamineeNumber() }}"
+            }.toByteArray()
         }
 
         withAdapter(service) { adapter ->
-            assertEquals("%PDF-12-100001", String(adapter.render(12, "100001")))
-            assertEquals("%PDF-13-null", String(adapter.render(13, examineeNumber = null)))
+            assertEquals("13-100002|12-null", String(adapter.render(listOf(13L to "100002", 12L to null))))
         }
     }
 
     @Test
-    fun `원본 증명사진이 든 수험표도 gRPC 기본 수신 한도 4MB 에 걸리지 않는다`() {
-        val large = ByteArray(6 * 1024 * 1024)
+    fun `증명사진이 인원수만큼 든 xlsx 도 gRPC 기본 수신 한도 4MB 에 걸리지 않는다`() {
+        val large = ByteArray(20 * 1024 * 1024)
 
         withAdapter(FakeConfigurationService { large }) { adapter ->
-            assertEquals(large.size, adapter.render(12, "100001").size)
+            assertEquals(large.size, adapter.render(listOf(12L to "100001")).size)
         }
+    }
+
+    @Test
+    fun `기한은 한 장 기준이라 장수만큼 늘려 기다린다`() {
+        var remainingMs = 0L
+        val service = FakeConfigurationService {
+            remainingMs = checkNotNull(Context.current().deadline).timeRemaining(TimeUnit.MILLISECONDS)
+            ByteArray(0)
+        }
+
+        withAdapter(service, deadlineMs = 1000) { adapter -> adapter.render(listOf(1L to null, 2L to null, 3L to null)) }
+
+        assertTrue("$remainingMs", remainingMs in 2001..3000)
     }
 
     @Test
@@ -48,16 +64,20 @@ class GrpcAdmissionTicketAdapterTest {
             Status.UNIMPLEMENTED to ErrorCode.ADMISSION_TICKET_GENERATION_FAILED,
         ).forEach { (status, code) ->
             val failure = withAdapter(FakeConfigurationService { throw status.asRuntimeException() }) { adapter ->
-                assertThrows(AdminDomainException::class.java) { adapter.render(12, "100001") }
+                assertThrows(AdminDomainException::class.java) { adapter.render(listOf(12L to "100001")) }
             }
 
             assertEquals(code, failure.errorCode)
         }
     }
 
-    private fun <T> withAdapter(service: FakeConfigurationService, block: (GrpcAdmissionTicketAdapter) -> T): T {
+    private fun <T> withAdapter(
+        service: FakeConfigurationService,
+        deadlineMs: Long = 3000,
+        block: (GrpcAdmissionTicketAdapter) -> T,
+    ): T {
         val server = ServerBuilder.forPort(0).addService(service).build().start()
-        val channel = ConfigurationGrpcChannel("localhost", server.port, 3000)
+        val channel = ConfigurationGrpcChannel("localhost", server.port, deadlineMs)
         return try {
             block(GrpcAdmissionTicketAdapter(channel))
         } finally {
@@ -67,19 +87,19 @@ class GrpcAdmissionTicketAdapterTest {
     }
 
     private class FakeConfigurationService(
-        private val ticket: (RenderAdmissionTicketRequest) -> ByteArray,
+        private val tickets: (RenderAdmissionTicketsRequest) -> ByteArray,
     ) : ConfigurationServiceGrpc.ConfigurationServiceImplBase() {
 
-        override fun renderAdmissionTicket(
-            request: RenderAdmissionTicketRequest,
-            responseObserver: StreamObserver<RenderAdmissionTicketResponse>,
+        override fun renderAdmissionTickets(
+            request: RenderAdmissionTicketsRequest,
+            responseObserver: StreamObserver<RenderAdmissionTicketsResponse>,
         ) {
-            val pdf = try {
-                ticket(request)
+            val xlsx = try {
+                tickets(request)
             } catch (failure: StatusRuntimeException) {
                 return responseObserver.onError(failure)
             }
-            responseObserver.onNext(RenderAdmissionTicketResponse.newBuilder().setPdf(ByteString.copyFrom(pdf)).build())
+            responseObserver.onNext(RenderAdmissionTicketsResponse.newBuilder().setXlsx(ByteString.copyFrom(xlsx)).build())
             responseObserver.onCompleted()
         }
     }

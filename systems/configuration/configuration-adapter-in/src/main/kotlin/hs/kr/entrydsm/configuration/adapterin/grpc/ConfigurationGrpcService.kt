@@ -18,8 +18,8 @@ import hs.kr.entrydsm.configuration.grpc.EnvironmentVariableResponse
 import hs.kr.entrydsm.configuration.grpc.GetAllEnvironmentVariablesRequest
 import hs.kr.entrydsm.configuration.grpc.GetAllEnvironmentVariablesResponse
 import hs.kr.entrydsm.configuration.grpc.GetEnvironmentVariableRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketResponse
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsRequest
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsResponse
 import hs.kr.entrydsm.configuration.grpc.UpdateEnvironmentVariableRequest
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
@@ -34,15 +34,16 @@ class ConfigurationGrpcService(
     private val applicantFileUseCase: ApplicantFileUseCase,
 ) : ConfigurationServiceGrpc.ConfigurationServiceImplBase() {
 
-    /** admin 수험표 일괄 출력이 지원자마다 부른다. admin 은 실패를 작업 실패로만 쓴다. */
-    override fun renderAdmissionTicket(
-        request: RenderAdmissionTicketRequest,
-        responseObserver: StreamObserver<RenderAdmissionTicketResponse>,
+    /** admin 수험표 일괄 출력이 한 번 부른다. 한 명이라도 실패하면 전체가 실패하고, admin 은 이를 작업 실패로만 쓴다. */
+    override fun renderAdmissionTickets(
+        request: RenderAdmissionTicketsRequest,
+        responseObserver: StreamObserver<RenderAdmissionTicketsResponse>,
     ) {
-        val pdf = try {
-            applicantFileUseCase.renderAdmissionTicket(
-                request.applicantId,
-                request.examineeNumber.takeIf { request.hasExamineeNumber() },
+        val xlsx = try {
+            applicantFileUseCase.renderAdmissionTickets(
+                request.ticketsList.map { target ->
+                    target.applicantId to target.examineeNumber.takeIf { target.hasExamineeNumber() }
+                },
             )
         } catch (exception: Exception) {
             return responseObserver.onError(
@@ -53,7 +54,7 @@ class ConfigurationGrpcService(
                 }.withDescription(exception.message).withCause(exception).asRuntimeException(),
             )
         }
-        responseObserver.onNext(RenderAdmissionTicketResponse.newBuilder().setPdf(ByteString.copyFrom(pdf)).build())
+        responseObserver.onNext(RenderAdmissionTicketsResponse.newBuilder().setXlsx(ByteString.copyFrom(xlsx)).build())
         responseObserver.onCompleted()
     }
 

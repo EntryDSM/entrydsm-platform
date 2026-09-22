@@ -3,9 +3,8 @@ package hs.kr.entrydsm.configuration.domain.document
 import java.util.Base64
 
 /**
- * 수험표 레이아웃을 XHTML 로 만든다. PDF 변환기(openhtmltopdf)는 well-formed XHTML 만 받으므로 태그를 모두 닫는다.
- *
- * 개별 수험표(REST)와 관리자 일괄 출력(admin gRPC)이 이 양식 하나를 쓴다.
+ * 개별 수험표(REST) 레이아웃을 XHTML 로 만든다. PDF 변환기(openhtmltopdf)는 well-formed XHTML 만 받으므로 태그를 모두 닫는다.
+ * 관리자 일괄 출력은 같은 [AdmissionTicket] 을 xlsx 로 그린다.
  */
 object AdmissionTicketHtml {
 
