@@ -40,6 +40,31 @@ class ApplicationFormPdfTest {
     }
 
     @Test
+    fun `검정고시 원서는 검정고시 점수를 3학년 1학기 열에 찍고 출결·봉사 칸은 비운다`() {
+        val ged = form().copy(
+            graduationType = ApplicationForm.GraduationType.GED,
+            graduationDate = null,
+            school = null,
+            semesterGrades = listOf(null, null, null, null),
+            gedScores = ApplicationForm.SemesterGrades("95", "88", "100", "76", "90", "85", "99"),
+            // 검정고시 점수를 저장하면 출결이 0 인 성적 기록이 같이 생긴다.
+            academicRecord = ApplicationForm.AcademicRecord(0, 0, 0, 0, 0, dsmAlgorithmAwarded = true, programmingCertified = false),
+        )
+        val glyphs = stamped(adapter.render(ged, photo = null), page = 1)
+
+        // 칸 안에 기준선과 좌우가 다 드는 원서 글자를 위 행부터 읽는다.
+        fun cell(left: Float, top: Float, right: Float, bottom: Float) = glyphs
+            .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+            .sortedBy { it.yDirAdj }
+            .joinToString("") { it.unicode }
+
+        // 국어 95 · 사회 88 · 역사 100 · 수학 76 · 과학 90 · 기술·가정 85 · 영어 99
+        assertEquals("958810076908599", cell(181.80f, 340.68f, 254.28f, 470.04f))
+        assertEquals("", cell(477.72f, 322.20f, 519.00f, 414.60f))
+        assertEquals("O", cell(477.72f, 433.08f, 536.40f, 451.56f))
+    }
+
+    @Test
     fun `일반전형 원서는 학교장 추천서를 빼고 다섯 장을 찍는다`() {
         val pdf = adapter.render(form().copy(admissionType = Applicant.AdmissionType.REGULAR), photo = null)
 

@@ -138,21 +138,27 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
     text(399.24f, 279.48f, 536.40f, 303.72f, form.specialNote)
 
     // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 반영할 성적이 없는 열은 빈다.
+    // 검정고시 지원자는 학기 성적과 출결·봉사 기록이 없다. 지난해 원서처럼 검정고시 점수를 3학년 1학기 열에 찍고
+    // 출결·봉사 칸은 비운다(요강이 정하지 않은 칸이다).
+    val ged = form.graduationType == ApplicationForm.GraduationType.GED
     val rows = floatArrayOf(340.68f, 359.16f, 377.64f, 396.12f, 414.60f, 433.08f, 451.56f, 470.04f)
     val columns = floatArrayOf(109.32f, 181.80f, 254.28f, 326.76f, 399.24f)
-    form.semesterGrades.take(ApplicationForm.SEMESTER_COLUMN_COUNT).forEachIndexed { column, grades ->
-        grades?.inFormOrder()?.forEachIndexed { row, grade ->
+    val grades = if (ged) listOf(null, form.gedScores) else form.semesterGrades
+    grades.take(ApplicationForm.SEMESTER_COLUMN_COUNT).forEachIndexed { column, subjects ->
+        subjects?.inFormOrder()?.forEachIndexed { row, grade ->
             text(columns[column], rows[row], columns[column + 1], rows[row + 1], grade)
         }
     }
 
     // 출결 칸은 단위(일·회·시간)가 오른쪽에 인쇄돼 있어 그 왼쪽에 숫자만 찍는다.
     form.academicRecord?.let { record ->
-        text(477.72f, 322.20f, 519.00f, 340.68f, record.absentCount.toString())
-        text(477.72f, 340.68f, 519.00f, 359.16f, record.lateCount.toString())
-        text(477.72f, 359.16f, 519.00f, 377.64f, record.earlyLeaveCount.toString())
-        text(477.72f, 377.64f, 519.00f, 396.12f, record.classAbsenceCount.toString())
-        text(477.72f, 396.12f, 509.00f, 414.60f, record.volunteerTime.toString())
+        if (!ged) {
+            text(477.72f, 322.20f, 519.00f, 340.68f, record.absentCount.toString())
+            text(477.72f, 340.68f, 519.00f, 359.16f, record.lateCount.toString())
+            text(477.72f, 359.16f, 519.00f, 377.64f, record.earlyLeaveCount.toString())
+            text(477.72f, 377.64f, 519.00f, 396.12f, record.classAbsenceCount.toString())
+            text(477.72f, 396.12f, 509.00f, 414.60f, record.volunteerTime.toString())
+        }
         text(477.72f, 433.08f, 536.40f, 451.56f, if (record.dsmAlgorithmAwarded) "O" else null)
         text(477.72f, 451.56f, 536.40f, 470.04f, if (record.programmingCertified) "O" else null)
     }
