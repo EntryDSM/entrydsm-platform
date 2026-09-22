@@ -75,7 +75,7 @@ class AdminApplicationModuleTest {
     }
 
     @Test
-    fun exportsFirstPassRowsInSpecifiedColumnOrderAndUpdatesCounts() {
+    fun exportsAdmissionFileRowsInSpecifiedColumnOrderAndUpdatesCounts() {
         val row = FirstPassRow(
             receiptNumber = "0001",
             combinedCode = "310",
@@ -83,15 +83,15 @@ class AdminApplicationModuleTest {
             thirdGradeFirstSemester = SemesterGrades(korean = "A"),
             totalScore = 99.5,
         )
-        val fixture = exportFixture(listOf(row))
+        val fixture = exportFixture(type = ExportType.ADMISSION_FILE, admissionRows = listOf(row))
 
         fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
 
-        assertEquals(EXPECTED_FIRST_PASS_HEADERS, fixture.header)
+        assertEquals(EXPECTED_ADMISSION_FILE_HEADERS, fixture.header)
         assertEquals("0001", fixture.rows.single()[1])
         assertEquals("홍길동", fixture.rows.single()[5])
-        assertNull(fixture.rows.single()[EXPECTED_FIRST_PASS_HEADERS.indexOf("nan")])
-        assertEquals("first-pass/first_pass_exp_test.xlsx", fixture.objectKey)
+        assertNull(fixture.rows.single()[EXPECTED_ADMISSION_FILE_HEADERS.indexOf("nan")])
+        assertEquals("admission-file/admission_file_exp_test.xlsx", fixture.objectKey)
         assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fixture.contentType)
         assertEquals(
             listOf(ExportStatus.PROCESSING, ExportStatus.PROCESSING, ExportStatus.PROCESSING, ExportStatus.COMPLETED),
@@ -102,8 +102,22 @@ class AdminApplicationModuleTest {
     }
 
     @Test
+    fun exportsOnlyFirstPassApplicantsWithThreeColumns() {
+        val fixture = exportFixture(
+            applicants = listOf(
+                Applicant(id = 1L, examineeNumber = "11001", name = "홍길동", status = hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FIRST_PASS),
+            ),
+        )
+
+        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+
+        assertEquals(listOf("수험번호", "접수번호", "성명"), fixture.header)
+        assertEquals(listOf("11001", "0001", "홍길동"), fixture.rows.single())
+    }
+
+    @Test
     fun preservesProcessedCountWhenFirstPassUploadFails() {
-        val fixture = exportFixture(listOf(FirstPassRow(receiptNumber = "0001")), failUpload = true)
+        val fixture = exportFixture(applicants = listOf(Applicant(id = 1L)), failUpload = true)
 
         fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
 
@@ -113,22 +127,22 @@ class AdminApplicationModuleTest {
     }
 
     @Test
-    fun deletesPreviousFirstPassObjectAfterNewExportCompletes() {
+    fun deletesPreviousAdmissionFileObjectAfterNewExportCompletes() {
         val previous = ExportJob(
             exportJobId = "exp_previous",
-            type = ExportType.FIRST_PASS_LIST,
+            type = ExportType.ADMISSION_FILE,
             status = ExportStatus.COMPLETED,
-            objectKey = "first-pass/first_pass_exp_previous.xlsx",
+            objectKey = "admission-file/admission_file_exp_previous.xlsx",
             createdAt = Instant.EPOCH,
             completedAt = Instant.EPOCH,
         )
-        val fixture = exportFixture(emptyList(), previous)
+        val fixture = exportFixture(type = ExportType.ADMISSION_FILE, previous = previous)
 
         fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
 
-        assertEquals(listOf("first-pass/first_pass_exp_previous.xlsx"), fixture.deletedObjectKeys)
+        assertEquals(listOf("admission-file/admission_file_exp_previous.xlsx"), fixture.deletedObjectKeys)
         assertNull(fixture.saved.last { it.exportJobId == previous.exportJobId }.objectKey)
-        assertEquals("first-pass/first_pass_exp_test.xlsx", fixture.saved.last { it.exportJobId == fixture.job.exportJobId }.objectKey)
+        assertEquals("admission-file/admission_file_exp_test.xlsx", fixture.saved.last { it.exportJobId == fixture.job.exportJobId }.objectKey)
     }
 
     @Test
@@ -167,7 +181,9 @@ class AdminApplicationModuleTest {
     }
 
     private fun exportFixture(
-        rows: List<FirstPassRow>,
+        type: ExportType = ExportType.FIRST_PASS_LIST,
+        applicants: List<Applicant> = emptyList(),
+        admissionRows: List<FirstPassRow> = emptyList(),
         previous: ExportJob? = null,
         failUpload: Boolean = false,
     ): ExportFixture {
@@ -184,7 +200,17 @@ class AdminApplicationModuleTest {
         val deletedObjectKeys = mutableListOf<String>()
         val processor = ExportJobProcessor(
             exportJobRepository = exportRepository,
-            applicantRepository = repository(ApplicantRepository::class.java, "findFirstPassRows" to rows),
+            applicantRepository = Proxy.newProxyInstance(
+                javaClass.classLoader,
+                arrayOf(ApplicantRepository::class.java),
+            ) { _, method, _ ->
+                when (method.name) {
+                    "syncExportProjection" -> Unit
+                    "findFirstPassApplicants" -> applicants
+                    "findAdmissionFileRows" -> admissionRows
+                    else -> error("unexpected call: ${method.name}")
+                }
+            } as ApplicantRepository,
             pdfRenderPort = object : PdfRenderPort {
                 override fun render(html: String) = byteArrayOf()
             },
@@ -213,7 +239,7 @@ class AdminApplicationModuleTest {
         )
         val job = ExportJob(
             exportJobId = "exp_test",
-            type = ExportType.FIRST_PASS_LIST,
+            type = type,
             status = ExportStatus.PENDING,
             createdAt = Instant.EPOCH,
         )
@@ -259,6 +285,6 @@ class AdminApplicationModuleTest {
         } as T
 
     private companion object {
-        val EXPECTED_FIRST_PASS_HEADERS = "전형_지역_추가,접수번호,전형유형,지역,추가유형,성명,생년월일,주소,전화번호,성별,학력구분,졸업년도,출신학교,반,보호자 성명,보호자 전화번호,국어 3학년 2학기,사회 3학년 2학기,역사 3학년 2학기,수학 3학년 2학기,과학 3학년 2학기,기술가정 3학년 2학기,영어 3학년 2학기,국어 3학년 1학기,사회 3학년 1학기,역사 3학년 1학기,수학 3학년 1학기,과학 3학년 1학기,기술가정 3학년 1학기,영어 3학년 1학기,국어 직전 학기,사회 직전 학기,역사 직전 학기,수학 직전 학기,과학 직전 학기,기술가정 직전 학기,영어 직전 학기,국어 직전전 학기,사회 직전전 학기,역사 직전전 학기,수학 직전전 학기,과학 직전전 학기,기술가정 직전전 학기,영어 직전전 학기,3학년 성적 총합,직전 학기 성적 총합,직전전 학기 성적 총합,교과성적환산점수,봉사시간,봉사점수,결석,지각,조퇴,결과,출석점수,대회,자격증,가산점,1차전형 총점,nan,전형코드,지역코드,추가유형코드,검정고시 평균점".split(',')
+        val EXPECTED_ADMISSION_FILE_HEADERS = "전형_지역_추가,접수번호,전형유형,지역,추가유형,성명,생년월일,주소,전화번호,성별,학력구분,졸업년도,출신학교,반,보호자 성명,보호자 전화번호,국어 3학년 2학기,사회 3학년 2학기,역사 3학년 2학기,수학 3학년 2학기,과학 3학년 2학기,기술가정 3학년 2학기,영어 3학년 2학기,국어 3학년 1학기,사회 3학년 1학기,역사 3학년 1학기,수학 3학년 1학기,과학 3학년 1학기,기술가정 3학년 1학기,영어 3학년 1학기,국어 직전 학기,사회 직전 학기,역사 직전 학기,수학 직전 학기,과학 직전 학기,기술가정 직전 학기,영어 직전 학기,국어 직전전 학기,사회 직전전 학기,역사 직전전 학기,수학 직전전 학기,과학 직전전 학기,기술가정 직전전 학기,영어 직전전 학기,3학년 성적 총합,직전 학기 성적 총합,직전전 학기 성적 총합,교과성적환산점수,봉사시간,봉사점수,결석,지각,조퇴,결과,출석점수,대회,자격증,가산점,1차전형 총점,nan,전형코드,지역코드,추가유형코드,검정고시 평균점".split(',')
     }
 }

@@ -15,6 +15,7 @@ import hs.kr.entrydsm.admin.domain.model.RegionStatus
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.CreateFirstPassFileUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.DeleteNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadExportUseCase
@@ -84,11 +85,9 @@ class AdminAdapterInModuleTest {
 
     @Test
     fun createsFirstPassExportJob() {
-        var capturedCommand: CreateExportCommand? = null
         val controller = SupportController(
             createExportUseCase = object : CreateExportUseCase {
                 override fun create(command: CreateExportCommand): ExportJob {
-                    capturedCommand = command
                     return ExportJob(
                         exportJobId = "exp_test",
                         type = command.type,
@@ -96,6 +95,9 @@ class AdminAdapterInModuleTest {
                         createdAt = Instant.EPOCH,
                     )
                 }
+            },
+            createFirstPassFileUseCase = CreateFirstPassFileUseCase {
+                hs.kr.entrydsm.admin.domain.model.DownloadLink("https://example.test/first-pass", Instant.EPOCH)
             },
             readExportUseCase = unused(ReadExportUseCase::class.java),
             createNoticeUseCase = unused(CreateNoticeUseCase::class.java),
@@ -111,11 +113,8 @@ class AdminAdapterInModuleTest {
         val body = response.getContentAsString(Charsets.UTF_8)
 
         assertEquals(200, response.status)
-        assertEquals(ExportType.FIRST_PASS_LIST, capturedCommand?.type)
-        assertTrue(body, body.contains("\"jobId\":\"exp_test\""))
-        assertTrue(body, body.contains("\"totalCount\":0"))
-        assertTrue(body, body.contains("\"processedCount\":0"))
-        assertTrue(body, body.contains("\"downloadUrl\":null"))
+        assertTrue(body, body.contains("\"downloadUrl\":\"https://example.test/first-pass\""))
+        assertTrue(body, body.contains("\"expiresAt\":\"1970-01-01T00:00:00Z\""))
     }
 
     private fun <T> unused(type: Class<T>): T = Proxy.newProxyInstance(
