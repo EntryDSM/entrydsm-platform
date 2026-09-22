@@ -11,6 +11,7 @@ KOTLIN_DEPS = [
     "@maven//:com_google_protobuf_protobuf_java",
     "@maven//:javax_annotation_javax_annotation_api",
     "@maven//:software_amazon_awssdk_s3",
+    "@maven//:com_fasterxml_jackson_core_jackson_databind",
     "//contracts:application_grpc_java",
     "//contracts:application_java_proto",
     "//contracts:configuration_grpc_java",

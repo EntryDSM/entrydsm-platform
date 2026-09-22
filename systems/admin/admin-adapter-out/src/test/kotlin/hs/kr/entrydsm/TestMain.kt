@@ -1,5 +1,7 @@
 package hs.kr.entrydsm.admin.adapterout
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import hs.kr.entrydsm.admin.adapterout.distance.KakaoDistanceAdapter
 import hs.kr.entrydsm.admin.adapterout.grpc.GrpcNoticeAdapter
 import hs.kr.entrydsm.admin.adapterout.grpc.NotificationGrpcChannel
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
@@ -22,6 +24,29 @@ class AdminAdapterOutModuleTest {
     @Test
     fun moduleLoads() {
         assertTrue(true)
+    }
+
+    @Test
+    fun kakaoDistanceReadsCoordinatesAndMeterValue() {
+        val adapter = KakaoDistanceAdapter(ObjectMapper(), "key", "https://local.test", "https://directions.test", "학교", 1000)
+
+        val distance = adapter.parseDistance(
+            """{"routes":[{"result_code":0,"summary":{"distance":1234}}]}""",
+        )
+        val coordinates = adapter.parseCoordinates("""{"documents":[{"x":"127.1","y":"36.3"}]}""")
+
+        assertEquals(1234L, distance)
+        assertEquals(KakaoDistanceAdapter.Coordinates(127.1, 36.3), coordinates)
+    }
+
+    @Test
+    fun kakaoFailureDoesNotExposeApiKey() {
+        val adapter = KakaoDistanceAdapter(ObjectMapper(), "super-secret", "::", "::", "학교", 1)
+
+        val exception = runCatching { adapter.distanceFromSchool("집") }.exceptionOrNull()
+
+        assertTrue(exception is AdminDomainException)
+        assertFalse(exception?.message.orEmpty().contains("super-secret"))
     }
 
     /** false 와 빈 첨부 목록도 보낸 값이라 전송 뒤에도 필드가 살아 있어야 한다. */
