@@ -3,6 +3,7 @@ package hs.kr.entrydsm.configuration.application
 import hs.kr.entrydsm.configuration.domain.document.AdmissionTicket
 import hs.kr.entrydsm.configuration.domain.document.Applicant
 import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
+import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.FileNaming
@@ -194,7 +195,7 @@ class FileDocumentServiceTest {
 
     @Test
     fun `수험표는 지원자 정보와 본인 사진으로 만들고 수험번호는 미발급으로 찍는다`() {
-        val photo = service.upload(photo(student(STUDENT_ID)), content())
+        val photo = service.upload(photo(student(STUDENT_ID)), content()).withPng()
         applicants[APPLICANT_ID] = Applicant(
             STUDENT_ID, "홍<길동>", "대덕중학교", Applicant.Region.DAEJEON, Applicant.AdmissionType.MEISTER, photo.document.publicId,
         )
@@ -269,6 +270,55 @@ class FileDocumentServiceTest {
     }
 
     @Test
+    fun `못 읽는 사진은 줄일 수도 확인할 수도 없어 수험표에 넣지 않는다`() {
+        val webp = service.upload(photo(student(STUDENT_ID), "사진.webp"), content())
+        storage.contents[webp.document.objectKey] = "RIFF0000WEBPVP8 ".toByteArray() + ByteArray(5 * 1024 * 1024)
+        applicants[APPLICANT_ID] = applicant(photoFileId = webp.document.publicId)
+
+        service.renderAdmissionTickets(listOf(APPLICANT_ID to null))
+
+        assertNull(sheet.lastTickets.single().photo)
+    }
+
+    @Test
+    fun `칸 안의 사진도 300KB 를 넘거나 JPEG·PNG 가 아니면 JPEG 로 다시 저장한다`() {
+        val heavy = service.upload(photo(student(STUDENT_ID), "사진.jpg"), content())
+        // 사진은 300×400 인데 메타데이터처럼 뒤에 400KB 가 붙었다.
+        storage.contents[heavy.document.objectKey] =
+            image(BufferedImage(300, 400, BufferedImage.TYPE_INT_RGB), "jpg") + ByteArray(400 * 1024)
+        applicants[APPLICANT_ID] = applicant(photoFileId = heavy.document.publicId)
+
+        service.renderAdmissionTickets(listOf(APPLICANT_ID to null))
+
+        val slimmed = sheet.lastPhoto()
+        assertEquals("image/jpeg", slimmed.contentType)
+        assertTrue("${slimmed.bytes.size}", slimmed.bytes.size <= 300 * 1024)
+        assertEquals(300 to 400, ImageIO.read(ByteArrayInputStream(slimmed.bytes)).let { it.width to it.height })
+
+        // 이름은 png 인데 내용은 BMP 다. xlsx 는 BMP 를 담지 못한다.
+        val bitmap = service.upload(photo(student(STUDENT_ID)), content())
+        storage.contents[bitmap.document.objectKey] = image(BufferedImage(30, 40, BufferedImage.TYPE_INT_RGB), "bmp")
+        applicants[APPLICANT_ID] = applicant(photoFileId = bitmap.document.publicId)
+
+        service.renderAdmissionTickets(listOf(APPLICANT_ID to null))
+
+        assertEquals("image/jpeg", sheet.lastPhoto().contentType)
+        assertEquals(listOf(0xFF.toByte(), 0xD8.toByte()), sheet.lastPhoto().bytes.take(2))
+    }
+
+    @Test
+    fun `세로로 긴 사진은 높이 800 에 맞춰 칸 안으로 줄인다`() {
+        val tall = service.upload(photo(student(STUDENT_ID)), content())
+        storage.contents[tall.document.objectKey] = image(BufferedImage(600, 3000, BufferedImage.TYPE_INT_RGB), "png")
+        applicants[APPLICANT_ID] = applicant(photoFileId = tall.document.publicId)
+
+        service.renderAdmissionTickets(listOf(APPLICANT_ID to null))
+
+        val fitted = ImageIO.read(ByteArrayInputStream(sheet.lastPhoto().bytes))
+        assertEquals(160 to 800, fitted.width to fitted.height)
+    }
+
+    @Test
     fun `남의 지원자 수험표는 없어도 403이고, 관리자는 없는 지원자면 404다`() {
         assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket(APPLICANT_ID, student(11)) }
         assertThrows(DocumentAccessDeniedException::class.java) { service.generateAdmissionTicket(404, student(11)) }
@@ -278,8 +328,8 @@ class FileDocumentServiceTest {
 
     @Test
     fun `원서에 다른 학생의 사진이나 사진이 아닌 파일 ID가 적혀 있으면 수험표에 넣지 않는다`() {
-        val othersPhoto = service.upload(photo(student(11)), content())
-        val attachment = service.upload(attachment(), content())
+        val othersPhoto = service.upload(photo(student(11)), content()).withPng()
+        val attachment = service.upload(attachment(), content()).withPng()
 
         applicants[APPLICANT_ID] = applicant(photoFileId = othersPhoto.document.publicId)
         service.generateAdmissionTicket(APPLICANT_ID, admin)
@@ -292,8 +342,8 @@ class FileDocumentServiceTest {
 
     @Test
     fun `V006 전에 숫자로 저장된 사진 ID도 그 학생이 올린 사진이면 수험표에 넣는다`() {
-        val own = service.upload(photo(student(STUDENT_ID)), content())
-        val others = service.upload(photo(student(11)), content())
+        val own = service.upload(photo(student(STUDENT_ID)), content()).withPng()
+        val others = service.upload(photo(student(11)), content()).withPng()
 
         applicants[APPLICANT_ID] = applicant(photoFileId = own.document.id.toString())
         service.generateAdmissionTicket(APPLICANT_ID, admin)
@@ -394,6 +444,11 @@ class FileDocumentServiceTest {
 
     private fun image(image: BufferedImage, format: String): ByteArray =
         ByteArrayOutputStream().also { ImageIO.write(image, format, it) }.toByteArray()
+
+    /** 가짜 저장소는 넣은 내용이 없으면 object key 를 돌려준다. 수험표에는 읽히는 사진만 들어가므로 PNG 를 넣는다. */
+    private fun DownloadableFile.withPng(): DownloadableFile = also {
+        storage.contents[document.objectKey] = image(BufferedImage(30, 40, BufferedImage.TYPE_INT_RGB), "png")
+    }
 
     private companion object {
         const val APPLICANT_ID = 12L
