@@ -118,6 +118,8 @@ class ApplicationGrpcServiceTest {
             totalScore = null,
             status = ApplicantStatus.SUBMITTED,
             submittedAt = null,
+            gender = Gender.FEMALE,
+            address = "충청남도 천안시",
         )
 
         val found = stub.getApplicant(GetApplicantRequest.newBuilder().setApplicantId(APPLICANT_ID).build())
@@ -132,6 +134,8 @@ class ApplicationGrpcServiceTest {
         assertEquals(GrpcRegion.REGION_DAEJEON, found.region)
         assertEquals(GrpcAdmissionType.ADMISSION_TYPE_UNSPECIFIED, found.admissionType)
         assertEquals("photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8", found.photoFileId)
+        assertEquals(GrpcGender.GENDER_FEMALE, found.gender)
+        assertEquals("충청남도 천안시", found.address)
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
     }
 

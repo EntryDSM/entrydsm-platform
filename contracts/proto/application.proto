@@ -76,6 +76,8 @@ message ApplicantResponse {
     optional double total_score = 12;
     ApplicantStatus applicant_status = 13;
     optional int64 submitted_at_epoch_millis = 14;
+    Gender gender = 15;
+    optional string address = 16;
 }
 
 // 원서 주인 계정(X-User-Id). 본인 원서만 찍으므로 applicant id 를 받지 않는다.

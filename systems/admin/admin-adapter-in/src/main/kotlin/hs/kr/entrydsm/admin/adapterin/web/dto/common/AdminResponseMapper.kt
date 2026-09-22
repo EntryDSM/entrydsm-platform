@@ -74,6 +74,29 @@ fun ApplicantStatistics.toResponse(): StatisticsResponse = StatisticsResponse(
                 it.mapKeys { (type, _) -> type.name },
             )
         }
+        genderRatio?.let {
+            put(
+                StatisticsMetric.GENDER_RATIO.name,
+                mapOf(
+                    "total" to it.total,
+                    "byGender" to it.byGender.mapKeys { (gender, _) -> gender.name },
+                    "maleRatio" to it.maleRatio,
+                    "byType" to it.byType.mapKeys { (type, _) -> type.name }.mapValues { (_, byGender) ->
+                        byGender.mapKeys { (gender, _) -> gender.name }
+                    },
+                ),
+            )
+        }
+        regionStatus?.let {
+            put(
+                StatisticsMetric.REGION_STATUS.name,
+                mapOf(
+                    "total" to it.total,
+                    "byScope" to it.byScope,
+                    "byRegion" to it.byRegion.mapKeys { (region, _) -> region.name },
+                ),
+            )
+        }
         regionDistribution?.let {
             put(
                 StatisticsMetric.REGION_DISTRIBUTION.name,

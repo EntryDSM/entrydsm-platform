@@ -1,6 +1,14 @@
 package hs.kr.entrydsm.admin.adapterin
 
 import hs.kr.entrydsm.admin.adapterin.web.exception.GlobalExceptionHandler
+import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
+import hs.kr.entrydsm.admin.domain.enum.AdmissionType
+import hs.kr.entrydsm.admin.domain.enum.Gender
+import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
+import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
+import hs.kr.entrydsm.admin.domain.model.GenderRatio
+import hs.kr.entrydsm.admin.domain.model.RegionStatus
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,5 +45,26 @@ class AdminAdapterInModuleTest {
         assertEquals(405, response.statusCode.value())
         assertEquals("METHOD_NOT_ALLOWED", response.body?.error?.code)
         assertEquals(setOf(HttpMethod.GET), response.headers.allow)
+    }
+
+    @Test
+    fun mapsGenderAndRegionStatisticsToResponse() {
+        val response = ApplicantStatistics(
+            generatedAt = Instant.EPOCH,
+            genderRatio = GenderRatio(
+                total = 2,
+                byGender = mapOf(Gender.MALE to 1, Gender.FEMALE to 1),
+                maleRatio = 0.5,
+                byType = mapOf(AdmissionType.GENERAL to mapOf(Gender.MALE to 1)),
+            ),
+            regionStatus = RegionStatus(
+                total = 2,
+                byScope = mapOf("LOCAL" to 1, "NATIONWIDE" to 1),
+                byRegion = mapOf(ResidenceRegion.DAEJEON to 1, ResidenceRegion.CHUNGNAM to 1),
+            ),
+        ).toResponse()
+
+        assertTrue(response.metrics.containsKey("GENDER_RATIO"))
+        assertTrue(response.metrics.containsKey("REGION_STATUS"))
     }
 }

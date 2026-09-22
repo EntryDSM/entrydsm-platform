@@ -6,6 +6,7 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
+import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
@@ -18,6 +19,7 @@ import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
+import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
 import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
@@ -51,6 +53,8 @@ class GrpcApplicantDataAdapterTest {
         assertEquals(Region.DAEJEON, applicant.region)
         assertEquals(AdmissionType.GENERAL, applicant.admissionType)
         assertEquals(GraduationStatus.EXPECTED, applicant.graduationStatus)
+        assertEquals(Gender.MALE, applicant.gender)
+        assertEquals("(34503) 대전광역시 유성구 가정북로 76", applicant.address)
         assertFalse(applicant.isArrived)
         assertEquals(ApplicantStatus.PENDING, applicant.status)
         assertNull(applicant.examineeNumber)
@@ -209,6 +213,8 @@ class GrpcApplicantDataAdapterTest {
             .setRegion(GrpcRegion.REGION_DAEJEON)
             .setAdmissionType(GrpcAdmissionType.ADMISSION_TYPE_REGULAR)
             .setGraduationType(GrpcGraduationType.GRADUATION_TYPE_PROSPECTIVE)
+            .setGender(GrpcGender.GENDER_MALE)
+            .setAddress("(34503) 대전광역시 유성구 가정북로 76")
             .build()
 
     /** 실제 직렬화를 거치도록 로컬 포트에 가짜 application 서버를 띄운다. */

@@ -3,6 +3,7 @@ package hs.kr.entrydsm.admin.domain.model
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
+import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.Region
 import java.time.Instant
 import java.time.LocalDate
@@ -38,6 +39,8 @@ data class Applicant(
     val status: ApplicantStatus = ApplicantStatus.PENDING,
     val arrivedAt: Instant? = null,
     val updatedAt: Instant? = null,
+    val gender: Gender? = null,
+    val address: String? = null,
 ) {
     /** 서류에 찍는 접수 번호. 접수 순서인 [id] 를 네 자리로 채운다. 9999 번을 넘으면 자릿수가 늘어난다. */
     val receiptNumber: String get() = id.toString().padStart(4, '0')
