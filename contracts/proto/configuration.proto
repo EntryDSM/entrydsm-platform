@@ -12,8 +12,8 @@ service ConfigurationService {
     rpc GetAllEnvironmentVariables(GetAllEnvironmentVariablesRequest) returns (GetAllEnvironmentVariablesResponse);
     rpc UpdateEnvironmentVariable(UpdateEnvironmentVariableRequest) returns (EnvironmentVariableResponse);
     rpc DeleteEnvironmentVariable(DeleteEnvironmentVariableRequest) returns (DeleteEnvironmentVariableResponse);
-    // 관리자 수험표 일괄 출력에 쓰는 수험표 한 장. 저장하지 않고 PDF 를 돌려준다.
-    rpc RenderAdmissionTicket(RenderAdmissionTicketRequest) returns (RenderAdmissionTicketResponse);
+    // 관리자 수험표 일괄 출력. 받은 순서대로 수험표를 한 시트에 이어 그린 xlsx 를 저장하지 않고 돌려준다.
+    rpc RenderAdmissionTickets(RenderAdmissionTicketsRequest) returns (RenderAdmissionTicketsResponse);
     // 관리자가 등록한 일정 하나. application 이 원서 접수 기간을 확인할 때 쓴다. 없는 제목이면 NOT_FOUND.
     rpc GetSchedule(GetScheduleRequest) returns (ScheduleResponse);
 }

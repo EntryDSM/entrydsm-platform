@@ -7,9 +7,10 @@ import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundE
 import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCase
 import hs.kr.entrydsm.configuration.domain.schedule.Schedule
 import hs.kr.entrydsm.configuration.domain.schedule.port.`in`.ScheduleUseCase
+import hs.kr.entrydsm.configuration.grpc.AdmissionTicketTarget
 import hs.kr.entrydsm.configuration.grpc.GetScheduleRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketResponse
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsRequest
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsResponse
 import hs.kr.entrydsm.configuration.grpc.ScheduleResponse
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
@@ -31,9 +32,8 @@ class ConfigurationGrpcServiceTest {
             "xlsx-${tickets.size}".toByteArray()
         }
 
-        val issued = RecordingObserver<RenderAdmissionTicketResponse>()
-        service.renderAdmissionTicket(request(12, "100001"), issued)
-        service.renderAdmissionTicket(request(13, examineeNumber = null), RecordingObserver<RenderAdmissionTicketResponse>())
+        val observer = RecordingObserver<RenderAdmissionTicketsResponse>()
+        service.renderAdmissionTickets(request(13L to "100002", 12L to null), observer)
 
         assertEquals("xlsx-2", observer.value?.xlsx?.toStringUtf8())
         assertTrue(observer.completed)
@@ -47,8 +47,8 @@ class ConfigurationGrpcServiceTest {
             ApplicantLookupFailedException(12) to Status.Code.UNAVAILABLE,
             IllegalStateException("render failed") to Status.Code.INTERNAL,
         ).forEach { (failure, code) ->
-            val observer = RecordingObserver<RenderAdmissionTicketResponse>()
-            service { _, _ -> throw failure }.renderAdmissionTicket(request(12, examineeNumber = null), observer)
+            val observer = RecordingObserver<RenderAdmissionTicketsResponse>()
+            service { throw failure }.renderAdmissionTickets(request(12L to null), observer)
 
             assertEquals(code, Status.fromThrowable(observer.error).code)
         }
@@ -73,15 +73,21 @@ class ConfigurationGrpcServiceTest {
         assertEquals(Status.Code.NOT_FOUND, Status.fromThrowable(missing.error).code)
     }
 
-    private fun request(applicantId: Long, examineeNumber: String?) =
-        RenderAdmissionTicketRequest.newBuilder()
-            .setApplicantId(applicantId)
-            .also { builder -> examineeNumber?.let(builder::setExamineeNumber) }
+    private fun request(vararg tickets: Pair<Long, String?>) =
+        RenderAdmissionTicketsRequest.newBuilder()
+            .addAllTickets(
+                tickets.map { (applicantId, examineeNumber) ->
+                    AdmissionTicketTarget.newBuilder()
+                        .setApplicantId(applicantId)
+                        .also { builder -> examineeNumber?.let(builder::setExamineeNumber) }
+                        .build()
+                },
+            )
             .build()
 
     private fun service(
         schedules: ScheduleUseCase = unused(),
-        ticket: (Long, String?) -> ByteArray = { _, _ -> error("unused") },
+        render: (List<Pair<Long, String?>>) -> ByteArray = { error("unused") },
     ) = ConfigurationGrpcService(
         unused(), unused(), unused(), unused(),
         object : ApplicantFileUseCase {

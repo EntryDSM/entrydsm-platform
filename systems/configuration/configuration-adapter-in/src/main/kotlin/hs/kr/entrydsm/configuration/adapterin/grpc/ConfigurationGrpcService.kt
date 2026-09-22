@@ -20,8 +20,8 @@ import hs.kr.entrydsm.configuration.grpc.GetAllEnvironmentVariablesRequest
 import hs.kr.entrydsm.configuration.grpc.GetAllEnvironmentVariablesResponse
 import hs.kr.entrydsm.configuration.grpc.GetEnvironmentVariableRequest
 import hs.kr.entrydsm.configuration.grpc.GetScheduleRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketResponse
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsRequest
+import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsResponse
 import hs.kr.entrydsm.configuration.grpc.ScheduleResponse
 import hs.kr.entrydsm.configuration.grpc.UpdateEnvironmentVariableRequest
 import io.grpc.Status
