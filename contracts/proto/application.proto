@@ -13,6 +13,7 @@ service ApplicationService {
     rpc GetApplicant(GetApplicantRequest) returns (ApplicantResponse);
     rpc ListApplicants(ListApplicantsRequest) returns (ListApplicantsResponse);
     rpc GetApplicationForm(GetApplicationFormRequest) returns (ApplicationFormResponse);
+    rpc BatchGetApplicationForms(BatchGetApplicationFormsRequest) returns (BatchGetApplicationFormsResponse);
     rpc UpdateApplicantArrival(UpdateApplicantArrivalRequest) returns (ApplicationResponse);
 }
 
@@ -85,6 +86,14 @@ message GetApplicationFormRequest {
     int64 account_id = 1;
 }
 
+message BatchGetApplicationFormsRequest {
+    repeated int64 account_id = 1;
+}
+
+message BatchGetApplicationFormsResponse {
+    repeated ApplicationFormResponse applications = 1;
+}
+
 // 요강 <서식 1> 입학원서를 찍는 데 쓰는 원서 내용.
 // ApplicantResponse 에 얹지 않는 것은 ListApplicants 가 제출 원서 전체를 한 번에 나르기 때문이다.
 // 원서가 작성 중이면 대부분 비어 있다.
@@ -126,6 +135,11 @@ message ApplicationFormResponse {
     optional double volunteer_score = 28;
     optional double additional_score = 29;
     optional double total_score = 30;
+    optional string class_number = 31;
+    optional double ged_average = 32;
+    optional string admission_type_code = 33;
+    optional string region_code = 34;
+    optional string special_admission_type_code = 35;
 }
 
 message MiddleSchool {
@@ -170,6 +184,7 @@ message ApplicantStatusChangedEvent {
     optional int64 submitted_at_epoch_millis = 6;
     PassStatus pass_status = 7;
     optional int64 announced_at_epoch_millis = 8;
+    int64 applicant_id = 9;
 }
 
 enum ApplicantStatus {

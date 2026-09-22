@@ -1,5 +1,6 @@
 KOTLIN_DEPS = [
     "@maven//:org_springframework_boot_spring_boot_starter_data_jpa",
+    "@maven//:org_springframework_boot_spring_boot_starter_data_redis",
     "@maven//:com_mysql_mysql_connector_j",
     "@maven//:org_apache_pdfbox_pdfbox",
     "@maven//:org_apache_poi_poi",

@@ -7,10 +7,18 @@ package hs.kr.entrydsm.admin.domain.document
  */
 object DocumentNaming {
 
+    const val KEY_ROOT = "dsm_Entry/Backend/"
+
     fun applicantListObjectKey(exportJobId: String): String =
-        "applicant-list/applicants_$exportJobId.xlsx"
+        "${KEY_ROOT}applicant-list/applicants_$exportJobId.xlsx"
+
+    fun firstPassListObjectKey(exportJobId: String): String =
+        "${KEY_ROOT}first-pass/first_pass_$exportJobId.xlsx"
+
+    fun admissionFileObjectKey(exportJobId: String): String =
+        "${KEY_ROOT}admission-file/admission_file_$exportJobId.xlsx"
 
     /** 1차 합격자 수험표를 한 장씩 이어 붙인 PDF 하나입니다. */
     fun admissionTicketBundleObjectKey(exportJobId: String): String =
-        "admission-ticket/admission_tickets_$exportJobId.pdf"
+        "${KEY_ROOT}admission-ticket/admission_tickets_$exportJobId.pdf"
 }
