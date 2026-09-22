@@ -284,6 +284,7 @@ class ApplicationCommandService(
     private fun publishStatus(applicant: Applicant) = applicantStatusEventOutbox.add(
         ApplicantStatusChanged(
             accountId = applicant.accountId,
+            applicantId = applicant.id,
             status = applicant.status,
             occurredAt = applicant.updatedAt,
             version = applicant.statusVersion,

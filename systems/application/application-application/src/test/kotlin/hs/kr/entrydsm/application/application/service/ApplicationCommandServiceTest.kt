@@ -102,6 +102,7 @@ class ApplicationCommandServiceTest {
 
         val arrived = service.updateArrival(UpdateApplicantArrivalCommand(1L, true))
         assertEquals(ApplicantStatus.ARRIVAL, arrived.applicantStatus)
+        assertEquals(1L, events.single().applicantId)
         assertEquals(3L, events.single().version)
 
         service.updateArrival(UpdateApplicantArrivalCommand(1L, true))

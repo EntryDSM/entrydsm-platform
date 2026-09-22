@@ -184,6 +184,7 @@ message ApplicantStatusChangedEvent {
     optional int64 submitted_at_epoch_millis = 6;
     PassStatus pass_status = 7;
     optional int64 announced_at_epoch_millis = 8;
+    int64 applicant_id = 9;
 }
 
 enum ApplicantStatus {
