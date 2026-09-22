@@ -81,6 +81,23 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
             ByteArrayOutputStream().also { document.save(it) }.toByteArray()
         }
 
+    override fun renderEssay(form: ApplicationForm, introduction: Boolean): ByteArray =
+        Loader.loadPDF(template).use { document ->
+            val page = document.pages[2]
+            val font = PDType0Font.load(document, fontFile.inputStream())
+            Sheet(document, page, font).use {
+                it.essays(
+                    form.copy(
+                        introduction = form.introduction.takeIf { introduction },
+                        studyPlan = form.studyPlan.takeUnless { introduction },
+                    ),
+                    ReceiptNumber.of(form.applicantId),
+                )
+            }
+            (document.numberOfPages - 1 downTo 0).filterNot { it == 2 }.forEach(document::removePage)
+            ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+        }
+
     private fun resource(path: String): ByteArray =
         checkNotNull(javaClass.getResourceAsStream(path)) { "Resource not found: $path" }.use { it.readBytes() }
 }

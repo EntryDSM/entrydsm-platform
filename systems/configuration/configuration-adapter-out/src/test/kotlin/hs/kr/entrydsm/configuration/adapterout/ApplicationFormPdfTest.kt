@@ -134,6 +134,19 @@ class ApplicationFormPdfTest {
         assertTrue(pageText(pdf, 3).contains("코딩이 좋아요 ?"))
     }
 
+    @Test
+    fun `자기소개서와 학업계획서를 서식 3 한 장씩 분리한다`() {
+        val introduction = adapter.renderEssay(form(), introduction = true)
+        val studyPlan = adapter.renderEssay(form(), introduction = false)
+
+        assertA4Pages(introduction, 1)
+        assertTrue(pageText(introduction, 1).contains("저는 어려서부터"))
+        assertTrue(!pageText(introduction, 1).contains("입학 후에는"))
+        assertA4Pages(studyPlan, 1)
+        assertTrue(pageText(studyPlan, 1).contains("입학 후에는"))
+        assertTrue(!pageText(studyPlan, 1).contains("저는 어려서부터"))
+    }
+
     /** 칸 안에 기준선이 있는 원서 글자가 [count] 개이고, 모두 칸 좌우 안에 있다. 칸 아래로 넘친 글자는 수에서 빠진다. */
     private fun assertInside(glyphs: List<TextPosition>, count: Int, left: Float, top: Float, right: Float, bottom: Float) {
         val inCell = glyphs.filter { it.yDirAdj in top..bottom }

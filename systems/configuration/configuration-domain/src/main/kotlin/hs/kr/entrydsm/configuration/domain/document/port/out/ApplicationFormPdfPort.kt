@@ -7,4 +7,7 @@ interface ApplicationFormPdfPort {
 
     /** @param photo 원서 주인이 올린 증명사진 원본. 없거나 읽지 못하는 형식이면 사진 칸을 비운다. */
     fun render(form: ApplicationForm, photo: ByteArray?): ByteArray
+
+    fun renderEssay(form: ApplicationForm, introduction: Boolean): ByteArray =
+        throw UnsupportedOperationException()
 }
