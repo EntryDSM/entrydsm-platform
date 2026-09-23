@@ -12,27 +12,32 @@ import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.policy.ExamineeNumberPolicy
 import hs.kr.entrydsm.admin.domain.port.`in`.IssueExamineeNumberUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.DeleteApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.UpdateApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
+import hs.kr.entrydsm.admin.domain.port.out.ApplicantDeletionPort
 import hs.kr.entrydsm.admin.domain.port.out.DistancePort
 import java.time.Clock
 import java.time.Instant
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.annotation.Propagation
 
 @Service
 @Transactional(readOnly = true)
 class ApplicantService(
     private val applicantRepository: ApplicantRepository,
     private val applicantArrivalPort: ApplicantArrivalPort,
+    private val applicantDeletionPort: ApplicantDeletionPort = ApplicantDeletionPort {},
     private val distancePort: DistancePort,
     private val clock: Clock,
 ) : ReadApplicantUseCase,
     UpdateApplicantUseCase,
-    IssueExamineeNumberUseCase {
+    IssueExamineeNumberUseCase,
+    DeleteApplicantUseCase {
 
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -110,6 +115,17 @@ class ApplicantService(
             skippedCount = issuance.skippedCount,
             totalTargets = issuance.totalTargets,
         )
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    override fun delete(applicantId: Long) {
+        try {
+            applicantDeletionPort.delete(applicantId)
+        } catch (exception: AdminDomainException) {
+            if (exception.errorCode == ErrorCode.APPLICANT_NOT_FOUND) applicantRepository.deleteById(applicantId)
+            throw exception
+        }
+        applicantRepository.deleteById(applicantId)
     }
 
     private fun requireApplicant(applicantId: Long): Applicant =

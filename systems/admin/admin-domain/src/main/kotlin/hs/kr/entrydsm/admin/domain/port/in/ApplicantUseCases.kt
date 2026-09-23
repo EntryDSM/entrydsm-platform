@@ -24,3 +24,7 @@ interface UpdateApplicantUseCase {
 interface IssueExamineeNumberUseCase {
     fun issueAll(): ExamineeNumberIssueResult
 }
+
+fun interface DeleteApplicantUseCase {
+    fun delete(applicantId: Long)
+}

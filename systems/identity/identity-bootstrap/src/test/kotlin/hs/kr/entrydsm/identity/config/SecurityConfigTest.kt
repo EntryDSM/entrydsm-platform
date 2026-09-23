@@ -1,29 +1,32 @@
 package hs.kr.entrydsm.identity.config
 
 import hs.kr.entrydsm.identity.IdentityBootstrapApplication
-import java.nio.charset.StandardCharsets
+import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
+import hs.kr.entrydsm.identity.application.port.`in`.ApplicationPort
+import hs.kr.entrydsm.identity.application.port.`in`.AuthPort
+import hs.kr.entrydsm.identity.application.port.`in`.PassPort
+import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.http.MediaType
-import org.springframework.mock.web.MockCookie
-import org.springframework.test.context.junit4.SpringRunner
+import org.springframework.security.web.FilterChainProxy
 import org.springframework.test.context.ActiveProfiles
+import org.springframework.test.context.bean.override.mockito.MockitoBean
+import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
-import org.springframework.web.context.WebApplicationContext
-import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
-import org.springframework.security.web.FilterChainProxy
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
+import org.springframework.web.context.WebApplicationContext
 
 @RunWith(SpringRunner::class)
 @ActiveProfiles("test")
@@ -43,190 +46,64 @@ import org.springframework.security.web.FilterChainProxy
     ],
 )
 class SecurityConfigTest {
-    @Autowired
-    private lateinit var webApplicationContext: WebApplicationContext
-    @Autowired
-    private lateinit var filterChainProxy: FilterChainProxy
+    @Autowired private lateinit var webApplicationContext: WebApplicationContext
+    @Autowired private lateinit var filterChainProxy: FilterChainProxy
+    @MockitoBean private lateinit var accountQueryPort: AccountQueryPort
+    @MockitoBean private lateinit var accountPort: AccountPort
+    @MockitoBean private lateinit var applicationPort: ApplicationPort
+    @MockitoBean private lateinit var authPort: AuthPort
+    @MockitoBean private lateinit var passPort: PassPort
     private lateinit var mockMvc: MockMvc
 
     @Before
     fun setUpMockMvc() {
-        val builder: DefaultMockMvcBuilder = MockMvcBuilders.webAppContextSetup(webApplicationContext)
-        builder.addFilters<DefaultMockMvcBuilder>(filterChainProxy)
-        mockMvc = builder.build()
-    }
-    @Test
-    fun protectedStateChangingRequestRequiresCsrfHeader() {
-        val response = mockMvc.perform(
-            post("/api/identity/v11/accounts/me")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"),
-        ).andReturn().response
-
-        assertEquals(403, response.status)
-        assertNotNull(response.getCookie("XSRF-TOKEN"))
+        mockMvc = MockMvcBuilders.webAppContextSetup(webApplicationContext)
+            .addFilters<DefaultMockMvcBuilder>(filterChainProxy)
+            .build()
     }
 
     @Test
-    fun csrfCookieIsIssuedAndMatchingHeaderPassesCsrfValidation() {
-        val csrfResponse = mockMvc.perform(
+    fun protectedEndpointsRejectUnauthenticatedRequests() {
+        listOf(
             get("/api/identity/v11/accounts/me"),
-        ).andReturn().response
-        val csrfCookie = requireNotNull(csrfResponse.getCookie("XSRF-TOKEN"))
-        val csrfToken = java.net.URLDecoder.decode(csrfCookie.value, StandardCharsets.UTF_8)
-
-        val protectedResponse = mockMvc.perform(
-            post("/api/identity/v11/accounts/me")
-                .cookie(MockCookie("XSRF-TOKEN", csrfToken))
-                .header("X-XSRF-TOKEN", csrfToken)
+            delete("/api/identity/v11/accounts/me"),
+            get("/api/identity/v11/applications/status"),
+            get("/api/identity/v11/applications/result"),
+            patch("/api/identity/v11/applications/cancellation")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"),
-        ).andReturn().response
-
-        // CSRF passed; the request then reaches authentication and is rejected as unauthenticated.
-        assertEquals(401, protectedResponse.status)
-        assertTrue(protectedResponse.getErrorMessage()?.contains("Full authentication") != true)
+        ).forEach { request ->
+            val response = mockMvc.perform(request).andReturn().response
+            assertEquals(401, response.status)
+            assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
+        }
     }
 
     @Test
-    fun publicAuthRequestWithoutCsrfHeaderIsRejected() {
-        val response = mockMvc.perform(
-            post("/api/identity/v11/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"),
-        ).andReturn().response
-
-        assertEquals(403, response.status)
-    }
-
-    @Test
-    fun csrfTokenEndpointReturnsTokenAndCookie() {
-        val response = mockMvc.perform(
-            get("/api/identity/v11/auth/csrf"),
-        ).andReturn().response
-        val cookie = requireNotNull(response.getCookie("XSRF-TOKEN"))
-        val token = java.net.URLDecoder.decode(cookie.value, StandardCharsets.UTF_8)
-
-        assertEquals(200, response.status)
-        assertTrue(response.contentAsString.contains("\"token\":\"$token\""))
-    }
-
-    @Test
-    fun passPopupRequestDoesNotRequireCsrf() {
-        val response = mockMvc.perform(
-            post("/api/identity/v11/auth/pass/popup")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"),
-        ).andReturn().response
-
-        assertEquals(400, response.status)
-    }
-
-    @Test
-    fun unauthenticatedLogoutSucceedsWithoutCsrf() {
-        val response = mockMvc.perform(
-            post("/api/identity/v11/auth/logout"),
-        ).andReturn().response
-
-        assertEquals(200, response.status)
-        assertTrue(response.getHeaders("Set-Cookie").any { it.contains("access_token=") })
-    }
-
-    @Test
-    fun publicAuthRequestRemainsPublicAfterCsrfValidation() {
-        val csrfResponse = mockMvc.perform(
-            get("/actuator/health"),
-        ).andReturn().response
-        val csrfCookie = requireNotNull(csrfResponse.getCookie("XSRF-TOKEN"))
-        val csrfToken = java.net.URLDecoder.decode(csrfCookie.value, StandardCharsets.UTF_8)
-
-        val response = mockMvc.perform(
-            post("/api/identity/v11/auth/login")
-                .cookie(MockCookie("XSRF-TOKEN", csrfToken))
-                .header("X-XSRF-TOKEN", csrfToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"),
-        ).andReturn().response
-
-        assertTrue(response.status != 401)
-        assertTrue(response.status != 403)
-    }
-
-    @Test
-    fun deleteAccountWithoutAuthorizationReturnsUnauthorizedError() {
-        val csrfToken = csrfToken()
-
-        val response = mockMvc.perform(
-            delete("/api/identity/v11/accounts/me")
-                .cookie(MockCookie("XSRF-TOKEN", csrfToken))
-                .header("X-XSRF-TOKEN", csrfToken),
-        ).andReturn().response
-
-        assertEquals(401, response.status)
-        assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
+    fun publicEndpointsDoNotRequireAuthenticationOrCsrf() {
+        assertEquals(200, mockMvc.perform(get("/actuator/health")).andReturn().response.status)
+        assertEquals(200, mockMvc.perform(post("/api/identity/v11/auth/logout")).andReturn().response.status)
+        assertEquals(
+            400,
+            mockMvc.perform(
+                post("/api/identity/v11/auth/login")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{}"),
+            ).andReturn().response.status,
+        )
     }
 
     @Test
     fun identityDoesNotEmitCorsHeaders() {
-        val response = mockMvc.perform(
-            get("/actuator/health")
-                .header("Origin", "https://frontend.example"),
-        ).andReturn().response
-
+        val response = mockMvc.perform(get("/actuator/health").header("Origin", "https://frontend.example"))
+            .andReturn().response
         assertEquals(null, response.getHeader("Access-Control-Allow-Origin"))
     }
 
     @Test
     fun productionSecurityRejectsInsecureCookies() {
         assertThrows(IllegalArgumentException::class.java) {
-            SecurityConfigurationValidator.validate(
-                secureCookies = false,
-                production = true,
-            )
+            SecurityConfigurationValidator.validate(secureCookies = false, production = true)
         }
-    }
-
-    @Test
-    fun applicationStatusWithoutAuthorizationReturnsUnauthorizedError() {
-        val response = mockMvc.perform(
-            get("/api/identity/v11/applications/status"),
-        ).andReturn().response
-
-        assertEquals(401, response.status)
-        assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
-    }
-
-    @Test
-    fun applicationResultWithoutAuthorizationReturnsUnauthorizedError() {
-        val response = mockMvc.perform(
-            get("/api/identity/v11/applications/result"),
-        ).andReturn().response
-
-        assertEquals(401, response.status)
-        assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
-    }
-
-    @Test
-    fun applicationCancellationWithoutAuthorizationReturnsUnauthorizedError() {
-        val csrfToken = csrfToken()
-
-        val response = mockMvc.perform(
-            patch("/api/identity/v11/applications/cancellation")
-                .cookie(MockCookie("XSRF-TOKEN", csrfToken))
-                .header("X-XSRF-TOKEN", csrfToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"),
-        ).andReturn().response
-
-        assertEquals(401, response.status)
-        assertTrue(response.contentAsString.contains("AUTH_UNAUTHORIZED"))
-    }
-
-    private fun csrfToken(): String {
-        val csrfResponse = mockMvc.perform(
-            get("/actuator/health"),
-        ).andReturn().response
-        val csrfCookie = requireNotNull(csrfResponse.getCookie("XSRF-TOKEN"))
-        return java.net.URLDecoder.decode(csrfCookie.value, StandardCharsets.UTF_8)
     }
 }

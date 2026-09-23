@@ -7,6 +7,8 @@ import java.time.Instant
 data class ApplicationStateChangedEvent(
     val eventId: String,
     val userId: Long,
+    val applicantId: Long,
+    val deleted: Boolean,
     val version: Long,
     val applicantStatus: ApplicantStatus,
     val submittedAt: Instant?,

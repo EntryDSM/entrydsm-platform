@@ -146,6 +146,7 @@ class ApplicationControllerTest {
         override fun findApplicant(applicantId: Long): ApplicantResult? = null
         override fun findApplicationForm(accountId: Long): ApplicationFormResult? = null
         override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
+        override fun deleteApplicant(applicantId: Long) = Unit
     }
 
     private companion object {

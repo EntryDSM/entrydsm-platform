@@ -247,6 +247,25 @@ class ApplicationCommandService(
         return saveTouched(applicant).also(::publishStatus).toSnapshot()
     }
 
+    override fun deleteApplicant(applicantId: Long) {
+        val applicant = applicantRepository.findById(applicantId)
+            ?: throw ApplicantNotFoundException(applicantId)
+        applicantStatusEventOutbox.add(
+            ApplicantStatusChanged(
+                accountId = applicant.accountId,
+                applicantId = applicant.id,
+                status = applicant.status,
+                occurredAt = nowUtc(),
+                version = applicant.statusVersion + 1,
+                submittedAt = null,
+                passStatus = applicant.passStatus,
+                announcedAt = null,
+                deleted = true,
+            ),
+        )
+        applicantRepository.deleteById(applicantId)
+    }
+
     fun createApplicant(accountId: Long = 0): Applicant {
         // 이미 있는 원서는 기간이 끝나도 돌려준다. applicantId 를 받는 유일한 경로라 수험표 출력에 쓴다.
         applicantRepository.findByAccountId(accountId)?.let { return it }

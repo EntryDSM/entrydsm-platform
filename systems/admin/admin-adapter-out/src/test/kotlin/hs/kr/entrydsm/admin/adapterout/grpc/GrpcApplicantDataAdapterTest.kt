@@ -22,6 +22,8 @@ import hs.kr.entrydsm.application.grpc.AcademicRecord
 import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
 import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsResponse
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantResponse
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
@@ -47,6 +49,18 @@ import org.junit.Test
  * 실제 직렬화를 거쳐 확인합니다.
  */
 class GrpcApplicantDataAdapterTest {
+
+    @Test
+    fun `삭제 RPC에 지원자 번호를 전달하고 오류를 변환한다`() {
+        val service = FakeApplicationService(emptyList())
+        withAdapter(service) { it.delete(7L) }
+        assertEquals(7L, service.deletedApplicantId)
+
+        val exception = withAdapter(FakeApplicationService(emptyList(), Status.UNAVAILABLE)) {
+            runCatching { it.delete(7L) }.exceptionOrNull()
+        }
+        assertEquals(ErrorCode.APPLICATION_SERVICE_UNAVAILABLE, (exception as AdminDomainException).errorCode)
+    }
 
     @Test
     fun `전형 정보가 없는 지원자는 미도착 심사 대기로 본다`() {
@@ -316,6 +330,15 @@ class GrpcApplicantDataAdapterTest {
         var arrival: UpdateApplicantArrivalRequest? = null
         var batchCalls = 0
         var batchAccountIds: List<Long> = emptyList()
+        var deletedApplicantId: Long? = null
+
+        override fun deleteApplicant(
+            request: DeleteApplicantRequest,
+            responseObserver: StreamObserver<DeleteApplicantResponse>,
+        ) {
+            deletedApplicantId = request.applicantId
+            respond(responseObserver, DeleteApplicantResponse.getDefaultInstance())
+        }
 
         override fun updateApplicantArrival(
             request: UpdateApplicantArrivalRequest,

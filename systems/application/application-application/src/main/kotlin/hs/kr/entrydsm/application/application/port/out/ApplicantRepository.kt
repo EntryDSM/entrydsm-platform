@@ -8,6 +8,7 @@ interface ApplicantRepository {
     fun save(applicant: Applicant): Applicant
     fun findById(id: Long): Applicant?
     fun findByAccountId(accountId: Long): Applicant?
+    fun deleteById(id: Long)
     fun findAllByAccountIdIn(accountIds: List<Long>): List<Applicant> = accountIds.mapNotNull(::findByAccountId)
 
     /**

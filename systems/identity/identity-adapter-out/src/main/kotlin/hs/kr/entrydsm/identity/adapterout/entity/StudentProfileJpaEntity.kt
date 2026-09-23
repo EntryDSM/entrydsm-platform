@@ -56,4 +56,7 @@ open class StudentProfileJpaEntity(
 
     @Column(name = "announced_at")
     var announcedAt: Instant? = null,
+
+    @Column(name = "last_deleted_applicant_id")
+    var lastDeletedApplicantId: Long? = null,
 ) : BaseTimeEntity()

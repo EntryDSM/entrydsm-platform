@@ -4,6 +4,8 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.ErrorCode
+import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
@@ -18,6 +20,7 @@ import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
+import hs.kr.entrydsm.admin.domain.port.out.ApplicantDeletionPort
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.DistancePort
@@ -31,6 +34,7 @@ import java.time.ZoneOffset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.springframework.context.ApplicationEventPublisher
 
@@ -38,6 +42,47 @@ class AdminApplicationModuleTest {
     @Test
     fun moduleLoads() {
         assertTrue(true)
+    }
+
+    @Test
+    fun deletesRemoteApplicantThenLocalScreening() {
+        val repository = FakeApplicantRepository(emptyList())
+        var remoteId: Long? = null
+        val service = ApplicantService(
+            repository,
+            ApplicantArrivalPort { _, _ -> },
+            ApplicantDeletionPort { remoteId = it },
+            DistancePort { 0 },
+            Clock.systemUTC(),
+        )
+
+        service.delete(7L)
+
+        assertEquals(7L, remoteId)
+        assertEquals(listOf(7L), repository.deleted)
+    }
+
+    @Test
+    fun deletionCleansLocalNotFoundButPreservesItOnUnavailable() {
+        fun service(repository: FakeApplicantRepository, error: ErrorCode) = ApplicantService(
+            repository,
+            ApplicantArrivalPort { _, _ -> },
+            ApplicantDeletionPort { throw AdminDomainException(error) },
+            DistancePort { 0 },
+            Clock.systemUTC(),
+        )
+        val notFoundRepository = FakeApplicantRepository(emptyList())
+        val unavailableRepository = FakeApplicantRepository(emptyList())
+
+        assertThrows(AdminDomainException::class.java) {
+            service(notFoundRepository, ErrorCode.APPLICANT_NOT_FOUND).delete(7L)
+        }
+        assertThrows(AdminDomainException::class.java) {
+            service(unavailableRepository, ErrorCode.APPLICATION_SERVICE_UNAVAILABLE).delete(7L)
+        }
+
+        assertEquals(listOf(7L), notFoundRepository.deleted)
+        assertTrue(unavailableRepository.deleted.isEmpty())
     }
 
     @Test
@@ -324,6 +369,7 @@ class AdminApplicationModuleTest {
 
     private class FakeApplicantRepository(private val applicants: List<Applicant>) : ApplicantRepository {
         val saved = mutableListOf<Applicant>()
+        val deleted = mutableListOf<Long>()
 
         override fun search(filter: ApplicantFilter, pageRequest: PageRequest) = Page<Applicant>(emptyList(), 1, 20, 0L)
         override fun findAll(filter: ApplicantFilter) = applicants
@@ -331,6 +377,7 @@ class AdminApplicationModuleTest {
         override fun findDetailById(applicantId: Long): ApplicantDetail? = null
         override fun save(applicant: Applicant) = applicant.also(saved::add)
         override fun saveAll(applicants: List<Applicant>) = applicants.also(saved::addAll)
+        override fun deleteById(applicantId: Long) { deleted += applicantId }
     }
 
     private companion object {

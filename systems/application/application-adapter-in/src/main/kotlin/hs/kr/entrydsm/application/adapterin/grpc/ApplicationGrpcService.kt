@@ -31,6 +31,8 @@ import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
 import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsResponse
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantResponse
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.GedScores as GrpcGedScores
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
@@ -123,6 +125,15 @@ class ApplicationGrpcService(
     ) = responseObserver.respond {
         request.applicantId.validate()
         applicationPort.updateArrival(UpdateApplicantArrivalCommand(request.applicantId, request.isArrived))
+    }
+
+    override fun deleteApplicant(
+        request: DeleteApplicantRequest,
+        responseObserver: StreamObserver<DeleteApplicantResponse>,
+    ) = responseObserver.respondWith {
+        request.applicantId.validate()
+        applicationPort.deleteApplicant(request.applicantId)
+        DeleteApplicantResponse.getDefaultInstance()
     }
 
     private fun Long.validate() {

@@ -81,6 +81,8 @@ class EvaluationCommandServiceTest {
 
         override fun findByAccountId(accountId: Long): Applicant? =
             applicant.takeIf { it.accountId == accountId }
+
+        override fun deleteById(id: Long) = Unit
     }
 
     private companion object {

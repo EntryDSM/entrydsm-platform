@@ -21,12 +21,14 @@ import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantArrivalPort
+import hs.kr.entrydsm.admin.domain.port.out.ApplicantDeletionPort
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
@@ -58,7 +60,7 @@ class GrpcApplicantDataAdapter(
     private val screeningJpaRepository: ScreeningJpaRepository,
     private val exportEventRepository: ApplicantExportEventJpaRepository,
     private val exportProjectionRepository: ApplicantExportProjectionJpaRepository,
-) : ApplicantRepository, ApplicantArrivalPort {
+) : ApplicantRepository, ApplicantArrivalPort, ApplicantDeletionPort {
     private val stub = ApplicationServiceGrpc.newBlockingStub(grpc.channel)
 
     override fun search(filter: ApplicantFilter, pageRequest: PageRequest): Page<Applicant> {
@@ -216,6 +218,16 @@ class GrpcApplicantDataAdapter(
     override fun saveAll(applicants: List<Applicant>): List<Applicant> {
         screeningJpaRepository.saveAll(applicants.map { it.toScreening() })
         return applicants
+    }
+
+    override fun deleteById(applicantId: Long) {
+        screeningJpaRepository.deleteById(applicantId)
+    }
+
+    override fun delete(applicantId: Long) {
+        call {
+            oneStub().deleteApplicant(DeleteApplicantRequest.newBuilder().setApplicantId(applicantId).build())
+        }
     }
 
     override fun update(applicantId: Long, isArrived: Boolean) {

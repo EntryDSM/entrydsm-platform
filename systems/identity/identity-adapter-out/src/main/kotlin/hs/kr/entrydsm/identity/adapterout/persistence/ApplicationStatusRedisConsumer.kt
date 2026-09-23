@@ -15,10 +15,12 @@ import org.springframework.data.redis.connection.stream.StreamReadOptions
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import org.springframework.context.annotation.Profile
 import java.time.Instant
 import java.util.Base64
 
 @Component
+@Profile("prod", "dev", "integration")
 class ApplicationStatusRedisConsumer(
     private val redis: StringRedisTemplate,
     private val eventConsumer: ApplicationEventConsumer,
@@ -56,6 +58,8 @@ class ApplicationStatusRedisConsumer(
     private fun ApplicantStatusChangedEvent.toDomain() = ApplicationStateChangedEvent(
         eventId = eventId,
         userId = accountId,
+        applicantId = applicantId,
+        deleted = applicantDeleted,
         version = version,
         applicantStatus = ApplicantStatus.valueOf(applicantStatus.name.removePrefix("APPLICANT_STATUS_")),
         submittedAt = submittedAtEpochMillis.takeIf { hasSubmittedAtEpochMillis() }?.let(Instant::ofEpochMilli),

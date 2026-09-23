@@ -15,7 +15,14 @@ service ApplicationService {
     rpc GetApplicationForm(GetApplicationFormRequest) returns (ApplicationFormResponse);
     rpc BatchGetApplicationForms(BatchGetApplicationFormsRequest) returns (BatchGetApplicationFormsResponse);
     rpc UpdateApplicantArrival(UpdateApplicantArrivalRequest) returns (ApplicationResponse);
+    rpc DeleteApplicant(DeleteApplicantRequest) returns (DeleteApplicantResponse);
 }
+
+message DeleteApplicantRequest {
+    int64 applicant_id = 1;
+}
+
+message DeleteApplicantResponse {}
 
 message UpdateApplicantArrivalRequest {
     int64 applicant_id = 1;
@@ -200,6 +207,7 @@ message ApplicantStatusChangedEvent {
     PassStatus pass_status = 7;
     optional int64 announced_at_epoch_millis = 8;
     int64 applicant_id = 9;
+    bool applicant_deleted = 10;
 }
 
 enum ApplicantStatus {

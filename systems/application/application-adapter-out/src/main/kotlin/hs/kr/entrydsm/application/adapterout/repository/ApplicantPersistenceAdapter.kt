@@ -34,6 +34,12 @@ class ApplicantPersistenceAdapter(
     override fun findByAccountId(accountId: Long): Applicant? =
         applicantJpaRepository.findByAccountId(accountId)?.toDomain()
 
+    override fun deleteById(id: Long) {
+        val entity = applicantJpaRepository.findById(id)
+            .orElseThrow { ApplicantNotFoundException(id) }
+        applicantJpaRepository.delete(entity)
+    }
+
     @Transactional(readOnly = true)
     override fun findAllByAccountIdIn(accountIds: List<Long>): List<Applicant> =
         applicantJpaRepository.findAllByAccountIdIn(accountIds).map { it.toDomain(includePassResults = false) }

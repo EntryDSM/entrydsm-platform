@@ -19,11 +19,13 @@ import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.port.`in`.IssueExamineeNumberUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.DeleteApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.UpdateApplicantUseCase
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -36,6 +38,7 @@ class ApplicantController(
     private val readApplicantUseCase: ReadApplicantUseCase,
     private val updateApplicantUseCase: UpdateApplicantUseCase,
     private val issueExamineeNumberUseCase: IssueExamineeNumberUseCase,
+    private val deleteApplicantUseCase: DeleteApplicantUseCase,
 ) {
 
     @GetMapping(AdminEndpointPaths.APPLICANTS)
@@ -73,6 +76,12 @@ class ApplicantController(
         ResponseEntity.ok(
             ApiResponse(data = readApplicantUseCase.findDetail(applicantId).toDetailResponse()),
         )
+
+    @DeleteMapping(AdminEndpointPaths.APPLICANT)
+    fun delete(@PathVariable applicantId: Long): ResponseEntity<Unit> {
+        deleteApplicantUseCase.delete(applicantId)
+        return ResponseEntity.noContent().build()
+    }
 
     @PatchMapping(AdminEndpointPaths.APPLICANT_ARRIVAL)
     fun updateArrival(

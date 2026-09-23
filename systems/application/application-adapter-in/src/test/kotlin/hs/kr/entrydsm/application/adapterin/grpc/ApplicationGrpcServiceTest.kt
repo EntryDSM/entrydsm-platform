@@ -32,6 +32,7 @@ import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
@@ -101,6 +102,21 @@ class ApplicationGrpcServiceTest {
             stub.getApplication(GetApplicationRequest.newBuilder().setUserId(404).build())
         }
 
+        assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
+        assertEquals(Status.Code.NOT_FOUND, missing.status.code)
+    }
+
+    @Test
+    fun deletesApplicantAndMapsInvalidAndMissingIds() {
+        stub.deleteApplicant(DeleteApplicantRequest.newBuilder().setApplicantId(APPLICANT_ID).build())
+        val invalid = assertThrows(StatusRuntimeException::class.java) {
+            stub.deleteApplicant(DeleteApplicantRequest.newBuilder().setApplicantId(0).build())
+        }
+        val missing = assertThrows(StatusRuntimeException::class.java) {
+            stub.deleteApplicant(DeleteApplicantRequest.newBuilder().setApplicantId(404).build())
+        }
+
+        assertEquals(APPLICANT_ID, port.deletedApplicantId)
         assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
     }
@@ -318,6 +334,7 @@ class ApplicationGrpcServiceTest {
         var cancelReason: String? = null
         var findCount = 0
         var batchAccountIds: List<Long> = emptyList()
+        var deletedApplicantId: Long? = null
 
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
             snapshot = snapshot(command.accountId ?: error("accountId is required"), ApplicantStatus.DRAFT)
@@ -345,6 +362,11 @@ class ApplicationGrpcServiceTest {
         override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason
             return snapshot(accountId, ApplicantStatus.CANCELED).also { snapshot = it }
+        }
+
+        override fun deleteApplicant(applicantId: Long) {
+            if (applicantId == 404L) throw hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException(applicantId)
+            deletedApplicantId = applicantId
         }
 
         override fun updateType(command: UpdateTypeCommand) = Unit

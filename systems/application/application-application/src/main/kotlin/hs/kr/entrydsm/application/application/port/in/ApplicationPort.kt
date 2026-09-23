@@ -37,5 +37,6 @@ interface ApplicationPort {
     /** 제출·심사·완료 상태의 원서 전체. 작성 중이거나 취소된 원서는 지원자가 아니다. */
     fun listApplicants(): List<ApplicantResult>
     fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult
+    fun deleteApplicant(applicantId: Long)
 }
 
