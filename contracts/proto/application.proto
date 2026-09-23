@@ -142,6 +142,8 @@ message ApplicationFormResponse {
     optional string special_admission_type_code = 35;
     // 지원자 점검표에 표시하는 전체 학번(학년·반·번호)
     optional string student_number = 36;
+    // 검정고시 지원자의 과목별 점수. 학기 성적이 없는 검정고시 지원자만 담는다.
+    optional GedScores ged_scores = 37;
 }
 
 message MiddleSchool {
@@ -164,6 +166,17 @@ message SemesterGrades {
     string science = 5;
     string technology = 6;
     string english = 7;
+}
+
+// 검정고시 과목별 점수(0~100). 과목은 SemesterGrades 와 같은 일곱 과목이다.
+message GedScores {
+    int32 korean = 1;
+    int32 society = 2;
+    int32 history = 3;
+    int32 math = 4;
+    int32 science = 5;
+    int32 technology = 6;
+    int32 english = 7;
 }
 
 // 성적을 한 번도 넣지 않은 원서면 이 값이 없다. 전부 0 인 것과 구분된다.

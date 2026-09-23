@@ -7,6 +7,7 @@ import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
+import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.domain.service.ScoreBreakdown
@@ -56,4 +57,6 @@ data class ApplicationFormResult(
     val classNumber: String? = null,
     val studentNumber: String? = null,
     val gedAverage: Double? = null,
+    /** 검정고시 지원자의 과목별 점수. 학기 성적 대신 서식 1 교과성적 표에 찍는다. 검정고시가 아니면 null 이다. */
+    val gedScores: GedScores? = null,
 )

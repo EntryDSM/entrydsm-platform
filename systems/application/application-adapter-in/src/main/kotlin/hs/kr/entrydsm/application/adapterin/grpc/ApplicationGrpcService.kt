@@ -18,6 +18,7 @@ import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
+import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
@@ -31,6 +32,7 @@ import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsResponse
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
+import hs.kr.entrydsm.application.grpc.GedScores as GrpcGedScores
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
@@ -280,6 +282,7 @@ class ApplicationGrpcService(
                 classNumber?.let(builder::setClassNumber)
                 studentNumber?.let(builder::setStudentNumber)
                 gedAverage?.let(builder::setGedAverage)
+                gedScores?.let { builder.setGedScores(it.toGrpc()) }
                 admissionType.code()?.let(builder::setAdmissionTypeCode)
                 region.code()?.let(builder::setRegionCode)
                 builder.setSpecialAdmissionTypeCode(specialAdmissionType.code())
@@ -318,6 +321,17 @@ class ApplicationGrpcService(
             .build()
 
     private fun SubjectGrade.label(): String = if (this == SubjectGrade.X) "" else name
+
+    private fun GedScores.toGrpc(): GrpcGedScores =
+        GrpcGedScores.newBuilder()
+            .setKorean(koreanScore)
+            .setSociety(societyScore)
+            .setHistory(historyScore)
+            .setMath(mathScore)
+            .setScience(scienceScore)
+            .setTechnology(technologyScore)
+            .setEnglish(englishScore)
+            .build()
 
     private fun Region?.toGrpc(): GrpcRegion = when (this) {
         Region.DAEJEON -> GrpcRegion.REGION_DAEJEON

@@ -118,6 +118,17 @@ class GrpcApplicantAdapter(
             previousSemester.takeIf { hasPreviousSemester() },
             secondPreviousSemester.takeIf { hasSecondPreviousSemester() },
         ).map { it?.toSemesterGrades() },
+        gedScores = gedScores.takeIf { hasGedScores() }?.let {
+            ApplicationForm.SemesterGrades(
+                korean = it.korean.toString(),
+                society = it.society.toString(),
+                history = it.history.toString(),
+                math = it.math.toString(),
+                science = it.science.toString(),
+                technology = it.technology.toString(),
+                english = it.english.toString(),
+            )
+        },
         academicRecord = academicRecord.takeIf { hasAcademicRecord() }?.let {
             ApplicationForm.AcademicRecord(
                 absentCount = it.absentCount,
