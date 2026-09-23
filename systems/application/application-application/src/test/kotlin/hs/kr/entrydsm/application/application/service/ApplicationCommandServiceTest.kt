@@ -160,6 +160,36 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
+    fun deletePublishesDeletionAndAllowsSameAccountToCreateAgain() {
+        val repository = FakeApplicantRepository(
+            Applicant(id = 3L, accountId = 10L, status = ApplicantStatus.COMPLETED, statusVersion = 7),
+        )
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val service = ApplicationCommandService(repository, OPEN, events::add)
+
+        service.deleteApplicant(3L)
+
+        assertEquals(3L, repository.deletedId)
+        assertTrue(events.single().deleted)
+        assertEquals(8L, events.single().version)
+        assertEquals(3L, events.single().applicantId)
+        assertTrue(service.createApplicant(CreateApplicantCommand(10L)).created)
+    }
+
+    @Test
+    fun deleteRejectsMissingApplicantWithoutPublishing() {
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val service = ApplicationCommandService(
+            FakeApplicantRepository(Applicant(id = 3L, accountId = 10L)),
+            CLOSED,
+            events::add,
+        )
+
+        assertThrows(ApplicantNotFoundException::class.java) { service.deleteApplicant(404L) }
+        assertTrue(events.isEmpty())
+    }
+
+    @Test
     fun updateTypeClearsMiddleSchoolInfoAndSubjectGradesWhenChangedToGed() {
         val repository = FakeApplicantRepository(
             Applicant(
@@ -350,9 +380,10 @@ class ApplicationCommandServiceTest {
     }
 
     private class FakeApplicantRepository(
-        private var applicant: Applicant,
+        private var applicant: Applicant?,
     ) : ApplicantRepository {
         var savedApplicant: Applicant? = null
+        var deletedId: Long? = null
 
         override fun save(applicant: Applicant): Applicant {
             savedApplicant = applicant
@@ -365,10 +396,15 @@ class ApplicationCommandServiceTest {
             emptyList()
 
         override fun findById(id: Long): Applicant? =
-            applicant.takeIf { it.id == id }
+            applicant?.takeIf { it.id == id }
 
         override fun findByAccountId(accountId: Long): Applicant? =
-            applicant.takeIf { it.accountId == accountId }
+            applicant?.takeIf { it.accountId == accountId }
+
+        override fun deleteById(id: Long) {
+            deletedId = id
+            applicant = null
+        }
     }
 
     private companion object {

@@ -6,6 +6,7 @@ import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import jakarta.persistence.EntityManager
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.springframework.beans.factory.annotation.Autowired
@@ -72,6 +73,35 @@ class ApplicantPersistenceAdapterTest {
 
         assertEquals(SCHOOL_CODE, middleSchool?.schoolCode)
         assertEquals(SCHOOL_ADDRESS, middleSchool?.schoolAddress)
+    }
+
+    @Test
+    fun `원서와 연관 데이터를 함께 삭제한다`() {
+        institutionCodeJpaRepository.save(
+            InstitutionCodeJpaEntity(
+                code = SCHOOL_CODE,
+                fullName = "대덕중학교",
+                name = "대덕중학교",
+                postalCode = null,
+                address = null,
+                phoneNumber = null,
+                faxNumber = null,
+            ),
+        )
+        val saved = applicantJpaRepository.saveAndFlush(
+            ApplicantJpaEntity.from(
+                Applicant(
+                    id = 0,
+                    accountId = 102,
+                    middleSchoolInfo = MiddleSchoolInfo(SCHOOL_CODE, "중학교", "30101", "0421234567", "담임"),
+                ),
+            ),
+        )
+
+        ApplicantPersistenceAdapter(applicantJpaRepository).deleteById(requireNotNull(saved.id))
+        entityManager.flush()
+
+        assertFalse(applicantJpaRepository.existsById(requireNotNull(saved.id)))
     }
 
     @SpringBootConfiguration
