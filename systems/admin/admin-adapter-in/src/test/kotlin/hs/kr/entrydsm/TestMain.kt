@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.admin.adapterin
 
 import hs.kr.entrydsm.admin.adapterin.web.SupportController
+import hs.kr.entrydsm.admin.adapterin.web.ApplicantController
 import hs.kr.entrydsm.admin.adapterin.web.exception.GlobalExceptionHandler
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
@@ -18,6 +19,10 @@ import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateFirstPassFileUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.DeleteNoticeUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.DeleteApplicantUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.IssueExamineeNumberUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.ReadApplicantUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.UpdateApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadExportUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.UpdateNoticeUseCase
 import java.lang.reflect.Proxy
@@ -115,6 +120,22 @@ class AdminAdapterInModuleTest {
         assertEquals(200, response.status)
         assertTrue(body, body.contains("\"downloadUrl\":\"https://example.test/first-pass\""))
         assertTrue(body, body.contains("\"expiresAt\":\"1970-01-01T00:00:00Z\""))
+    }
+
+    @Test
+    fun deletesApplicantWithNoContent() {
+        var deletedId: Long? = null
+        val controller = ApplicantController(
+            unused(ReadApplicantUseCase::class.java),
+            unused(UpdateApplicantUseCase::class.java),
+            unused(IssueExamineeNumberUseCase::class.java),
+            DeleteApplicantUseCase { deletedId = it },
+        )
+
+        val response = controller.delete(7L)
+
+        assertEquals(204, response.statusCode.value())
+        assertEquals(7L, deletedId)
     }
 
     private fun <T> unused(type: Class<T>): T = Proxy.newProxyInstance(
