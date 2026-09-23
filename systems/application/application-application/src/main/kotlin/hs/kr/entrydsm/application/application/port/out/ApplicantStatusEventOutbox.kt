@@ -15,6 +15,7 @@ data class ApplicantStatusChanged(
     val submittedAt: LocalDateTime?,
     val passStatus: PassResultStatus,
     val announcedAt: LocalDateTime?,
+    val deleted: Boolean = false,
 )
 
 fun interface ApplicantStatusEventOutbox {
