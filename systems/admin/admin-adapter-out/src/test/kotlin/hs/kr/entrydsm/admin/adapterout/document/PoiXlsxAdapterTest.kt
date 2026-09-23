@@ -3,6 +3,7 @@ package hs.kr.entrydsm.admin.adapterout.document
 import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import java.io.ByteArrayInputStream
+import java.io.File
 import org.apache.poi.ss.usermodel.CellType
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.junit.Assert.assertEquals
@@ -48,9 +49,11 @@ class PoiXlsxAdapterTest {
                 ),
             ),
         )
-
         XSSFWorkbook(ByteArrayInputStream(xlsx)).use { workbook ->
             val sheet = workbook.getSheet("지원자 점검표")
+            assertEquals(19, sheet.lastRowNum)
+            assertEquals(7, sheet.numMergedRegions)
+            assertEquals(24.toShort(), sheet.getRow(1).getCell(2).cellStyle.index)
             assertEquals(1.0, sheet.getRow(1).getCell(2).numericCellValue, 0.0)
             assertEquals("대전한빛중학교", sheet.getRow(1).getCell(3).stringCellValue)
             assertEquals("졸업예정자", sheet.getRow(1).getCell(6).stringCellValue)
@@ -58,6 +61,21 @@ class PoiXlsxAdapterTest {
             assertEquals("A", sheet.getRow(11).getCell(3).stringCellValue)
             assertEquals(75.428, sheet.getRow(18).getCell(7).numericCellValue, 0.0)
             assertEquals(165.0, sheet.getRow(19).getCell(7).numericCellValue, 0.0)
+        }
+    }
+
+    @Test
+    fun `템플릿 인원보다 많으면 첫 양식을 복제한다`() {
+        val xlsx = PoiXlsxAdapter().renderApplicationChecklist(List(10) { FirstPassRow("${it + 1}") })
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let {
+            File(it, "지원자 점검표-예시.xlsx").writeBytes(xlsx)
+        }
+
+        XSSFWorkbook(ByteArrayInputStream(xlsx)).use { workbook ->
+            val sheet = workbook.getSheet("지원자 점검표")
+            assertEquals(199, sheet.lastRowNum)
+            assertEquals(70, sheet.numMergedRegions)
+            assertEquals(10.0, sheet.getRow(181).getCell(2).numericCellValue, 0.0)
         }
     }
 }

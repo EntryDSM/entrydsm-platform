@@ -1,17 +1,12 @@
 package hs.kr.entrydsm.admin.adapterout.document
 
 import hs.kr.entrydsm.admin.domain.model.FirstPassRow
+import hs.kr.entrydsm.admin.domain.model.SemesterGrades
 import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
 import java.io.ByteArrayOutputStream
-import org.apache.poi.ss.usermodel.BorderStyle
 import org.apache.poi.ss.usermodel.Cell
-import org.apache.poi.ss.usermodel.FillPatternType
-import org.apache.poi.ss.usermodel.HorizontalAlignment
-import org.apache.poi.ss.usermodel.IndexedColors
-import org.apache.poi.ss.usermodel.VerticalAlignment
-import org.apache.poi.ss.util.CellRangeAddress
+import org.apache.poi.ss.usermodel.CellCopyPolicy
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
-import org.apache.poi.xssf.usermodel.XSSFCellStyle
 import org.springframework.stereotype.Component
 
 /**
@@ -41,59 +36,38 @@ class PoiXlsxAdapter : XlsxRenderPort {
         }
 
     override fun renderApplicationChecklist(rows: List<FirstPassRow>): ByteArray =
-        XSSFWorkbook().use { workbook ->
-            val sheet = workbook.createSheet("지원자 점검표")
-            val styles = ChecklistStyles(workbook)
-            (1..7).forEach { sheet.setColumnWidth(it, 14 * 256) }
+        XSSFWorkbook(requireNotNull(javaClass.getResourceAsStream("/forms/지원자 점검표.xlsx"))).use { workbook ->
+            val sheet = workbook.getSheetAt(0)
+            workbook.setSheetName(0, "지원자 점검표")
 
             rows.forEachIndexed { index, applicant ->
                 val base = index * 20
-                sheet.createRow(base).heightInPoints = 71f
-                fun cell(row: Int, column: Int, value: Any?, style: XSSFCellStyle = styles.value) {
+                if (base > sheet.lastRowNum) {
+                    sheet.copyRows(0, 19, base, CellCopyPolicy())
+                }
+                fun cell(row: Int, column: Int, value: Any?) {
                     val target = sheet.getRow(base + row) ?: sheet.createRow(base + row)
-                    val created = target.createCell(column)
-                    created.cellStyle = style
-                    created.set(value)
-                }
-                fun merge(row: Int, first: Int, last: Int) {
-                    sheet.addMergedRegion(CellRangeAddress(base + row, base + row, first, last))
-                    val mergeStyle = sheet.getRow(base + row).getCell(first).cellStyle
-                    (first..last).forEach { column ->
-                        val target = sheet.getRow(base + row) ?: sheet.createRow(base + row)
-                        (target.getCell(column) ?: target.createCell(column)).cellStyle = mergeStyle
-                    }
+                    (target.getCell(column) ?: target.createCell(column)).set(value)
                 }
 
-                cell(1, 1, "접수번호", styles.label)
-                cell(1, 2, applicant.receiptNumber.toLongOrNull() ?: applicant.receiptNumber, styles.receipt)
-                cell(1, 3, applicant.schoolName ?: "X", styles.school)
-                merge(1, 3, 5)
-                cell(1, 6, applicant.graduationStatus.checklistGraduation(), styles.label)
-                cell(1, 7, applicant.graduationYear, styles.value)
+                cell(1, 2, applicant.receiptNumber.toLongOrNull() ?: applicant.receiptNumber)
+                cell(1, 3, applicant.schoolName ?: "X")
+                cell(1, 6, applicant.graduationStatus.checklistGraduation())
+                cell(1, 7, applicant.graduationYear)
 
-                cell(3, 1, applicant.region, styles.region)
-                cell(3, 2, applicant.name, styles.name)
-                merge(3, 2, 3)
-                cell(3, 5, "학번", styles.subLabel)
-                cell(3, 6, applicant.studentNumber ?: "X", styles.value)
+                cell(3, 1, applicant.region)
+                cell(3, 2, applicant.name)
+                cell(3, 6, applicant.studentNumber ?: "X")
                 cell(3, 7, null)
 
-                cell(4, 1, applicant.admissionType.checklistAdmission(), styles.admission)
-                cell(4, 2, applicant.birthDate, styles.value)
-                merge(4, 2, 3)
-                cell(4, 5, "학생", styles.subLabel)
-                cell(4, 6, applicant.phoneNumber, styles.value)
-                merge(4, 6, 7)
+                cell(4, 1, applicant.admissionType.checklistAdmission())
+                cell(4, 2, applicant.birthDate)
+                cell(4, 6, applicant.phoneNumber)
 
-                cell(5, 1, applicant.specialAdmissionType.checklistSpecial(), styles.special)
-                cell(5, 2, applicant.gender, styles.value)
-                merge(5, 2, 3)
-                cell(5, 5, "보호자", styles.subLabel)
-                cell(5, 6, applicant.guardianPhoneNumber, styles.value)
-                merge(5, 6, 7)
+                cell(5, 1, applicant.specialAdmissionType.checklistSpecial())
+                cell(5, 2, applicant.gender)
+                cell(5, 6, applicant.guardianPhoneNumber)
 
-                listOf("결석", "지각", "조퇴", "결과", "출석점수", "봉사시간", "봉사점수")
-                    .forEachIndexed { column, value -> cell(7, column + 1, value, styles.label) }
                 listOf(
                     applicant.absentCount,
                     applicant.lateCount,
@@ -104,49 +78,45 @@ class PoiXlsxAdapter : XlsxRenderPort {
                     applicant.volunteerScore,
                 ).forEachIndexed { column, value -> cell(8, column + 1, value) }
 
-                listOf("과목", "3_2학기", "3_1학기", "직전", "직전전")
-                    .forEachIndexed { column, value -> cell(10, column + 1, value, styles.label) }
-                cell(10, 6, "교과성적", styles.subLabel)
                 cell(10, 7, applicant.gradeTotal())
 
-                val subjects = listOf("국어", "사회", "역사", "수학", "과학", "기술가정", "영어")
                 val semesters = listOf(
                     applicant.thirdGradeSecondSemester,
                     applicant.thirdGradeFirstSemester,
                     applicant.previousSemester,
                     applicant.secondPreviousSemester,
                 )
-                subjects.forEachIndexed { subjectIndex, subject ->
-                    cell(11 + subjectIndex, 1, subject, styles.subject)
+                repeat(7) { subjectIndex ->
                     semesters.forEachIndexed { semesterIndex, grades ->
                         cell(11 + subjectIndex, 2 + semesterIndex, grades.values()[subjectIndex])
                     }
                 }
-                cell(11, 6, "대회", styles.subLabel)
                 cell(11, 7, applicant.awarded.mark())
-                cell(12, 6, "기능사", styles.subLabel)
                 cell(12, 7, applicant.certified.mark())
-                cell(13, 6, "가산점", styles.subLabel)
                 cell(13, 7, applicant.additionalScore)
 
-                cell(18, 1, "점수", styles.label)
                 listOf(
                     applicant.thirdGradeSecondSemester.scoreTotal(),
                     applicant.thirdGradeFirstSemester.scoreTotal(),
                     applicant.previousSemester.scoreTotal(),
                     applicant.secondPreviousSemester.scoreTotal(),
                 ).forEachIndexed { column, value -> cell(18, column + 2, value) }
-                cell(18, 6, "환산점수", styles.subLabel)
                 cell(18, 7, applicant.subjectScore)
-                cell(19, 6, "총점", styles.subLabel)
                 cell(19, 7, applicant.totalScore)
+            }
+
+            if (sheet.lastRowNum >= rows.size * 20) {
+                (sheet.lastRowNum downTo rows.size * 20).forEach { sheet.getRow(it)?.let(sheet::removeRow) }
+            }
+            (sheet.numMergedRegions - 1 downTo 0).forEach { index ->
+                if (sheet.getMergedRegion(index).firstRow >= rows.size * 20) sheet.removeMergedRegion(index)
             }
 
             ByteArrayOutputStream().also { workbook.write(it) }.toByteArray()
         }
 
     private fun Cell.set(value: Any?) = when (value) {
-        null -> Unit
+        null -> setBlank()
         is Number -> setCellValue(value.toDouble())
         else -> setCellValue(value.toString())
     }
@@ -175,50 +145,19 @@ class PoiXlsxAdapter : XlsxRenderPort {
     }
 
     private fun FirstPassRow.gradeTotal(): Double? =
-        listOf(
+        listOfNotNull(
             thirdGradeSecondSemester.scoreTotal(),
             thirdGradeFirstSemester.scoreTotal(),
             previousSemester.scoreTotal(),
             secondPreviousSemester.scoreTotal(),
         )
-            .filterNotNull()
             .takeIf { it.isNotEmpty() }
             ?.sum()
 
-    private fun hs.kr.entrydsm.admin.domain.model.SemesterGrades.values() =
+    private fun SemesterGrades.values() =
         listOf(korean, society, history, math, science, technology, english)
 
-    private fun hs.kr.entrydsm.admin.domain.model.SemesterGrades.scoreTotal(): Double? =
+    private fun SemesterGrades.scoreTotal(): Double? =
         total ?: 0.0.takeIf { values().any { value -> value != null } }
 
-    private class ChecklistStyles(private val workbook: XSSFWorkbook) {
-        private fun style(color: IndexedColors? = null, bold: Boolean = false, size: Short = 10): XSSFCellStyle =
-            workbook.createCellStyle().apply {
-                alignment = HorizontalAlignment.CENTER
-                verticalAlignment = VerticalAlignment.CENTER
-                borderTop = BorderStyle.THIN
-                borderBottom = BorderStyle.THIN
-                borderLeft = BorderStyle.THIN
-                borderRight = BorderStyle.THIN
-                if (color != null) {
-                    fillForegroundColor = color.index
-                    fillPattern = FillPatternType.SOLID_FOREGROUND
-                }
-                setFont(workbook.createFont().apply {
-                    this.bold = bold
-                    fontHeightInPoints = size
-                })
-            }
-
-        val value = style()
-        val label = style(IndexedColors.LIGHT_CORNFLOWER_BLUE, bold = true)
-        val subLabel = style(IndexedColors.LIGHT_YELLOW, bold = true)
-        val receipt = style(IndexedColors.LIGHT_GREEN, bold = true, size = 14)
-        val school = style(bold = true, size = 14)
-        val name = style(IndexedColors.LIGHT_GREEN, bold = true, size = 14)
-        val region = style(IndexedColors.LIGHT_GREEN, bold = true)
-        val admission = style(IndexedColors.LIGHT_YELLOW, bold = true)
-        val special = style(IndexedColors.LIGHT_ORANGE, bold = true)
-        val subject = style(IndexedColors.LIGHT_CORNFLOWER_BLUE, bold = true)
-    }
 }

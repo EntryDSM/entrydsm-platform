@@ -6,6 +6,7 @@ package(default_visibility = ["//visibility:public"])
 kt_jvm_library(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
+    resources = glob(["src/main/resources/**"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     # JPA 엔티티에 인자 없는 생성자를 만들어 준다.
