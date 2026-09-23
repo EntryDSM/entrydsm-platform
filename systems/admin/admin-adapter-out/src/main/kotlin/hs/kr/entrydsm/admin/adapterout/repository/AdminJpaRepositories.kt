@@ -16,6 +16,7 @@ interface ScreeningJpaRepository : JpaRepository<ScreeningJpaEntity, Long>
 
 interface ApplicantExportEventJpaRepository : JpaRepository<ApplicantExportEventJpaEntity, String> {
     fun findAllByProcessedFalse(): List<ApplicantExportEventJpaEntity>
+    fun findTopByApplicantIdOrderByEventVersionDesc(applicantId: Long): ApplicantExportEventJpaEntity?
 }
 
 interface ApplicantExportProjectionJpaRepository : JpaRepository<ApplicantExportProjectionJpaEntity, Long>

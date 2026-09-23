@@ -28,6 +28,8 @@ interface ApplicantRepository {
 
     fun saveAll(applicants: List<Applicant>): List<Applicant>
 
+    fun deleteById(applicantId: Long) = Unit
+
     fun findFirstPassRows(): List<FirstPassRow> = emptyList()
 
     fun findAdmissionFileRows(): List<FirstPassRow> = emptyList()
@@ -42,6 +44,10 @@ interface ApplicantRepository {
 
 fun interface ApplicantArrivalPort {
     fun update(applicantId: Long, isArrived: Boolean)
+}
+
+fun interface ApplicantDeletionPort {
+    fun delete(applicantId: Long)
 }
 
 fun interface DistancePort {

@@ -2,6 +2,7 @@ package hs.kr.entrydsm.admin.adapterout.persistence
 
 import hs.kr.entrydsm.admin.adapterout.entity.ApplicantExportEventJpaEntity
 import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportEventJpaRepository
+import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRepository
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
 import java.time.Duration
 import java.util.Base64
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component
 class ApplicantExportEventConsumer(
     private val redis: StringRedisTemplate,
     private val repository: ApplicantExportEventJpaRepository,
+    private val projectionRepository: ApplicantExportProjectionJpaRepository,
     @Value("\${entrydsm.application.events.applicant-status-stream:application.applicant-status}")
     private val stream: String,
 ) {
@@ -47,6 +49,10 @@ class ApplicantExportEventConsumer(
                 redis.opsForStream<String, String>().acknowledge(stream, group, record.id)
                 return@forEach
             }
+            if ((repository.findTopByApplicantIdOrderByEventVersionDesc(event.applicantId)?.eventVersion ?: 0) >= event.version) {
+                redis.opsForStream<String, String>().acknowledge(stream, group, record.id)
+                return@forEach
+            }
             repository.save(
                 ApplicantExportEventJpaEntity(
                     eventId = event.eventId,
@@ -56,6 +62,7 @@ class ApplicantExportEventConsumer(
                     eventVersion = event.version,
                 ),
             )
+            if (event.applicantDeleted) projectionRepository.deleteById(event.applicantId)
             redis.opsForStream<String, String>().acknowledge(stream, group, record.id)
         }
     }
