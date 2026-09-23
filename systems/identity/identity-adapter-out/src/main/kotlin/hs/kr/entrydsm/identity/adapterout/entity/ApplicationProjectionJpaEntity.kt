@@ -19,6 +19,9 @@ open class ApplicationProjectionJpaEntity(
     @Column(name = "user_id")
     val userId: Long = 0,
 
+    @Column(name = "applicant_id")
+    var applicantId: Long? = null,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "applicant_status", nullable = false, length = 20)
     var applicantStatus: ApplicantStatus = ApplicantStatus.NONE,

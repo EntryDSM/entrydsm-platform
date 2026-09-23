@@ -56,6 +56,8 @@ class ApplicationStatusRedisConsumer(
     private fun ApplicantStatusChangedEvent.toDomain() = ApplicationStateChangedEvent(
         eventId = eventId,
         userId = accountId,
+        applicantId = applicantId,
+        deleted = applicantDeleted,
         version = version,
         applicantStatus = ApplicantStatus.valueOf(applicantStatus.name.removePrefix("APPLICANT_STATUS_")),
         submittedAt = submittedAtEpochMillis.takeIf { hasSubmittedAtEpochMillis() }?.let(Instant::ofEpochMilli),

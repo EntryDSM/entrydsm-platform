@@ -81,14 +81,34 @@ class AccountApplicationDataPersistenceAdapter(
 
     @Transactional
     override fun consume(event: ApplicationStateChangedEvent): Boolean {
+        val profile = studentProfileRepository.findByAccount_Id(event.userId)
+            ?: error("Student profile not found for account ${event.userId}")
+        if (event.applicantId <= (profile.lastDeletedApplicantId ?: 0)) return false
+
         val projection = projectionRepository.findByUserIdForUpdate(event.userId)
-        if (projection != null &&
+        if (event.deleted) {
+            profile.lastDeletedApplicantId = maxOf(profile.lastDeletedApplicantId ?: 0, event.applicantId)
+            if (projection?.applicantId == null || projection.applicantId == event.applicantId) {
+                projection?.let(projectionRepository::delete)
+                profile.applicantStatus = ApplicantStatus.NONE
+                profile.submittedAt = null
+                profile.passStatus = hs.kr.entrydsm.identity.domain.enum.PassStatus.NOT_ANNOUNCED
+                profile.announcedAt = null
+            }
+            studentProfileRepository.save(profile)
+            return true
+        }
+
+        if (projection?.applicantId != null && event.applicantId < projection.applicantId!!) return false
+        val sameGeneration = projection?.applicantId == null || projection.applicantId == event.applicantId
+        if (projection != null && sameGeneration &&
             (event.version <= projection.sourceVersion || event.eventId == projection.lastEventId)
         ) {
             return false
         }
 
         val resolved = projection ?: ApplicationProjectionJpaEntity(userId = event.userId)
+        resolved.applicantId = event.applicantId
         resolved.applicantStatus = event.applicantStatus
         resolved.submittedAt = event.submittedAt
         resolved.passStatus = event.passStatus
@@ -97,13 +117,11 @@ class AccountApplicationDataPersistenceAdapter(
         resolved.sourceVersion = event.version
         resolved.lastEventId = event.eventId
         projectionRepository.save(resolved)
-        studentProfileRepository.findByAccount_Id(event.userId)?.let { profile ->
-            profile.applicantStatus = event.applicantStatus
-            profile.submittedAt = event.submittedAt
-            profile.passStatus = event.passStatus
-            profile.announcedAt = event.announcedAt
-            studentProfileRepository.save(profile)
-        } ?: error("Student profile not found for account ${event.userId}")
+        profile.applicantStatus = event.applicantStatus
+        profile.submittedAt = event.submittedAt
+        profile.passStatus = event.passStatus
+        profile.announcedAt = event.announcedAt
+        studentProfileRepository.save(profile)
         return true
     }
 
