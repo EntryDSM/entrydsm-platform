@@ -8,11 +8,11 @@ import hs.kr.entrydsm.observability.application.port.out.MetricsStorePort
 import hs.kr.entrydsm.observability.domain.enum.ErrorCode
 import hs.kr.entrydsm.observability.domain.enum.MetricType
 import hs.kr.entrydsm.observability.domain.exception.MonitorDomainException
+import hs.kr.entrydsm.observability.domain.service.KoreaTime
 import hs.kr.entrydsm.observability.domain.service.TimeBucketer
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
-import java.time.ZoneId
 
 class MetricsSeriesService(
     private val metricsStorePort: MetricsStorePort,
@@ -26,7 +26,7 @@ class MetricsSeriesService(
 
         val now = Instant.now(clock)
         val resolvedTo = to ?: now
-        val resolvedFrom = from ?: now.atZone(ZONE).toLocalDate().atStartOfDay(ZONE).toInstant()
+        val resolvedFrom = from ?: now.atZone(KoreaTime.ZONE).toLocalDate().atStartOfDay(KoreaTime.ZONE).toInstant()
         if (resolvedFrom.isAfter(resolvedTo) || Duration.between(resolvedFrom, resolvedTo) > MAX_RANGE) {
             throw MonitorDomainException(ErrorCode.INVALID_TIME_RANGE)
         }
@@ -53,7 +53,6 @@ class MetricsSeriesService(
     }
 
     companion object {
-        private val ZONE: ZoneId = ZoneId.of("Asia/Seoul")
         private val MAX_RANGE: Duration = Duration.ofDays(90)
         private const val MAX_BUCKETS = 1000
     }
