@@ -43,6 +43,14 @@ class XlsxCsvReportGeneratorTest {
     }
 
     @Test
+    fun writesGeneratedAtInKoreaTime() {
+        val csv = String(generator.generate(ReportFormat.CSV, snapshot("2026-1")))
+        val generatedAtLine = csv.lineSequence().first { it.startsWith("\"generatedAt\"") }
+
+        assertEquals(""""generatedAt","2026-07-28T23:03:11+09:00"""", generatedAtLine)
+    }
+
+    @Test
     fun csvKeepsOneValueColumnWhenValueContainsComma() {
         val csv = String(generator.generate(ReportFormat.CSV, snapshot("a,b")))
 

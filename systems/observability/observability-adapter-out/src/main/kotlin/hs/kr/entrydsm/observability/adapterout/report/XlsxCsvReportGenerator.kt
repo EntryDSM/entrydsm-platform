@@ -3,6 +3,7 @@ package hs.kr.entrydsm.observability.adapterout.report
 import hs.kr.entrydsm.observability.application.port.`in`.result.DashboardSnapshotResult
 import hs.kr.entrydsm.observability.application.port.out.ReportGeneratorPort
 import hs.kr.entrydsm.observability.domain.enum.ReportFormat
+import hs.kr.entrydsm.observability.domain.service.KoreaTime
 import java.io.ByteArrayOutputStream
 import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import org.springframework.stereotype.Component
@@ -18,7 +19,7 @@ class XlsxCsvReportGenerator : ReportGeneratorPort {
 
     private fun rows(snapshot: DashboardSnapshotResult): List<Pair<String, String>> =
         listOf(
-            "generatedAt" to snapshot.generatedAt.toString(),
+            "generatedAt" to KoreaTime.format(snapshot.generatedAt),
             "round" to snapshot.period.round,
             "totalVisitors" to snapshot.traffic.totalVisitors.toString(),
             "concurrentCurrent" to snapshot.traffic.concurrent.current.toString(),
