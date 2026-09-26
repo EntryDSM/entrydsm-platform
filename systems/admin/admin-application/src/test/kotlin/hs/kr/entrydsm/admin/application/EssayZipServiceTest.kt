@@ -25,8 +25,8 @@ class EssayZipServiceTest {
         val requested = mutableListOf<Pair<Long, String>>()
         val service = EssayZipService(repository(applicants), ApplicationEssayPort { id, examineeNumber ->
             requested += id to examineeNumber
-            if (id == 1L) ApplicationEssayPdfs("통합1".toByteArray(), null)
-            else ApplicationEssayPdfs("통합2".toByteArray(), "통합2".toByteArray())
+            val pdf = "%PDF-1.4\n수험번호: $examineeNumber\n자기소개서 및 학업계획서\n%%EOF".toByteArray()
+            if (id == 1L) ApplicationEssayPdfs(pdf, null) else ApplicationEssayPdfs(pdf, pdf)
         })
 
         val output = ByteArrayOutputStream()
@@ -38,7 +38,10 @@ class EssayZipServiceTest {
             listOf("1_홍_길동_자기소개서_및_학업계획서.pdf", "2_홍_길동_자기소개서_및_학업계획서.pdf"),
             entries.keys.toList(),
         )
-        assertArrayEquals("통합2".toByteArray(), entries.getValue("2_홍_길동_자기소개서_및_학업계획서.pdf"))
+        assertArrayEquals(
+            "%PDF-1.4\n수험번호: 11002\n자기소개서 및 학업계획서\n%%EOF".toByteArray(),
+            entries.getValue("2_홍_길동_자기소개서_및_학업계획서.pdf"),
+        )
     }
 
     @Test
