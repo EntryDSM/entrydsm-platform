@@ -12,6 +12,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationStatusRes
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.ProfileResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
+import hs.kr.entrydsm.identity.domain.enum.PassStatus
 
 fun UserSummaryResult.toResponse(): UserSummaryResponse =
     UserSummaryResponse(
@@ -63,11 +64,14 @@ fun ApplicationStatusResult.toResponse(): ApplicationStatusResponse =
 
 fun ApplicationResultResult.toResponse(): ApplicationResultResponse =
     ApplicationResultResponse(
-        passStatus = when (passStatus) {
-            hs.kr.entrydsm.identity.domain.enum.PassStatus.NOT_ANNOUNCED -> "PENDING"
-            hs.kr.entrydsm.identity.domain.enum.PassStatus.PASSED -> "PASSED"
-            hs.kr.entrydsm.identity.domain.enum.PassStatus.FAILED -> "FAILED"
-        },
+        applicationNumber = applicationNumber,
+        examineeNumber = examineeNumber.takeIf { passStatus == PassStatus.FIRST_PASSED },
+        name = name,
+        birthDate = birthDate,
+        region = region,
+        admissionType = admissionType,
+        passStatus = if (passStatus == PassStatus.NOT_ANNOUNCED) "PENDING" else passStatus.name,
+        passDescription = passStatus.description,
         announcedAt = announcedAt,
     )
 

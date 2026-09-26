@@ -73,8 +73,12 @@ class IdentityApplicationHttpIntegrationTest {
         mockMvc = builder.build()
         `when`(remoteApplicationDataAdapter.create(anyLong(), any(Instant::class.java)))
             .thenAnswer { applicationSnapshot(it.getArgument(0), ApplicantStatus.SUBMITTED, SUBMITTED_AT) }
-        `when`(remoteApplicationDataAdapter.cancel(anyLong(), any(), any(Instant::class.java)))
-            .thenAnswer { applicationSnapshot(it.getArgument(0), ApplicantStatus.CANCELED, SUBMITTED_AT) }
+        `when`(remoteApplicationDataAdapter.findResultByUserId(anyLong()))
+            .thenAnswer { applicationSnapshot(it.getArgument(0), ApplicantStatus.SUBMITTED, SUBMITTED_AT).copy(
+                applicantId = 6L,
+                region = "NATIONAL",
+                admissionType = "REGULAR",
+            ) }
     }
 
     @Test
@@ -119,33 +123,26 @@ class IdentityApplicationHttpIntegrationTest {
         assertEquals(200, statusResponse.status)
         assertTrue(statusResponse.contentAsString.contains("\"applicantStatus\":\"SUBMITTED\""))
 
-        val unpublishedResultResponse = mockMvc.perform(
+        val pendingResultResponse = mockMvc.perform(
             get("/api/identity/v11/applications/result")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken"),
         ).andReturn().response
-        assertEquals(409, unpublishedResultResponse.status)
-        assertTrue(unpublishedResultResponse.contentAsString.contains("APPLICATION_RESULT_NOT_AVAILABLE"))
+        assertEquals(200, pendingResultResponse.status)
+        assertTrue(pendingResultResponse.contentAsString.contains("\"passStatus\":\"PENDING\""))
+        assertTrue(pendingResultResponse.contentAsString.contains("\"applicationNumber\":\"0006\""))
 
-        val cancellationResponse = mockMvc.perform(
+        val removedCancellationResponse = mockMvc.perform(
             patch("/api/identity/v11/applications/cancellation")
                 .withCsrf()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""{"reason":"개인 사유"}"""),
         ).andReturn().response
-        assertEquals(200, cancellationResponse.status)
-        assertTrue(cancellationResponse.contentAsString.contains("\"applicantStatus\":\"CANCELED\""))
+        assertEquals(404, removedCancellationResponse.status)
 
         val persistedApplication = requireNotNull(applicationDataPort.findByUserId(account.userId))
-        assertEquals(ApplicantStatus.CANCELED, persistedApplication.applicantStatus)
+        assertEquals(ApplicantStatus.SUBMITTED, persistedApplication.applicantStatus)
         assertEquals(SUBMITTED_AT, persistedApplication.submittedAt)
-
-        val canceledStatusResponse = mockMvc.perform(
-            get("/api/identity/v11/applications/status")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer $accessToken"),
-        ).andReturn().response
-        assertEquals(200, canceledStatusResponse.status)
-        assertTrue(canceledStatusResponse.contentAsString.contains("\"applicantStatus\":\"CANCELED\""))
     }
 
     private fun org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder.withCsrf() =

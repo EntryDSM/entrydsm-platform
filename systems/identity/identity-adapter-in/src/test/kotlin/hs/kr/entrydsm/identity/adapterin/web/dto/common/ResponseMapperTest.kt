@@ -89,5 +89,17 @@ class ResponseMapperTest {
         assertEquals(null, resultResponse.announcedAt)
         assertEquals(ApplicantStatus.NONE, statusResponse.applicantStatus)
         assertEquals("PENDING", resultResponse.passStatus)
+        assertEquals("발표 대기 중", resultResponse.passDescription)
+        assertEquals(null, resultResponse.note)
+    }
+
+    @Test
+    fun examineeNumberIsVisibleOnlyForFirstPass() {
+        val first = ApplicationResultResult(PassStatus.FIRST_PASSED, timestamp, examineeNumber = "11001").toResponse()
+        val final = ApplicationResultResult(PassStatus.FINAL_PASSED, timestamp, examineeNumber = "11001").toResponse()
+
+        assertEquals("11001", first.examineeNumber)
+        assertEquals(null, final.examineeNumber)
+        assertEquals("2차 전형 최종 합격", final.passDescription)
     }
 }
