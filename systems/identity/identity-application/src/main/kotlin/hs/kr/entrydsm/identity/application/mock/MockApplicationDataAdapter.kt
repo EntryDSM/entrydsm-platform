@@ -19,8 +19,11 @@ class MockApplicationDataAdapter : ApplicationDataPort {
             applicantStatus = ApplicantStatus.SUBMITTED,
             submittedAt = now,
             updatedAt = Instant.parse("2026-06-11T10:30:00Z"),
-            passStatus = PassStatus.PASSED,
+            passStatus = PassStatus.FIRST_PASSED,
             announcedAt = now,
+            applicantId = 6L,
+            region = "NATIONAL",
+            admissionType = "REGULAR",
         )
     }
 

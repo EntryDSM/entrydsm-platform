@@ -11,4 +11,8 @@ data class ApplicationSnapshot(
     val updatedAt: Instant,
     val passStatus: PassStatus,
     val announcedAt: Instant?,
+    val applicantId: Long? = null,
+    val region: String? = null,
+    val admissionType: String? = null,
+    val examineeNumber: String? = null,
 )

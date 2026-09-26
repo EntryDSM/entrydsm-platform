@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.ReadApplicationComm
 import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationResultResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.ApplicationStatusResult
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
+import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
@@ -15,6 +16,7 @@ import java.time.Instant
 
 class ApplicationService(
     private val applicationDataPort: ApplicationDataPort,
+    private val accountQueryPort: AccountQueryPort,
     private val clock: Clock = Clock.systemUTC(),
 ) : ApplicationPort {
     override fun getApplicationStatus(command: ReadApplicationCommand): ApplicationStatusResult {
@@ -24,8 +26,20 @@ class ApplicationService(
     }
 
     override fun getApplicationResult(command: ReadApplicationCommand): ApplicationResultResult {
-        resolveUserId(command.userId)
-        return ApplicationResultResult(PassStatus.NOT_ANNOUNCED, null)
+        val userId = resolveUserId(command.userId)
+        val account = accountQueryPort.findByUserId(userId) ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
+        val application = applicationDataPort.findResultByUserId(userId)
+            ?: throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
+        return ApplicationResultResult(
+            passStatus = application.passStatus,
+            announcedAt = application.announcedAt,
+            applicationNumber = application.applicantId?.toString()?.padStart(4, '0'),
+            examineeNumber = application.examineeNumber,
+            name = account.profile.name,
+            birthDate = account.profile.birthdate,
+            region = application.region,
+            admissionType = application.admissionType,
+        )
     }
 
     override fun cancelApplication(command: CancelApplicationCommand): ApplicationStatusResult {
