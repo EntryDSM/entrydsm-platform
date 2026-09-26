@@ -33,7 +33,26 @@ class ApplicantJpaEntityTest {
         assertEquals(ApplicantStatus.SUBMITTED, domain.status)
         assertEquals(submittedAt, domain.submittedAt)
         assertEquals(PassResultStatus.PASS, domain.passStatus)
+        assertEquals(ResultType.FINAL, domain.passResultType)
         assertEquals(announcedAt, domain.announcedAt)
+    }
+
+    @Test
+    fun toDomainUsesDocumentResultUntilFinalResultExists() {
+        val entity = ApplicantJpaEntity(
+            id = 1L,
+            accountId = 10L,
+            passResults = mutableListOf(
+                PassResultJpaEntity(id = PassResultId(1L, ResultType.DOCUMENT), result = PassResultStatus.PASS),
+                PassResultJpaEntity(id = PassResultId(1L, ResultType.FINAL), result = PassResultStatus.PENDING),
+            ),
+        )
+
+        assertEquals(ResultType.DOCUMENT, entity.toDomain().passResultType)
+        assertEquals(PassResultStatus.PASS, entity.toDomain().passStatus)
+        entity.passResults.last().result = PassResultStatus.FAIL
+        assertEquals(ResultType.FINAL, entity.toDomain().passResultType)
+        assertEquals(PassResultStatus.FAIL, entity.toDomain().passStatus)
     }
 
     @Test
@@ -42,11 +61,13 @@ class ApplicantJpaEntityTest {
             Applicant(
                 id = 100L,
                 accountId = 1L,
+                examineeNumber = "11001",
             ),
         )
 
         assertNull(entity.id)
         assertEquals(1L, entity.accountId)
+        assertEquals("11001", entity.examineeNumber)
     }
 
     @Test

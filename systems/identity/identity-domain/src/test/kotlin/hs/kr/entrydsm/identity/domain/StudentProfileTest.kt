@@ -49,8 +49,8 @@ class StudentProfileTest {
     @Test
     fun reportsWhetherAnApplicationResultIsAvailable() {
         assertFalse(profile(passStatus = PassStatus.NOT_ANNOUNCED).isResultAvailable())
-        assertTrue(profile(passStatus = PassStatus.PASSED).isResultAvailable())
-        assertTrue(profile(passStatus = PassStatus.FAILED).isResultAvailable())
+        assertTrue(profile(passStatus = PassStatus.FIRST_PASSED).isResultAvailable())
+        assertTrue(profile(passStatus = PassStatus.FIRST_FAILED).isResultAvailable())
     }
 
     @Test
@@ -58,11 +58,11 @@ class StudentProfileTest {
         val profile = profile()
 
         profile.submit(transitionTime)
-        profile.announceResult(PassStatus.PASSED, transitionTime)
+        profile.announceResult(PassStatus.FIRST_PASSED, transitionTime)
 
         assertEquals(ApplicantStatus.SUBMITTED, profile.applicantStatus)
         assertEquals(transitionTime, profile.submittedAt)
-        assertEquals(PassStatus.PASSED, profile.passStatus)
+        assertEquals(PassStatus.FIRST_PASSED, profile.passStatus)
         assertEquals(transitionTime, profile.announcedAt)
         assertEquals(transitionTime, profile.updatedAt)
     }
@@ -92,7 +92,7 @@ class StudentProfileTest {
             ApplicantStatus.CANCELED,
         ).forEach { applicantStatus ->
             try {
-                profile(applicantStatus).announceResult(PassStatus.PASSED, transitionTime)
+                profile(applicantStatus).announceResult(PassStatus.FIRST_PASSED, transitionTime)
                 fail("Expected result announcement to be rejected for $applicantStatus")
             } catch (exception: IdentityDomainException) {
                 assertEquals(ErrorCode.APPLICATION_RESULT_ANNOUNCE_NOT_ALLOWED, exception.errorCode)
@@ -100,9 +100,9 @@ class StudentProfileTest {
         }
 
         val profile = profile(ApplicantStatus.SUBMITTED)
-        profile.announceResult(PassStatus.PASSED, transitionTime)
+        profile.announceResult(PassStatus.FIRST_PASSED, transitionTime)
         try {
-            profile.announceResult(PassStatus.FAILED, transitionTime)
+            profile.announceResult(PassStatus.FIRST_FAILED, transitionTime)
             fail("Expected an announced result to be immutable")
         } catch (exception: IdentityDomainException) {
             assertEquals(ErrorCode.APPLICATION_RESULT_ANNOUNCE_NOT_ALLOWED, exception.errorCode)

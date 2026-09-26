@@ -63,7 +63,11 @@ class ApplicationStatusRedisConsumer(
         version = version,
         applicantStatus = ApplicantStatus.valueOf(applicantStatus.name.removePrefix("APPLICANT_STATUS_")),
         submittedAt = submittedAtEpochMillis.takeIf { hasSubmittedAtEpochMillis() }?.let(Instant::ofEpochMilli),
-        passStatus = PassStatus.valueOf(passStatus.name.removePrefix("PASS_STATUS_")),
+        passStatus = when (passStatus.name.removePrefix("PASS_STATUS_")) {
+            "PASSED" -> PassStatus.FIRST_PASSED
+            "FAILED" -> PassStatus.FIRST_FAILED
+            else -> PassStatus.valueOf(passStatus.name.removePrefix("PASS_STATUS_"))
+        },
         announcedAt = announcedAtEpochMillis.takeIf { hasAnnouncedAtEpochMillis() }?.let(Instant::ofEpochMilli),
         occurredAt = Instant.ofEpochMilli(occurredAtEpochMillis),
     )
