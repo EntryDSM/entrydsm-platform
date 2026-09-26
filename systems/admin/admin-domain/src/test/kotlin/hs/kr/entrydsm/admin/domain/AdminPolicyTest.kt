@@ -115,12 +115,10 @@ class AdminPolicyTest {
         assertEquals(ErrorCode.EXAMINEE_NUMBER_LIMIT_EXCEEDED, (exception as AdminDomainException).errorCode)
     }
 
-    /** 모든 지역 × 전형 묶음에 같은 정원을 준다. */
-    private fun quotas(quota: Int): Map<Region, Map<AdmissionType, Int>> =
-        Region.entries.associateWith { AdmissionType.entries.associateWith { quota } }
+    private fun quotas(quota: Int): Map<AdmissionType, Int> = AdmissionType.entries.associateWith { quota }
 
     @Test
-    fun `합격자는 지역과 전형 묶음별로 따로 순위를 매겨 정원까지 뽑는다`() {
+    fun `합격자는 전형별로 따로 순위를 매겨 정원까지 뽑는다`() {
         val outcome = ScreeningPolicy.evaluate(
             listOf(
                 applicant(id = 1L, examineeNumber = "100001", totalScore = 95.0),
@@ -140,10 +138,7 @@ class AdminPolicyTest {
                 ),
             ),
             stage = ScreeningStage.FIRST,
-            quotas = mapOf(
-                Region.DAEJEON to mapOf(AdmissionType.MEISTER to 1),
-                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 1),
-            ),
+            quotas = mapOf(AdmissionType.MEISTER to 1, AdmissionType.GENERAL to 1),
         )
 
         assertEquals(setOf(1L, 3L), outcome.passed.map { it.id }.toSet())
@@ -183,13 +178,12 @@ class AdminPolicyTest {
     }
 
     @Test
-    fun `원서 미도착·수험 번호 미발급·지역이나 전형이 빈 지원자는 산출에서 제외한다`() {
+    fun `원서 미도착·수험 번호 미발급·전형이 빈 지원자는 산출에서 제외한다`() {
         val outcome = ScreeningPolicy.evaluate(
             listOf(
                 applicant(id = 1L, isArrived = false, totalScore = 99.0),
                 applicant(id = 2L, examineeNumber = null, totalScore = 99.0),
                 applicant(id = 3L, examineeNumber = "100003", totalScore = null),
-                // 제출된 원서에도 지역·전형이 비어 있을 수 있다. 묶을 칸이 없어 제외한다.
                 applicant(id = 4L, examineeNumber = "100004", totalScore = 99.0, region = null),
                 applicant(id = 5L, examineeNumber = "100005", totalScore = 99.0, admissionType = null),
                 applicant(id = 6L, examineeNumber = "100006", totalScore = 70.0),
@@ -198,8 +192,8 @@ class AdminPolicyTest {
             quotas = quotas(10),
         )
 
-        assertEquals(listOf(1L, 2L, 3L, 4L, 5L), outcome.excluded.map { it.id })
-        assertEquals(listOf(6L), outcome.passed.map { it.id })
+        assertEquals(listOf(1L, 2L, 3L, 5L), outcome.excluded.map { it.id })
+        assertEquals(listOf(4L, 6L), outcome.passed.map { it.id }.sorted())
     }
 
     @Test

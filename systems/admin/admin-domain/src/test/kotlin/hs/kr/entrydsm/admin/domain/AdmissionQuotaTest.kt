@@ -2,7 +2,6 @@ package hs.kr.entrydsm.admin.domain
 
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
-import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import java.time.Instant
@@ -13,21 +12,22 @@ class AdmissionQuotaTest {
 
     private val updatedAt = Instant.parse("2026-06-01T00:00:00Z")
 
-    private fun quota(quotas: Map<Region, Map<AdmissionType, Int>>) =
+    private fun quota(quotas: Map<AdmissionType, Int>) =
         AdmissionQuota(quotas = quotas, updatedAt = updatedAt, updatedBy = "admin01")
 
     @Test
-    fun `모든 지역과 전형이 채워지면 정원을 만들고 전형별 정원은 지역 합계다`() {
+    fun `모든 전형이 채워지면 정원을 만든다`() {
         val quota = quota(
             mapOf(
-                Region.DAEJEON to mapOf(AdmissionType.GENERAL to 20, AdmissionType.MEISTER to 10, AdmissionType.SOCIAL to 5),
-                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 14, AdmissionType.MEISTER to 20, AdmissionType.SOCIAL to 0),
+                AdmissionType.GENERAL to 20,
+                AdmissionType.MEISTER to 10,
+                AdmissionType.SOCIAL to 5,
             ),
         )
 
         assertEquals(
-            mapOf(AdmissionType.GENERAL to 34, AdmissionType.MEISTER to 30, AdmissionType.SOCIAL to 5),
-            quota.byType,
+            mapOf(AdmissionType.GENERAL to 20, AdmissionType.MEISTER to 10, AdmissionType.SOCIAL to 5),
+            quota.quotas,
         )
     }
 
@@ -35,26 +35,29 @@ class AdmissionQuotaTest {
     fun `배수를 곱한 정원은 올림한다`() {
         val quota = quota(
             mapOf(
-                Region.DAEJEON to mapOf(AdmissionType.GENERAL to 20, AdmissionType.MEISTER to 10, AdmissionType.SOCIAL to 5),
-                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 14, AdmissionType.MEISTER to 20, AdmissionType.SOCIAL to 0),
+                AdmissionType.GENERAL to 20,
+                AdmissionType.MEISTER to 10,
+                AdmissionType.SOCIAL to 5,
             ),
         )
 
         assertEquals(
             mapOf(
-                Region.DAEJEON to mapOf(AdmissionType.GENERAL to 30, AdmissionType.MEISTER to 15, AdmissionType.SOCIAL to 8),
-                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 21, AdmissionType.MEISTER to 30, AdmissionType.SOCIAL to 0),
+                AdmissionType.GENERAL to 30,
+                AdmissionType.MEISTER to 15,
+                AdmissionType.SOCIAL to 8,
             ),
             quota.scaled(1.5),
         )
     }
 
     @Test
-    fun `지역이 빠지면 정원을 거부한다`() {
+    fun `전형이 빠지면 정원을 거부한다`() {
         val exception = runCatching {
             quota(
                 mapOf(
-                    Region.DAEJEON to mapOf(AdmissionType.GENERAL to 20, AdmissionType.MEISTER to 10, AdmissionType.SOCIAL to 5),
+                    AdmissionType.GENERAL to 20,
+                    AdmissionType.MEISTER to 10,
                 ),
             )
         }.exceptionOrNull()
@@ -63,21 +66,12 @@ class AdmissionQuotaTest {
     }
 
     @Test(expected = AdminDomainException::class)
-    fun `전형이 빠지면 정원을 거부한다`() {
-        quota(
-            mapOf(
-                Region.DAEJEON to mapOf(AdmissionType.GENERAL to 20, AdmissionType.MEISTER to 10),
-                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 14, AdmissionType.MEISTER to 20, AdmissionType.SOCIAL to 0),
-            ),
-        )
-    }
-
-    @Test(expected = AdminDomainException::class)
     fun `정원이 음수면 거부한다`() {
         quota(
             mapOf(
-                Region.DAEJEON to mapOf(AdmissionType.GENERAL to -1, AdmissionType.MEISTER to 10, AdmissionType.SOCIAL to 5),
-                Region.NATIONWIDE to mapOf(AdmissionType.GENERAL to 14, AdmissionType.MEISTER to 20, AdmissionType.SOCIAL to 0),
+                AdmissionType.GENERAL to -1,
+                AdmissionType.MEISTER to 10,
+                AdmissionType.SOCIAL to 5,
             ),
         )
     }
