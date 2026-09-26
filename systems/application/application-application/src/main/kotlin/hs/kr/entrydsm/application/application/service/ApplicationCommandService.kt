@@ -132,6 +132,17 @@ class ApplicationCommandService(
         return saveTouched(applicant).also(::publishStatus).toSnapshot()
     }
 
+    override fun updateExamineeNumber(applicantId: Long, examineeNumber: String) {
+        require(examineeNumber.matches(Regex("[123][12][0-9]{3}")) && !examineeNumber.endsWith("000")) {
+            "invalid examinee number"
+        }
+        val applicant = applicantRepository.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+        if (applicant.examineeNumber != examineeNumber) {
+            applicant.examineeNumber = examineeNumber
+            applicantRepository.save(applicant)
+        }
+    }
+
     override fun getLanding(accountId: Long?): LandingResult {
         return LandingResult(
             applicantName = accountId?.let(applicantRepository::findByAccountId)?.name,
@@ -181,6 +192,7 @@ class ApplicationCommandService(
         val previous = PREVIOUS_SEMESTERS.mapNotNull(grades::reflected)
         return ApplicationFormResult(
             applicantId = id,
+            examineeNumber = examineeNumber,
             accountId = accountId,
             status = status,
             name = name,
@@ -317,6 +329,7 @@ class ApplicationCommandService(
             submittedAt = applicant.submittedAt,
             passStatus = applicant.passStatus,
             announcedAt = applicant.announcedAt,
+            passResultType = applicant.passResultType,
         ),
     )
 
@@ -463,6 +476,7 @@ class ApplicationCommandService(
         updatedAt = updatedAt,
         passStatus = passStatus,
         announcedAt = announcedAt,
+        passResultType = passResultType,
     )
 
     companion object {

@@ -26,6 +26,8 @@ interface ApplicationPort {
     fun submit(command: SubmitApplicationCommand)
     fun updateArrival(command: UpdateApplicantArrivalCommand): ApplicationSnapshotResult =
         throw UnsupportedOperationException("updateArrival is not implemented")
+    fun updateExamineeNumber(applicantId: Long, examineeNumber: String): Unit =
+        throw UnsupportedOperationException("updateExamineeNumber is not implemented")
     fun getLanding(accountId: Long?): LandingResult
     fun findByAccountId(accountId: Long): ApplicationSnapshotResult?
     fun findApplicant(applicantId: Long): ApplicantResult?

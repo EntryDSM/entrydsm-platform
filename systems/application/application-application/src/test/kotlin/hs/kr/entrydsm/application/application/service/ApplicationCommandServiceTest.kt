@@ -117,6 +117,17 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
+    fun issuedExamineeNumberIsSavedAndReturnedInForm() {
+        val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+        val service = ApplicationCommandService(repository, OPEN)
+
+        service.updateExamineeNumber(1L, "11001")
+
+        assertEquals("11001", repository.savedApplicant?.examineeNumber)
+        assertEquals("11001", service.findApplicationForm(10L)?.examineeNumber)
+    }
+
+    @Test
     fun outsideApplicationPeriodRejectsWritingButStillReturnsExistingApplicant() {
         val repository = FakeApplicantRepository(
             Applicant(
