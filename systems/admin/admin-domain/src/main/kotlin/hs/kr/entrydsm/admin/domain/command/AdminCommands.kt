@@ -4,7 +4,6 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.enum.Region
-import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ScoreWeights
 
 /**
@@ -61,7 +60,6 @@ data class EvaluateScreeningCommand(
  */
 data class CreateExportCommand(
     val type: ExportType,
-    val filter: ApplicantFilter = ApplicantFilter(),
 )
 
 /**

@@ -4,7 +4,6 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.response.AdmissionQuotaResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.CreateExportResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExportJobResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.FinalScreeningResultResponse
-import hs.kr.entrydsm.admin.adapterin.web.dto.response.FirstPassExportResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.NoticeResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.QuestionAnswerResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScorePolicyResponse
@@ -134,13 +133,6 @@ fun ExportJobView.toResponse(): ExportJobResponse = ExportJobResponse(
     expiresAt = download?.expiresAt,
     createdAt = job.createdAt,
     completedAt = job.completedAt,
-)
-
-fun ExportJob.toFirstPassResponse(): FirstPassExportResponse = FirstPassExportResponse(
-    jobId = exportJobId,
-    status = status,
-    totalCount = totalCount,
-    processedCount = processedCount,
 )
 
 fun Notice.toResponse(): NoticeResponse = NoticeResponse(

@@ -2,9 +2,7 @@ package hs.kr.entrydsm.admin.adapterin.web.dto.request
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
-import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
@@ -47,21 +45,6 @@ data class EvaluateScreeningRequest(
 data class CreateExportRequest(
     @field:NotNull
     val type: ExportType?,
-    val filter: ExportFilterRequest? = null,
-)
-
-/**
- * 지원자 목록 조회(`GET /applicants`)와 같은 조건. 비어 있거나 null 이면 거르지 않는다.
- */
-data class ExportFilterRequest(
-    val keyword: String? = null,
-    val regions: Set<Region>? = null,
-    val admissionTypes: Set<AdmissionType>? = null,
-    val graduationStatuses: Set<GraduationStatus>? = null,
-    @param:JsonProperty("isArrived")
-    @get:JsonProperty("isArrived")
-    val isArrived: Boolean? = null,
-    val statuses: Set<ApplicantStatus>? = null,
 )
 
 data class CreateNoticeRequest(

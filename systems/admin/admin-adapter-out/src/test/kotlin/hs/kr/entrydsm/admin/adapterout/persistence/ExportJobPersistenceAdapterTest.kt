@@ -21,7 +21,7 @@ class ExportJobPersistenceAdapterTest {
         val saved = ExportJobPersistenceAdapter(echoingRepository()).save(
             ExportJob(
                 exportJobId = "exp_1",
-                type = ExportType.APPLICANT_LIST,
+                type = ExportType.FIRST_PASS,
                 status = ExportStatus.PENDING,
                 filter = filter,
                 totalCount = 10,

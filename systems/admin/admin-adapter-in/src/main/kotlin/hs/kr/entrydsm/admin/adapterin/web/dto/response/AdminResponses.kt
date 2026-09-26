@@ -64,15 +64,6 @@ data class ExportJobResponse(
     val completedAt: Instant?,
 )
 
-data class FirstPassExportResponse(
-    val jobId: String,
-    val status: ExportStatus,
-    val totalCount: Int,
-    val processedCount: Int,
-    val downloadUrl: String? = null,
-    val expiresAt: Instant? = null,
-)
-
 data class NoticeResponse(
     val noticeId: Long?,
     val title: String,

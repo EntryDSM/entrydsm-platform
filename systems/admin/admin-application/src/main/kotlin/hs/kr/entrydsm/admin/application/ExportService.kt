@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.DownloadLink
@@ -42,11 +43,10 @@ class ExportService(
 
     @Transactional
     override fun create(command: CreateExportCommand): ExportJob {
-        val filter = when (command.type) {
-            // 프론트가 보낸 조건에 맡기지 않는다. 수험표는 서버가 1차 합격자로 좁힌다.
-            ExportType.ADMISSION_TICKET -> command.filter.forAdmissionTickets().also(::requireTicketTargets)
-            ExportType.APPLICANT_LIST -> command.filter
-            ExportType.FIRST_PASS_LIST, ExportType.ADMISSION_FILE, ExportType.APPLICATION_CHECKLIST -> command.filter
+        val filter = if (command.type == ExportType.ADMISSION_TICKET) {
+            ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)).also(::requireTicketTargets)
+        } else {
+            ApplicantFilter()
         }
         val job = exportJobRepository.save(
             ExportJob(

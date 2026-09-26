@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.adapterin.web.SupportController
 import hs.kr.entrydsm.admin.adapterin.web.ApplicantController
 import hs.kr.entrydsm.admin.adapterin.web.exception.GlobalExceptionHandler
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.request.CreateExportRequest
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
@@ -16,7 +17,6 @@ import hs.kr.entrydsm.admin.domain.model.RegionStatus
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
-import hs.kr.entrydsm.admin.domain.port.`in`.CreateFirstPassFileUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.DeleteNoticeUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.DeleteApplicantUseCase
@@ -33,8 +33,6 @@ import org.junit.Test
 import org.springframework.http.HttpMethod
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.servlet.resource.NoResourceFoundException
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
 class AdminAdapterInModuleTest {
     @Test
@@ -89,10 +87,12 @@ class AdminAdapterInModuleTest {
     }
 
     @Test
-    fun createsFirstPassExportJob() {
+    fun createsExportJobsForAllFileTypes() {
+        val types = mutableListOf<ExportType>()
         val controller = SupportController(
             createExportUseCase = object : CreateExportUseCase {
                 override fun create(command: CreateExportCommand): ExportJob {
+                    types += command.type
                     return ExportJob(
                         exportJobId = "exp_test",
                         type = command.type,
@@ -101,9 +101,6 @@ class AdminAdapterInModuleTest {
                     )
                 }
             },
-            createFirstPassFileUseCase = CreateFirstPassFileUseCase {
-                hs.kr.entrydsm.admin.domain.model.DownloadLink("https://example.test/first-pass", Instant.EPOCH)
-            },
             readExportUseCase = unused(ReadExportUseCase::class.java),
             createNoticeUseCase = unused(CreateNoticeUseCase::class.java),
             updateNoticeUseCase = unused(UpdateNoticeUseCase::class.java),
@@ -111,15 +108,12 @@ class AdminAdapterInModuleTest {
             answerQuestionUseCase = unused(AnswerQuestionUseCase::class.java),
         )
 
-        val response = MockMvcBuilders.standaloneSetup(controller).build()
-            .perform(get("/api/v11/admin/first-pass"))
-            .andReturn()
-            .response
-        val body = response.getContentAsString(Charsets.UTF_8)
-
-        assertEquals(200, response.status)
-        assertTrue(body, body.contains("\"downloadUrl\":\"https://example.test/first-pass\""))
-        assertTrue(body, body.contains("\"expiresAt\":\"1970-01-01T00:00:00Z\""))
+        ExportType.entries.forEach { type ->
+            val response = controller.createExport(CreateExportRequest(type))
+            assertEquals(202, response.statusCode.value())
+            assertEquals("exp_test", response.body?.data?.exportJobId)
+        }
+        assertEquals(ExportType.entries, types)
     }
 
     @Test
