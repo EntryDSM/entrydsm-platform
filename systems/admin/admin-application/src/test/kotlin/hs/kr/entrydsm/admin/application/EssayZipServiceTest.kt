@@ -6,55 +6,47 @@ import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs
 import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPort
-import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.util.zip.ZipInputStream
-import org.junit.Assert.assertArrayEquals
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
 
-class EssayZipServiceTest {
+class EssayPdfServiceTest {
     @Test
-    fun `1차 합격자의 수험 번호를 넘겨 통합 문서 하나만 스트리밍한다`() {
+    fun `1차 합격자의 기존 PDF를 순서대로 하나의 PDF에 병합한다`() {
         val applicants = listOf(
             Applicant(id = 1, name = "홍/길동", examineeNumber = "11001", status = ApplicantStatus.FIRST_PASS),
             Applicant(id = 2, name = "홍/길동", examineeNumber = "11002", status = ApplicantStatus.FIRST_PASS),
             Applicant(id = 3, name = "불합격", status = ApplicantStatus.FIRST_FAIL),
         )
         val requested = mutableListOf<Pair<Long, String>>()
-        val service = EssayZipService(repository(applicants), ApplicationEssayPort { id, examineeNumber ->
+        val service = EssayPdfService(repository(applicants), ApplicationEssayPort { id, examineeNumber ->
             requested += id to examineeNumber
-            val pdf = "%PDF-1.4\n수험번호: $examineeNumber\n자기소개서 및 학업계획서\n%%EOF".toByteArray()
+            val pdf = pdf(id.toInt())
             if (id == 1L) ApplicationEssayPdfs(pdf, null) else ApplicationEssayPdfs(pdf, pdf)
         })
 
         val output = ByteArrayOutputStream()
         service.writeTo(output)
 
-        val entries = unzip(output.toByteArray())
         assertEquals(listOf(1L to "11001", 2L to "11002"), requested)
-        assertEquals(
-            listOf("1_홍_길동_자기소개서_및_학업계획서.pdf", "2_홍_길동_자기소개서_및_학업계획서.pdf"),
-            entries.keys.toList(),
-        )
-        assertArrayEquals(
-            "%PDF-1.4\n수험번호: 11002\n자기소개서 및 학업계획서\n%%EOF".toByteArray(),
-            entries.getValue("2_홍_길동_자기소개서_및_학업계획서.pdf"),
-        )
+        Loader.loadPDF(output.toByteArray()).use { assertEquals(3, it.numberOfPages) }
     }
 
     @Test
-    fun `대상이 없으면 빈 ZIP을 반환한다`() {
+    fun `대상이 없으면 빈 PDF를 반환한다`() {
         val output = ByteArrayOutputStream()
-        EssayZipService(repository(emptyList()), ApplicationEssayPort { _, _ -> error("호출되면 안 됨") }).writeTo(output)
-        assertEquals(emptyMap<String, ByteArray>(), unzip(output.toByteArray()))
+        EssayPdfService(repository(emptyList()), ApplicationEssayPort { _, _ -> error("호출되면 안 됨") }).writeTo(output)
+        Loader.loadPDF(output.toByteArray()).use { assertEquals(0, it.numberOfPages) }
     }
 
     @Test
     fun `수험 번호가 없는 1차 합격자는 내보내지 않는다`() {
         val applicant = Applicant(id = 1, status = ApplicantStatus.FIRST_PASS)
-        val service = EssayZipService(repository(listOf(applicant)), ApplicationEssayPort { _, _ -> error("호출되면 안 됨") })
+        val service = EssayPdfService(repository(listOf(applicant)), ApplicationEssayPort { _, _ -> error("호출되면 안 됨") })
 
         assertThrows(IllegalStateException::class.java) { service.writeTo(ByteArrayOutputStream()) }
     }
@@ -68,13 +60,10 @@ class EssayZipServiceTest {
         override fun saveAll(applicants: List<Applicant>) = error("unused")
     }
 
-    private fun unzip(bytes: ByteArray): Map<String, ByteArray> = buildMap {
-        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
-            var entry = zip.nextEntry
-            while (entry != null) {
-                put(entry.name, zip.readBytes())
-                entry = zip.nextEntry
-            }
+    private fun pdf(pageCount: Int): ByteArray = ByteArrayOutputStream().also { output ->
+        PDDocument().use { document ->
+            repeat(pageCount) { document.addPage(PDPage()) }
+            document.save(output)
         }
-    }
+    }.toByteArray()
 }

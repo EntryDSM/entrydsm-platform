@@ -231,17 +231,17 @@ class AdminApplicationModuleTest {
     }
 
     @Test
-    fun exportsEssaysAsZipAndUpdatesCounts() {
+    fun exportsEssaysAsPdfAndUpdatesCounts() {
         val fixture = exportFixture(
             type = ExportType.ESSAYS,
-            essayWriter = { output -> output.write("zip".toByteArray()); 2 },
+            essayWriter = { output -> output.write("pdf".toByteArray()); 2 },
         )
 
         fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
 
-        assertEquals("dsm_Entry/backend/stag/essays/essays_exp_test.zip", fixture.objectKey)
-        assertEquals("application/zip", fixture.contentType)
-        assertEquals("zip", fixture.content.toString(Charsets.UTF_8))
+        assertEquals("dsm_Entry/backend/stag/essays/essays_exp_test.pdf", fixture.objectKey)
+        assertEquals("application/pdf", fixture.contentType)
+        assertEquals("pdf", fixture.content.toString(Charsets.UTF_8))
         assertEquals(ExportStatus.COMPLETED, fixture.saved.last().status)
         assertEquals(2, fixture.saved.last().totalCount)
         assertEquals(2, fixture.saved.last().processedCount)
