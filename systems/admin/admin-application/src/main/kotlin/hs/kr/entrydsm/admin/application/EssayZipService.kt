@@ -1,5 +1,7 @@
 package hs.kr.entrydsm.admin.application
 
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.port.`in`.DownloadEssaysUseCase
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPort
@@ -17,13 +19,15 @@ class EssayZipService(
         var count = 0
         ZipOutputStream(output).use { zip ->
             val usedNames = mutableSetOf<String>()
-            applicantRepository.findAll().forEach { applicant ->
+            applicantRepository.findAll(ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS))).forEach { applicant ->
                 count++
-                val base = "${applicant.examineeNumber ?: applicant.id}_${applicant.name ?: "이름없음"}"
+                val base = "${applicant.id}_${applicant.name ?: "이름없음"}"
                     .replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_")
-                val pdfs = applicationEssayPort.render(applicant.id)
-                pdfs.introduction?.let { zip.writeEntry(unique("${base}_자기소개서.pdf", usedNames), it) }
-                pdfs.studyPlan?.let { zip.writeEntry(unique("${base}_학업계획서.pdf", usedNames), it) }
+                val examineeNumber = checkNotNull(applicant.examineeNumber) { "1차 합격자의 수험 번호가 없습니다: ${applicant.id}" }
+                val pdfs = applicationEssayPort.render(applicant.id, examineeNumber)
+                (pdfs.introduction ?: pdfs.studyPlan)?.let {
+                    zip.writeEntry(unique("${base}_자기소개서_및_학업계획서.pdf", usedNames), it)
+                }
             }
         }
         return count

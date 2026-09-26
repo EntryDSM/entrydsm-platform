@@ -13,9 +13,14 @@ import java.util.concurrent.TimeUnit
 class GrpcApplicationEssayAdapter(private val grpc: ConfigurationGrpcChannel) : ApplicationEssayPort {
     private val stub = ConfigurationServiceGrpc.newBlockingStub(grpc.channel)
 
-    override fun render(applicantId: Long): ApplicationEssayPdfs = try {
+    override fun render(applicantId: Long, examineeNumber: String): ApplicationEssayPdfs = try {
         stub.withDeadlineAfter(grpc.deadlineMs, TimeUnit.MILLISECONDS)
-            .renderApplicationEssay(RenderApplicationEssayRequest.newBuilder().setApplicantId(applicantId).build())
+            .renderApplicationEssay(
+                RenderApplicationEssayRequest.newBuilder()
+                    .setApplicantId(applicantId)
+                    .setExamineeNumber(examineeNumber)
+                    .build(),
+            )
             .let {
                 ApplicationEssayPdfs(
                     it.introductionPdf.toByteArray().takeIf { _ -> it.hasIntroductionPdf() },
