@@ -108,7 +108,10 @@ class ApplicantService(
         val issuance = ExamineeNumberPolicy.issue(applicants, distances)
         val now = Instant.now(clock)
 
-        applicantRepository.saveAll(issuance.issued.map { it.copy(updatedAt = now) })
+        applicantRepository.saveAll(
+            issuance.issued.map { it.copy(updatedAt = now) } +
+                applicants.filter { it.examineeNumber != null && ExamineeNumberPolicy.isValidExistingNumber(it) },
+        )
 
         return ExamineeNumberIssueResult(
             issuedCount = issuance.issued.size,
