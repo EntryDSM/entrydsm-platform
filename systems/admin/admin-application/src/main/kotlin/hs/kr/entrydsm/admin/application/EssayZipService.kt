@@ -13,10 +13,12 @@ class EssayZipService(
     private val applicantRepository: ApplicantRepository,
     private val applicationEssayPort: ApplicationEssayPort,
 ) : DownloadEssaysUseCase {
-    override fun writeTo(output: OutputStream) {
+    override fun writeTo(output: OutputStream): Int {
+        var count = 0
         ZipOutputStream(output).use { zip ->
             val usedNames = mutableSetOf<String>()
             applicantRepository.findAll().forEach { applicant ->
+                count++
                 val base = "${applicant.examineeNumber ?: applicant.id}_${applicant.name ?: "이름없음"}"
                     .replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_")
                 val pdfs = applicationEssayPort.render(applicant.id)
@@ -24,6 +26,7 @@ class EssayZipService(
                 pdfs.studyPlan?.let { zip.writeEntry(unique("${base}_학업계획서.pdf", usedNames), it) }
             }
         }
+        return count
     }
 
     private fun unique(name: String, used: MutableSet<String>): String {

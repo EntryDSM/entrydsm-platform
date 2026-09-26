@@ -5,6 +5,7 @@ import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.FirstPassRow
+import hs.kr.entrydsm.admin.domain.port.`in`.DownloadEssaysUseCase
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
@@ -12,6 +13,7 @@ import hs.kr.entrydsm.admin.domain.port.out.StoragePort
 import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
 import java.time.Clock
 import java.time.Instant
+import java.io.ByteArrayOutputStream
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
@@ -22,25 +24,9 @@ import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
 private const val XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-private const val APPLICANT_LIST_SHEET = "지원자 목록"
+private const val ZIP_CONTENT_TYPE = "application/zip"
 private const val FIRST_PASS_LIST_SHEET = "1차 합격자 명단"
 private const val ADMISSION_FILE_SHEET = "전형 자료"
-
-/** 지원자 목록 엑셀의 열. 머리글과 값을 한 줄에 두어 순서가 어긋나지 않게 한다. */
-private val APPLICANT_LIST_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = listOf(
-    "접수번호" to { it.receiptNumber },
-    "수험번호" to { it.examineeNumber },
-    "성명" to { it.name },
-    "생년월일" to { it.birthDate },
-    "연락처" to { it.phoneNumber },
-    "지역" to { it.region?.label },
-    "전형" to { it.admissionType?.label },
-    "학력" to { it.graduationStatus?.label },
-    "출신학교" to { it.schoolName },
-    "원서 도착" to { if (it.isArrived) "도착" else "미도착" },
-    "상태" to { it.status.label },
-    "총점" to { it.totalScore },
-)
 
 private val FIRST_PASS_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = listOf(
     "수험번호" to { it.examineeNumber },
@@ -130,6 +116,7 @@ class ExportJobProcessor(
     private val applicantRepository: ApplicantRepository,
     private val admissionTicketPort: AdmissionTicketPort,
     private val xlsxRenderPort: XlsxRenderPort,
+    private val downloadEssaysUseCase: DownloadEssaysUseCase,
     private val storagePort: StoragePort,
     private val clock: Clock,
     @Value("\${admin.storage.environment}") private val storageEnvironment: String = "stag",
@@ -160,7 +147,7 @@ class ExportJobProcessor(
                 applicantRepository.syncExportProjection()
             }
             when (job.type) {
-                ExportType.FIRST_PASS_LIST -> {
+                ExportType.FIRST_PASS -> {
                     val applicants = applicantRepository.findFirstPassApplicants()
                     current = exportJobRepository.save(current.withTotal(applicants.size))
                     writeFirstPassList(current, applicants) {
@@ -183,16 +170,20 @@ class ExportJobProcessor(
                     storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
                     objectKey
                 }
-                else -> {
+                ExportType.ESSAYS -> {
+                    val objectKey = DocumentNaming.essaysObjectKey(job.exportJobId, storageEnvironment)
+                    // ponytail: ZIP 전체를 메모리에 보관한다. 대용량이 되면 StoragePort에 스트리밍 업로드를 추가한다.
+                    val output = ByteArrayOutputStream()
+                    val count = downloadEssaysUseCase.writeTo(output)
+                    current = exportJobRepository.save(current.withTotal(count).processed(count))
+                    val zip = output.toByteArray()
+                    storagePort.upload(objectKey, ZIP_CONTENT_TYPE, zip)
+                    objectKey
+                }
+                ExportType.ADMISSION_TICKET -> {
                     val applicants = applicantRepository.findAll(job.filter)
                     current = exportJobRepository.save(current.withTotal(applicants.size))
-                    when (job.type) {
-                        ExportType.ADMISSION_TICKET -> bundleAdmissionTickets(current, applicants)
-                        ExportType.APPLICANT_LIST -> writeApplicantList(current, applicants)
-                        ExportType.FIRST_PASS_LIST -> error("handled above")
-                        ExportType.ADMISSION_FILE -> error("handled above")
-                        ExportType.APPLICATION_CHECKLIST -> error("handled above")
-                    }.also {
+                    bundleAdmissionTickets(current, applicants).also {
                         current = exportJobRepository.save(current.processed(applicants.size))
                     }
                 }
@@ -238,21 +229,6 @@ class ExportJobProcessor(
         return objectKey
     }
 
-    private fun writeApplicantList(job: ExportJob, applicants: List<Applicant>): String {
-        val objectKey = DocumentNaming.applicantListObjectKey(job.exportJobId, storageEnvironment)
-
-        val xlsx = xlsxRenderPort.render(
-            sheetName = APPLICANT_LIST_SHEET,
-            header = APPLICANT_LIST_COLUMNS.map { (title, _) -> title },
-            rows = applicants.map { applicant ->
-                APPLICANT_LIST_COLUMNS.map { (_, value) -> value(applicant) }
-            },
-        )
-
-        storagePort.upload(objectKey, XLSX_CONTENT_TYPE, xlsx)
-        return objectKey
-    }
-
     private fun writeFirstPassList(
         job: ExportJob,
         applicants: List<Applicant>,
@@ -287,7 +263,7 @@ class ExportJobProcessor(
 
     private companion object {
         val PROJECTION_EXPORT_TYPES = setOf(
-            ExportType.FIRST_PASS_LIST,
+            ExportType.FIRST_PASS,
             ExportType.ADMISSION_FILE,
             ExportType.APPLICATION_CHECKLIST,
         )

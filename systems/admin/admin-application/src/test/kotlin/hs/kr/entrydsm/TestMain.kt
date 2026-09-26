@@ -27,7 +27,9 @@ import hs.kr.entrydsm.admin.domain.port.out.DistancePort
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
 import hs.kr.entrydsm.admin.domain.port.out.StoragePort
 import hs.kr.entrydsm.admin.domain.port.out.XlsxRenderPort
+import hs.kr.entrydsm.admin.domain.port.`in`.DownloadEssaysUseCase
 import java.lang.reflect.Proxy
+import java.io.OutputStream
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -200,7 +202,7 @@ class AdminApplicationModuleTest {
     fun returnsDownloadUrlAndExpiryForCompletedFirstPassExport() {
         val completed = ExportJob(
             exportJobId = "exp_test",
-            type = ExportType.FIRST_PASS_LIST,
+            type = ExportType.FIRST_PASS,
             status = ExportStatus.COMPLETED,
             objectKey = "dsm_Entry/Backend/first-pass/first_pass_exp_test.xlsx",
             totalCount = 2,
@@ -232,12 +234,30 @@ class AdminApplicationModuleTest {
         assertEquals(2, result.job.processedCount)
     }
 
+    @Test
+    fun exportsEssaysAsZipAndUpdatesCounts() {
+        val fixture = exportFixture(
+            type = ExportType.ESSAYS,
+            essayWriter = { output -> output.write("zip".toByteArray()); 2 },
+        )
+
+        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+
+        assertEquals("dsm_Entry/backend/stag/essays/essays_exp_test.zip", fixture.objectKey)
+        assertEquals("application/zip", fixture.contentType)
+        assertEquals("zip", fixture.content.toString(Charsets.UTF_8))
+        assertEquals(ExportStatus.COMPLETED, fixture.saved.last().status)
+        assertEquals(2, fixture.saved.last().totalCount)
+        assertEquals(2, fixture.saved.last().processedCount)
+    }
+
     private fun exportFixture(
-        type: ExportType = ExportType.FIRST_PASS_LIST,
+        type: ExportType = ExportType.FIRST_PASS,
         applicants: List<Applicant> = emptyList(),
         admissionRows: List<FirstPassRow> = emptyList(),
         previous: ExportJob? = null,
         failUpload: Boolean = false,
+        essayWriter: (OutputStream) -> Int = { 0 },
     ): ExportFixture {
         val saved = mutableListOf<ExportJob>()
         val exportRepository = object : ExportJobRepository {
@@ -249,6 +269,7 @@ class AdminApplicationModuleTest {
         var capturedRows = emptyList<List<Any?>>()
         var capturedObjectKey: String? = null
         var capturedContentType: String? = null
+        var capturedContent = byteArrayOf()
         val deletedObjectKeys = mutableListOf<String>()
         val processor = ExportJobProcessor(
             exportJobRepository = exportRepository,
@@ -273,10 +294,12 @@ class AdminApplicationModuleTest {
                     return byteArrayOf(1)
                 }
             },
+            downloadEssaysUseCase = DownloadEssaysUseCase(essayWriter),
             storagePort = object : StoragePort {
                 override fun upload(objectKey: String, contentType: String, content: ByteArray) {
                     capturedObjectKey = objectKey
                     capturedContentType = contentType
+                    capturedContent = content
                     if (failUpload) error("upload failed")
                 }
 
@@ -302,6 +325,7 @@ class AdminApplicationModuleTest {
             rowsProvider = { capturedRows },
             objectKeyProvider = { capturedObjectKey },
             contentTypeProvider = { capturedContentType },
+            contentProvider = { capturedContent },
             deletedObjectKeys = deletedObjectKeys,
         )
     }
@@ -314,12 +338,14 @@ class AdminApplicationModuleTest {
         private val rowsProvider: () -> List<List<Any?>>,
         private val objectKeyProvider: () -> String?,
         private val contentTypeProvider: () -> String?,
+        private val contentProvider: () -> ByteArray,
         val deletedObjectKeys: List<String>,
     ) {
         val header get() = headerProvider()
         val rows get() = rowsProvider()
         val objectKey get() = objectKeyProvider()
         val contentType get() = contentTypeProvider()
+        val content get() = contentProvider()
     }
 
     @Test

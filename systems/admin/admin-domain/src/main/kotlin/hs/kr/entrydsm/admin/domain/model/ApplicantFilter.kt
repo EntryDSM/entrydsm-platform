@@ -20,11 +20,4 @@ data class ApplicantFilter(
     val graduationStatuses: Set<GraduationStatus> = emptySet(),
     val isArrived: Boolean? = null,
     val statuses: Set<ApplicantStatus> = emptySet(),
-) {
-    /**
-     * 수험표는 1차 합격자에게만 발급한다. 보낸 상태 조건은 버리고 나머지 조건은 그대로 쓴다.
-     *
-     * 최종 결과 상태는 넣지 않는다. 수험표는 1차 발표 뒤 면접 전에 뽑고, `FINAL_FAIL` 은 1차 합격자가 아니어도 붙는다.
-     */
-    fun forAdmissionTickets(): ApplicantFilter = copy(statuses = setOf(ApplicantStatus.FIRST_PASS))
-}
+)

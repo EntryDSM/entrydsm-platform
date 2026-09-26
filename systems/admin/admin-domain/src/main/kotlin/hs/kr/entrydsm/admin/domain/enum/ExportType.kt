@@ -6,8 +6,8 @@ package hs.kr.entrydsm.admin.domain.enum
 enum class ExportType {
     /** 1차 합격자 수험표를 수험 번호 순으로 한 시트에 이어 그린 xlsx 하나 */
     ADMISSION_TICKET,
-    APPLICANT_LIST,
-    FIRST_PASS_LIST,
+    FIRST_PASS,
     ADMISSION_FILE,
     APPLICATION_CHECKLIST,
+    ESSAYS,
 }

@@ -5,7 +5,6 @@ import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
@@ -42,17 +41,12 @@ class AdmissionTicketExportTest {
     )
 
     @Test
-    fun `수험표 작업은 보낸 상태 조건을 버리고 1차 합격자로 좁히되 다른 조건은 남긴다`() {
+    fun `수험표 작업은 전체 1차 합격자만 대상으로 한다`() {
         applicants.all += applicant(1, ApplicantStatus.FIRST_PASS, "100001")
 
-        val job = exportService.create(
-            CreateExportCommand(
-                ExportType.ADMISSION_TICKET,
-                ApplicantFilter(regions = setOf(Region.DAEJEON), statuses = setOf(ApplicantStatus.PENDING)),
-            ),
-        )
+        val job = exportService.create(CreateExportCommand(ExportType.ADMISSION_TICKET))
 
-        val expected = ApplicantFilter(regions = setOf(Region.DAEJEON), statuses = setOf(ApplicantStatus.FIRST_PASS))
+        val expected = ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS))
         assertEquals(expected, job.filter)
         assertEquals(listOf(ExportJobCreatedEvent(job)), events)
     }
@@ -71,16 +65,6 @@ class AdmissionTicketExportTest {
         assertEquals(ErrorCode.ADMISSION_TICKET_NO_TARGET, failure.errorCode)
         assertTrue(jobs.saved.isEmpty())
         assertTrue(events.isEmpty())
-    }
-
-    @Test
-    fun `지원자 목록 엑셀은 보낸 조건 그대로 접수하고 지원자를 미리 읽지 않는다`() {
-        val filter = ApplicantFilter(statuses = setOf(ApplicantStatus.PENDING))
-
-        val job = exportService.create(CreateExportCommand(ExportType.APPLICANT_LIST, filter))
-
-        assertEquals(filter, job.filter)
-        assertTrue(applicants.queried.isEmpty())
     }
 
     @Test
@@ -122,6 +106,7 @@ class AdmissionTicketExportTest {
             override fun render(sheetName: String, header: List<String>, rows: List<List<Any?>>): ByteArray =
                 error("unused")
         },
+        hs.kr.entrydsm.admin.domain.port.`in`.DownloadEssaysUseCase { 0 },
         storage, clock,
     )
 
@@ -129,7 +114,7 @@ class AdmissionTicketExportTest {
         exportJobId = "exp_1",
         type = ExportType.ADMISSION_TICKET,
         status = ExportStatus.PENDING,
-        filter = ApplicantFilter().forAdmissionTickets(),
+        filter = ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)),
         createdAt = Instant.now(clock),
     )
 

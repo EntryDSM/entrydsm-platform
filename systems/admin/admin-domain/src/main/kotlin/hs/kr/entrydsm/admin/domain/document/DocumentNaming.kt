@@ -12,9 +12,6 @@ object DocumentNaming {
         return "dsm_Entry/backend/$environment/"
     }
 
-    fun applicantListObjectKey(exportJobId: String, environment: String): String =
-        "${keyRoot(environment)}applicant-list/applicants_$exportJobId.xlsx"
-
     fun firstPassListObjectKey(exportJobId: String, environment: String): String =
         "${keyRoot(environment)}first-pass/first_pass_$exportJobId.xlsx"
 
@@ -23,6 +20,9 @@ object DocumentNaming {
 
     fun applicationChecklistObjectKey(exportJobId: String, environment: String): String =
         "${keyRoot(environment)}application-checklist/application_checklist_$exportJobId.xlsx"
+
+    fun essaysObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}essays/essays_$exportJobId.zip"
 
     /** 1차 합격자 수험표를 한 시트에 이어 그린 xlsx 하나입니다. */
     fun admissionTicketBundleObjectKey(exportJobId: String, environment: String): String =
