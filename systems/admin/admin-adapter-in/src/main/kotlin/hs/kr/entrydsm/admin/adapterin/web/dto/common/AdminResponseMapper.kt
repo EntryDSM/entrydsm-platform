@@ -10,6 +10,7 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScorePolicyResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreWeightsResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScreeningResultResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.StatisticsResponse
+import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
@@ -34,7 +35,9 @@ fun ScorePolicy.toResponse(): ScorePolicyResponse = ScorePolicyResponse(
 )
 
 fun AdmissionQuota.toResponse(): AdmissionQuotaResponse = AdmissionQuotaResponse(
-    quotas = quotas,
+    general = quotas.getValue(AdmissionType.GENERAL),
+    meister = quotas.getValue(AdmissionType.MEISTER),
+    social = quotas.getValue(AdmissionType.SOCIAL),
     updatedAt = updatedAt,
     updatedBy = updatedBy,
 )

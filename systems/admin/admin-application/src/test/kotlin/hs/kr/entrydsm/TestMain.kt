@@ -95,11 +95,7 @@ class AdminApplicationModuleTest {
             applicant(3, AdmissionType.GENERAL, Gender.MALE, Region.DAEJEON, "세종특별자치시 한누리대로"),
         )
         val quota = AdmissionQuota(
-            quotas = Region.entries.associateWith { region ->
-                AdmissionType.entries.associateWith { type ->
-                    if (region == Region.DAEJEON && type == AdmissionType.GENERAL) 2 else 0
-                }
-            },
+            quotas = AdmissionType.entries.associateWith { type -> if (type == AdmissionType.GENERAL) 2 else 0 },
             updatedAt = Instant.EPOCH,
             updatedBy = "test",
         )
