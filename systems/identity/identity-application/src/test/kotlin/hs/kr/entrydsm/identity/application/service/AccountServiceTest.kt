@@ -46,7 +46,7 @@ class AccountServiceTest {
             applicantStatus = ApplicantStatus.SUBMITTED,
             submittedAt = SUBMITTED_AT,
             updatedAt = APPLICATION_UPDATED_AT,
-            passStatus = PassStatus.PASSED,
+            passStatus = PassStatus.FIRST_PASSED,
             announcedAt = ANNOUNCED_AT,
         )
         val service = AccountService(

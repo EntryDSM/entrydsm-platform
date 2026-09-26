@@ -47,6 +47,8 @@ class AccountApplicationDataPersistenceAdapter(
         projectionRepository.findById(userId).orElse(null)?.toSnapshot()
             ?: remoteApplicationDataAdapter.findByUserId(userId)
 
+    override fun findResultByUserId(userId: Long): ApplicationSnapshot? = remoteApplicationDataAdapter.findResultByUserId(userId)
+
     @Transactional
     override fun cancel(
         userId: Long,
