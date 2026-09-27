@@ -11,10 +11,12 @@ import org.springframework.cloud.gateway.filter.GlobalFilter
 import org.springframework.core.Ordered
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.http.HttpMethod
+import org.springframework.http.HttpStatusCode
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.server.ServerWebExchange
 import reactor.core.publisher.Mono
+import reactor.core.publisher.SignalType
 import reactor.core.scheduler.Schedulers
 import tools.jackson.databind.ObjectMapper
 
@@ -31,9 +33,18 @@ class ObservabilityGlobalFilter(
         if (!path.startsWith("/api/") || path.startsWith(GatewayService.OBSERVABILITY.pathPrefix)) {
             return chain.filter(exchange)
         }
-        return chain.filter(exchange)
-            .doOnSuccess { record(exchange, exchange.response.statusCode?.value() ?: 200) }
-            .doOnError { record(exchange, exchange.response.statusCode?.value() ?: 500) }
+        // 완료·오류·취소 어느 쪽으로 끝나든 한 번만 센다.
+        // Reactor Netty 는 상태를 정하기 전에도 getStatusCode() 로 기본값 200 을 돌려준다.
+        return chain.filter(exchange).doFinally { signal ->
+            val status = exchange.response.statusCode?.value() ?: 200
+            when {
+                // 예외 처리기가 상태를 정하기 전에 올라온 오류는 500 으로 센다.
+                signal == SignalType.ON_ERROR -> record(exchange, status.takeIf { it >= 400 } ?: 500)
+                // 응답 헤더를 보내기 전에 끊긴 요청은 성공·실패를 가를 상태가 없어 세지 않는다.
+                signal == SignalType.CANCEL && !exchange.response.isCommitted -> Unit
+                else -> record(exchange, status)
+            }
+        }
     }
 
     override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE + 1
@@ -71,7 +82,7 @@ class ObservabilityGlobalFilter(
         val method = exchange.request.method.name()
         val path = normalizePath(exchange.request.path.value())
         val code = "HTTP_$status"
-        val message = exchange.response.statusCode?.toString() ?: "Request failed"
+        val message = HttpStatusCode.valueOf(status).toString()
         val fingerprint = fingerprint(service, method, path, code)
         val entryKey = "monitor:server-log:entry:$fingerprint"
         val hash = redis.opsForHash<String, String>()
