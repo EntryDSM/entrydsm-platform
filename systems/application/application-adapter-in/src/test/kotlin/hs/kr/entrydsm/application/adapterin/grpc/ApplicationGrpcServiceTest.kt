@@ -20,6 +20,7 @@ import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.ResultType
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
@@ -36,6 +37,7 @@ import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
@@ -91,6 +93,37 @@ class ApplicationGrpcServiceTest {
         assertEquals(hs.kr.entrydsm.application.grpc.ApplicantStatus.APPLICANT_STATUS_CANCELED, canceled.applicantStatus)
         assertEquals("개인 사유", port.cancelReason)
         assertEquals(2, port.findCount)
+    }
+
+    @Test
+    fun distinguishesDocumentAndFinalResults() {
+        val expected = listOf(
+            Triple(ResultType.DOCUMENT, PassResultStatus.PASS, hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_FIRST_PASSED),
+            Triple(ResultType.DOCUMENT, PassResultStatus.FAIL, hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_FIRST_FAILED),
+            Triple(ResultType.FINAL, PassResultStatus.PASS, hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_FINAL_PASSED),
+            Triple(ResultType.FINAL, PassResultStatus.FAIL, hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_FINAL_FAILED),
+        )
+        expected.forEach { (type, result, grpcStatus) ->
+            port.snapshot = ApplicationSnapshotResult(
+                accountId = USER_ID,
+                applicantStatus = ApplicantStatus.SUBMITTED,
+                submittedAt = null,
+                updatedAt = LocalDateTime.of(2026, 9, 9, 0, 0),
+                passStatus = result,
+                announcedAt = null,
+                passResultType = type,
+            )
+            assertEquals(grpcStatus, stub.getApplication(GetApplicationRequest.newBuilder().setUserId(USER_ID).build()).passStatus)
+        }
+    }
+
+    @Test
+    fun acceptsIssuedExamineeNumber() {
+        stub.updateExamineeNumber(
+            UpdateExamineeNumberRequest.newBuilder().setApplicantId(APPLICANT_ID).setExamineeNumber("11001").build(),
+        )
+
+        assertEquals(APPLICANT_ID to "11001", port.examineeNumberUpdate)
     }
 
     @Test
@@ -327,7 +360,12 @@ class ApplicationGrpcServiceTest {
     }
 
     private class FakeApplicationPort : ApplicationPort {
-        private var snapshot: ApplicationSnapshotResult? = null
+        var snapshot: ApplicationSnapshotResult? = null
+        var examineeNumberUpdate: Pair<Long, String>? = null
+
+        override fun updateExamineeNumber(applicantId: Long, examineeNumber: String) {
+            examineeNumberUpdate = applicantId to examineeNumber
+        }
         var applicant: ApplicantResult? = null
         var applicants: List<ApplicantResult> = emptyList()
         var form: ApplicationFormResult? = null

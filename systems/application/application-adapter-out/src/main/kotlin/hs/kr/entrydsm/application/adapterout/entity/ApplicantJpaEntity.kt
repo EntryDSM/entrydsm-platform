@@ -48,6 +48,9 @@ open class ApplicantJpaEntity(
     @Column(name = "phone_number", length = 16)
     var phoneNumber: String? = null,
 
+    @Column(name = "examinee_number", length = 16)
+    var examineeNumber: String? = null,
+
     @Enumerated(EnumType.STRING)
     @Column(name = "gender", length = 10)
     var gender: Gender? = null,
@@ -137,13 +140,17 @@ open class ApplicantJpaEntity(
     open var passResults: MutableList<PassResultJpaEntity> = mutableListOf(),
 ) {
     fun toDomain(includePassResults: Boolean = true): Applicant {
-        val finalResult = if (includePassResults) passResults.firstOrNull { it.id.resultType == ResultType.FINAL } else null
+        val passResult = if (includePassResults) {
+            passResults.firstOrNull { it.id.resultType == ResultType.FINAL && it.result != PassResultStatus.PENDING }
+                ?: passResults.firstOrNull { it.id.resultType == ResultType.DOCUMENT && it.result != PassResultStatus.PENDING }
+        } else null
         return Applicant(
             id = requireNotNull(id),
             accountId = accountId,
             photoFileId = photoFileId,
             name = name,
             phoneNumber = phoneNumber,
+            examineeNumber = examineeNumber,
             gender = gender,
             birthdate = birthdate,
             specialAdmissionType = specialAdmissionType,
@@ -168,8 +175,9 @@ open class ApplicantJpaEntity(
             submittedAt = submittedAt,
             cancelReason = cancelReason,
             statusVersion = statusVersion,
-            passStatus = finalResult?.result ?: PassResultStatus.PENDING,
-            announcedAt = finalResult?.processedAt,
+            passStatus = passResult?.result ?: PassResultStatus.PENDING,
+            passResultType = passResult?.id?.resultType,
+            announcedAt = passResult?.processedAt,
             createdAt = createdAt,
             updatedAt = updatedAt,
         )
@@ -180,6 +188,7 @@ open class ApplicantJpaEntity(
         photoFileId = domain.photoFileId
         name = domain.name
         phoneNumber = domain.phoneNumber
+        examineeNumber = domain.examineeNumber
         gender = domain.gender
         birthdate = domain.birthdate
         specialAdmissionType = domain.specialAdmissionType

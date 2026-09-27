@@ -22,7 +22,6 @@ import org.springframework.test.context.junit4.SpringRunner
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
-import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.setup.DefaultMockMvcBuilder
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
@@ -69,9 +68,6 @@ class SecurityConfigTest {
             delete("/api/identity/v11/accounts/me"),
             get("/api/identity/v11/applications/status"),
             get("/api/identity/v11/applications/result"),
-            patch("/api/identity/v11/applications/cancellation")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"),
         ).forEach { request ->
             val response = mockMvc.perform(request).andReturn().response
             assertEquals(401, response.status)

@@ -6,6 +6,7 @@ import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.ResultType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
@@ -20,6 +21,7 @@ data class Applicant(
     var photoFileId: String? = null,
     var name: String? = null,
     var phoneNumber: String? = null,
+    var examineeNumber: String? = null,
     var gender: Gender? = null,
     var birthdate: LocalDate? = null,
     var specialAdmissionType: SpecialAdmissionType = SpecialAdmissionType.NONE,
@@ -44,6 +46,7 @@ data class Applicant(
     var submittedAt: LocalDateTime? = null,
     var cancelReason: String? = null,
     var passStatus: PassResultStatus = PassResultStatus.PENDING,
+    var passResultType: ResultType? = null,
     var announcedAt: LocalDateTime? = null,
     var statusVersion: Long = 0,
     val createdAt: LocalDateTime = nowUtc(),

@@ -12,6 +12,7 @@ import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
+import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
@@ -31,6 +32,8 @@ import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
 import hs.kr.entrydsm.application.grpc.SemesterGrades
 import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberResponse
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import io.grpc.ServerBuilder
 import io.grpc.Status
@@ -260,6 +263,16 @@ class GrpcApplicantDataAdapterTest {
     }
 
     @Test
+    fun `발급된 수험번호를 application 에 전달한다`() {
+        val service = FakeApplicationService(emptyList())
+
+        withAdapter(service) { it.saveAll(listOf(Applicant(id = 1L, examineeNumber = "11001"))) }
+
+        assertEquals(1L, service.examineeNumberUpdate?.applicantId)
+        assertEquals("11001", service.examineeNumberUpdate?.examineeNumber)
+    }
+
+    @Test
     fun `제출되지 않은 원서의 도착 변경은 상태 전이 오류로 옮긴다`() {
         val exception = withAdapter(FakeApplicationService(emptyList(), failure = Status.FAILED_PRECONDITION)) {
             runCatching { it.update(1L, true) }.exceptionOrNull()
@@ -313,6 +326,7 @@ class GrpcApplicantDataAdapterTest {
             when (method.name) {
                 "findAll" -> screenings
                 "findById" -> Optional.ofNullable(screenings.find { it.applicantId == args[0] })
+                "saveAll" -> args[0]
                 else -> error("unexpected call: ${method.name}")
             }
         } as ScreeningJpaRepository
@@ -328,6 +342,7 @@ class GrpcApplicantDataAdapterTest {
         private val forms: List<ApplicationFormResponse> = emptyList(),
     ) : ApplicationServiceGrpc.ApplicationServiceImplBase() {
         var arrival: UpdateApplicantArrivalRequest? = null
+        var examineeNumberUpdate: UpdateExamineeNumberRequest? = null
         var batchCalls = 0
         var batchAccountIds: List<Long> = emptyList()
         var deletedApplicantId: Long? = null
@@ -349,6 +364,14 @@ class GrpcApplicantDataAdapterTest {
                 responseObserver,
                 ApplicationResponse.newBuilder().setUserId(1L).build(),
             )
+        }
+
+        override fun updateExamineeNumber(
+            request: UpdateExamineeNumberRequest,
+            responseObserver: StreamObserver<UpdateExamineeNumberResponse>,
+        ) {
+            examineeNumberUpdate = request
+            respond(responseObserver, UpdateExamineeNumberResponse.getDefaultInstance())
         }
 
         override fun getApplicationForm(

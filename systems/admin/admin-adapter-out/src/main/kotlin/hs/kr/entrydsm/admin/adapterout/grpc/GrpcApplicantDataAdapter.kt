@@ -34,6 +34,7 @@ import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import hs.kr.entrydsm.application.grpc.SpecialAdmissionType as GrpcSpecialAdmissionType
 import io.grpc.Status
@@ -212,12 +213,26 @@ class GrpcApplicantDataAdapter(
 
     override fun save(applicant: Applicant): Applicant {
         screeningJpaRepository.save(applicant.toScreening())
+        syncExamineeNumber(applicant)
         return applicant
     }
 
     override fun saveAll(applicants: List<Applicant>): List<Applicant> {
         screeningJpaRepository.saveAll(applicants.map { it.toScreening() })
+        applicants.forEach(::syncExamineeNumber)
         return applicants
+    }
+
+    private fun syncExamineeNumber(applicant: Applicant) {
+        val number = applicant.examineeNumber ?: return
+        call {
+            oneStub().updateExamineeNumber(
+                UpdateExamineeNumberRequest.newBuilder()
+                    .setApplicantId(applicant.id)
+                    .setExamineeNumber(number)
+                    .build(),
+            )
+        }
     }
 
     override fun deleteById(applicantId: Long) {

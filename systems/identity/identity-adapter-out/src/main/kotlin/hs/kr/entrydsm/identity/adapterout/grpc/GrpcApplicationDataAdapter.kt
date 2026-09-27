@@ -6,6 +6,7 @@ import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
+import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.data.ApplicationSnapshot
@@ -57,6 +58,22 @@ class GrpcApplicationDataAdapter(
         if (exception.status.code == Status.Code.NOT_FOUND) null else throw exception.toDomainException()
     }
 
+    override fun findResultByUserId(userId: Long): ApplicationSnapshot? {
+        val snapshot = findByUserId(userId) ?: return null
+        val form = try {
+            stub.withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
+                .getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(userId).build())
+        } catch (exception: StatusRuntimeException) {
+            throw exception.toDomainException()
+        }
+        return snapshot.copy(
+            applicantId = form.applicantId,
+            examineeNumber = form.examineeNumber.takeIf { form.hasExamineeNumber() },
+            region = form.region.name.removePrefix("REGION_").takeUnless { it == "UNSPECIFIED" },
+            admissionType = form.admissionType.name.removePrefix("ADMISSION_TYPE_").takeUnless { it == "UNSPECIFIED" },
+        )
+    }
+
     override fun cancel(userId: Long, reason: String?, updatedAt: Instant): ApplicationSnapshot =
         call {
             cancelApplication(
@@ -94,8 +111,12 @@ class GrpcApplicationDataAdapter(
         updatedAt = Instant.ofEpochMilli(updatedAtEpochMillis),
         passStatus = when (passStatus) {
             GrpcPassStatus.PASS_STATUS_NOT_ANNOUNCED -> PassStatus.NOT_ANNOUNCED
-            GrpcPassStatus.PASS_STATUS_PASSED -> PassStatus.PASSED
-            GrpcPassStatus.PASS_STATUS_FAILED -> PassStatus.FAILED
+            GrpcPassStatus.PASS_STATUS_PASSED -> PassStatus.FIRST_PASSED
+            GrpcPassStatus.PASS_STATUS_FAILED -> PassStatus.FIRST_FAILED
+            GrpcPassStatus.PASS_STATUS_FIRST_PASSED -> PassStatus.FIRST_PASSED
+            GrpcPassStatus.PASS_STATUS_FIRST_FAILED -> PassStatus.FIRST_FAILED
+            GrpcPassStatus.PASS_STATUS_FINAL_PASSED -> PassStatus.FINAL_PASSED
+            GrpcPassStatus.PASS_STATUS_FINAL_FAILED -> PassStatus.FINAL_FAILED
             else -> throw IdentityDomainException(ErrorCode.INTERNAL_SERVER_ERROR)
         },
         announcedAt = announcedAtEpochMillis.takeIf { hasAnnouncedAtEpochMillis() }?.let(Instant::ofEpochMilli),

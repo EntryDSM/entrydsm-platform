@@ -10,9 +10,9 @@ class ApplicationResultTest {
     @Test
     fun keepsApplicationResultContract() {
         val announcedAt = Instant.parse("2026-06-11T10:00:00Z")
-        val result = ApplicationResultResult(PassStatus.PASSED, announcedAt)
+        val result = ApplicationResultResult(PassStatus.FIRST_PASSED, announcedAt)
 
-        assertEquals(PassStatus.PASSED, result.passStatus)
+        assertEquals(PassStatus.FIRST_PASSED, result.passStatus)
         assertEquals(announcedAt, result.announcedAt)
     }
 }

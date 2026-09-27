@@ -16,6 +16,7 @@ import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.ResultType
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.GedScores
@@ -42,6 +43,8 @@ import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
 import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
 import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberResponse
 import hs.kr.entrydsm.application.grpc.MiddleSchool as GrpcMiddleSchool
 import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
@@ -127,6 +130,15 @@ class ApplicationGrpcService(
         applicationPort.updateArrival(UpdateApplicantArrivalCommand(request.applicantId, request.isArrived))
     }
 
+    override fun updateExamineeNumber(
+        request: UpdateExamineeNumberRequest,
+        responseObserver: StreamObserver<UpdateExamineeNumberResponse>,
+    ) = responseObserver.respondWith {
+        request.applicantId.validate()
+        applicationPort.updateExamineeNumber(request.applicantId, request.examineeNumber)
+        UpdateExamineeNumberResponse.getDefaultInstance()
+    }
+
     override fun deleteApplicant(
         request: DeleteApplicantRequest,
         responseObserver: StreamObserver<DeleteApplicantResponse>,
@@ -174,8 +186,16 @@ class ApplicationGrpcService(
             .setPassStatus(
                 when (passStatus) {
                     PassResultStatus.PENDING -> GrpcPassStatus.PASS_STATUS_NOT_ANNOUNCED
-                    PassResultStatus.PASS -> GrpcPassStatus.PASS_STATUS_PASSED
-                    PassResultStatus.FAIL -> GrpcPassStatus.PASS_STATUS_FAILED
+                    PassResultStatus.PASS -> when (passResultType) {
+                        ResultType.DOCUMENT -> GrpcPassStatus.PASS_STATUS_FIRST_PASSED
+                        ResultType.FINAL -> GrpcPassStatus.PASS_STATUS_FINAL_PASSED
+                        null -> GrpcPassStatus.PASS_STATUS_NOT_ANNOUNCED
+                    }
+                    PassResultStatus.FAIL -> when (passResultType) {
+                        ResultType.DOCUMENT -> GrpcPassStatus.PASS_STATUS_FIRST_FAILED
+                        ResultType.FINAL -> GrpcPassStatus.PASS_STATUS_FINAL_FAILED
+                        null -> GrpcPassStatus.PASS_STATUS_NOT_ANNOUNCED
+                    }
                 },
             )
             .build()
@@ -294,6 +314,7 @@ class ApplicationGrpcService(
                 studentNumber?.let(builder::setStudentNumber)
                 gedAverage?.let(builder::setGedAverage)
                 gedScores?.let { builder.setGedScores(it.toGrpc()) }
+                examineeNumber?.let(builder::setExamineeNumber)
                 admissionType.code()?.let(builder::setAdmissionTypeCode)
                 region.code()?.let(builder::setRegionCode)
                 builder.setSpecialAdmissionTypeCode(specialAdmissionType.code())
