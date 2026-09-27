@@ -60,16 +60,17 @@ class ObservabilityGlobalFilter(
     }
 
     private fun recordNow(exchange: ServerWebExchange, status: Int) {
+        val now = Instant.now()
+        val success = status < 400
+        // 지표 저장, 오류 저장, 실시간 발행은 한쪽이 실패해도 나머지를 따로 시도한다.
         runCatching {
-            val now = Instant.now()
             val bucket = now.toEpochMilli() / GRANULARITY.toMillis() * GRANULARITY.toMillis()
-            val success = status < 400
             increment("monitor:metric:api:${result(success)}:$bucket")
             businessMetric(exchange.request.method, exchange.request.path.value())?.let { type ->
                 increment("monitor:metric:business:$type:${result(success)}:$bucket")
             }
-            if (!success) recordServerError(exchange, status, now)
         }.onFailure { logger.warn("Failed to record gateway observability metrics", it) }
+        if (!success) recordServerError(exchange, status, now)
     }
 
     private fun increment(key: String) {
@@ -83,35 +84,39 @@ class ObservabilityGlobalFilter(
         val path = normalizePath(exchange.request.path.value())
         val code = "HTTP_$status"
         val message = HttpStatusCode.valueOf(status).toString()
-        val fingerprint = fingerprint(service, method, path, code)
-        val entryKey = "monitor:server-log:entry:$fingerprint"
-        val hash = redis.opsForHash<String, String>()
-        val count = hash.increment(entryKey, "count", 1)
-        val nowMillis = now.toEpochMilli().toString()
-        if (count == 1L) {
-            hash.putAll(entryKey, mapOf(
-                "service" to service,
-                "method" to method,
-                "path" to path,
-                "status" to status.toString(),
-                "code" to code,
-                "message" to message,
-                "firstOccurredAt" to nowMillis,
-                "lastOccurredAt" to nowMillis,
-            ))
-        } else {
-            hash.put(entryKey, "lastOccurredAt", nowMillis)
-        }
-        redis.expire(entryKey, SERVER_LOG_RETENTION)
-        val groups = listOf("ALL", "service:$service", "status:$status", "status:${status / 100}xx", "service:$service:status:$status", "service:$service:status:${status / 100}xx")
-        val expiredBefore = now.minus(SERVER_LOG_RETENTION).toEpochMilli().toDouble()
-        groups.forEach {
-            val indexKey = "monitor:server-log:index:$it"
-            redis.opsForZSet().add(indexKey, fingerprint, now.toEpochMilli().toDouble())
-            redis.opsForZSet().removeRangeByScore(indexKey, 0.0, expiredBefore)
-        }
-        liveServerError(service, method, path, status, code, message, count, now)?.let {
-            redis.convertAndSend(LIVE_LOG_CHANNEL, objectMapper.writeValueAsString(it))
+        val count = runCatching {
+            val fingerprint = fingerprint(service, method, path, code)
+            val entryKey = "monitor:server-log:entry:$fingerprint"
+            val hash = redis.opsForHash<String, String>()
+            val occurrences = hash.increment(entryKey, "count", 1)
+            val nowMillis = now.toEpochMilli().toString()
+            if (occurrences == 1L) {
+                hash.putAll(entryKey, mapOf(
+                    "service" to service,
+                    "method" to method,
+                    "path" to path,
+                    "status" to status.toString(),
+                    "code" to code,
+                    "message" to message,
+                    "firstOccurredAt" to nowMillis,
+                    "lastOccurredAt" to nowMillis,
+                ))
+            } else {
+                hash.put(entryKey, "lastOccurredAt", nowMillis)
+            }
+            redis.expire(entryKey, SERVER_LOG_RETENTION)
+            val groups = listOf("ALL", "service:$service", "status:$status", "status:${status / 100}xx", "service:$service:status:$status", "service:$service:status:${status / 100}xx")
+            val expiredBefore = now.minus(SERVER_LOG_RETENTION).toEpochMilli().toDouble()
+            groups.forEach {
+                val indexKey = "monitor:server-log:index:$it"
+                redis.opsForZSet().add(indexKey, fingerprint, now.toEpochMilli().toDouble())
+                redis.opsForZSet().removeRangeByScore(indexKey, 0.0, expiredBefore)
+            }
+            occurrences
+        }.onFailure { logger.warn("Failed to record gateway server error", it) }.getOrDefault(1L)
+        liveServerError(service, method, path, status, code, message, count, now)?.let { event ->
+            runCatching { redis.convertAndSend(LIVE_LOG_CHANNEL, objectMapper.writeValueAsString(event)) }
+                .onFailure { logger.warn("Failed to publish gateway server error", it) }
         }
     }
 

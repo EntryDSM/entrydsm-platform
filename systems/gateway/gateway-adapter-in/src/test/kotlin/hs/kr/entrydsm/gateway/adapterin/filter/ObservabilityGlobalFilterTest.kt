@@ -95,10 +95,25 @@ class ObservabilityGlobalFilterTest {
 
         ObservabilityGlobalFilter(redis, mapper).filter(exchange, GatewayFilterChain { Mono.empty() }).block()
 
-        val event = mapper.readTree(requireNotNull(redis.published.poll(5, TimeUnit.SECONDS)))
+        val (channel, message) = requireNotNull(redis.published.poll(5, TimeUnit.SECONDS))
+        assertEquals("monitor:live-log", channel)
+        val event = mapper.readTree(message)
         assertEquals("SERVER", event["kind"].asString())
         assertEquals("DOCUMENT", event["service"].asString())
         assertEquals(503, event["status"].asInt())
+    }
+
+    @Test
+    fun publishesServerErrorsEvenWhenStoringThemFails() {
+        val redis = FakeRedis(failServerErrorStore = true) { error("write rejected") }
+        val exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/document/v11/applications"))
+        exchange.response.statusCode = HttpStatus.INTERNAL_SERVER_ERROR
+
+        ObservabilityGlobalFilter(redis, mapper).filter(exchange, GatewayFilterChain { Mono.empty() }).block()
+
+        val (channel, message) = requireNotNull(redis.published.poll(5, TimeUnit.SECONDS))
+        assertEquals("monitor:live-log", channel)
+        assertEquals(500, mapper.readTree(message)["status"].asInt())
     }
 
     @Test
@@ -112,22 +127,28 @@ class ObservabilityGlobalFilterTest {
         )
     }
 
-    private class FakeRedis(private val onIncrement: (String) -> Unit = {}) : StringRedisTemplate() {
-        val published = LinkedBlockingQueue<String>()
+    private class FakeRedis(
+        private val failServerErrorStore: Boolean = false,
+        private val onIncrement: (String) -> Unit = {},
+    ) : StringRedisTemplate() {
+        val published = LinkedBlockingQueue<Pair<String, String>>()
 
         override fun opsForValue(): ValueOperations<String, String> = fake { method, args ->
             if (method == "increment") onIncrement(args[0] as String)
             1L
         }
 
-        override fun <HK, HV> opsForHash(): HashOperations<String, HK, HV> = fake { _, _ -> 1L }
+        override fun <HK, HV> opsForHash(): HashOperations<String, HK, HV> = fake { _, _ ->
+            check(!failServerErrorStore) { "write rejected" }
+            1L
+        }
 
         override fun opsForZSet(): ZSetOperations<String, String> = fake { _, _ -> null }
 
         override fun expire(key: String, timeout: Long, unit: TimeUnit): Boolean = true
 
         override fun convertAndSend(channel: String, message: Any): Long {
-            published.add(message as String)
+            published.add(channel to message as String)
             return 1L
         }
 
