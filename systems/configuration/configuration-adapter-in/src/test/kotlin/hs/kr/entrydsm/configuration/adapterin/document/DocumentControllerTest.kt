@@ -185,6 +185,15 @@ class DocumentControllerTest {
     }
 
     @Test
+    fun `올린 등록 서류가 없으면 404다`() {
+        files.notFound = true
+
+        mvc.perform(get("/api/document/v11/registration-documents/latest").with(admin()))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.error.code").value("FILE_NOT_FOUND"))
+    }
+
+    @Test
     fun `없는 파일을 조회하면 404를 돌려준다`() {
         files.notFound = true
 
@@ -312,6 +321,7 @@ class DocumentControllerTest {
         override fun findRegistrationDocument(requester: Requester): DownloadableFile {
             registrationRequester = requester
             if (denied) throw DocumentAccessDeniedException()
+            if (notFound) throw FileDocumentNotFoundException(FileCategory.REGISTRATION_DOCUMENT.prefix)
             return downloadable(FileCategory.REGISTRATION_DOCUMENT.objectKeyOf("registration-document_3f2c.pdf"))
         }
     }
