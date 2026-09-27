@@ -105,6 +105,10 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
             ByteArrayOutputStream().also { document.save(it) }.toByteArray()
         }
 
+    // 깨졌거나 암호가 걸린 PDF 는 PDFBox 가 IOException 을 던진다.
+    override fun isRegistrationTemplate(template: ByteArray): Boolean =
+        runCatching { Loader.loadPDF(template).use { it.numberOfPages > 0 } }.getOrDefault(false)
+
     private fun resource(path: String): ByteArray =
         checkNotNull(javaClass.getResourceAsStream(path)) { "Resource not found: $path" }.use { it.readBytes() }
 }

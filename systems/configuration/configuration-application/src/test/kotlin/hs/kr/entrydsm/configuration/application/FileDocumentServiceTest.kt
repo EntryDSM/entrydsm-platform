@@ -408,10 +408,10 @@ class FileDocumentServiceTest {
     fun `등록 서류는 관리자만 올리고, 관리자는 최근 원본을, 최종 합격한 학생은 첫 장을 채운 것을 받는다`() {
         assertThrows(FileDocumentNotFoundException::class.java) { service.findRegistrationDocument(admin) }
         assertThrows(DocumentAccessDeniedException::class.java) {
-            service.upload(registrationDocument(student(STUDENT_ID)), content())
+            service.upload(registrationDocument(student(STUDENT_ID)), pdfContent())
         }
-        service.upload(registrationDocument(admin, "옛 서류.pdf"), content())
-        val newer = service.upload(registrationDocument(admin), content())
+        service.upload(registrationDocument(admin, "옛 서류.pdf"), pdfContent())
+        val newer = service.upload(registrationDocument(admin), pdfContent())
         service.upload(guideline("2027.pdf"), content())
 
         assertThrows(DocumentAccessDeniedException::class.java) { service.findRegistrationDocument(student(STUDENT_ID)) }
@@ -425,11 +425,19 @@ class FileDocumentServiceTest {
         assertEquals(STUDENT_ID, filled.document.ownerUserId)
         assertTrue(filled.downloadUrl.startsWith("https://s3/dsm_Entry/backend/stag/registration-form/"))
         assertEquals(newer.document.publicId, service.findRegistrationDocument(admin).document.publicId)
-        assertThrows(InvalidFileFormatException::class.java) { service.upload(registrationDocument(admin, "서류.hwp"), content()) }
+        assertThrows(InvalidFileFormatException::class.java) { service.upload(registrationDocument(admin, "서류.hwp"), pdfContent()) }
         // 등록 서류는 공개 ID 로 학생에게 주지 않는다.
         assertThrows(DocumentAccessDeniedException::class.java) {
             service.find(FileCategory.REGISTRATION_DOCUMENT, newer.document.publicId, student(STUDENT_ID))
         }
+    }
+
+    @Test
+    fun `PDF 로 열리지 않는 등록 서류 원본은 올리지 않는다`() {
+        assertThrows(InvalidFileFormatException::class.java) { service.upload(registrationDocument(admin), content()) }
+
+        assertTrue(storage.uploaded.isEmpty())
+        assertThrows(FileDocumentNotFoundException::class.java) { service.findRegistrationDocument(admin) }
     }
 
     @Test
@@ -475,6 +483,8 @@ class FileDocumentServiceTest {
     private fun guideline(originalName: String) = UploadFileCommand(FileCategory.GUIDELINE, originalName, 1024, admin)
 
     private fun content(): InputStream = ByteArrayInputStream(ByteArray(4))
+
+    private fun pdfContent(): InputStream = ByteArrayInputStream("%PDF-".toByteArray())
 
     private fun image(image: BufferedImage, format: String): ByteArray =
         ByteArrayOutputStream().also { ImageIO.write(image, format, it) }.toByteArray()
@@ -561,6 +571,8 @@ class FileDocumentServiceTest {
             lastPhoto = photo
             return "%PDF-".toByteArray()
         }
+
+        override fun isRegistrationTemplate(template: ByteArray) = template.decodeToString().startsWith("%PDF-")
 
         override fun renderRegistrationDocument(form: ApplicationForm, template: ByteArray): ByteArray {
             lastForm = form

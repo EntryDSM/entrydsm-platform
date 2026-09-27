@@ -116,7 +116,15 @@ class FileDocumentService(
             FileCategory.APPLICATION, FileCategory.ADMISSION_TICKET, FileCategory.REGISTRATION_FORM ->
                 throw IllegalArgumentException("$category is stored per applicant")
         }
-        return store(category, fileName, command.originalName, extension, command.sizeBytes, content, command.requester.studentId)
+        val stored = if (category == FileCategory.REGISTRATION_DOCUMENT) {
+            // 학생 요청마다 이 원본을 PDF 로 열어 채운다. 열리지 않는 원본은 여기서 거절해 관리자가 바로 알게 한다.
+            content.readBytes().also {
+                if (!applicationFormPdfPort.isRegistrationTemplate(it)) throw InvalidFileFormatException(command.originalName, category)
+            }.inputStream()
+        } else {
+            content
+        }
+        return store(category, fileName, command.originalName, extension, command.sizeBytes, stored, command.requester.studentId)
     }
 
     override fun find(category: FileCategory, publicId: String, requester: Requester): DownloadableFile {

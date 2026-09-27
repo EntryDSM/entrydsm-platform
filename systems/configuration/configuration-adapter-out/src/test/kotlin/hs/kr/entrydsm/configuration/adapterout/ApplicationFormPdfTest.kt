@@ -9,6 +9,7 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.text.PDFTextStripper
 import org.apache.pdfbox.text.TextPosition
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.awt.Color
@@ -212,6 +213,15 @@ class ApplicationFormPdfTest {
             stamped(pdf, page = 1), address.count { !it.isWhitespace() },
             left = 157.92f, top = 196.44f, right = 538.68f, bottom = 222.36f,
         )
+    }
+
+    @Test
+    fun `PDF 로 열리고 첫 장이 있어야 등록 서류 원본으로 받는다`() {
+        val empty = PDDocument().use { document -> ByteArrayOutputStream().also { document.save(it) }.toByteArray() }
+
+        assertTrue(adapter.isRegistrationTemplate(registrationTemplate()))
+        assertFalse(adapter.isRegistrationTemplate(empty))
+        assertFalse(adapter.isRegistrationTemplate("PK\u0003\u0004 hwpx".toByteArray()))
     }
 
     /** 등록 서류 원본은 저장소에 두지 않는다(관리자가 S3 에 올린다). 같은 크기의 빈 A4 세 장으로 대신한다. */
