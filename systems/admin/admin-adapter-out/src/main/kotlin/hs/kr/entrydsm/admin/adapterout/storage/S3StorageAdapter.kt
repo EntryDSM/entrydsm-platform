@@ -43,7 +43,11 @@ class S3StorageAdapter(
             s3Presigner.presignGetObject(
                 GetObjectPresignRequest.builder()
                     .signatureDuration(Duration.ofSeconds(expiresInSeconds))
-                    .getObjectRequest { it.bucket(bucket).key(objectKey) }
+                    .getObjectRequest {
+                        it.bucket(bucket)
+                            .key(objectKey)
+                            .responseContentDisposition("attachment; filename=\"${objectKey.substringAfterLast('/')}\"")
+                    }
                     .build(),
             ).url().toExternalForm()
         }.getOrElse { cause ->
