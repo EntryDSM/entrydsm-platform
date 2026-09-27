@@ -28,12 +28,14 @@ class SessionCollectionService(
         userAgent: String?,
         clientIp: String,
     ): SessionEventResult {
-        if (!rateLimitPort.tryAcquire("session:$clientIp", RATE_LIMIT, RATE_LIMIT_WINDOW_SECONDS)) {
-            throw MonitorDomainException(ErrorCode.TOO_MANY_REQUESTS)
-        }
         val now = Instant.now(clock)
         val resolvedSessionId = when (event) {
             SessionEventType.ENTER -> {
+                // 하트비트·이탈은 발급된 세션에만 반영되고(없는 세션은 쓰기 없이 SESSION_NOT_FOUND) 15초마다 꼭 온다.
+                // IP 한도에 넣으면 학교·통신사 NAT 처럼 한 IP 뒤 지원자가 15명을 넘을 때 하트비트가 429 로 빠져 동시접속이 준다.
+                if (!rateLimitPort.tryAcquire("session:$clientIp", RATE_LIMIT, RATE_LIMIT_WINDOW_SECONDS)) {
+                    throw MonitorDomainException(ErrorCode.TOO_MANY_REQUESTS)
+                }
                 val newSessionId = generateSessionId()
                 sessionStorePort.enter(newSessionId, service, DeviceTypeParser.parse(userAgent), now)
                 metricsStorePort.recordVisitor(newSessionId, now)
