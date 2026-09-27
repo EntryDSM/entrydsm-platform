@@ -4,6 +4,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountComman
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
 import hs.kr.entrydsm.identity.application.port.`in`.result.UserSummaryResult
+import java.time.Instant
 
 interface AccountPort {
     fun deleteAccount(command: DeleteAccountCommand)
@@ -11,4 +12,11 @@ interface AccountPort {
     fun getBasicInfo(command: ReadAccountCommand): BasicInfoResult
 
     fun getAuthority(command: ReadAccountCommand): UserSummaryResult
+
+    fun agreeSensitiveInformation(command: ReadAccountCommand): SensitiveAgreeResult
 }
+
+data class SensitiveAgreeResult(
+    val isSensitiveAgree: Boolean,
+    val updatedAt: Instant,
+)

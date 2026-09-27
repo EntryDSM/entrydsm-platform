@@ -48,6 +48,7 @@ class JpaAccountRepositoryAdapter(
                 loginIdHash = hashedLoginId
                 loginIdEncrypted = personalDataEncryptor.encrypt(account.loginId)
                 passwordHash = account.passwordHash.value
+                isSensitiveAgree = account.isSensitiveAgree
                 status = account.status
             }
         }
