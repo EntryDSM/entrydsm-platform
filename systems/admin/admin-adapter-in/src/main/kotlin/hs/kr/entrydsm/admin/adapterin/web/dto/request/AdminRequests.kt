@@ -3,7 +3,6 @@ package hs.kr.entrydsm.admin.adapterin.web.dto.request
 import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.enum.Region
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
@@ -31,12 +30,19 @@ data class ScoreWeightsRequest(
 )
 
 /**
- * 지역 × 전형 정원 전체. 조합 누락·음수 검증은 도메인 모델이 한다.
+ * 전형별 정원 전체.
  */
 data class UpdateAdmissionQuotaRequest(
-    @field:NotNull
-    val quotas: Map<Region, Map<AdmissionType, Int>>?,
-)
+    @field:NotNull @field:Min(0) @param:JsonProperty("GENERAL") val general: Int?,
+    @field:NotNull @field:Min(0) @param:JsonProperty("MEISTER") val meister: Int?,
+    @field:NotNull @field:Min(0) @param:JsonProperty("SOCIAL") val social: Int?,
+) {
+    fun toQuotas(): Map<AdmissionType, Int> = mapOf(
+        AdmissionType.GENERAL to general!!,
+        AdmissionType.MEISTER to meister!!,
+        AdmissionType.SOCIAL to social!!,
+    )
+}
 
 data class EvaluateScreeningRequest(
     val dryRun: Boolean = false,

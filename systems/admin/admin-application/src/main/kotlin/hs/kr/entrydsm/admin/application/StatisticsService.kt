@@ -77,10 +77,10 @@ class StatisticsService(
     }
 
     /**
-     * 전형별 지원자 수를 모집 정원(지역 합계)으로 나눕니다. 정원이 없거나 0인 전형은 건너뜁니다.
+     * 전형별 지원자 수를 모집 정원으로 나눕니다. 정원이 없거나 0인 전형은 건너뜁니다.
      */
     private fun competitionRate(countByType: Map<AdmissionType, Long>): Map<AdmissionType, Double> =
-        admissionQuotaRepository.find()?.byType.orEmpty()
+        admissionQuotaRepository.find()?.quotas.orEmpty()
             .filterValues { it > 0 }
             .mapValues { (type, quota) ->
                 BigDecimal.valueOf(countByType[type] ?: 0L)

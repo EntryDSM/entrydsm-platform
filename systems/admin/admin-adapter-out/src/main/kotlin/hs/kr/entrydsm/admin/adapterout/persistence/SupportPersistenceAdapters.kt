@@ -29,7 +29,7 @@ class ScorePolicyPersistenceAdapter(
 }
 
 /**
- * 지역 × 전형 행 전체를 지우고 다시 넣습니다. 6행 규모라 upsert보다 단순한 쪽을 택했다.
+ * 전형별 행 전체를 지우고 다시 넣습니다. 3행 규모라 upsert보다 단순한 쪽을 택했다.
  */
 @Component
 class AdmissionQuotaPersistenceAdapter(
@@ -41,16 +41,13 @@ class AdmissionQuotaPersistenceAdapter(
 
     override fun save(admissionQuota: AdmissionQuota): AdmissionQuota {
         admissionQuotaJpaRepository.deleteAllInBatch()
-        val rows = admissionQuota.quotas.flatMap { (region, byType) ->
-            byType.map { (type, quota) ->
-                AdmissionQuotaJpaEntity(
-                    region = region,
-                    admissionType = type,
-                    quota = quota,
-                    updatedAt = admissionQuota.updatedAt,
-                    updatedBy = admissionQuota.updatedBy,
-                )
-            }
+        val rows = admissionQuota.quotas.map { (type, quota) ->
+            AdmissionQuotaJpaEntity(
+                admissionType = type,
+                quota = quota,
+                updatedAt = admissionQuota.updatedAt,
+                updatedBy = admissionQuota.updatedBy,
+            )
         }
         return admissionQuotaJpaRepository.saveAll(rows).toDomain()
     }
@@ -58,8 +55,7 @@ class AdmissionQuotaPersistenceAdapter(
     private fun List<AdmissionQuotaJpaEntity>.toDomain(): AdmissionQuota {
         val latest = maxBy { it.updatedAt }
         return AdmissionQuota(
-            quotas = groupBy { it.region }
-                .mapValues { (_, rows) -> rows.associate { it.admissionType to it.quota } },
+            quotas = associate { it.admissionType to it.quota },
             updatedAt = latest.updatedAt,
             updatedBy = latest.updatedBy,
         )

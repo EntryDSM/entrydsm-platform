@@ -22,7 +22,7 @@ object DocumentNaming {
         "${keyRoot(environment)}application-checklist/application_checklist_$exportJobId.xlsx"
 
     fun essaysObjectKey(exportJobId: String, environment: String): String =
-        "${keyRoot(environment)}essays/essays_$exportJobId.zip"
+        "${keyRoot(environment)}essays/essays_$exportJobId.pdf"
 
     /** 1차 합격자 수험표를 한 시트에 이어 그린 xlsx 하나입니다. */
     fun admissionTicketBundleObjectKey(exportJobId: String, environment: String): String =

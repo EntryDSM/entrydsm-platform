@@ -80,7 +80,7 @@ class ScreeningController(
         ResponseEntity.ok(
             ApiResponse(
                 data = updateAdmissionQuotaUseCase
-                    .update(UpdateAdmissionQuotaCommand(quotas = request.quotas!!, updatedBy = userId))
+                    .update(UpdateAdmissionQuotaCommand(quotas = request.toQuotas(), updatedBy = userId))
                     .toResponse(),
             ),
         )

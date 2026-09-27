@@ -5,7 +5,6 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.enum.Region
 import java.time.Instant
 
 data class ScorePolicyResponse(
@@ -23,7 +22,9 @@ data class ScoreWeightsResponse(
 )
 
 data class AdmissionQuotaResponse(
-    val quotas: Map<Region, Map<AdmissionType, Int>>,
+    @get:JsonProperty("GENERAL") val general: Int,
+    @get:JsonProperty("MEISTER") val meister: Int,
+    @get:JsonProperty("SOCIAL") val social: Int,
     val updatedAt: Instant,
     val updatedBy: String,
 )

@@ -24,7 +24,7 @@ import org.springframework.transaction.event.TransactionPhase
 import org.springframework.transaction.event.TransactionalEventListener
 
 private const val XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-private const val ZIP_CONTENT_TYPE = "application/zip"
+private const val PDF_CONTENT_TYPE = "application/pdf"
 private const val FIRST_PASS_LIST_SHEET = "1차 합격자 명단"
 private const val ADMISSION_FILE_SHEET = "전형 자료"
 
@@ -172,12 +172,11 @@ class ExportJobProcessor(
                 }
                 ExportType.ESSAYS -> {
                     val objectKey = DocumentNaming.essaysObjectKey(job.exportJobId, storageEnvironment)
-                    // ponytail: ZIP 전체를 메모리에 보관한다. 대용량이 되면 StoragePort에 스트리밍 업로드를 추가한다.
+                    // ponytail: PDF 전체를 메모리에 보관한다. 대용량이 되면 StoragePort에 스트리밍 업로드를 추가한다.
                     val output = ByteArrayOutputStream()
                     val count = downloadEssaysUseCase.writeTo(output)
                     current = exportJobRepository.save(current.withTotal(count).processed(count))
-                    val zip = output.toByteArray()
-                    storagePort.upload(objectKey, ZIP_CONTENT_TYPE, zip)
+                    storagePort.upload(objectKey, PDF_CONTENT_TYPE, output.toByteArray())
                     objectKey
                 }
                 ExportType.ADMISSION_TICKET -> {

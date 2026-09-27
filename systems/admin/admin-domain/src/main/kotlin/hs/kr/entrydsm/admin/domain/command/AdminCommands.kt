@@ -3,7 +3,6 @@ package hs.kr.entrydsm.admin.domain.command
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.ScoreWeights
 
 /**
@@ -39,10 +38,10 @@ data class UpdateScorePolicyCommand(
 )
 
 /**
- * 모집 지역 × 전형별 정원을 한 번에 교체합니다.
+ * 전형별 정원을 한 번에 교체합니다.
  */
 data class UpdateAdmissionQuotaCommand(
-    val quotas: Map<Region, Map<AdmissionType, Int>>,
+    val quotas: Map<AdmissionType, Int>,
     val updatedBy: String,
 )
 
