@@ -10,4 +10,7 @@ interface ApplicantPort {
 
     /** 요강 <서식 1> 을 찍는 데 쓰는 원서 전문. 그 계정의 원서가 없으면 null. */
     fun findApplicationForm(accountId: Long): ApplicationForm?
+
+    /** 그 계정의 원서가 2차 전형 최종 합격으로 발표됐는지. 원서가 없으면 false. */
+    fun isFinalPassed(accountId: Long): Boolean
 }

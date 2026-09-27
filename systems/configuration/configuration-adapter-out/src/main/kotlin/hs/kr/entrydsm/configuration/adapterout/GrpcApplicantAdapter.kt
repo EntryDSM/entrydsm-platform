@@ -7,6 +7,8 @@ import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
+import hs.kr.entrydsm.application.grpc.GetApplicationRequest
+import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.SemesterGrades as GrpcSemesterGrades
 import hs.kr.entrydsm.application.grpc.SpecialAdmissionType as GrpcSpecialAdmissionType
@@ -53,6 +55,15 @@ class GrpcApplicantAdapter(
                 .toApplicationForm()
         } catch (e: StatusRuntimeException) {
             if (e.status.code in NO_APPLICANT) null else throw ApplicantLookupFailedException(accountId, "accountId", e)
+        }
+
+    override fun isFinalPassed(accountId: Long): Boolean =
+        try {
+            stub.withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
+                .getApplication(GetApplicationRequest.newBuilder().setUserId(accountId).build())
+                .passStatus == GrpcPassStatus.PASS_STATUS_FINAL_PASSED
+        } catch (e: StatusRuntimeException) {
+            if (e.status.code in NO_APPLICANT) false else throw ApplicantLookupFailedException(accountId, "accountId", e)
         }
 
     override fun destroy() {

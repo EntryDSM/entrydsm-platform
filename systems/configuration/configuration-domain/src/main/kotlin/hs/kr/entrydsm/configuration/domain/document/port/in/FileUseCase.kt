@@ -17,4 +17,7 @@ interface FileUseCase {
     fun findPage(category: FileCategory, page: Int, size: Int, requester: Requester): FilePage
 
     fun delete(category: FileCategory, publicId: String, requester: Requester)
+
+    /** 가장 최근에 올린 최종 합격자 등록 서류. 관리자와 최종 합격한 학생만 받는다. */
+    fun findRegistrationDocument(requester: Requester): DownloadableFile
 }

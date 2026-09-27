@@ -166,6 +166,34 @@ class DocumentControllerTest {
     }
 
     @Test
+    fun `등록 서류는 관리자가 올리고, 최근 것을 요청자와 함께 찾아 서명 URL로 준다`() {
+        mvc.perform(multipart("/api/document/v11/registration-documents").file(pdf("등록 서류.pdf")).with(admin()))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.id").value("registration-document_3f2c"))
+        assertEquals(FileCategory.REGISTRATION_DOCUMENT, files.lastCommand?.category)
+
+        mvc.perform(get("/api/document/v11/registration-documents/latest").with(student(10)))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.id").value("registration-document_3f2c"))
+            .andExpect(jsonPath("$.data.downloadUrl").exists())
+        assertEquals(Requester(10, Requester.Role.STUDENT), files.registrationRequester)
+
+        files.denied = true
+        mvc.perform(get("/api/document/v11/registration-documents/latest").with(student(11)))
+            .andExpect(status().isForbidden)
+            .andExpect(jsonPath("$.error.code").value("FILE_ACCESS_DENIED"))
+    }
+
+    @Test
+    fun `올린 등록 서류가 없으면 404다`() {
+        files.notFound = true
+
+        mvc.perform(get("/api/document/v11/registration-documents/latest").with(admin()))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.error.code").value("FILE_NOT_FOUND"))
+    }
+
+    @Test
     fun `없는 파일을 조회하면 404를 돌려준다`() {
         files.notFound = true
 
@@ -286,6 +314,15 @@ class DocumentControllerTest {
 
         override fun delete(category: FileCategory, publicId: String, requester: Requester) {
             lastDeleted = category to publicId
+        }
+
+        var registrationRequester: Requester? = null
+
+        override fun findRegistrationDocument(requester: Requester): DownloadableFile {
+            registrationRequester = requester
+            if (denied) throw DocumentAccessDeniedException()
+            if (notFound) throw FileDocumentNotFoundException(FileCategory.REGISTRATION_DOCUMENT.prefix)
+            return downloadable(FileCategory.REGISTRATION_DOCUMENT.objectKeyOf("registration-document_3f2c.pdf"))
         }
     }
 
