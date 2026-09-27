@@ -95,7 +95,9 @@ class FileController(
         @RequestAttribute(REQUESTER_ATTRIBUTE) requester: Requester,
     ) = upload(FileCategory.REGISTRATION_DOCUMENT, file, requester)
 
-    /** 가장 최근에 올린 최종 합격자 등록 서류. 학생은 최종 합격자만 받는다. */
+    /**
+     * 가장 최근에 올린 최종 합격자 등록 서류. 관리자는 원본을, 최종 합격한 학생은 첫 장 입학 동의서에 자기 정보를 채운 것을 받는다.
+     */
     @GetMapping("/registration-documents/latest")
     fun findRegistrationDocument(
         @RequestAttribute(REQUESTER_ATTRIBUTE) requester: Requester,

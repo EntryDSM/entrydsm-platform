@@ -17,6 +17,9 @@ object FileNaming {
     fun admissionTicketFileName(applicantId: Long): String =
         "admission_ticket_${ReceiptNumber.of(applicantId)}.${FileExtension.PDF.value}"
 
+    fun registrationFormFileName(applicantId: Long): String =
+        "registration_form_${ReceiptNumber.of(applicantId)}.${FileExtension.PDF.value}"
+
     fun photoFileName(extension: FileExtension): String =
         "photo_${randomToken()}.${extension.value}"
 
