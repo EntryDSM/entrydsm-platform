@@ -42,6 +42,8 @@ data class ApplicationForm(
     /** 서식 3 에 찍는 자기소개서·학업계획서 본문. 지원자가 쓴 줄바꿈까지 그대로 옮긴다. */
     val introduction: String?,
     val studyPlan: String?,
+    /** 관리자가 매긴 수험번호. 아직 매기지 않았으면 null 이다. */
+    val examineeNumber: String? = null,
 ) {
     /** @property label 원서에 찍는 한글 표기 */
     enum class Gender(val label: String) {

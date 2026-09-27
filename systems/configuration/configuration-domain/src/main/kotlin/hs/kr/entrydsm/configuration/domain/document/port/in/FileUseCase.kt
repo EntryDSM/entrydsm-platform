@@ -18,6 +18,8 @@ interface FileUseCase {
 
     fun delete(category: FileCategory, publicId: String, requester: Requester)
 
-    /** 가장 최근에 올린 최종 합격자 등록 서류. 관리자와 최종 합격한 학생만 받는다. */
+    /**
+     * 가장 최근에 올린 최종 합격자 등록 서류. 관리자는 원본을, 최종 합격한 학생은 첫 장에 자기 정보를 채운 것을 받는다.
+     */
     fun findRegistrationDocument(requester: Requester): DownloadableFile
 }

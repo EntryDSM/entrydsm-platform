@@ -405,26 +405,39 @@ class FileDocumentServiceTest {
     }
 
     @Test
-    fun `등록 서류는 관리자만 올리고, 관리자와 최종 합격한 학생만 최근 것을 받는다`() {
+    fun `등록 서류는 관리자만 올리고, 관리자는 최근 원본을, 최종 합격한 학생은 첫 장을 채운 것을 받는다`() {
         assertThrows(FileDocumentNotFoundException::class.java) { service.findRegistrationDocument(admin) }
         assertThrows(DocumentAccessDeniedException::class.java) {
-            service.upload(registrationDocument(student(STUDENT_ID)), content())
+            service.upload(registrationDocument(student(STUDENT_ID)), pdfContent())
         }
-        service.upload(registrationDocument(admin, "옛 서류.pdf"), content())
-        val newer = service.upload(registrationDocument(admin), content())
+        service.upload(registrationDocument(admin, "옛 서류.pdf"), pdfContent())
+        val newer = service.upload(registrationDocument(admin), pdfContent())
         service.upload(guideline("2027.pdf"), content())
 
         assertThrows(DocumentAccessDeniedException::class.java) { service.findRegistrationDocument(student(STUDENT_ID)) }
         finalPassed += STUDENT_ID
 
-        val found = service.findRegistrationDocument(student(STUDENT_ID))
-        assertEquals(newer.document.publicId, found.document.publicId)
-        assertTrue(found.downloadUrl.startsWith("https://s3/dsm_Entry/backend/stag/registration-document/"))
+        // 학생은 최근 원본에 자기 원서를 찍은 파일을 접수번호 키로 받는다. 원본은 PDF 만 올릴 수 있다.
+        val filled = service.findRegistrationDocument(student(STUDENT_ID))
+        assertEquals(newer.document.objectKey, formPdf.lastTemplate?.decodeToString())
+        assertEquals("홍길동", formPdf.lastForm?.name)
+        assertEquals("dsm_Entry/backend/stag/registration-form/registration_form_0012.pdf", filled.document.objectKey)
+        assertEquals(STUDENT_ID, filled.document.ownerUserId)
+        assertTrue(filled.downloadUrl.startsWith("https://s3/dsm_Entry/backend/stag/registration-form/"))
         assertEquals(newer.document.publicId, service.findRegistrationDocument(admin).document.publicId)
+        assertThrows(InvalidFileFormatException::class.java) { service.upload(registrationDocument(admin, "서류.hwp"), pdfContent()) }
         // 등록 서류는 공개 ID 로 학생에게 주지 않는다.
         assertThrows(DocumentAccessDeniedException::class.java) {
             service.find(FileCategory.REGISTRATION_DOCUMENT, newer.document.publicId, student(STUDENT_ID))
         }
+    }
+
+    @Test
+    fun `PDF 로 열리지 않는 등록 서류 원본은 올리지 않는다`() {
+        assertThrows(InvalidFileFormatException::class.java) { service.upload(registrationDocument(admin), content()) }
+
+        assertTrue(storage.uploaded.isEmpty())
+        assertThrows(FileDocumentNotFoundException::class.java) { service.findRegistrationDocument(admin) }
     }
 
     @Test
@@ -470,6 +483,8 @@ class FileDocumentServiceTest {
     private fun guideline(originalName: String) = UploadFileCommand(FileCategory.GUIDELINE, originalName, 1024, admin)
 
     private fun content(): InputStream = ByteArrayInputStream(ByteArray(4))
+
+    private fun pdfContent(): InputStream = ByteArrayInputStream("%PDF-".toByteArray())
 
     private fun image(image: BufferedImage, format: String): ByteArray =
         ByteArrayOutputStream().also { ImageIO.write(image, format, it) }.toByteArray()
@@ -549,10 +564,19 @@ class FileDocumentServiceTest {
     private class RecordingApplicationFormPdfPort : ApplicationFormPdfPort {
         var lastForm: ApplicationForm? = null
         var lastPhoto: ByteArray? = null
+        var lastTemplate: ByteArray? = null
 
         override fun render(form: ApplicationForm, photo: ByteArray?): ByteArray {
             lastForm = form
             lastPhoto = photo
+            return "%PDF-".toByteArray()
+        }
+
+        override fun isRegistrationTemplate(template: ByteArray) = template.decodeToString().startsWith("%PDF-")
+
+        override fun renderRegistrationDocument(form: ApplicationForm, template: ByteArray): ByteArray {
+            lastForm = form
+            lastTemplate = template
             return "%PDF-".toByteArray()
         }
     }

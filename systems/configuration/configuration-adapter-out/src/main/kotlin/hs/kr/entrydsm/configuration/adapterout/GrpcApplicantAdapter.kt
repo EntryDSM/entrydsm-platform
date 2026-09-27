@@ -151,6 +151,7 @@ class GrpcApplicantAdapter(
                 programmingCertified = it.programmingCertified,
             )
         },
+        examineeNumber = examineeNumber.takeIf { hasExamineeNumber() },
     )
 
     private fun GrpcSemesterGrades.toSemesterGrades() = ApplicationForm.SemesterGrades(

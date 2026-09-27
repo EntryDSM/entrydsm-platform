@@ -113,10 +113,18 @@ class FileDocumentService(
             FileCategory.PHOTO -> FileNaming.photoFileName(extension)
             FileCategory.ATTACHMENT, FileCategory.GUIDELINE, FileCategory.REGISTRATION_DOCUMENT ->
                 FileNaming.attachmentFileName(command.originalName)
-            FileCategory.APPLICATION, FileCategory.ADMISSION_TICKET ->
+            FileCategory.APPLICATION, FileCategory.ADMISSION_TICKET, FileCategory.REGISTRATION_FORM ->
                 throw IllegalArgumentException("$category is stored per applicant")
         }
-        return store(category, fileName, command.originalName, extension, command.sizeBytes, content, command.requester.studentId)
+        val stored = if (category == FileCategory.REGISTRATION_DOCUMENT) {
+            // 학생 요청마다 이 원본을 PDF 로 열어 채운다. 열리지 않는 원본은 여기서 거절해 관리자가 바로 알게 한다.
+            content.readBytes().also {
+                if (!applicationFormPdfPort.isRegistrationTemplate(it)) throw InvalidFileFormatException(command.originalName, category)
+            }.inputStream()
+        } else {
+            content
+        }
+        return store(category, fileName, command.originalName, extension, command.sizeBytes, stored, command.requester.studentId)
     }
 
     override fun find(category: FileCategory, publicId: String, requester: Requester): DownloadableFile {
@@ -143,12 +151,20 @@ class FileDocumentService(
 
     override fun findRegistrationDocument(requester: Requester): DownloadableFile {
         val category = FileCategory.REGISTRATION_DOCUMENT
-        val allowed = category.canDownload(requester, ownerUserId = null) ||
-            requester.studentId?.let(applicantPort::isFinalPassed) == true
+        val studentId = requester.studentId
+        val allowed = category.canDownload(requester, ownerUserId = null) || studentId?.let(applicantPort::isFinalPassed) == true
         if (!allowed) throw DocumentAccessDeniedException()
-        val latest = fileDocumentRepository.findPage(category, page = 1, size = 1).firstOrNull()
+        val template = fileDocumentRepository.findPage(category, page = 1, size = 1).firstOrNull()
             ?: throw FileDocumentNotFoundException(category.prefix)
-        return downloadable(latest)
+        if (studentId == null) return downloadable(template)
+
+        // 원서처럼 요청마다 새로 찍어 지원자별 키에 덮어쓴다. 원본을 바꾸거나 원서가 고쳐져도 다음 요청에 반영된다.
+        val form = applicantPort.findApplicationForm(studentId) ?: throw ApplicantNotFoundException(studentId, "accountId")
+        val pdf = applicationFormPdfPort.renderRegistrationDocument(form, storagePort.download(template.objectKey))
+        val fileName = FileNaming.registrationFormFileName(form.applicantId)
+        return store(
+            FileCategory.REGISTRATION_FORM, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), studentId,
+        )
     }
 
     /**
@@ -260,7 +276,7 @@ class FileDocumentService(
 
 /** 원서·수험표는 지원자마다 저장 키가 하나다. 나머지는 요청마다 새 키(임의값)다. */
 private val FileCategory.keyedByApplicant: Boolean
-    get() = this == FileCategory.APPLICATION || this == FileCategory.ADMISSION_TICKET
+    get() = this == FileCategory.APPLICATION || this == FileCategory.ADMISSION_TICKET || this == FileCategory.REGISTRATION_FORM
 
 /** 수험표 사진 칸 크기(증명사진 3:4). PDF 사진 칸(폭 약 66mm)에 약 230dpi, xlsx 사진 칸(폭 약 50mm)에 약 300dpi 로 찍힌다. */
 private const val TICKET_PHOTO_WIDTH = 600

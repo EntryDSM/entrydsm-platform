@@ -10,4 +10,11 @@ interface ApplicationFormPdfPort {
 
     fun renderEssay(form: ApplicationForm, introduction: Boolean): ByteArray =
         throw UnsupportedOperationException()
+
+    /** 최종 합격자 등록 서류 원본([template]) 첫 장 입학 동의서에 지원자 정보를 찍는다. 나머지 장은 그대로다. */
+    fun renderRegistrationDocument(form: ApplicationForm, template: ByteArray): ByteArray =
+        throw UnsupportedOperationException()
+
+    /** [renderRegistrationDocument] 가 채울 수 있는 원본인지. PDF 로 열리고 첫 장이 있어야 한다. */
+    fun isRegistrationTemplate(template: ByteArray): Boolean
 }

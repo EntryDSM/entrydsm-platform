@@ -3,9 +3,17 @@ package hs.kr.entrydsm.configuration.adapterout
 import hs.kr.entrydsm.configuration.domain.document.Applicant
 import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
+import org.apache.pdfbox.pdmodel.PDPageContentStream
+import org.apache.pdfbox.pdmodel.font.PDType1Font
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts
+import org.apache.pdfbox.rendering.PDFRenderer
+import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.text.PDFTextStripper
 import org.apache.pdfbox.text.TextPosition
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.awt.Color
@@ -27,6 +35,9 @@ class ApplicationFormPdfTest {
     private val FORM_COUNT = 6
 
     private val adapter = ApplicationFormPdfAdapter()
+
+    /** 체크 선을 픽셀로 볼 때 쓰는 렌더링 배율 */
+    private val SCALE = 4f
 
     @Test
     fun `특별전형 원서는 서식 원본 여섯 장에 값과 사진을 찍는다`() {
@@ -173,6 +184,93 @@ class ApplicationFormPdfTest {
     }
 
     /** 칸 안에 기준선이 있는 원서 글자가 [count] 개이고, 모두 칸 좌우 안에 있다. 칸 아래로 넘친 글자는 수에서 빠진다. */
+    @Test
+    fun `등록 서류는 원본 첫 장 입학 동의서 칸에 지원자 정보를 찍고 나머지 장은 그대로 둔다`() {
+        val pdf = adapter.renderRegistrationDocument(form().copy(examineeNumber = "11001"), registrationTemplate())
+
+        assertA4Pages(pdf, 3)
+        val glyphs = stamped(pdf, page = 1)
+        fun cell(left: Float, top: Float, right: Float, bottom: Float) = glyphs
+            .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+            .joinToString("") { it.unicode }
+
+        assertEquals("11001", cell(407.16f, 123.60f, 538.68f, 144.72f))
+        assertEquals("홍길동", cell(157.92f, 144.72f, 318.84f, 170.64f))
+        assertEquals("010-1234-5678", cell(157.92f, 170.64f, 318.84f, 196.44f))
+        assertEquals("2010", cell(407.16f, 170.64f, 464.88f, 196.44f))
+        assertEquals("3", cell(475.92f, 170.64f, 492.37f, 196.44f))
+        assertEquals("2", cell(503.41f, 170.64f, 519.86f, 196.44f))
+        assertEquals("홍판서", cell(157.92f, 222.36f, 318.84f, 248.88f))
+        assertEquals("부", cell(475.75f, 222.36f, 519.47f, 248.88f))
+        assertEquals("010-9876-5432", cell(157.92f, 248.88f, 538.68f, 274.80f))
+        assertTrue(cell(157.92f, 196.44f, 538.68f, 222.36f).startsWith("(34503)대전광역시"))
+        // 2·3쪽은 원본 글자만 그대로 남는다.
+        assertEquals(0, stamped(pdf, page = 2).size + stamped(pdf, page = 3).size)
+        assertTrue(pageText(pdf, 2).contains("PAGE-2"))
+        assertTrue(pageText(pdf, 3).contains("PAGE-3"))
+
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "registration-document.pdf").writeBytes(pdf) }
+    }
+
+    @Test
+    fun `성별은 인쇄된 남·여 네모 중 해당하는 쪽에만 체크를 긋는다`() {
+        fun marks(gender: ApplicationForm.Gender?): Pair<Boolean, Boolean> {
+            val pdf = adapter.renderRegistrationDocument(form().copy(gender = gender), registrationTemplate())
+            // 원본이 빈 A4 라 네모 자리의 어두운 픽셀은 체크 선뿐이다.
+            val image = Loader.loadPDF(pdf).use { PDFRenderer(it).renderImageWithDPI(0, 72f * SCALE) }
+            fun inked(left: Float, right: Float) = (left.px()..right.px()).any { x ->
+                (152.04f.px()..163.08f.px()).any { y -> Color(image.getRGB(x, y)).red < 128 }
+            }
+            return inked(443.88f, 453.69f) to inked(481.09f, 490.90f)
+        }
+
+        assertEquals(true to false, marks(ApplicationForm.Gender.MALE))
+        assertEquals(false to true, marks(ApplicationForm.Gender.FEMALE))
+        assertEquals(false to false, marks(null))
+    }
+
+    private fun Float.px() = (this * SCALE).roundToInt()
+
+    @Test
+    fun `등록 서류의 긴 주소는 줄을 바꿔 주소 칸 안에 다 찍는다`() {
+        // 주소는 기본·상세 255자씩 저장된다(application applicants.address_base·address_detail). 한 줄로는 4pt 로도 넘친다.
+        val address = "(34503) 대전광역시 유성구 가정북로 76번길 123-45 대덕소프트웨어마이스터고등학교 기숙사 제3생활관 502호 " +
+            "대전광역시 유성구 가정북로 76번길 123-45 대덕소프트웨어마이스터고등학교 기숙사 제3생활관 앞 경비실 옆 우편함"
+        val pdf = adapter.renderRegistrationDocument(form().copy(address = address), registrationTemplate())
+
+        assertInside(
+            stamped(pdf, page = 1), address.count { !it.isWhitespace() },
+            left = 157.92f, top = 196.44f, right = 538.68f, bottom = 222.36f,
+        )
+    }
+
+    @Test
+    fun `PDF 로 열리고 첫 장이 있어야 등록 서류 원본으로 받는다`() {
+        val empty = PDDocument().use { document -> ByteArrayOutputStream().also { document.save(it) }.toByteArray() }
+
+        assertTrue(adapter.isRegistrationTemplate(registrationTemplate()))
+        assertFalse(adapter.isRegistrationTemplate(empty))
+        assertFalse(adapter.isRegistrationTemplate("PK\u0003\u0004 hwpx".toByteArray()))
+    }
+
+    /**
+     * 등록 서류 원본은 저장소에 두지 않는다(관리자가 S3 에 올린다). 같은 크기의 A4 세 장으로 대신하고, 원본이 그대로
+     * 남는지 보도록 각 장 아래쪽에 "PAGE-n" 을 찍어 둔다.
+     */
+    private fun registrationTemplate(): ByteArray = PDDocument().use { document ->
+        repeat(3) { index ->
+            val page = PDPage(PDRectangle.A4).also(document::addPage)
+            PDPageContentStream(document, page).use {
+                it.beginText()
+                it.setFont(PDType1Font(Standard14Fonts.FontName.HELVETICA), 10f)
+                it.newLineAtOffset(60f, 40f)
+                it.showText("PAGE-${index + 1}")
+                it.endText()
+            }
+        }
+        ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+    }
+
     private fun assertInside(glyphs: List<TextPosition>, count: Int, left: Float, top: Float, right: Float, bottom: Float) {
         val inCell = glyphs.filter { it.yDirAdj in top..bottom }
         assertEquals(count, inCell.size)
