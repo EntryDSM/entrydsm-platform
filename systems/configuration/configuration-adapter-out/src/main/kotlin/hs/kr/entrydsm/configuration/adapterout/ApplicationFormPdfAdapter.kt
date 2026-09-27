@@ -230,7 +230,7 @@ private fun Sheet.admissionConsent(form: ApplicationForm) {
         text(475.92f, 170.64f, 492.37f, 196.44f, month.trimStart('0'), size)
         text(503.41f, 170.64f, 519.86f, 196.44f, day.trimStart('0'), size)
     }
-    text(157.92f, 196.44f, 538.68f, 222.36f, form.address, size, Align.LEFT)
+    text(157.92f, 196.44f, 538.68f, 222.36f, form.address, size, Align.LEFT, wrap = true)
     text(157.92f, 222.36f, 318.84f, 248.88f, form.guardianName, size)
     // "지원자의 (      )" 괄호 사이.
     text(475.75f, 222.36f, 519.47f, 248.88f, form.guardianRelation, size)

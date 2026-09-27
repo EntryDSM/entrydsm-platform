@@ -201,6 +201,19 @@ class ApplicationFormPdfTest {
         System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "registration-document.pdf").writeBytes(pdf) }
     }
 
+    @Test
+    fun `등록 서류의 긴 주소는 줄을 바꿔 주소 칸 안에 다 찍는다`() {
+        // 주소는 기본·상세 255자씩 저장된다(application applicants.address_base·address_detail). 한 줄로는 4pt 로도 넘친다.
+        val address = "(34503) 대전광역시 유성구 가정북로 76번길 123-45 대덕소프트웨어마이스터고등학교 기숙사 제3생활관 502호 " +
+            "대전광역시 유성구 가정북로 76번길 123-45 대덕소프트웨어마이스터고등학교 기숙사 제3생활관 앞 경비실 옆 우편함"
+        val pdf = adapter.renderRegistrationDocument(form().copy(address = address), registrationTemplate())
+
+        assertInside(
+            stamped(pdf, page = 1), address.count { !it.isWhitespace() },
+            left = 157.92f, top = 196.44f, right = 538.68f, bottom = 222.36f,
+        )
+    }
+
     /** 등록 서류 원본은 저장소에 두지 않는다(관리자가 S3 에 올린다). 같은 크기의 빈 A4 세 장으로 대신한다. */
     private fun registrationTemplate(): ByteArray = PDDocument().use { document ->
         repeat(3) { document.addPage(PDPage(PDRectangle.A4)) }
