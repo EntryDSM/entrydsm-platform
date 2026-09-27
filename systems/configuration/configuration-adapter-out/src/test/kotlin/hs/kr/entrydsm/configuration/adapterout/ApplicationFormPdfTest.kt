@@ -3,6 +3,9 @@ package hs.kr.entrydsm.configuration.adapterout
 import hs.kr.entrydsm.configuration.domain.document.Applicant
 import hs.kr.entrydsm.configuration.domain.document.ApplicationForm
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.apache.pdfbox.pdmodel.PDPage
+import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.text.PDFTextStripper
 import org.apache.pdfbox.text.TextPosition
 import org.junit.Assert.assertEquals
@@ -173,6 +176,37 @@ class ApplicationFormPdfTest {
     }
 
     /** 칸 안에 기준선이 있는 원서 글자가 [count] 개이고, 모두 칸 좌우 안에 있다. 칸 아래로 넘친 글자는 수에서 빠진다. */
+    @Test
+    fun `등록 서류는 원본 첫 장 입학 동의서 칸에 지원자 정보를 찍고 나머지 장은 그대로 둔다`() {
+        val pdf = adapter.renderRegistrationDocument(form().copy(examineeNumber = "11001"), registrationTemplate())
+
+        assertA4Pages(pdf, 3)
+        val glyphs = stamped(pdf, page = 1)
+        fun cell(left: Float, top: Float, right: Float, bottom: Float) = glyphs
+            .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+            .joinToString("") { it.unicode }
+
+        assertEquals("11001", cell(407.16f, 123.60f, 538.68f, 144.72f))
+        assertEquals("홍길동", cell(157.92f, 144.72f, 318.84f, 170.64f))
+        assertEquals("010-1234-5678", cell(157.92f, 170.64f, 318.84f, 196.44f))
+        assertEquals("2010", cell(407.16f, 170.64f, 464.88f, 196.44f))
+        assertEquals("3", cell(475.92f, 170.64f, 492.37f, 196.44f))
+        assertEquals("2", cell(503.41f, 170.64f, 519.86f, 196.44f))
+        assertEquals("홍판서", cell(157.92f, 222.36f, 318.84f, 248.88f))
+        assertEquals("부", cell(475.75f, 222.36f, 519.47f, 248.88f))
+        assertEquals("010-9876-5432", cell(157.92f, 248.88f, 538.68f, 274.80f))
+        assertTrue(cell(157.92f, 196.44f, 538.68f, 222.36f).startsWith("(34503)대전광역시"))
+        assertEquals(0, stamped(pdf, page = 2).size + stamped(pdf, page = 3).size)
+
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "registration-document.pdf").writeBytes(pdf) }
+    }
+
+    /** 등록 서류 원본은 저장소에 두지 않는다(관리자가 S3 에 올린다). 같은 크기의 빈 A4 세 장으로 대신한다. */
+    private fun registrationTemplate(): ByteArray = PDDocument().use { document ->
+        repeat(3) { document.addPage(PDPage(PDRectangle.A4)) }
+        ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+    }
+
     private fun assertInside(glyphs: List<TextPosition>, count: Int, left: Float, top: Float, right: Float, bottom: Float) {
         val inCell = glyphs.filter { it.yDirAdj in top..bottom }
         assertEquals(count, inCell.size)

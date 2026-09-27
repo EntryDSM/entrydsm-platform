@@ -98,6 +98,13 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
             ByteArrayOutputStream().also { document.save(it) }.toByteArray()
         }
 
+    override fun renderRegistrationDocument(form: ApplicationForm, template: ByteArray): ByteArray =
+        Loader.loadPDF(template).use { document ->
+            val font = PDType0Font.load(document, fontFile.inputStream())
+            Sheet(document, document.pages[0], font).use { it.admissionConsent(form) }
+            ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+        }
+
     private fun resource(path: String): ByteArray =
         checkNotNull(javaClass.getResourceAsStream(path)) { "Resource not found: $path" }.use { it.readBytes() }
 }
@@ -200,6 +207,36 @@ private fun Sheet.recommendation(form: ApplicationForm, receipt: String) {
     text(295.08f, 398.64f, 496.80f, 426.24f, "○".takeIf { form.admissionType == Applicant.AdmissionType.SOCIAL }, size = 14f)
 }
 
+/**
+ * 서식 7 최종 합격자 제출 서류의 입학 동의서. 인쇄된 라벨과 같은 11pt 로 찍는다.
+ * 날짜·서명과 개인정보 동의 체크는 지원자·보호자가 손으로 쓰는 칸이라 비운다.
+ *
+ * ponytail: 좌표는 2027학년도 서식 7 에서 쟀다. 관리자가 모양이 다른 PDF 를 올리면 칸이 어긋나니 서식이 바뀌면 다시 잰다.
+ */
+private fun Sheet.admissionConsent(form: ApplicationForm) {
+    val size = PERSONAL_INFO_FONT_SIZE
+    text(407.16f, 123.60f, 538.68f, 144.72f, form.examineeNumber, size)
+    text(157.92f, 144.72f, 318.84f, 170.64f, form.name, size)
+    // 인쇄된 "□남 □여" 의 네모에 체크 표시를 한다.
+    when (form.gender) {
+        ApplicationForm.Gender.MALE -> check(443.88f, 152.04f, 453.69f, 163.08f)
+        ApplicationForm.Gender.FEMALE -> check(481.09f, 152.04f, 490.90f, 163.08f)
+        null -> Unit
+    }
+    text(157.92f, 170.64f, 318.84f, 196.44f, form.phoneNumber, size)
+    // 생년월일 칸에는 "년 월 일" 이 인쇄돼 있어 각 글자 앞에 숫자만 찍는다.
+    form.birthdate?.split('-')?.takeIf { it.size == 3 }?.let { (year, month, day) ->
+        text(407.16f, 170.64f, 464.88f, 196.44f, year, size)
+        text(475.92f, 170.64f, 492.37f, 196.44f, month.trimStart('0'), size)
+        text(503.41f, 170.64f, 519.86f, 196.44f, day.trimStart('0'), size)
+    }
+    text(157.92f, 196.44f, 538.68f, 222.36f, form.address, size, Align.LEFT)
+    text(157.92f, 222.36f, 318.84f, 248.88f, form.guardianName, size)
+    // "지원자의 (      )" 괄호 사이.
+    text(475.75f, 222.36f, 519.47f, 248.88f, form.guardianRelation, size)
+    text(157.92f, 248.88f, 538.68f, 274.80f, form.guardianPhoneNumber, size)
+}
+
 /** 졸업구분 칸. "졸업예정 (2027-02)" 처럼 구분 뒤에 졸업 연월을 붙인다. */
 private fun graduation(form: ApplicationForm): String? {
     val type = form.graduationType?.label ?: return form.graduationDate
@@ -280,6 +317,21 @@ private class Sheet(private val document: PDDocument, page: PDPage, private val 
         stream.addRect(x, y, width, height)
         stream.fill()
         stream.drawImage(image, x, y, width, height)
+        stream.restoreGraphicsState()
+    }
+
+    /** 인쇄된 네모(□) 안에 체크(✓) 를 긋는다. 글꼴에 ✓ 가 없어 선으로 그린다. 좌표는 네모 글자의 칸이다. */
+    fun check(left: Float, top: Float, right: Float, bottom: Float) {
+        val width = right - left
+        // 글자 칸 위아래에 여백이 있어 네모는 칸 가운데의 정사각형이다.
+        val boxTop = (top + bottom - width) / 2
+        fun y(fromTop: Float) = pageHeight - (boxTop + fromTop * width)
+        stream.saveGraphicsState()
+        stream.setLineWidth(1.2f)
+        stream.moveTo(left + 0.15f * width, y(0.5f))
+        stream.lineTo(left + 0.4f * width, y(0.8f))
+        stream.lineTo(left + 0.9f * width, y(0.1f))
+        stream.stroke()
         stream.restoreGraphicsState()
     }
 
