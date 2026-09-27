@@ -111,7 +111,8 @@ class FileDocumentService(
         if (!category.canStore(command.requester, ownerUserId = null)) throw DocumentAccessDeniedException()
         val fileName = when (category) {
             FileCategory.PHOTO -> FileNaming.photoFileName(extension)
-            FileCategory.ATTACHMENT, FileCategory.GUIDELINE -> FileNaming.attachmentFileName(command.originalName)
+            FileCategory.ATTACHMENT, FileCategory.GUIDELINE, FileCategory.REGISTRATION_DOCUMENT ->
+                FileNaming.attachmentFileName(command.originalName)
             FileCategory.APPLICATION, FileCategory.ADMISSION_TICKET ->
                 throw IllegalArgumentException("$category is stored per applicant")
         }
@@ -138,6 +139,16 @@ class FileDocumentService(
         // 행을 먼저 지워 API 에서는 바로 사라진다. 객체 삭제가 실패하면 저장소에만 남는다.
         fileDocumentRepository.deleteByObjectKey(document.objectKey)
         deleteQuietly(document.objectKey)
+    }
+
+    override fun findRegistrationDocument(requester: Requester): DownloadableFile {
+        val category = FileCategory.REGISTRATION_DOCUMENT
+        val allowed = category.canDownload(requester, ownerUserId = null) ||
+            requester.studentId?.let(applicantPort::isFinalPassed) == true
+        if (!allowed) throw DocumentAccessDeniedException()
+        val latest = fileDocumentRepository.findPage(category, page = 1, size = 1).firstOrNull()
+            ?: throw FileDocumentNotFoundException(category.prefix)
+        return downloadable(latest)
     }
 
     /**

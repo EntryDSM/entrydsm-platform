@@ -41,6 +41,14 @@ enum class FileCategory(
         "guideline", FileExtension.attachmentFormats, MAX_ATTACHMENT_SIZE_BYTES,
         storers = setOf(ADMIN), downloaders = setOf(ADMIN, STUDENT),
     ),
+    /**
+     * 최종 합격자 등록 서류. 관리자가 올리고 가장 최근 것을 준다. 학생은 최종 합격자만 받는데, 합격 여부는
+     * 권한표로 알 수 없어 [downloaders] 에 넣지 않고 서비스가 application 에 묻는다.
+     */
+    REGISTRATION_DOCUMENT(
+        "registration-document", FileExtension.documentFormats, MAX_ATTACHMENT_SIZE_BYTES,
+        storers = setOf(ADMIN), downloaders = setOf(ADMIN),
+    ),
     ;
 
     /** 이 종류의 객체가 모이는 저장소 폴더 */

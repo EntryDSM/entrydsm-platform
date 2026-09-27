@@ -44,6 +44,7 @@ class FileDocumentServiceTest {
     private val repository = FakeFileDocumentRepository()
     private val applicants = mutableMapOf(APPLICANT_ID to applicant())
     private val forms = mutableMapOf(STUDENT_ID to applicationForm())
+    private val finalPassed = mutableSetOf<Long>()
     private val pdf = RecordingPdfRenderPort()
     private val formPdf = RecordingApplicationFormPdfPort()
     private val sheet = RecordingAdmissionTicketSheetPort()
@@ -54,6 +55,8 @@ class FileDocumentServiceTest {
             override fun findById(applicantId: Long) = applicants[applicantId]
 
             override fun findApplicationForm(accountId: Long) = forms[accountId]
+
+            override fun isFinalPassed(accountId: Long) = accountId in finalPassed
         },
         pdfRenderPort = pdf, applicationFormPdfPort = formPdf, admissionTicketSheetPort = sheet, admissionYear = 2027,
     )
@@ -402,6 +405,29 @@ class FileDocumentServiceTest {
     }
 
     @Test
+    fun `등록 서류는 관리자만 올리고, 관리자와 최종 합격한 학생만 최근 것을 받는다`() {
+        assertThrows(FileDocumentNotFoundException::class.java) { service.findRegistrationDocument(admin) }
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.upload(registrationDocument(student(STUDENT_ID)), content())
+        }
+        service.upload(registrationDocument(admin, "옛 서류.pdf"), content())
+        val newer = service.upload(registrationDocument(admin), content())
+        service.upload(guideline("2027.pdf"), content())
+
+        assertThrows(DocumentAccessDeniedException::class.java) { service.findRegistrationDocument(student(STUDENT_ID)) }
+        finalPassed += STUDENT_ID
+
+        val found = service.findRegistrationDocument(student(STUDENT_ID))
+        assertEquals(newer.document.publicId, found.document.publicId)
+        assertTrue(found.downloadUrl.startsWith("https://s3/dsm_Entry/backend/stag/registration-document/"))
+        assertEquals(newer.document.publicId, service.findRegistrationDocument(admin).document.publicId)
+        // 등록 서류는 공개 ID 로 학생에게 주지 않는다.
+        assertThrows(DocumentAccessDeniedException::class.java) {
+            service.find(FileCategory.REGISTRATION_DOCUMENT, newer.document.publicId, student(STUDENT_ID))
+        }
+    }
+
+    @Test
     fun `첨부 삭제는 관리자만 하고 행과 객체를 모두 지운다`() {
         val attachment = service.upload(attachment(), content())
         val attachmentId = attachment.document.publicId
@@ -437,6 +463,9 @@ class FileDocumentServiceTest {
         originalName: String = "notice.pdf",
         sizeBytes: Long = 1024,
     ) = UploadFileCommand(FileCategory.ATTACHMENT, originalName, sizeBytes, requester)
+
+    private fun registrationDocument(requester: Requester, originalName: String = "등록 서류.pdf") =
+        UploadFileCommand(FileCategory.REGISTRATION_DOCUMENT, originalName, 1024, requester)
 
     private fun guideline(originalName: String) = UploadFileCommand(FileCategory.GUIDELINE, originalName, 1024, admin)
 
