@@ -50,8 +50,9 @@ class UseCaseConfig {
         clientLogStorePort: ClientLogStorePort,
         storageUsagePort: StorageUsagePort,
         roundPort: RoundPort,
+        metricsStorePort: MetricsStorePort,
         clock: Clock,
-    ) = MonitorDashboardService(sessionStorePort, healthCheckPort, clientLogStorePort, storageUsagePort, roundPort, clock)
+    ) = MonitorDashboardService(sessionStorePort, healthCheckPort, clientLogStorePort, storageUsagePort, roundPort, metricsStorePort, clock)
 
     @Bean
     fun metricsSeriesService(

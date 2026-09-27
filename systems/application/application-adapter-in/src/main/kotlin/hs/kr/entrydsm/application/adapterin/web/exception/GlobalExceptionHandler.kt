@@ -3,6 +3,8 @@ package hs.kr.entrydsm.application.adapterin.web.exception
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
+import hs.kr.entrydsm.application.application.exception.ApplicationPeriodClosedException
+import hs.kr.entrydsm.application.application.exception.ApplicationPeriodLookupFailedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
 import hs.kr.entrydsm.application.application.exception.SensitiveConsentRequiredException
 import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedException
@@ -59,6 +61,29 @@ class GlobalExceptionHandler {
             code = "SENSITIVE_CONSENT_REQUIRED",
             message = exception.message ?: "sensitive information consent is required",
         )
+
+    @ExceptionHandler(ApplicationPeriodClosedException::class)
+    fun handleApplicationPeriodClosed(exception: ApplicationPeriodClosedException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.FORBIDDEN,
+            code = "APPLICATION_PERIOD_CLOSED",
+            message = exception.message ?: "application period is closed",
+        )
+
+    // 기간을 확인하지 못하면 원서를 받지 않는다. configuration 장애라 서버 쪽 오류로 남긴다.
+    @ExceptionHandler(ApplicationPeriodLookupFailedException::class)
+    fun handleApplicationPeriodLookupFailed(exception: ApplicationPeriodLookupFailedException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.SERVICE_UNAVAILABLE,
+            code = "SCHEDULE_SERVICE_UNAVAILABLE",
+            message = "schedule service is unavailable",
+        ).also {
+            logger.warn(
+                "Application period lookup failed [correlationId={}]",
+                MDC.get("correlationId") ?: "unknown",
+                exception,
+            )
+        }
 
     @ExceptionHandler(ApplicationAccessDeniedException::class)
     fun handleApplicationAccessDenied(exception: ApplicationAccessDeniedException): ResponseEntity<ErrorResponse> =

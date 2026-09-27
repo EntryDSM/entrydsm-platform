@@ -77,6 +77,20 @@ class IdentityServiceTest {
 
         assertEquals(PassStatus.NOT_ANNOUNCED, result.passStatus)
         assertEquals(null, result.announcedAt)
+        assertEquals("0006", result.applicationNumber)
+        assertEquals("홍길동", result.name)
+        assertEquals("NATIONAL", result.region)
+    }
+
+    @Test
+    fun resultUsesApplicationPassStatusAndExamineeNumber() {
+        val (services, applications) = services()
+        applications.snapshots[123L] = applications.snapshots.getValue(123L).copy(examineeNumber = "11001")
+
+        val result = services.application.getApplicationResult(ReadApplicationCommand(123L))
+
+        assertEquals(PassStatus.FIRST_PASSED, result.passStatus)
+        assertEquals("11001", result.examineeNumber)
     }
 
     @Test
@@ -91,7 +105,7 @@ class IdentityServiceTest {
 
     private fun services(): Pair<ServiceBundle, FakeApplicationDataPort> {
         val applications = FakeApplicationDataPort()
-        return Pair(ServiceBundle(application = ApplicationService(applications, FIXED_CLOCK)), applications)
+        return Pair(ServiceBundle(application = ApplicationService(applications, FakeAccountRepository(), FIXED_CLOCK)), applications)
     }
 
     private fun captureIdentityException(block: () -> Unit): IdentityDomainException = try {

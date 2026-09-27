@@ -11,6 +11,7 @@ import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
+import hs.kr.entrydsm.application.domain.nowUtc
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -46,6 +47,9 @@ open class ApplicantJpaEntity(
 
     @Column(name = "phone_number", length = 16)
     var phoneNumber: String? = null,
+
+    @Column(name = "examinee_number", length = 16)
+    var examineeNumber: String? = null,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "gender", length = 10)
@@ -121,10 +125,10 @@ open class ApplicantJpaEntity(
     var statusVersion: Long = 0,
 
     @Column(name = "created_at", nullable = false)
-    var createdAt: LocalDateTime = LocalDateTime.now(),
+    var createdAt: LocalDateTime = nowUtc(),
 
     @Column(name = "updated_at", nullable = false)
-    var updatedAt: LocalDateTime = LocalDateTime.now(),
+    var updatedAt: LocalDateTime = nowUtc(),
 
     @OneToOne(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
     open var middleSchoolInfo: MiddleSchoolInfoJpaEntity? = null,
@@ -135,14 +139,18 @@ open class ApplicantJpaEntity(
     @OneToMany(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true)
     open var passResults: MutableList<PassResultJpaEntity> = mutableListOf(),
 ) {
-    fun toDomain(): Applicant {
-        val finalResult = passResults.firstOrNull { it.id.resultType == ResultType.FINAL }
+    fun toDomain(includePassResults: Boolean = true): Applicant {
+        val passResult = if (includePassResults) {
+            passResults.firstOrNull { it.id.resultType == ResultType.FINAL && it.result != PassResultStatus.PENDING }
+                ?: passResults.firstOrNull { it.id.resultType == ResultType.DOCUMENT && it.result != PassResultStatus.PENDING }
+        } else null
         return Applicant(
             id = requireNotNull(id),
             accountId = accountId,
             photoFileId = photoFileId,
             name = name,
             phoneNumber = phoneNumber,
+            examineeNumber = examineeNumber,
             gender = gender,
             birthdate = birthdate,
             specialAdmissionType = specialAdmissionType,
@@ -167,8 +175,9 @@ open class ApplicantJpaEntity(
             submittedAt = submittedAt,
             cancelReason = cancelReason,
             statusVersion = statusVersion,
-            passStatus = finalResult?.result ?: PassResultStatus.PENDING,
-            announcedAt = finalResult?.processedAt,
+            passStatus = passResult?.result ?: PassResultStatus.PENDING,
+            passResultType = passResult?.id?.resultType,
+            announcedAt = passResult?.processedAt,
             createdAt = createdAt,
             updatedAt = updatedAt,
         )
@@ -179,6 +188,7 @@ open class ApplicantJpaEntity(
         photoFileId = domain.photoFileId
         name = domain.name
         phoneNumber = domain.phoneNumber
+        examineeNumber = domain.examineeNumber
         gender = domain.gender
         birthdate = domain.birthdate
         specialAdmissionType = domain.specialAdmissionType

@@ -1,5 +1,7 @@
 package hs.kr.entrydsm.admin.domain.port.out
 
+import hs.kr.entrydsm.admin.domain.model.FirstPassRow
+
 /**
  * 표를 xlsx 바이트로 변환합니다.
  *
@@ -10,4 +12,7 @@ interface XlsxRenderPort {
      * @param rows 행마다 [header] 순서로 담은 값. 숫자는 숫자 칸, null 은 빈 칸, 나머지는 글자 칸이 된다
      */
     fun render(sheetName: String, header: List<String>, rows: List<List<Any?>>): ByteArray
+
+    fun renderApplicationChecklist(rows: List<FirstPassRow>): ByteArray =
+        error("application checklist rendering is not supported")
 }

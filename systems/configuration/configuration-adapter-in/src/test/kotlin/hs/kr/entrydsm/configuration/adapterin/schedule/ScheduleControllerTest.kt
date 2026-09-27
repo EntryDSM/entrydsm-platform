@@ -161,6 +161,8 @@ class ScheduleControllerTest {
         override fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule =
             Schedule(2, title, startAt, endAt)
 
+        override fun findByTitle(title: String): Schedule? = null
+
         override fun findByYear(year: Int): List<Schedule> {
             requestedYear = year
             return listOf(

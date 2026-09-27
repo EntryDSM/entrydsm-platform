@@ -4,6 +4,7 @@ import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameExc
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,14 +46,23 @@ class DocumentDomainTest {
     @Test
     fun `object key는 루트 prefix와 카테고리 prefix를 붙인다`() {
         assertEquals(
-            "dsm_Entry/Backend/admission-ticket/admission_ticket_12.pdf",
+            "dsm_Entry/backend/stag/admission-ticket/admission_ticket_12.pdf",
             FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_12.pdf"),
         )
+        assertEquals(
+            "dsm_Entry/backend/prod/admission-ticket/admission_ticket_12.pdf",
+            FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_12.pdf", "prod"),
+        )
+        assertThrows(IllegalArgumentException::class.java) {
+            FileCategory.ADMISSION_TICKET.objectKeyOf("admission_ticket_12.pdf", "dev")
+        }
     }
 
     @Test
     fun `카테고리는 자기 prefix 아래의 object key만 담는다`() {
         assertTrue(FileCategory.GUIDELINE.holds("dsm_Entry/Backend/guideline/a_guide.pdf"))
+        assertTrue(FileCategory.GUIDELINE.holds("dsm_Entry/backend/prod/guideline/a_guide.pdf"))
+        assertTrue(FileCategory.GUIDELINE.holds("dsm_Entry/backend/stag/guideline/a_guide.pdf"))
         assertFalse(FileCategory.GUIDELINE.holds("dsm_Entry/Backend/application/application_12.pdf"))
     }
 
@@ -67,9 +77,16 @@ class DocumentDomainTest {
     }
 
     @Test
-    fun `원서·수험표 파일명은 지원자 ID로 만든다`() {
-        assertEquals("application_12.pdf", FileNaming.applicationFileName(12))
-        assertEquals("admission_ticket_12.pdf", FileNaming.admissionTicketFileName(12))
+    fun `원서·수험표 파일명은 네 자리 접수번호로 만든다`() {
+        assertEquals("application_0012.pdf", FileNaming.applicationFileName(12))
+        assertEquals("admission_ticket_0012.pdf", FileNaming.admissionTicketFileName(12))
+        assertEquals("application_0001.pdf", FileNaming.applicationFileName(1))
+        assertEquals("admission_ticket_0001.pdf", FileNaming.admissionTicketFileName(1))
+        // 9999 번을 넘으면 자릿수가 늘어난다.
+        assertEquals("application_9999.pdf", FileNaming.applicationFileName(9999))
+        assertEquals("admission_ticket_9999.pdf", FileNaming.admissionTicketFileName(9999))
+        assertEquals("application_10000.pdf", FileNaming.applicationFileName(10000))
+        assertEquals("admission_ticket_10000.pdf", FileNaming.admissionTicketFileName(10000))
     }
 
     @Test
@@ -149,7 +166,37 @@ class DocumentDomainTest {
         assertFalse(FileCategory.PHOTO.canDelete(student(11), ownerUserId = 10))
     }
 
+    @Test
+    fun `출신지역은 학교 주소를 처음 나오는 시·군까지 자른다`() {
+        mapOf(
+            "대전광역시 유성구 가정북로 76" to "대전광역시",
+            "경기도 수원시 장안구 송정로21번길 42" to "경기도 수원시",
+            // '시'만 보면 군 지역 학교는 도까지만 찍힌다.
+            "경기도 연천군 군남면 진상17길 46" to "경기도 연천군",
+            "세종특별자치시 한누리대로 2130" to "세종특별자치시",
+            "제주특별자치도 서귀포시 중산간서로 1" to "제주특별자치도 서귀포시",
+            // 시·군 토큰이 없는 축약 표기는 첫 토큰(시·도)만 쓴다.
+            "서울 마포구 신수로8길 20" to "서울",
+        ).forEach { (address, region) -> assertEquals(address, region, school(address).originRegion) }
+    }
+
+    @Test
+    fun `학교 주소가 없으면 출신지역도 없다`() {
+        assertNull(school(null).originRegion)
+        assertNull(school("").originRegion)
+        assertNull(school("   ").originRegion)
+    }
+
     private val admin = Requester(1, Requester.Role.ADMIN)
 
     private fun student(userId: Long) = Requester(userId, Requester.Role.STUDENT)
+
+    private fun school(address: String?) = ApplicationForm.MiddleSchool(
+        name = "대덕중학교",
+        studentNumber = "30115",
+        phone = "042-000-0000",
+        teacherName = "김선생",
+        code = "7451012",
+        address = address,
+    )
 }

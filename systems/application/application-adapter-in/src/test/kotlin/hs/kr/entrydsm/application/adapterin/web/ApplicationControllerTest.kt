@@ -41,7 +41,7 @@ class ApplicationControllerTest {
             .setControllerAdvice(GlobalExceptionHandler())
             .build()
 
-        val response = mvc.perform(post("/api/application/v11/applicants").header("user-id", "10"))
+        val response = mvc.perform(post("/api/application/v11/applicants").header("X-USER-ID", "10"))
             .andReturn().response
 
         assertEquals(409, response.status)
@@ -117,6 +117,8 @@ class ApplicationControllerTest {
     private class FakeApplicationPort : ApplicationPort {
         var createApplicantCommand: CreateApplicantCommand? = null
 
+        override fun listApplicants(): List<ApplicantResult> = emptyList()
+
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
             createApplicantCommand = command
             return CreateApplicantResult(
@@ -144,6 +146,7 @@ class ApplicationControllerTest {
         override fun findApplicant(applicantId: Long): ApplicantResult? = null
         override fun findApplicationForm(accountId: Long): ApplicationFormResult? = null
         override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult = error("not used")
+        override fun deleteApplicant(applicantId: Long) = Unit
     }
 
     private companion object {

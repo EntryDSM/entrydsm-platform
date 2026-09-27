@@ -8,5 +8,7 @@ interface ApplicationDataPort {
 
     fun findByUserId(userId: Long): ApplicationSnapshot?
 
+    fun findResultByUserId(userId: Long): ApplicationSnapshot? = findByUserId(userId)
+
     fun cancel(userId: Long, reason: String?, updatedAt: Instant): ApplicationSnapshot
 }

@@ -15,22 +15,29 @@ import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapsh
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.ResultType
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
+import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import hs.kr.entrydsm.application.domain.service.ScoreBreakdown
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
+import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberRequest
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
@@ -89,6 +96,37 @@ class ApplicationGrpcServiceTest {
     }
 
     @Test
+    fun distinguishesDocumentAndFinalResults() {
+        val expected = listOf(
+            Triple(ResultType.DOCUMENT, PassResultStatus.PASS, hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_FIRST_PASSED),
+            Triple(ResultType.DOCUMENT, PassResultStatus.FAIL, hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_FIRST_FAILED),
+            Triple(ResultType.FINAL, PassResultStatus.PASS, hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_FINAL_PASSED),
+            Triple(ResultType.FINAL, PassResultStatus.FAIL, hs.kr.entrydsm.application.grpc.PassStatus.PASS_STATUS_FINAL_FAILED),
+        )
+        expected.forEach { (type, result, grpcStatus) ->
+            port.snapshot = ApplicationSnapshotResult(
+                accountId = USER_ID,
+                applicantStatus = ApplicantStatus.SUBMITTED,
+                submittedAt = null,
+                updatedAt = LocalDateTime.of(2026, 9, 9, 0, 0),
+                passStatus = result,
+                announcedAt = null,
+                passResultType = type,
+            )
+            assertEquals(grpcStatus, stub.getApplication(GetApplicationRequest.newBuilder().setUserId(USER_ID).build()).passStatus)
+        }
+    }
+
+    @Test
+    fun acceptsIssuedExamineeNumber() {
+        stub.updateExamineeNumber(
+            UpdateExamineeNumberRequest.newBuilder().setApplicantId(APPLICANT_ID).setExamineeNumber("11001").build(),
+        )
+
+        assertEquals(APPLICANT_ID to "11001", port.examineeNumberUpdate)
+    }
+
+    @Test
     fun mapsInvalidAndMissingUsers() {
         val invalid = assertThrows(StatusRuntimeException::class.java) {
             stub.getApplication(GetApplicationRequest.newBuilder().setUserId(0).build())
@@ -97,6 +135,21 @@ class ApplicationGrpcServiceTest {
             stub.getApplication(GetApplicationRequest.newBuilder().setUserId(404).build())
         }
 
+        assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
+        assertEquals(Status.Code.NOT_FOUND, missing.status.code)
+    }
+
+    @Test
+    fun deletesApplicantAndMapsInvalidAndMissingIds() {
+        stub.deleteApplicant(DeleteApplicantRequest.newBuilder().setApplicantId(APPLICANT_ID).build())
+        val invalid = assertThrows(StatusRuntimeException::class.java) {
+            stub.deleteApplicant(DeleteApplicantRequest.newBuilder().setApplicantId(0).build())
+        }
+        val missing = assertThrows(StatusRuntimeException::class.java) {
+            stub.deleteApplicant(DeleteApplicantRequest.newBuilder().setApplicantId(404).build())
+        }
+
+        assertEquals(APPLICANT_ID, port.deletedApplicantId)
         assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
     }
@@ -111,6 +164,14 @@ class ApplicationGrpcServiceTest {
             region = Region.DAEJEON,
             admissionType = null,
             photoFileId = "photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8",
+            birthdate = null,
+            phoneNumber = null,
+            graduationType = null,
+            totalScore = null,
+            status = ApplicantStatus.SUBMITTED,
+            submittedAt = null,
+            gender = Gender.FEMALE,
+            address = "충청남도 천안시",
         )
 
         val found = stub.getApplicant(GetApplicantRequest.newBuilder().setApplicantId(APPLICANT_ID).build())
@@ -125,6 +186,8 @@ class ApplicationGrpcServiceTest {
         assertEquals(GrpcRegion.REGION_DAEJEON, found.region)
         assertEquals(GrpcAdmissionType.ADMISSION_TYPE_UNSPECIFIED, found.admissionType)
         assertEquals("photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8", found.photoFileId)
+        assertEquals(GrpcGender.GENDER_FEMALE, found.gender)
+        assertEquals("충청남도 천안시", found.address)
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
     }
 
@@ -141,14 +204,21 @@ class ApplicationGrpcServiceTest {
             address = "(34503) 대전광역시 유성구 가정북로 76 101동 1001호",
             photoFileId = "photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8",
             region = Region.DAEJEON,
-            admissionType = null,
+            admissionType = AdmissionType.MEISTER,
             specialAdmissionType = SpecialAdmissionType.NATIONAL_MERIT,
             graduationType = GraduationType.PROSPECTIVE,
             graduationDate = YearMonth.of(2027, 2),
             guardianName = "홍판서",
             guardianRelation = "부",
             guardianPhoneNumber = null,
-            middleSchool = MiddleSchoolInfo("대덕중학교", "30115", "042-000-0000", "김선생"),
+            middleSchool = MiddleSchoolInfo(
+                "D100000",
+                "대덕중학교",
+                "30115",
+                "042-000-0000",
+                "김선생",
+                schoolAddress = "대전광역시 대덕구 중리로 1",
+            ),
             thirdGradeSecondSemester = null,
             thirdGradeFirstSemester = SubjectGrades(
                 koreanGrade = SubjectGrade.A,
@@ -162,6 +232,27 @@ class ApplicationGrpcServiceTest {
             previousSemester = null,
             secondPreviousSemester = null,
             academicRecord = AcademicRecord(volunteerTime = 30, isDsmAlgorithmAwarded = true),
+            score = ScoreBreakdown(
+                subjectScore = 72.5,
+                attendanceScore = 15.0,
+                volunteerScore = 12.0,
+                additionalScore = 3.0,
+                totalScore = 102.5,
+            ),
+            introduction = "저는 …",
+            studyPlan = "입학 후 …",
+            classNumber = "1",
+            studentNumber = "30115",
+            gedAverage = 95.5,
+            gedScores = GedScores(
+                koreanScore = 95,
+                societyScore = 90,
+                historyScore = 85,
+                mathScore = 80,
+                scienceScore = 75,
+                technologyScore = 70,
+                englishScore = 65,
+            ),
         )
 
         val found = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build())
@@ -183,35 +274,112 @@ class ApplicationGrpcServiceTest {
             GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NATIONAL_MERIT,
             found.specialAdmissionType,
         )
+        assertEquals("D100000", found.middleSchool.code)
         assertEquals("대덕중학교", found.middleSchool.name)
         assertEquals("김선생", found.middleSchool.teacherName)
+        assertEquals("대전광역시 대덕구 중리로 1", found.middleSchool.address)
         // 성취도 미이수(X)는 요강에 없는 값이라 빈 문자열로 나가 칸이 빈다.
         assertEquals("A", found.thirdGradeFirstSemester.korean)
         assertEquals("", found.thirdGradeFirstSemester.math)
         assertEquals(30, found.academicRecord.volunteerTime)
         assertTrue(found.academicRecord.dsmAlgorithmAwarded)
         assertFalse(found.academicRecord.programmingCertified)
+        assertEquals(72.5, found.subjectScore, 0.0)
+        assertEquals(15.0, found.attendanceScore, 0.0)
+        assertEquals(12.0, found.volunteerScore, 0.0)
+        assertEquals(3.0, found.additionalScore, 0.0)
+        assertEquals(102.5, found.totalScore, 0.0)
         // 비어 있는 값은 담지 않아 서식의 칸이 빈다.
         assertFalse(found.hasPhoneNumber())
         assertFalse(found.hasGuardianPhoneNumber())
         assertFalse(found.hasThirdGradeSecondSemester())
-        assertEquals(GrpcAdmissionType.ADMISSION_TYPE_UNSPECIFIED, found.admissionType)
+        assertEquals(GrpcAdmissionType.ADMISSION_TYPE_MEISTER, found.admissionType)
+        assertEquals("1", found.classNumber)
+        assertEquals("30115", found.studentNumber)
+        assertEquals(95.5, found.gedAverage, 0.0)
+        // 과목 순서가 도메인과 proto 에서 달라 과목마다 다른 점수로 본다.
+        assertEquals(
+            listOf(95, 90, 85, 80, 75, 70, 65),
+            with(found.gedScores) { listOf(korean, society, history, math, science, technology, english) },
+        )
+        assertEquals("1", found.admissionTypeCode)
+        assertEquals("1", found.regionCode)
+        assertEquals("1", found.specialAdmissionTypeCode)
 
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
         assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
+
+        // 기관코드 표에 주소가 없는 학교는 주소를 담지 않아 출신지역 칸이 빈다.
+        port.form = port.form?.copy(
+            middleSchool = MiddleSchoolInfo("D100000", "대덕중학교", "30115", "042-000-0000", "김선생"),
+        )
+        val withoutAddress = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build())
+        assertEquals("D100000", withoutAddress.middleSchool.code)
+        assertFalse(withoutAddress.middleSchool.hasAddress())
+    }
+
+    @Test
+    fun servesApplicationFormsInOneBatch() {
+        port.form = ApplicationFormResult(
+            applicantId = APPLICANT_ID,
+            accountId = USER_ID,
+            status = ApplicantStatus.SUBMITTED,
+            name = null,
+            phoneNumber = null,
+            birthdate = null,
+            gender = null,
+            address = null,
+            photoFileId = null,
+            region = null,
+            admissionType = null,
+            specialAdmissionType = SpecialAdmissionType.NONE,
+            graduationType = null,
+            graduationDate = null,
+            guardianName = null,
+            guardianRelation = null,
+            guardianPhoneNumber = null,
+            middleSchool = null,
+            thirdGradeSecondSemester = null,
+            thirdGradeFirstSemester = null,
+            previousSemester = null,
+            secondPreviousSemester = null,
+            academicRecord = null,
+            score = null,
+            introduction = null,
+            studyPlan = null,
+        )
+
+        val response = stub.batchGetApplicationForms(
+            BatchGetApplicationFormsRequest.newBuilder().addAccountId(USER_ID).build(),
+        )
+
+        assertEquals(listOf(USER_ID), port.batchAccountIds)
+        assertEquals(APPLICANT_ID, response.applicationsList.single().applicantId)
+        assertFalse(response.applicationsList.single().hasAdmissionTypeCode())
+        assertFalse(response.applicationsList.single().hasRegionCode())
     }
 
     private class FakeApplicationPort : ApplicationPort {
-        private var snapshot: ApplicationSnapshotResult? = null
+        var snapshot: ApplicationSnapshotResult? = null
+        var examineeNumberUpdate: Pair<Long, String>? = null
+
+        override fun updateExamineeNumber(applicantId: Long, examineeNumber: String) {
+            examineeNumberUpdate = applicantId to examineeNumber
+        }
         var applicant: ApplicantResult? = null
+        var applicants: List<ApplicantResult> = emptyList()
         var form: ApplicationFormResult? = null
         var cancelReason: String? = null
         var findCount = 0
+        var batchAccountIds: List<Long> = emptyList()
+        var deletedApplicantId: Long? = null
 
         override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
             snapshot = snapshot(command.accountId ?: error("accountId is required"), ApplicantStatus.DRAFT)
             return CreateApplicantResult(1L, requireNotNull(snapshot))
         }
+
+        override fun listApplicants(): List<ApplicantResult> = applicants
 
         override fun findByAccountId(accountId: Long): ApplicationSnapshotResult? {
             findCount += 1
@@ -224,9 +392,19 @@ class ApplicationGrpcServiceTest {
         override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
             form?.takeIf { it.accountId == accountId }
 
+        override fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> {
+            batchAccountIds = accountIds
+            return listOfNotNull(form?.takeIf { it.accountId in accountIds })
+        }
+
         override fun cancel(accountId: Long, reason: String?): ApplicationSnapshotResult {
             cancelReason = reason
             return snapshot(accountId, ApplicantStatus.CANCELED).also { snapshot = it }
+        }
+
+        override fun deleteApplicant(applicantId: Long) {
+            if (applicantId == 404L) throw hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException(applicantId)
+            deletedApplicantId = applicantId
         }
 
         override fun updateType(command: UpdateTypeCommand) = Unit

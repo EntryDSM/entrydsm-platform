@@ -99,12 +99,16 @@ class GrpcApplicantAdapter(
         guardianName = guardianName.takeIf { hasGuardianName() },
         guardianRelation = guardianRelation.takeIf { hasGuardianRelation() },
         guardianPhoneNumber = guardianPhoneNumber.takeIf { hasGuardianPhoneNumber() },
-        school = middleSchool.takeIf { hasMiddleSchool() }?.let {
+        introduction = introduction.takeIf { hasIntroduction() },
+        studyPlan = studyPlan.takeIf { hasStudyPlan() },
+        school = middleSchool.takeIf { hasMiddleSchool() }?.let { school ->
             ApplicationForm.MiddleSchool(
-                name = it.name,
-                studentNumber = it.studentNumber,
-                phone = it.phone,
-                teacherName = it.teacherName,
+                code = school.code,
+                name = school.name,
+                studentNumber = school.studentNumber,
+                phone = school.phone,
+                teacherName = school.teacherName,
+                address = school.address.takeIf { school.hasAddress() },
             )
         },
         // 서식의 열 순서 그대로다 — 3학년 2학기, 3학년 1학기, 직전학기, 직전전학기.
@@ -114,6 +118,17 @@ class GrpcApplicantAdapter(
             previousSemester.takeIf { hasPreviousSemester() },
             secondPreviousSemester.takeIf { hasSecondPreviousSemester() },
         ).map { it?.toSemesterGrades() },
+        gedScores = gedScores.takeIf { hasGedScores() }?.let {
+            ApplicationForm.SemesterGrades(
+                korean = it.korean.toString(),
+                society = it.society.toString(),
+                history = it.history.toString(),
+                math = it.math.toString(),
+                science = it.science.toString(),
+                technology = it.technology.toString(),
+                english = it.english.toString(),
+            )
+        },
         academicRecord = academicRecord.takeIf { hasAcademicRecord() }?.let {
             ApplicationForm.AcademicRecord(
                 absentCount = it.absentCount,

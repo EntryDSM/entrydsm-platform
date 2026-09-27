@@ -1,10 +1,13 @@
 package hs.kr.entrydsm.admin.domain.port.out
 
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
+import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
+import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.model.Notice
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
@@ -18,10 +21,37 @@ interface ApplicantRepository {
 
     fun findById(applicantId: Long): Applicant?
 
+    /** 상세 화면용. 자기소개서·학업계획서·증명사진 ID 까지 읽는다. */
+    fun findDetailById(applicantId: Long): ApplicantDetail?
+
     fun save(applicant: Applicant): Applicant
 
     fun saveAll(applicants: List<Applicant>): List<Applicant>
 
+    fun deleteById(applicantId: Long) = Unit
+
+    fun findFirstPassRows(): List<FirstPassRow> = emptyList()
+
+    fun findAdmissionFileRows(): List<FirstPassRow> = emptyList()
+
+    fun findApplicationChecklistRows(): List<FirstPassRow> = emptyList()
+
+    fun syncExportProjection() = Unit
+
+    fun findFirstPassApplicants(): List<Applicant> = emptyList()
+
+}
+
+fun interface ApplicantArrivalPort {
+    fun update(applicantId: Long, isArrived: Boolean)
+}
+
+fun interface ApplicantDeletionPort {
+    fun delete(applicantId: Long)
+}
+
+fun interface DistancePort {
+    fun distanceFromSchool(address: String): Long
 }
 
 interface ScorePolicyRepository {
@@ -41,6 +71,8 @@ interface ExportJobRepository {
     fun findByExportJobId(exportJobId: String): ExportJob?
 
     fun save(exportJob: ExportJob): ExportJob
+
+    fun findDownloadableByType(type: ExportType): List<ExportJob> = emptyList()
 }
 
 interface NoticeRepository {

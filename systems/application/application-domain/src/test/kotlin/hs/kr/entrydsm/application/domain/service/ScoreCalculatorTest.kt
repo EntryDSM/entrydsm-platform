@@ -34,6 +34,32 @@ class ScoreCalculatorTest {
     }
 
     @Test
+    fun calculatesScoreBreakdown() {
+        val breakdown = calculator.calculateBreakdown(
+            Applicant(
+                id = 1L,
+                accountId = 1L,
+                admissionType = AdmissionType.REGULAR,
+                graduationType = GraduationType.PROSPECTIVE,
+                academicRecord = AcademicRecord(
+                    absentCount = 1,
+                    volunteerTime = 10,
+                    isDsmAlgorithmAwarded = true,
+                    subjectGrades = linkedMapOf(
+                        SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(140.0, breakdown.subjectScore, 0.0)
+        assertEquals(14.0, breakdown.attendanceScore, 0.0)
+        assertEquals(10.0, breakdown.volunteerScore, 0.0)
+        assertEquals(3.0, breakdown.additionalScore, 0.0)
+        assertEquals(167.0, breakdown.totalScore, 0.0)
+    }
+
+    @Test
     fun calculatesGedScores() {
         val record = AcademicRecord(
             absentCount = 10,

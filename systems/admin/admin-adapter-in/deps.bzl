@@ -8,6 +8,7 @@ KOTLIN_DEPS = [
 
 TEST_DEPS = [
     "@maven//:junit_junit",
+    "@maven//:org_springframework_spring_test",
 ]
 
 MODULE_DEPS = KOTLIN_DEPS

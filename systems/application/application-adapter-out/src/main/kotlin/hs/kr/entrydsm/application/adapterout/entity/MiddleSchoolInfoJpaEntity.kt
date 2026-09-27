@@ -47,6 +47,7 @@ open class MiddleSchoolInfoJpaEntity(
     @Column(name = "teacher_name", nullable = false, length = 20)
     var teacherName: String = "",
 ) {
+    /** schoolAddress 는 기관코드 표의 값이라 쓰지 않는다. */
     fun updateFrom(domain: MiddleSchoolInfo) {
         schoolCode = domain.schoolCode
         schoolName = domain.schoolName
@@ -55,6 +56,10 @@ open class MiddleSchoolInfoJpaEntity(
         teacherName = domain.teacherName
     }
 
+    /**
+     * 주소는 institutionCode 를 따라 읽는다. 같은 영속성 컨텍스트에서 학교 코드를 막 바꾼 뒤에는
+     * 연관이 옛 학교(새 행이면 null)를 가리키니, 주소가 필요하면 새로 읽는다.
+     */
     fun toDomain(): MiddleSchoolInfo =
         MiddleSchoolInfo(
             schoolCode = schoolCode,
@@ -62,5 +67,6 @@ open class MiddleSchoolInfoJpaEntity(
             studentNumber = studentNumber,
             schoolPhone = schoolPhone,
             teacherName = teacherName,
+            schoolAddress = institutionCode?.address,
         )
 }

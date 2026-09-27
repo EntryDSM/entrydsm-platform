@@ -27,29 +27,54 @@ server:
   port: ${SERVER_PORT}
   shutdown: graceful
 admin:
-  admission-year: ${ADMISSION_YEAR:2027}
   screening:
     # 1차(서류) 선발 인원 = 지역·전형별 모집 정원 × 배수(올림). 최종은 모집 정원 그대로.
     first-pass-multiplier: ${FIRST_PASS_MULTIPLIER:1.5}
   storage:
     # 리전, 엔드포인트, 자격 증명은 AWS 표준 환경변수(AWS_REGION, AWS_ENDPOINT_URL_S3 등)를 따른다.
     bucket: ${STORAGE_BUCKET:entrydsm-admin}
+    environment: ${STORAGE_ENV}
     download-url-expires-seconds: ${DOWNLOAD_URL_EXPIRES_SECONDS:900}
+  maps:
+    api-key: ${KAKAO_REST_API_KEY:}
+    geocoding-url: ${KAKAO_GEOCODING_URL:https://dapi.kakao.com/v2/local/search/keyword.json}
+    directions-url: ${KAKAO_DIRECTIONS_URL:https://apis-navi.kakaomobility.com/v1/directions}
+    school-address: ${SCHOOL_ADDRESS:대덕소프트웨어마이스터고등학교}
+    timeout-ms: ${KAKAO_API_TIMEOUT_MS:3000}
+application:
+  grpc:
+    # 지원자 원서는 application 이 갖는다. 기본값은 docker compose 서비스 이름과 포트.
+    host: ${APPLICATION_GRPC_HOST:application}
+    port: ${APPLICATION_GRPC_PORT:9090}
+    deadline-ms: ${APPLICATION_GRPC_DEADLINE_MS:3000}
+    # 목록은 회차 전체를 한 번에 받아 오므로 더 길게 준다.
+    list-deadline-ms: ${APPLICATION_GRPC_LIST_DEADLINE_MS:10000}
 notification:
   grpc:
     # 공지 등록을 notification 에 위임한다. 기본값은 docker compose 서비스 이름과 포트.
     host: ${NOTIFICATION_GRPC_HOST:notification}
     port: ${NOTIFICATION_GRPC_PORT:9090}
     deadline-ms: ${NOTIFICATION_GRPC_DEADLINE_MS:3000}
+configuration:
+  grpc:
+    # 수험표(양식·증명사진)는 document(configuration) 가 그린다. 기본값은 docker compose 서비스 이름과 포트.
+    host: ${CONFIGURATION_GRPC_HOST:configuration}
+    port: ${CONFIGURATION_GRPC_PORT:9090}
+    # 수험표 한 장 기준(application 조회, 사진 받기). 일괄 출력은 장수를 곱해 기다린다.
+    deadline-ms: ${CONFIGURATION_GRPC_DEADLINE_MS:10000}
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 logging:
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}

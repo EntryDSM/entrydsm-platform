@@ -3,8 +3,6 @@ package hs.kr.entrydsm.admin.domain.command
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.enum.Region
-import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ScoreWeights
 
 /**
@@ -12,7 +10,7 @@ import hs.kr.entrydsm.admin.domain.model.ScoreWeights
  */
 data class UpdateArrivalCommand(
     val applicantId: Long,
-    val isSubmitted: Boolean,
+    val isArrived: Boolean,
 )
 
 /**
@@ -31,20 +29,19 @@ data class UpdateApplicantStatusCommand(
 /**
  * 성적 산출 정책을 교체합니다.
  *
- * @property recalculate 정책 반영 후 기존 지원자 점수를 다시 계산할지 여부
+ * 총점은 application 이 산출하므로 이 정책으로 지원자 점수를 다시 계산하지는 않습니다.
  */
 data class UpdateScorePolicyCommand(
     val weights: ScoreWeights,
     val roundingScale: Int,
-    val recalculate: Boolean = false,
     val updatedBy: String,
 )
 
 /**
- * 모집 지역 × 전형별 정원을 한 번에 교체합니다.
+ * 전형별 정원을 한 번에 교체합니다.
  */
 data class UpdateAdmissionQuotaCommand(
-    val quotas: Map<Region, Map<AdmissionType, Int>>,
+    val quotas: Map<AdmissionType, Int>,
     val updatedBy: String,
 )
 
@@ -62,7 +59,6 @@ data class EvaluateScreeningCommand(
  */
 data class CreateExportCommand(
     val type: ExportType,
-    val filter: ApplicantFilter = ApplicantFilter(),
 )
 
 /**

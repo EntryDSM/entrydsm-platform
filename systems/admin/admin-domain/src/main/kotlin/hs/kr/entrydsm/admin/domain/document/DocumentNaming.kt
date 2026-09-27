@@ -7,9 +7,24 @@ package hs.kr.entrydsm.admin.domain.document
  */
 object DocumentNaming {
 
-    fun applicantListObjectKey(exportJobId: String): String =
-        "applicant-list/applicants_$exportJobId.xlsx"
+    fun keyRoot(environment: String): String {
+        require(environment == "prod" || environment == "stag") { "STORAGE_ENV must be 'prod' or 'stag'" }
+        return "dsm_Entry/backend/$environment/"
+    }
 
-    fun admissionTicketBundleObjectKey(exportJobId: String): String =
-        "admission-ticket/admission_tickets_$exportJobId.zip"
+    fun firstPassListObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}first-pass/first_pass_$exportJobId.xlsx"
+
+    fun admissionFileObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}admission-file/admission_file_$exportJobId.xlsx"
+
+    fun applicationChecklistObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}application-checklist/application_checklist_$exportJobId.xlsx"
+
+    fun essaysObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}essays/essays_$exportJobId.pdf"
+
+    /** 1차 합격자 수험표를 한 시트에 이어 그린 xlsx 하나입니다. */
+    fun admissionTicketBundleObjectKey(exportJobId: String, environment: String): String =
+        "${keyRoot(environment)}admission-ticket/admission_tickets_$exportJobId.xlsx"
 }

@@ -60,17 +60,20 @@ class FileDocumentPersistenceAdapterTest {
     @Test
     fun `목록은 종류 폴더 아래를 1부터 센 페이지를 0부터로 바꿔 최근 순으로 찾는다`() {
         var prefix: String? = null
+        var legacyPrefix: String? = null
         var pageable: Pageable? = null
         val adapter = FileDocumentPersistenceAdapter(
             repository(existing = null, saved = mutableListOf()) { args ->
                 prefix = args[0] as String
-                pageable = args[1] as Pageable
+                legacyPrefix = args[1] as String
+                pageable = args[2] as Pageable
             },
         )
 
         adapter.findPage(FileCategory.GUIDELINE, page = 3, size = 20)
 
-        assertEquals("dsm_Entry/Backend/guideline/", prefix)
+        assertEquals("dsm_Entry/backend/stag/guideline/", prefix)
+        assertEquals("dsm_Entry/Backend/guideline/", legacyPrefix)
         assertEquals(2, pageable?.pageNumber)
         assertEquals(20, pageable?.pageSize)
         assertEquals(Sort.Direction.DESC, pageable?.sort?.getOrderFor("createdAt")?.direction)
@@ -111,7 +114,8 @@ class FileDocumentPersistenceAdapterTest {
             when (method.name) {
                 "findByObjectKey" -> existing
                 "save" -> (args[0] as FileDocumentJpaEntity).also { saved += it }
-                "findByObjectKeyStartingWith" -> emptyList<FileDocumentJpaEntity>().also { onFindPage(args) }
+                "findByObjectKeyStartingWithOrObjectKeyStartingWith" ->
+                    emptyList<FileDocumentJpaEntity>().also { onFindPage(args) }
                 else -> throw UnsupportedOperationException(method.name)
             }
         } as FileDocumentJpaRepository

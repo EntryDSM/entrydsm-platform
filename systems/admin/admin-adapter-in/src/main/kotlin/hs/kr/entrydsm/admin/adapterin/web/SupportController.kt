@@ -15,7 +15,6 @@ import hs.kr.entrydsm.admin.domain.command.AnswerQuestionCommand
 import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.command.CreateNoticeCommand
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
-import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateNoticeUseCase
@@ -47,19 +46,7 @@ class SupportController(
     fun createExport(
         @Valid @RequestBody request: CreateExportRequest,
     ): ResponseEntity<ApiResponse<CreateExportResponse>> {
-        val job = createExportUseCase.create(
-            CreateExportCommand(
-                type = request.type!!,
-                filter = ApplicantFilter(
-                    keyword = request.filter?.keyword,
-                    regions = request.filter?.regions.orEmpty(),
-                    admissionTypes = request.filter?.admissionTypes.orEmpty(),
-                    graduationStatuses = request.filter?.graduationStatuses.orEmpty(),
-                    isSubmitted = request.filter?.isSubmitted,
-                    statuses = request.filter?.statuses.orEmpty(),
-                ),
-            ),
-        )
+        val job = createExportUseCase.create(CreateExportCommand(request.type!!))
         return ResponseEntity.accepted().body(ApiResponse(data = job.toCreateResponse()))
     }
 

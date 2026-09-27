@@ -3,10 +3,12 @@ package hs.kr.entrydsm.gateway.adapterin
 import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayServicePropertiesTest
 import hs.kr.entrydsm.gateway.adapterin.configuration.DownstreamClientPolicyTest
 import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimePropertiesTest
+import hs.kr.entrydsm.gateway.adapterin.configuration.SecurityWebConfigTest
 import hs.kr.entrydsm.gateway.adapterin.error.DownstreamFailureGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayGlobalExceptionHandlerTest
 import hs.kr.entrydsm.gateway.adapterin.integration.GatewayProxyIntegrationTest
 import hs.kr.entrydsm.gateway.adapterin.filter.GatewayAccessGlobalFilterTest
+import hs.kr.entrydsm.gateway.adapterin.filter.ObservabilityGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.filter.RequestSizeGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayCircuitBreakerGlobalFilterTest
 import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayIntegrationTestGateTest
@@ -28,11 +30,13 @@ fun main() {
             selectClass(TraceIdGlobalFilterTest::class.java),
             selectClass(GatewayServicePropertiesTest::class.java),
             selectClass(GatewayRuntimePropertiesTest::class.java),
+            selectClass(SecurityWebConfigTest::class.java),
             selectClass(DownstreamClientPolicyTest::class.java),
             selectClass(DownstreamFailureGlobalFilterTest::class.java),
             selectClass(GatewayGlobalExceptionHandlerTest::class.java),
             selectClass(GatewayProxyIntegrationTest::class.java),
             selectClass(GatewayAccessGlobalFilterTest::class.java),
+            selectClass(ObservabilityGlobalFilterTest::class.java),
             selectClass(RequestSizeGlobalFilterTest::class.java),
             selectClass(RedisGatewayCircuitStateStoreIntegrationTest::class.java),
             selectClass(GatewayIntegrationTestGateTest::class.java),

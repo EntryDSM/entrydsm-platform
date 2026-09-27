@@ -6,9 +6,11 @@ import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.ResultType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
+import hs.kr.entrydsm.application.domain.nowUtc
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -19,6 +21,7 @@ data class Applicant(
     var photoFileId: String? = null,
     var name: String? = null,
     var phoneNumber: String? = null,
+    var examineeNumber: String? = null,
     var gender: Gender? = null,
     var birthdate: LocalDate? = null,
     var specialAdmissionType: SpecialAdmissionType = SpecialAdmissionType.NONE,
@@ -43,13 +46,14 @@ data class Applicant(
     var submittedAt: LocalDateTime? = null,
     var cancelReason: String? = null,
     var passStatus: PassResultStatus = PassResultStatus.PENDING,
+    var passResultType: ResultType? = null,
     var announcedAt: LocalDateTime? = null,
     var statusVersion: Long = 0,
-    val createdAt: LocalDateTime = LocalDateTime.now(),
-    var updatedAt: LocalDateTime = LocalDateTime.now(),
+    val createdAt: LocalDateTime = nowUtc(),
+    var updatedAt: LocalDateTime = nowUtc(),
 ) {
     fun touch() {
-        updatedAt = LocalDateTime.now()
+        updatedAt = nowUtc()
     }
 }
 
@@ -59,6 +63,11 @@ data class MiddleSchoolInfo(
     val studentNumber: String,
     val schoolPhone: String,
     val teacherName: String,
+    /**
+     * 기관코드 표에서 읽는 학교 도로명 주소. 원서 서식의 출신지역에 쓴다.
+     * 원서로 받는 값이 아니라 저장하지 않고, 조회할 때만 찬다.
+     */
+    val schoolAddress: String? = null,
 )
 
 data class AcademicRecord(

@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.application.adapterout.repository
 
+import hs.kr.entrydsm.application.domain.nowUtc
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.slf4j.LoggerFactory
@@ -27,7 +28,7 @@ class ApplicantStatusOutboxRelay(
                     stream,
                     mapOf("eventId" to event.eventId, "payload" to Base64.getEncoder().encodeToString(event.payload)),
                 )
-                event.publishedAt = LocalDateTime.now()
+                event.publishedAt = nowUtc()
             } catch (exception: Exception) {
                 logger.error("Failed to publish applicant status event [eventId={}]", event.eventId, exception)
             }

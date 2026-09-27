@@ -10,18 +10,21 @@ import hs.kr.entrydsm.application.application.port.`in`.command.SaveGedScoresCom
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveSubjectGradesCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.AcademicRecordResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import hs.kr.entrydsm.application.domain.nowUtc
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import java.time.LocalDateTime
 
 class EvaluationCommandService(
     private val applicantRepository: ApplicantRepository,
     private val scoreCalculator: ScoreCalculator,
+    private val applicationPeriod: ApplicationPeriodReader,
 ) : EvaluationPort {
     override fun saveSubjectGrades(command: SaveSubjectGradesCommand) {
         saveSubjectGrades(command.accountId, command.schoolSemester, command.subjectGrades)
@@ -66,7 +69,7 @@ class EvaluationCommandService(
         schoolSemester: SchoolSemester,
         subjectGrades: SubjectGrades,
     ) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         require(applicant.graduationType != GraduationType.GED) {
             "subject grades are unavailable for GED applicants"
         }
@@ -79,7 +82,7 @@ class EvaluationCommandService(
     }
 
     fun saveGedScores(accountId: Long?, gedScores: GedScores) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         require(applicant.graduationType == GraduationType.GED) {
             "GED scores are available only for GED applicants"
         }
@@ -105,7 +108,7 @@ class EvaluationCommandService(
         require(classAbsenceCount >= 0) { "classAbsenceCount must be greater than or equal to 0" }
         require(volunteerTime >= 0) { "volunteerTime must be greater than or equal to 0" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         val record = getOrCreateAcademicRecord(applicant)
         record.absentCount = absentCount
         record.earlyLeaveCount = earlyLeaveCount
@@ -123,7 +126,7 @@ class EvaluationCommandService(
         isDsmAlgorithmAwarded: Boolean,
         isProgrammingCertified: Boolean,
     ) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         val record = getOrCreateAcademicRecord(applicant)
         record.isDsmAlgorithmAwarded = isDsmAlgorithmAwarded
         record.isProgrammingCertified = isProgrammingCertified
@@ -133,14 +136,16 @@ class EvaluationCommandService(
     }
 
     fun calculateResult(accountId: Long?) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.totalScore = scoreCalculator.calculate(applicant)
-        applicant.totalScoreUpdatedAt = LocalDateTime.now()
+        applicant.totalScoreUpdatedAt = nowUtc()
         applicant.touch()
         applicantRepository.save(applicant)
     }
 
-    private fun getApplicantByAccountId(accountId: Long?): Applicant {
+    /** 성적도 원서의 일부라 원서 접수 기간에만 받는다. */
+    private fun getWritableApplicant(accountId: Long?): Applicant {
+        applicationPeriod.requireOpen()
         val id = requireAccountId(accountId)
         return applicantRepository.findByAccountId(id)
             ?: throw ApplicantNotFoundException(id)

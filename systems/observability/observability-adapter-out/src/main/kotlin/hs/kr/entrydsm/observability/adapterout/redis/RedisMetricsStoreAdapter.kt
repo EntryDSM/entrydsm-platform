@@ -40,6 +40,17 @@ class RedisMetricsStoreAdapter(
         }
     }
 
+    override fun apiRequestCount(from: Instant, to: Instant, success: Boolean?): Long =
+        bucketsBetween(from, to).sumOf { bucket ->
+            fun count(result: Boolean) = redis.opsForValue().get(apiBucketKey(bucket, result))?.toLongOrNull() ?: 0L
+            success?.let(::count) ?: count(true) + count(false)
+        }
+
+    override fun businessCount(type: String, from: Instant, to: Instant, success: Boolean): Long =
+        bucketsBetween(from, to).sumOf { bucket ->
+            redis.opsForValue().get(businessBucketKey(type, bucket, success))?.toLongOrNull() ?: 0L
+        }
+
     private fun bucketStart(at: Instant): Instant {
         val granularityMillis = GRANULARITY.toMillis()
         return Instant.ofEpochMilli(at.toEpochMilli() / granularityMillis * granularityMillis)
@@ -56,6 +67,12 @@ class RedisMetricsStoreAdapter(
     }
 
     private fun bucketKey(bucketStart: Instant) = "monitor:metric:visitor:${bucketStart.toEpochMilli()}"
+
+    private fun apiBucketKey(bucketStart: Instant, success: Boolean) =
+        "monitor:metric:api:${if (success) "success" else "failure"}:${bucketStart.toEpochMilli()}"
+
+    private fun businessBucketKey(type: String, bucketStart: Instant, success: Boolean) =
+        "monitor:metric:business:$type:${if (success) "success" else "failure"}:${bucketStart.toEpochMilli()}"
 
     companion object {
         private val GRANULARITY: Duration = Duration.ofMinutes(5)

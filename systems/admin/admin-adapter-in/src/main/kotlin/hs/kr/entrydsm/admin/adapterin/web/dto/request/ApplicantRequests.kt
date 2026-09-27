@@ -5,11 +5,12 @@ import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 
+/** 원서 원본(우편) 도착 여부를 정정한다. */
 data class UpdateArrivalRequest(
     @field:NotNull
-    @param:JsonProperty("isSubmitted")
-    @get:JsonProperty("isSubmitted")
-    val isSubmitted: Boolean?,
+    @param:JsonProperty("isArrived")
+    @get:JsonProperty("isArrived")
+    val isArrived: Boolean?,
 )
 
 data class UpdateApplicantStatusRequest(

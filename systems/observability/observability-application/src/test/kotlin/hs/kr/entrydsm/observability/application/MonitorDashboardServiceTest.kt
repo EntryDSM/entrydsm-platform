@@ -36,6 +36,12 @@ class MonitorDashboardServiceTest {
             )
         },
         roundPort = { round },
+        metricsStorePort = object : hs.kr.entrydsm.observability.application.port.out.MetricsStorePort {
+            override fun recordVisitor(sessionId: String, at: Instant) = Unit
+            override fun visitorCount(from: Instant, to: Instant) = 0L
+            override fun apiRequestCount(from: Instant, to: Instant, success: Boolean?) = if (success == true) 8L else 2L
+            override fun businessCount(type: String, from: Instant, to: Instant, success: Boolean) = if (success) 3L else 1L
+        },
         clock = clock,
     )
 
@@ -47,6 +53,9 @@ class MonitorDashboardServiceTest {
         assertEquals(2L, result.clientLog.errorCount)
         assertEquals(1L, result.clientLog.warnCount)
         assertEquals(1024L, result.resource.bucketUsedBytes)
+        assertEquals(10L, result.api.totalRequests)
+        assertEquals(0.2, result.api.failureRate, 0.0001)
+        assertEquals(3L, result.business.applicationSubmit.success)
         val android = result.traffic.devices.first { it.type == DeviceType.ANDROID }
         assertEquals(0.5, android.ratio, 0.0001)
         val total = result.services.items.first { it.service == "TOTAL" }

@@ -6,45 +6,48 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExamineeNumberIssueRespon
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.PageResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreResponse
 import hs.kr.entrydsm.admin.domain.model.Applicant
-import hs.kr.entrydsm.admin.domain.model.ApplicantScore
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ExamineeNumberIssueResult
 import hs.kr.entrydsm.admin.domain.model.Page
 
 fun Applicant.toSummaryResponse(): ApplicantSummaryResponse = ApplicantSummaryResponse(
     applicantId = id,
-    receiptNumber = receiptNumber,
     name = name,
     region = region,
     admissionType = admissionType,
     graduationStatus = graduationStatus,
     examineeNumber = examineeNumber,
-    isSubmitted = isSubmitted,
+    isArrived = isArrived,
     status = status,
 )
 
-fun Applicant.toDetailResponse(): ApplicantDetailResponse = ApplicantDetailResponse(
-    applicantId = id,
-    receiptNumber = receiptNumber,
-    name = name,
-    birthDate = birthDate,
-    phoneNumber = phoneNumber,
-    region = region,
-    admissionType = admissionType,
-    graduationStatus = graduationStatus,
-    schoolName = schoolName,
-    examineeNumber = examineeNumber,
-    isSubmitted = isSubmitted,
-    status = status,
-    score = score?.toResponse(),
-    submittedAt = submittedAt,
-    updatedAt = updatedAt,
-)
-
-fun ApplicantScore.toResponse(): ScoreResponse = ScoreResponse(
-    subjectScore = subjectScore,
-    attendanceScore = attendanceScore,
-    volunteerScore = volunteerScore,
-    totalScore = totalScore,
+fun ApplicantDetail.toDetailResponse(): ApplicantDetailResponse = ApplicantDetailResponse(
+    applicantId = applicant.id,
+    name = applicant.name,
+    birthDate = applicant.birthDate,
+    phoneNumber = applicant.phoneNumber,
+    region = applicant.region,
+    admissionType = applicant.admissionType,
+    graduationStatus = applicant.graduationStatus,
+    schoolName = applicant.schoolName,
+    examineeNumber = applicant.examineeNumber,
+    isArrived = applicant.isArrived,
+    status = applicant.status,
+    score = score?.let {
+        ScoreResponse(
+            subjectScore = it.subjectScore,
+            attendanceScore = it.attendanceScore,
+            volunteerScore = it.volunteerScore,
+            additionalScore = it.additionalScore,
+            totalScore = it.totalScore,
+        )
+    },
+    submittedAt = applicant.submittedAt,
+    arrivedAt = applicant.arrivedAt,
+    updatedAt = applicant.updatedAt,
+    photoFileId = photoFileId,
+    introduction = introduction,
+    studyPlan = studyPlan,
 )
 
 fun <T, R> Page<T>.toResponse(transform: (T) -> R): PageResponse<R> = PageResponse(

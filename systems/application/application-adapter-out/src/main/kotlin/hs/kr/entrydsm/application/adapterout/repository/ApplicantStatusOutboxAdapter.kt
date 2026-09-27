@@ -6,6 +6,8 @@ import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbo
 import hs.kr.entrydsm.application.grpc.ApplicantStatus
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
 import hs.kr.entrydsm.application.grpc.PassStatus
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
+import hs.kr.entrydsm.application.domain.enum.ResultType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.stereotype.Repository
@@ -33,14 +35,28 @@ class ApplicantStatusOutboxAdapter(
         val payload = ApplicantStatusChangedEvent.newBuilder()
             .setEventId(event.eventId.toString())
             .setAccountId(event.accountId)
+            .setApplicantId(event.applicantId)
             .setApplicantStatus(ApplicantStatus.valueOf("APPLICANT_STATUS_${event.status.name}"))
             .setOccurredAtEpochMillis(event.occurredAt.toInstant(ZoneOffset.UTC).toEpochMilli())
             .setVersion(event.version)
+            .setApplicantDeleted(event.deleted)
             .setPassStatus(
-                if (event.passStatus.name == "PENDING") PassStatus.PASS_STATUS_NOT_ANNOUNCED
-                else PassStatus.valueOf("PASS_STATUS_${event.passStatus.name}"),
+                when (event.passStatus) {
+                    PassResultStatus.PENDING -> PassStatus.PASS_STATUS_NOT_ANNOUNCED
+                    PassResultStatus.PASS -> when (event.passResultType) {
+                        ResultType.DOCUMENT -> PassStatus.PASS_STATUS_FIRST_PASSED
+                        ResultType.FINAL -> PassStatus.PASS_STATUS_FINAL_PASSED
+                        null -> PassStatus.PASS_STATUS_NOT_ANNOUNCED
+                    }
+                    PassResultStatus.FAIL -> when (event.passResultType) {
+                        ResultType.DOCUMENT -> PassStatus.PASS_STATUS_FIRST_FAILED
+                        ResultType.FINAL -> PassStatus.PASS_STATUS_FINAL_FAILED
+                        null -> PassStatus.PASS_STATUS_NOT_ANNOUNCED
+                    }
+                },
             )
             .also { builder ->
+                if (event.deleted) builder.applicantStatus = ApplicantStatus.APPLICANT_STATUS_NONE
                 event.submittedAt?.let { builder.submittedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }
                 event.announcedAt?.let { builder.announcedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }
             }

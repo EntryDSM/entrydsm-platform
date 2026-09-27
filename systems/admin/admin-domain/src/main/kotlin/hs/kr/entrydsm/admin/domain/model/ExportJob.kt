@@ -17,10 +17,16 @@ data class ExportJob(
     val status: ExportStatus,
     val filter: ApplicantFilter = ApplicantFilter(),
     val objectKey: String? = null,
+    val totalCount: Int = 0,
+    val processedCount: Int = 0,
     val createdAt: Instant,
     val completedAt: Instant? = null,
 ) {
     fun started(): ExportJob = copy(status = ExportStatus.PROCESSING)
+
+    fun withTotal(totalCount: Int): ExportJob = copy(totalCount = totalCount)
+
+    fun processed(processedCount: Int): ExportJob = copy(processedCount = processedCount)
 
     fun completed(objectKey: String, completedAt: Instant): ExportJob =
         copy(status = ExportStatus.COMPLETED, objectKey = objectKey, completedAt = completedAt)

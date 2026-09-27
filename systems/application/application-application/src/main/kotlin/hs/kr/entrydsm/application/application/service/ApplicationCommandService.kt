@@ -8,6 +8,7 @@ import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateFamilyCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateIntroductionCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateMiddleSchoolCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCommand
@@ -21,6 +22,7 @@ import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
+import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
@@ -32,6 +34,8 @@ import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import hs.kr.entrydsm.application.domain.nowUtc
+import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -40,8 +44,11 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional
 class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
+    private val applicationPeriod: ApplicationPeriodReader,
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
+    private val scoreCalculator = ScoreCalculator()
+
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
         val accountId = requireAccountId(command.accountId)
         val existing = applicantRepository.findByAccountId(accountId)
@@ -110,6 +117,32 @@ class ApplicationCommandService(
         submit(command.accountId)
     }
 
+    override fun updateArrival(command: UpdateApplicantArrivalCommand): ApplicationSnapshotResult {
+        val applicant = applicantRepository.findById(command.applicantId)
+            ?: throw ApplicantNotFoundException(command.applicantId)
+        val target = if (command.isArrived) ApplicantStatus.ARRIVAL else ApplicantStatus.SUBMITTED
+
+        if (applicant.status == target) return applicant.toSnapshot()
+        require(applicant.status in setOf(ApplicantStatus.SUBMITTED, ApplicantStatus.ARRIVAL)) {
+            "arrival can only be changed for a submitted application"
+        }
+
+        applicant.status = target
+        applicant.statusVersion += 1
+        return saveTouched(applicant).also(::publishStatus).toSnapshot()
+    }
+
+    override fun updateExamineeNumber(applicantId: Long, examineeNumber: String) {
+        require(examineeNumber.matches(Regex("[123][12][0-9]{3}")) && !examineeNumber.endsWith("000")) {
+            "invalid examinee number"
+        }
+        val applicant = applicantRepository.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+        if (applicant.examineeNumber != examineeNumber) {
+            applicant.examineeNumber = examineeNumber
+            applicantRepository.save(applicant)
+        }
+    }
+
     override fun getLanding(accountId: Long?): LandingResult {
         return LandingResult(
             applicantName = accountId?.let(applicantRepository::findByAccountId)?.name,
@@ -120,20 +153,34 @@ class ApplicationCommandService(
         applicantRepository.findByAccountId(accountId)?.toSnapshot()
 
     override fun findApplicant(applicantId: Long): ApplicantResult? =
-        applicantRepository.findById(applicantId)?.let {
-            ApplicantResult(
-                applicantId = it.id,
-                accountId = it.accountId,
-                name = it.name,
-                schoolName = it.middleSchoolInfo?.schoolName,
-                region = it.region,
-                admissionType = it.admissionType,
-                photoFileId = it.photoFileId,
-            )
-        }
+        applicantRepository.findById(applicantId)?.toApplicantResult()
+
+    override fun listApplicants(): List<ApplicantResult> =
+        applicantRepository.findSummariesByStatusIn(APPLIED_STATUSES)
 
     override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
         applicantRepository.findByAccountId(accountId)?.toApplicationFormResult()
+
+    override fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> =
+        applicantRepository.findAllByAccountIdIn(accountIds.distinct()).map { it.toApplicationFormResult() }
+
+    private fun Applicant.toApplicantResult(): ApplicantResult = ApplicantResult(
+        applicantId = id,
+        accountId = accountId,
+        name = name,
+        schoolName = middleSchoolInfo?.schoolName,
+        region = region,
+        admissionType = admissionType,
+        photoFileId = photoFileId,
+        birthdate = birthdate,
+        phoneNumber = phoneNumber,
+        graduationType = graduationType,
+        totalScore = totalScore,
+        status = status,
+        submittedAt = submittedAt,
+        gender = gender,
+        address = addressBase,
+    )
 
     private fun Applicant.toApplicationFormResult(): ApplicationFormResult {
         val grades = academicRecord?.subjectGrades.orEmpty()
@@ -145,6 +192,7 @@ class ApplicationCommandService(
         val previous = PREVIOUS_SEMESTERS.mapNotNull(grades::reflected)
         return ApplicationFormResult(
             applicantId = id,
+            examineeNumber = examineeNumber,
             accountId = accountId,
             status = status,
             name = name,
@@ -167,6 +215,29 @@ class ApplicationCommandService(
             previousSemester = previous.getOrNull(0),
             secondPreviousSemester = previous.getOrNull(1),
             academicRecord = academicRecord,
+            score = totalScore?.let { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) },
+            introduction = introduction,
+            studyPlan = studyPlan,
+            classNumber = middleSchoolInfo?.studentNumber
+                ?.let(STUDENT_NUMBER::matchEntire)
+                ?.groupValues
+                ?.get(1)
+                ?.trimStart('0')
+                ?.ifEmpty { "0" },
+            studentNumber = middleSchoolInfo?.studentNumber,
+            gedAverage = academicRecord?.gedScores?.let {
+                listOf(
+                    it.koreanScore,
+                    it.societyScore,
+                    it.historyScore,
+                    it.mathScore,
+                    it.scienceScore,
+                    it.technologyScore,
+                    it.englishScore,
+                ).average()
+            },
+            // 검정고시에서 다른 졸업구분으로 바꿔도 점수는 남아 있으니 졸업구분으로 거른다.
+            gedScores = academicRecord?.gedScores?.takeIf { graduationType == GraduationType.GED },
         )
     }
 
@@ -188,8 +259,29 @@ class ApplicationCommandService(
         return saveTouched(applicant).also(::publishStatus).toSnapshot()
     }
 
+    override fun deleteApplicant(applicantId: Long) {
+        val applicant = applicantRepository.findById(applicantId)
+            ?: throw ApplicantNotFoundException(applicantId)
+        applicantStatusEventOutbox.add(
+            ApplicantStatusChanged(
+                accountId = applicant.accountId,
+                applicantId = applicant.id,
+                status = applicant.status,
+                occurredAt = nowUtc(),
+                version = applicant.statusVersion + 1,
+                submittedAt = null,
+                passStatus = applicant.passStatus,
+                announcedAt = null,
+                deleted = true,
+            ),
+        )
+        applicantRepository.deleteById(applicantId)
+    }
+
     fun createApplicant(accountId: Long = 0): Applicant {
+        // 이미 있는 원서는 기간이 끝나도 돌려준다. applicantId 를 받는 유일한 경로라 수험표 출력에 쓴다.
         applicantRepository.findByAccountId(accountId)?.let { return it }
+        applicationPeriod.requireOpen()
         val applicant = applicantRepository.save(
             Applicant(
                 id = NEW_APPLICANT_ID,
@@ -208,7 +300,7 @@ class ApplicationCommandService(
         graduationType: GraduationType,
         graduationDate: YearMonth?,
     ) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         require(graduationType == GraduationType.GED || graduationDate != null) {
             "graduationDate is required unless graduationType is GED"
         }
@@ -230,12 +322,14 @@ class ApplicationCommandService(
     private fun publishStatus(applicant: Applicant) = applicantStatusEventOutbox.add(
         ApplicantStatusChanged(
             accountId = applicant.accountId,
+            applicantId = applicant.id,
             status = applicant.status,
             occurredAt = applicant.updatedAt,
             version = applicant.statusVersion,
             submittedAt = applicant.submittedAt,
             passStatus = applicant.passStatus,
             announcedAt = applicant.announcedAt,
+            passResultType = applicant.passResultType,
         ),
     )
 
@@ -252,7 +346,7 @@ class ApplicationCommandService(
         require(name.isNotBlank()) { "name is required" }
         require(phoneNumber.matches(PHONE_NUMBER_REGEX)) { "phoneNumber format is invalid" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.photoFileId = photoFileId
         applicant.name = name
         applicant.phoneNumber = phoneNumber
@@ -278,7 +372,7 @@ class ApplicationCommandService(
         require(addressBase.isNotBlank()) { "addressBase is required" }
         require(addressDetail.isNotBlank()) { "addressDetail is required" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.guardianName = guardianName
         applicant.guardianPhoneNumber = guardianPhoneNumber
         applicant.guardianGender = guardianGender
@@ -297,7 +391,7 @@ class ApplicationCommandService(
         schoolPhone: String,
         teacherName: String,
     ) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         require(applicant.graduationType != GraduationType.GED) {
             "middle school info is unavailable for GED applicants"
         }
@@ -321,7 +415,7 @@ class ApplicationCommandService(
         require(introduction.isNotBlank()) { "introduction is required" }
         require(introduction.length <= MAX_ESSAY_LENGTH) { "introduction is too long" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.introduction = introduction
         saveTouched(applicant)
     }
@@ -330,19 +424,28 @@ class ApplicationCommandService(
         require(studyPlan.isNotBlank()) { "studyPlan is required" }
         require(studyPlan.length <= MAX_ESSAY_LENGTH) { "studyPlan is too long" }
 
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         applicant.studyPlan = studyPlan
         saveTouched(applicant)
     }
 
     fun submit(accountId: Long?) {
-        val applicant = getApplicantByAccountId(accountId)
+        val applicant = getWritableApplicant(accountId)
         require(applicant.admissionType != null) { "admission type is required" }
         require(!applicant.name.isNullOrBlank()) { "personal info is required" }
         require(!applicant.guardianName.isNullOrBlank()) { "family info is required" }
         require(!applicant.introduction.isNullOrBlank()) { "introduction is required" }
         require(!applicant.studyPlan.isNullOrBlank()) { "studyPlan is required" }
         markSubmitted(applicant)
+    }
+
+    /**
+     * 학생이 원서를 쓰는 요청은 원서 접수 기간에만 받는다.
+     * 취소(identity 경유)와 도착 처리(admin)는 기간과 상관없어 [getApplicantByAccountId] 를 쓴다.
+     */
+    private fun getWritableApplicant(accountId: Long?): Applicant {
+        applicationPeriod.requireOpen()
+        return getApplicantByAccountId(accountId)
     }
 
     private fun getApplicantByAccountId(accountId: Long?): Applicant {
@@ -357,7 +460,7 @@ class ApplicationCommandService(
     private fun markSubmitted(applicant: Applicant) {
         applicant.status = ApplicantStatus.SUBMITTED
         applicant.statusVersion += 1
-        applicant.submittedAt = LocalDateTime.now()
+        applicant.submittedAt = nowUtc()
         publishStatus(saveTouched(applicant))
     }
 
@@ -373,10 +476,18 @@ class ApplicationCommandService(
         updatedAt = updatedAt,
         passStatus = passStatus,
         announcedAt = announcedAt,
+        passResultType = passResultType,
     )
 
     companion object {
         private const val NEW_APPLICANT_ID = 0L
+        /** 원서를 낸 것으로 보는 상태. 작성 중(DRAFT)과 취소(CANCELED)는 지원자가 아니다. */
+        private val APPLIED_STATUSES = setOf(
+            ApplicantStatus.SUBMITTED,
+            ApplicantStatus.ARRIVAL,
+            ApplicantStatus.REVIEWING,
+            ApplicantStatus.COMPLETED,
+        )
         /** 서식 1 의 직전·직전전 학기 후보. ScoreCalculator 의 반영 학기 순서와 같다. */
         private val PREVIOUS_SEMESTERS = listOf(
             SchoolSemester.SECOND_GRADE_SECOND_SEMESTER,
@@ -384,6 +495,7 @@ class ApplicationCommandService(
             SchoolSemester.FIRST_GRADE_SECOND_SEMESTER,
             SchoolSemester.FIRST_GRADE_FIRST_SEMESTER,
         )
+        private val STUDENT_NUMBER = Regex("^\\d(\\d{2})\\d{2}$")
         private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
         private const val MAX_ESSAY_LENGTH = 1600
         // applicants.photo_file_id 컬럼 길이. document 증명사진 ID 는 photo_ 와 32자 임의값이다.

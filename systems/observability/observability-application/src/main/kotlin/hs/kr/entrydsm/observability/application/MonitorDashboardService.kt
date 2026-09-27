@@ -16,6 +16,7 @@ import hs.kr.entrydsm.observability.application.port.`in`.result.ServiceActivity
 import hs.kr.entrydsm.observability.application.port.`in`.result.TrafficResult
 import hs.kr.entrydsm.observability.application.port.out.ClientLogStorePort
 import hs.kr.entrydsm.observability.application.port.out.HealthCheckPort
+import hs.kr.entrydsm.observability.application.port.out.MetricsStorePort
 import hs.kr.entrydsm.observability.application.port.out.RoundPort
 import hs.kr.entrydsm.observability.application.port.out.SessionStorePort
 import hs.kr.entrydsm.observability.application.port.out.StorageUsagePort
@@ -36,6 +37,7 @@ class MonitorDashboardService(
     private val clientLogStorePort: ClientLogStorePort,
     private val storageUsagePort: StorageUsagePort,
     private val roundPort: RoundPort,
+    private val metricsStorePort: MetricsStorePort,
     private val clock: Clock,
 ) : GetDashboardSnapshotUseCase, SampleConcurrencyUseCase {
 
@@ -74,6 +76,9 @@ class MonitorDashboardService(
 
         val logCounts = clientLogStorePort.countByLevel(now.minus(CLIENT_LOG_WINDOW), now)
         val storage = storageUsagePort.measure()
+        val apiSuccess = metricsStorePort.apiRequestCount(currentRound.from, now, true)
+        val apiFailure = metricsStorePort.apiRequestCount(currentRound.from, now, false)
+        val apiTotal = apiSuccess + apiFailure
 
         return DashboardSnapshotResult(
             generatedAt = now,
@@ -93,12 +98,10 @@ class MonitorDashboardService(
                 avgSessionDurationSeconds = sessionStorePort.avgSessionDurationSeconds(),
                 devices = devices,
             ),
-            // 다른 서비스의 API 요청 지표를 받는 수집 경로가 아직 없어 0으로 고정한다.
-            api = ApiStatsResult(totalRequests = 0, successCount = 0, failureCount = 0, failureRate = 0.0),
-            // 원서접수/PDF다운로드 도메인 이벤트를 받는 수집 경로가 아직 없어 0으로 고정한다.
+            api = ApiStatsResult(apiTotal, apiSuccess, apiFailure, ratio(apiFailure, apiTotal)),
             business = BusinessStatsResult(
-                applicationSubmit = OutcomeCountResult(0, 0),
-                pdfDownload = OutcomeCountResult(0, 0),
+                applicationSubmit = outcome("application-submit", currentRound.from, now),
+                pdfDownload = outcome("pdf-download", currentRound.from, now),
             ),
             services = ServiceActivityResult(windowSeconds = WINDOW_SECONDS, items = listOf(totalItem) + perServiceItems),
             clientLog = ClientLogCountResult(
@@ -119,6 +122,11 @@ class MonitorDashboardService(
     }
 
     private fun ratio(count: Long, total: Long): Double = if (total == 0L) 0.0 else count.toDouble() / total
+
+    private fun outcome(type: String, from: Instant, to: Instant) = OutcomeCountResult(
+        success = metricsStorePort.businessCount(type, from, to, true),
+        failure = metricsStorePort.businessCount(type, from, to, false),
+    )
 
     companion object {
         private const val WINDOW_SECONDS = 30L

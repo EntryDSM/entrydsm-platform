@@ -30,8 +30,9 @@ class IdentityApplicationConfig {
     @Bean
     fun applicationService(
         applicationDataPort: ApplicationDataPort,
+        accountQueryPort: AccountQueryPort,
         clock: Clock,
-    ): ApplicationPort = ApplicationService(applicationDataPort, clock)
+    ): ApplicationPort = ApplicationService(applicationDataPort, accountQueryPort, clock)
 
     @Bean
     fun accountService(

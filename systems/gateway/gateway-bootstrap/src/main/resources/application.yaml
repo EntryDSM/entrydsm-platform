@@ -62,6 +62,8 @@ server:
   port: ${SERVER_PORT}
   shutdown: graceful
 gateway:
+  security:
+    secure-cookies: ${GATEWAY_SECURE_COOKIES:true}
   downstream:
     connect-timeout-millis: ${GATEWAY_DOWNSTREAM_CONNECT_TIMEOUT_MILLIS}
     response-timeout-millis: ${GATEWAY_DOWNSTREAM_RESPONSE_TIMEOUT_MILLIS}
@@ -92,11 +94,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 logging:
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}

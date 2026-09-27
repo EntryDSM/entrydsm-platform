@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.identity.adapterin.web
 
-import hs.kr.entrydsm.identity.adapterin.web.dto.request.ApplicationCancelRequest
 import hs.kr.entrydsm.identity.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.identity.application.port.`in`.command.CancelApplicationCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadApplicationCommand
@@ -41,30 +40,14 @@ class ApplicationControllerTest {
 
         val command = requireNotNull(applicationPort.resultApplicationCommand)
         assertEquals(123L, command.userId)
-        assertEquals("PASSED", response.data?.passStatus)
+        assertEquals("FIRST_PASSED", response.data?.passStatus)
+        assertEquals("1차 전형 합격", response.data?.passDescription)
         assertEquals(NOW, response.data?.announcedAt)
-    }
-
-    @Test
-    fun cancelApplicationMapsAuthorizationAndReason() {
-        val applicationPort = FakeApplicationPort()
-        val controller = ApplicationController(applicationPort)
-
-        val response = controller.cancel(
-            request = ApplicationCancelRequest(reason = "change of plan"),
-            authenticatedUser = AuthenticatedUser(123L),
-        )
-
-        val command = requireNotNull(applicationPort.cancelApplicationCommand)
-        assertEquals("change of plan", command.reason)
-        assertEquals(123L, command.userId)
-        assertEquals(ApplicantStatus.CANCELED, response.data?.applicantStatus)
     }
 
     private class FakeApplicationPort : ApplicationPort {
         var statusApplicationCommand: ReadApplicationCommand? = null
         var resultApplicationCommand: ReadApplicationCommand? = null
-        var cancelApplicationCommand: CancelApplicationCommand? = null
 
         override fun getApplicationStatus(command: ReadApplicationCommand): ApplicationStatusResult {
             statusApplicationCommand = command
@@ -73,11 +56,10 @@ class ApplicationControllerTest {
 
         override fun getApplicationResult(command: ReadApplicationCommand): ApplicationResultResult {
             resultApplicationCommand = command
-            return ApplicationResultResult(passStatus = PassStatus.PASSED, announcedAt = NOW)
+            return ApplicationResultResult(passStatus = PassStatus.FIRST_PASSED, announcedAt = NOW, applicationNumber = "0006")
         }
 
         override fun cancelApplication(command: CancelApplicationCommand): ApplicationStatusResult {
-            cancelApplicationCommand = command
             return applicationStatusResult(ApplicantStatus.CANCELED)
         }
     }

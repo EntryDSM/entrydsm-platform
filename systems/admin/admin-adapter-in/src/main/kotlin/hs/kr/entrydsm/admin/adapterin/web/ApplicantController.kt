@@ -19,11 +19,13 @@ import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.port.`in`.IssueExamineeNumberUseCase
+import hs.kr.entrydsm.admin.domain.port.`in`.DeleteApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadApplicantUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.UpdateApplicantUseCase
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -36,6 +38,7 @@ class ApplicantController(
     private val readApplicantUseCase: ReadApplicantUseCase,
     private val updateApplicantUseCase: UpdateApplicantUseCase,
     private val issueExamineeNumberUseCase: IssueExamineeNumberUseCase,
+    private val deleteApplicantUseCase: DeleteApplicantUseCase,
 ) {
 
     @GetMapping(AdminEndpointPaths.APPLICANTS)
@@ -44,7 +47,7 @@ class ApplicantController(
         @RequestParam(required = false) regions: Set<Region>?,
         @RequestParam(required = false) admissionTypes: Set<AdmissionType>?,
         @RequestParam(required = false) graduationStatuses: Set<GraduationStatus>?,
-        @RequestParam(required = false) isSubmitted: Boolean?,
+        @RequestParam(required = false) isArrived: Boolean?,
         @RequestParam(required = false) statuses: Set<ApplicantStatus>?,
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(defaultValue = "10") size: Int,
@@ -55,7 +58,7 @@ class ApplicantController(
                 regions = regions.orEmpty(),
                 admissionTypes = admissionTypes.orEmpty(),
                 graduationStatuses = graduationStatuses.orEmpty(),
-                isSubmitted = isSubmitted,
+                isArrived = isArrived,
                 statuses = statuses.orEmpty(),
             ),
             PageRequest(page = page, size = size),
@@ -71,8 +74,14 @@ class ApplicantController(
         @PathVariable applicantId: Long,
     ): ResponseEntity<ApiResponse<ApplicantDetailResponse>> =
         ResponseEntity.ok(
-            ApiResponse(data = readApplicantUseCase.findById(applicantId).toDetailResponse()),
+            ApiResponse(data = readApplicantUseCase.findDetail(applicantId).toDetailResponse()),
         )
+
+    @DeleteMapping(AdminEndpointPaths.APPLICANT)
+    fun delete(@PathVariable applicantId: Long): ResponseEntity<Unit> {
+        deleteApplicantUseCase.delete(applicantId)
+        return ResponseEntity.noContent().build()
+    }
 
     @PatchMapping(AdminEndpointPaths.APPLICANT_ARRIVAL)
     fun updateArrival(
@@ -80,7 +89,7 @@ class ApplicantController(
         @Valid @RequestBody request: UpdateArrivalRequest,
     ): ResponseEntity<Unit> {
         updateApplicantUseCase.updateArrival(
-            UpdateArrivalCommand(applicantId = applicantId, isSubmitted = request.isSubmitted!!),
+            UpdateArrivalCommand(applicantId = applicantId, isArrived = request.isArrived!!),
         )
         return ResponseEntity.noContent().build()
     }

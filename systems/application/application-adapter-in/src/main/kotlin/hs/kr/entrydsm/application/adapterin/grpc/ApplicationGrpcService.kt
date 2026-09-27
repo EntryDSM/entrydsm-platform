@@ -2,8 +2,11 @@ package hs.kr.entrydsm.application.adapterin.grpc
 
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
+import hs.kr.entrydsm.application.application.exception.ApplicationPeriodClosedException
+import hs.kr.entrydsm.application.application.exception.ApplicationPeriodLookupFailedException
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
@@ -13,8 +16,10 @@ import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
+import hs.kr.entrydsm.application.domain.enum.ResultType
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
+import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
@@ -23,13 +28,23 @@ import hs.kr.entrydsm.application.grpc.AcademicRecord as GrpcAcademicRecord
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.application.grpc.ApplicationResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
+import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsRequest
+import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsResponse
 import hs.kr.entrydsm.application.grpc.CancelApplicationRequest
 import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
+import hs.kr.entrydsm.application.grpc.DeleteApplicantResponse
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
+import hs.kr.entrydsm.application.grpc.GedScores as GrpcGedScores
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
+import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
+import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
+import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberRequest
+import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberResponse
 import hs.kr.entrydsm.application.grpc.MiddleSchool as GrpcMiddleSchool
 import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
@@ -79,6 +94,15 @@ class ApplicationGrpcService(
             .toResponse()
     }
 
+    override fun listApplicants(
+        request: ListApplicantsRequest,
+        responseObserver: StreamObserver<ListApplicantsResponse>,
+    ) = responseObserver.respondWith {
+        ListApplicantsResponse.newBuilder()
+            .addAllApplicants(applicationPort.listApplicants().map { it.toResponse() })
+            .build()
+    }
+
     override fun getApplicationForm(
         request: GetApplicationFormRequest,
         responseObserver: StreamObserver<ApplicationFormResponse>,
@@ -86,6 +110,42 @@ class ApplicationGrpcService(
         request.accountId.validate()
         (applicationPort.findApplicationForm(request.accountId) ?: throw ApplicantNotFoundException(request.accountId))
             .toResponse()
+    }
+
+    override fun batchGetApplicationForms(
+        request: BatchGetApplicationFormsRequest,
+        responseObserver: StreamObserver<BatchGetApplicationFormsResponse>,
+    ) = responseObserver.respondWith {
+        request.accountIdList.forEach { it.validate() }
+        BatchGetApplicationFormsResponse.newBuilder()
+            .addAllApplications(applicationPort.findApplicationForms(request.accountIdList).map { it.toResponse() })
+            .build()
+    }
+
+    override fun updateApplicantArrival(
+        request: UpdateApplicantArrivalRequest,
+        responseObserver: StreamObserver<ApplicationResponse>,
+    ) = responseObserver.respond {
+        request.applicantId.validate()
+        applicationPort.updateArrival(UpdateApplicantArrivalCommand(request.applicantId, request.isArrived))
+    }
+
+    override fun updateExamineeNumber(
+        request: UpdateExamineeNumberRequest,
+        responseObserver: StreamObserver<UpdateExamineeNumberResponse>,
+    ) = responseObserver.respondWith {
+        request.applicantId.validate()
+        applicationPort.updateExamineeNumber(request.applicantId, request.examineeNumber)
+        UpdateExamineeNumberResponse.getDefaultInstance()
+    }
+
+    override fun deleteApplicant(
+        request: DeleteApplicantRequest,
+        responseObserver: StreamObserver<DeleteApplicantResponse>,
+    ) = responseObserver.respondWith {
+        request.applicantId.validate()
+        applicationPort.deleteApplicant(request.applicantId)
+        DeleteApplicantResponse.getDefaultInstance()
     }
 
     private fun Long.validate() {
@@ -105,6 +165,9 @@ class ApplicationGrpcService(
                     is IllegalArgumentException -> Status.INVALID_ARGUMENT
                     is ApplicantNotFoundException -> Status.NOT_FOUND
                     is ApplicationCancelNotAllowedException -> Status.FAILED_PRECONDITION
+                    // CreateApplication 이 새 원서를 만들 때 원서 접수 기간을 본다.
+                    is ApplicationPeriodClosedException -> Status.FAILED_PRECONDITION
+                    is ApplicationPeriodLookupFailedException -> Status.UNAVAILABLE
                     else -> Status.INTERNAL
                 }.withCause(exception).asRuntimeException(),
             )
@@ -123,8 +186,16 @@ class ApplicationGrpcService(
             .setPassStatus(
                 when (passStatus) {
                     PassResultStatus.PENDING -> GrpcPassStatus.PASS_STATUS_NOT_ANNOUNCED
-                    PassResultStatus.PASS -> GrpcPassStatus.PASS_STATUS_PASSED
-                    PassResultStatus.FAIL -> GrpcPassStatus.PASS_STATUS_FAILED
+                    PassResultStatus.PASS -> when (passResultType) {
+                        ResultType.DOCUMENT -> GrpcPassStatus.PASS_STATUS_FIRST_PASSED
+                        ResultType.FINAL -> GrpcPassStatus.PASS_STATUS_FINAL_PASSED
+                        null -> GrpcPassStatus.PASS_STATUS_NOT_ANNOUNCED
+                    }
+                    PassResultStatus.FAIL -> when (passResultType) {
+                        ResultType.DOCUMENT -> GrpcPassStatus.PASS_STATUS_FIRST_FAILED
+                        ResultType.FINAL -> GrpcPassStatus.PASS_STATUS_FINAL_FAILED
+                        null -> GrpcPassStatus.PASS_STATUS_NOT_ANNOUNCED
+                    }
                 },
             )
             .build()
@@ -132,6 +203,7 @@ class ApplicationGrpcService(
     private fun ApplicantStatus.toGrpc(): GrpcApplicantStatus = when (this) {
         ApplicantStatus.DRAFT -> GrpcApplicantStatus.APPLICANT_STATUS_DRAFT
         ApplicantStatus.SUBMITTED -> GrpcApplicantStatus.APPLICANT_STATUS_SUBMITTED
+        ApplicantStatus.ARRIVAL -> GrpcApplicantStatus.APPLICANT_STATUS_ARRIVAL
         ApplicantStatus.REVIEWING -> GrpcApplicantStatus.APPLICANT_STATUS_REVIEWING
         ApplicantStatus.COMPLETED -> GrpcApplicantStatus.APPLICANT_STATUS_COMPLETED
         ApplicantStatus.CANCELED -> GrpcApplicantStatus.APPLICANT_STATUS_CANCELED
@@ -143,11 +215,27 @@ class ApplicationGrpcService(
             .setUserId(accountId)
             .setRegion(region.toGrpc())
             .setAdmissionType(admissionType.toGrpc())
+            .setGraduationType(graduationType.toGrpc())
+            .setApplicantStatus(status.toGrpc())
+            .setGender(
+                when (gender) {
+                    Gender.MALE -> GrpcGender.GENDER_MALE
+                    Gender.FEMALE -> GrpcGender.GENDER_FEMALE
+                    null -> GrpcGender.GENDER_UNSPECIFIED
+                },
+            )
             // apply 안에서는 name 이 빌더의 getName() 으로 잡히므로 also 로 넘긴다.
             .also { builder ->
                 name?.let(builder::setName)
                 schoolName?.let(builder::setSchoolName)
                 photoFileId?.let(builder::setPhotoFileId)
+                birthdate?.let { builder.setBirthdate(it.toString()) }
+                phoneNumber?.let(builder::setPhoneNumber)
+                totalScore?.let(builder::setTotalScore)
+                submittedAt?.let {
+                    builder.setSubmittedAtEpochMillis(it.toInstant(ZoneOffset.UTC).toEpochMilli())
+                }
+                address?.let(builder::setAddress)
             }
             .build()
 
@@ -184,13 +272,17 @@ class ApplicationGrpcService(
                 guardianName?.let(builder::setGuardianName)
                 guardianRelation?.let(builder::setGuardianRelation)
                 guardianPhoneNumber?.let(builder::setGuardianPhoneNumber)
+                introduction?.let(builder::setIntroduction)
+                studyPlan?.let(builder::setStudyPlan)
                 middleSchool?.let {
                     builder.setMiddleSchool(
                         GrpcMiddleSchool.newBuilder()
+                            .setCode(it.schoolCode)
                             .setName(it.schoolName)
                             .setStudentNumber(it.studentNumber)
                             .setPhone(it.schoolPhone)
                             .setTeacherName(it.teacherName)
+                            .also { schoolBuilder -> it.schoolAddress?.let(schoolBuilder::setAddress) }
                             .build(),
                     )
                 }
@@ -211,8 +303,42 @@ class ApplicationGrpcService(
                             .build(),
                     )
                 }
+                score?.let {
+                    builder.setSubjectScore(it.subjectScore)
+                    builder.setAttendanceScore(it.attendanceScore)
+                    builder.setVolunteerScore(it.volunteerScore)
+                    builder.setAdditionalScore(it.additionalScore)
+                    builder.setTotalScore(it.totalScore)
+                }
+                classNumber?.let(builder::setClassNumber)
+                studentNumber?.let(builder::setStudentNumber)
+                gedAverage?.let(builder::setGedAverage)
+                gedScores?.let { builder.setGedScores(it.toGrpc()) }
+                examineeNumber?.let(builder::setExamineeNumber)
+                admissionType.code()?.let(builder::setAdmissionTypeCode)
+                region.code()?.let(builder::setRegionCode)
+                builder.setSpecialAdmissionTypeCode(specialAdmissionType.code())
             }
             .build()
+
+    private fun AdmissionType?.code(): String? = when (this) {
+        AdmissionType.MEISTER -> "1"
+        AdmissionType.SOCIAL -> "2"
+        AdmissionType.REGULAR -> "3"
+        null -> null
+    }
+
+    private fun Region?.code(): String? = when (this) {
+        Region.DAEJEON -> "1"
+        Region.NATIONAL -> "2"
+        null -> null
+    }
+
+    private fun SpecialAdmissionType.code(): String = when (this) {
+        SpecialAdmissionType.NONE -> "0"
+        SpecialAdmissionType.NATIONAL_MERIT -> "1"
+        SpecialAdmissionType.SPECIAL_ADMISSION -> "2"
+    }
 
     /** 성취도 A~E. 미이수(X)는 요강에 없는 값이라 빈 문자열로 준다. */
     private fun SubjectGrades.toGrpc(): GrpcSemesterGrades =
@@ -227,6 +353,17 @@ class ApplicationGrpcService(
             .build()
 
     private fun SubjectGrade.label(): String = if (this == SubjectGrade.X) "" else name
+
+    private fun GedScores.toGrpc(): GrpcGedScores =
+        GrpcGedScores.newBuilder()
+            .setKorean(koreanScore)
+            .setSociety(societyScore)
+            .setHistory(historyScore)
+            .setMath(mathScore)
+            .setScience(scienceScore)
+            .setTechnology(technologyScore)
+            .setEnglish(englishScore)
+            .build()
 
     private fun Region?.toGrpc(): GrpcRegion = when (this) {
         Region.DAEJEON -> GrpcRegion.REGION_DAEJEON

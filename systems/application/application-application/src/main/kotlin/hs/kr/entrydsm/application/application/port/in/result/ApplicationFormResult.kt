@@ -7,8 +7,10 @@ import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
+import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import hs.kr.entrydsm.application.domain.service.ScoreBreakdown
 import java.time.LocalDate
 import java.time.YearMonth
 
@@ -48,4 +50,14 @@ data class ApplicationFormResult(
     val secondPreviousSemester: SubjectGrades?,
     /** 출결·봉사·가산점. 성적을 한 번도 넣지 않았으면 null 이라 전부 0 인 것과 구분된다. */
     val academicRecord: AcademicRecord?,
+    val score: ScoreBreakdown?,
+    /** 서식 3 자기소개서·학업계획서 본문. 제출 검증이 요구하므로 제출본에는 차 있다. */
+    val introduction: String?,
+    val studyPlan: String?,
+    val classNumber: String? = null,
+    val studentNumber: String? = null,
+    val gedAverage: Double? = null,
+    /** 검정고시 지원자의 과목별 점수. 학기 성적 대신 서식 1 교과성적 표에 찍는다. 검정고시가 아니면 null 이다. */
+    val gedScores: GedScores? = null,
+    val examineeNumber: String? = null,
 )

@@ -7,9 +7,9 @@ import hs.kr.entrydsm.observability.application.port.out.ReportGeneratorPort
 import hs.kr.entrydsm.observability.application.port.out.ReportObjectStoragePort
 import hs.kr.entrydsm.observability.application.port.out.RoundPort
 import hs.kr.entrydsm.observability.domain.enum.ReportFormat
+import hs.kr.entrydsm.observability.domain.service.KoreaTime
 import java.time.Clock
 import java.time.Instant
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /** ponytail: 데이터량이 적어 동기 생성만 지원한다(202 GENERATING/폴링 큐 없음). 느려지면 잡 큐로 교체. */
@@ -25,7 +25,7 @@ class ReportService(
         val snapshot = getDashboardSnapshotUseCase.getSnapshot(null)
         val bytes = reportGeneratorPort.generate(format, snapshot)
         val round = roundPort.current()
-        val dateStamp = DATE_FORMATTER.format(Instant.now(clock).atZone(ZONE))
+        val dateStamp = DATE_FORMATTER.format(Instant.now(clock).atZone(KoreaTime.ZONE))
         val fileName = "entrymonitor_${round.name}_$dateStamp.${format.name.lowercase()}"
         val stored = reportObjectStoragePort.store(fileName, bytes)
         return ReportResult(
@@ -37,7 +37,6 @@ class ReportService(
     }
 
     companion object {
-        private val ZONE: ZoneId = ZoneId.of("Asia/Seoul")
         private val DATE_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
     }
 }

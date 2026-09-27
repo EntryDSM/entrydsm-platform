@@ -26,7 +26,7 @@ data class FileResponse(
             expiresIn = file.expiresIn,
         )
 
-        /** 원서·수험표: 저장 파일명(application_{applicantId}.pdf) */
+        /** 원서·수험표: 저장 파일명(application_{접수번호}.pdf) */
         fun ofApplicant(file: DownloadableFile) = FileResponse(
             id = null,
             fileName = file.document.fileName,

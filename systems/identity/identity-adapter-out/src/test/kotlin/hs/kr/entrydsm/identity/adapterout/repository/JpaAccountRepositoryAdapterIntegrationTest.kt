@@ -133,6 +133,8 @@ class JpaAccountRepositoryAdapterIntegrationTest {
             ApplicationStateChangedEvent(
                 eventId = "application-submitted-1",
                 userId = saved.userId,
+                applicantId = 10,
+                deleted = false,
                 version = 1,
                 applicantStatus = ApplicantStatus.SUBMITTED,
                 submittedAt = CREATED_AT,
@@ -147,6 +149,8 @@ class JpaAccountRepositoryAdapterIntegrationTest {
             ApplicationStateChangedEvent(
                 eventId = "application-submitted-1",
                 userId = saved.userId,
+                applicantId = 10,
+                deleted = false,
                 version = 2,
                 applicantStatus = ApplicantStatus.SUBMITTED,
                 submittedAt = CREATED_AT,
@@ -159,6 +163,8 @@ class JpaAccountRepositoryAdapterIntegrationTest {
             ApplicationStateChangedEvent(
                 eventId = "application-submitted-old",
                 userId = saved.userId,
+                applicantId = 10,
+                deleted = false,
                 version = 0,
                 applicantStatus = ApplicantStatus.NONE,
                 submittedAt = null,
@@ -183,6 +189,21 @@ class JpaAccountRepositoryAdapterIntegrationTest {
     }
 
     @Test
+    fun deletionResetsProfileRejectsOldEventsAndAcceptsReapplication() {
+        val saved = adapter.save(account())
+        applicationDataAdapter.consume(event(saved.userId, applicantId = 10, version = 3))
+
+        assertEquals(true, applicationDataAdapter.consume(
+            event(saved.userId, applicantId = 10, version = 4, deleted = true),
+        ))
+        assertEquals(ApplicantStatus.NONE, studentProfileJpaRepository.findByAccount_Id(saved.userId)?.applicantStatus)
+        assertEquals(false, applicationProjectionJpaRepository.findById(saved.userId).isPresent)
+        assertEquals(false, applicationDataAdapter.consume(event(saved.userId, applicantId = 10, version = 5)))
+        assertEquals(true, applicationDataAdapter.consume(event(saved.userId, applicantId = 11, version = 1)))
+        assertEquals(11L, applicationProjectionJpaRepository.findById(saved.userId).orElseThrow().applicantId)
+    }
+
+    @Test
     fun concurrentCancellationAllowsOnlyOneStateTransition() {
         val saved = adapter.save(account())
         applicationDataAdapter.create(saved.userId, CREATED_AT)
@@ -190,6 +211,8 @@ class JpaAccountRepositoryAdapterIntegrationTest {
             ApplicationStateChangedEvent(
                 eventId = "application-concurrent-submitted",
                 userId = saved.userId,
+                applicantId = 10,
+                deleted = false,
                 version = 1,
                 applicantStatus = ApplicantStatus.SUBMITTED,
                 submittedAt = CREATED_AT,
@@ -320,5 +343,23 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         ),
         createdAt = CREATED_AT,
         updatedAt = CREATED_AT,
+    )
+
+    private fun event(
+        userId: Long,
+        applicantId: Long,
+        version: Long,
+        deleted: Boolean = false,
+    ) = ApplicationStateChangedEvent(
+        eventId = "$applicantId-$version-$deleted",
+        userId = userId,
+        applicantId = applicantId,
+        deleted = deleted,
+        version = version,
+        applicantStatus = ApplicantStatus.SUBMITTED,
+        submittedAt = CREATED_AT,
+        passStatus = PassStatus.NOT_ANNOUNCED,
+        announcedAt = null,
+        occurredAt = CREATED_AT,
     )
 }

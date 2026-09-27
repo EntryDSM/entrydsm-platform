@@ -34,6 +34,7 @@ aws:
     bucket: ${AWS_S3_BUCKET}
     region: ${AWS_S3_REGION}
     presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS}
+    environment: ${STORAGE_ENV}
 
 server:
   port: ${SERVER_PORT}
@@ -50,18 +51,22 @@ application:
     deadline-ms: ${APPLICATION_GRPC_DEADLINE_MS:3000}
 
 document:
-  # 수험표 제목에 찍는 입학 학년도. admin 의 ADMISSION_YEAR 와 같은 값을 쓴다.
+  # 수험표 제목에 찍는 입학 학년도. 관리자 일괄 출력(admin)도 여기서 그린 수험표를 쓴다.
   admission-year: ${ADMISSION_YEAR:2027}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 logging:
   level:

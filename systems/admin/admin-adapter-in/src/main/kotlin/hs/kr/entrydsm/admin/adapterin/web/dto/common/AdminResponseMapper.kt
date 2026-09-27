@@ -10,6 +10,7 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScorePolicyResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreWeightsResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScreeningResultResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.StatisticsResponse
+import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
@@ -34,7 +35,9 @@ fun ScorePolicy.toResponse(): ScorePolicyResponse = ScorePolicyResponse(
 )
 
 fun AdmissionQuota.toResponse(): AdmissionQuotaResponse = AdmissionQuotaResponse(
-    quotas = quotas,
+    general = quotas.getValue(AdmissionType.GENERAL),
+    meister = quotas.getValue(AdmissionType.MEISTER),
+    social = quotas.getValue(AdmissionType.SOCIAL),
     updatedAt = updatedAt,
     updatedBy = updatedBy,
 )
@@ -74,6 +77,29 @@ fun ApplicantStatistics.toResponse(): StatisticsResponse = StatisticsResponse(
                 it.mapKeys { (type, _) -> type.name },
             )
         }
+        genderRatio?.let {
+            put(
+                StatisticsMetric.GENDER_RATIO.name,
+                mapOf(
+                    "total" to it.total,
+                    "byGender" to it.byGender.mapKeys { (gender, _) -> gender.name },
+                    "maleRatio" to it.maleRatio,
+                    "byType" to it.byType.mapKeys { (type, _) -> type.name }.mapValues { (_, byGender) ->
+                        byGender.mapKeys { (gender, _) -> gender.name }
+                    },
+                ),
+            )
+        }
+        regionStatus?.let {
+            put(
+                StatisticsMetric.REGION_STATUS.name,
+                mapOf(
+                    "total" to it.total,
+                    "byScope" to it.byScope,
+                    "byRegion" to it.byRegion.mapKeys { (region, _) -> region.name },
+                ),
+            )
+        }
         regionDistribution?.let {
             put(
                 StatisticsMetric.REGION_DISTRIBUTION.name,
@@ -104,6 +130,8 @@ fun ExportJobView.toResponse(): ExportJobResponse = ExportJobResponse(
     exportJobId = job.exportJobId,
     type = job.type,
     status = job.status,
+    totalCount = job.totalCount,
+    processedCount = job.processedCount,
     downloadUrl = download?.downloadUrl,
     expiresAt = download?.expiresAt,
     createdAt = job.createdAt,

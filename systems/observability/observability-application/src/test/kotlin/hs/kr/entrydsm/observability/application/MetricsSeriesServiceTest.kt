@@ -16,14 +16,14 @@ class MetricsSeriesServiceTest {
     private val service = MetricsSeriesService(FakeMetricsStorePort(), clock)
 
     @Test
-    fun buildsZeroFilledPointsForApiRequestAndVisitorFromStore() {
+    fun buildsApiRequestAndVisitorPointsFromStore() {
         val from = Instant.parse("2026-07-28T00:00:00Z")
         val to = Instant.parse("2026-07-28T02:00:00Z")
 
         val result = service.getSeries(listOf(MetricType.API_REQUEST, MetricType.VISITOR), from, to, "1h")
 
         assertEquals(2, result.series.first { it.metric == MetricType.API_REQUEST }.points.size)
-        assertEquals(0L, result.series.first { it.metric == MetricType.API_REQUEST }.points[0].v)
+        assertEquals(9L, result.series.first { it.metric == MetricType.API_REQUEST }.points[0].v)
         assertEquals(7L, result.series.first { it.metric == MetricType.VISITOR }.points[0].v)
     }
 
@@ -62,5 +62,7 @@ class MetricsSeriesServiceTest {
         override fun recordVisitor(sessionId: String, at: Instant) = Unit
         override fun visitorCount(from: Instant, to: Instant): Long =
             if (Duration.between(from, to) == Duration.ofHours(1)) 7L else 0L
+        override fun apiRequestCount(from: Instant, to: Instant, success: Boolean?) = 9L
+        override fun businessCount(type: String, from: Instant, to: Instant, success: Boolean) = 0L
     }
 }

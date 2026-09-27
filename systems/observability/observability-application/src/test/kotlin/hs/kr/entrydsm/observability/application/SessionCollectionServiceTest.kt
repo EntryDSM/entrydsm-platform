@@ -125,5 +125,7 @@ class SessionCollectionServiceTest {
     private class FakeMetricsStorePort : MetricsStorePort {
         override fun recordVisitor(sessionId: String, at: Instant) = Unit
         override fun visitorCount(from: Instant, to: Instant) = 0L
+        override fun apiRequestCount(from: Instant, to: Instant, success: Boolean?) = 0L
+        override fun businessCount(type: String, from: Instant, to: Instant, success: Boolean) = 0L
     }
 }

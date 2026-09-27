@@ -33,7 +33,6 @@ data class ConcurrentResult(val current: Int, val max: Int, val avg: Int)
 
 data class DeviceStatResult(val type: DeviceType, val count: Long, val ratio: Double)
 
-/** 다른 서비스로부터 API 요청 지표를 받는 수집 경로가 아직 없어 항상 0으로 반환된다. */
 data class ApiStatsResult(
     val totalRequests: Long,
     val successCount: Long,
@@ -41,7 +40,6 @@ data class ApiStatsResult(
     val failureRate: Double,
 )
 
-/** 원서접수/PDF다운로드 도메인 이벤트를 받는 수집 경로가 아직 없어 항상 0으로 반환된다. */
 data class BusinessStatsResult(
     val applicationSubmit: OutcomeCountResult,
     val pdfDownload: OutcomeCountResult,
