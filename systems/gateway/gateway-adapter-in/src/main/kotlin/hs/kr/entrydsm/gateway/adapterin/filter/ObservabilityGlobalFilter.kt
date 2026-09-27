@@ -43,7 +43,9 @@ class ObservabilityGlobalFilter(
      * 스레드가 인터럽트돼 Redis 쓰기가 빠진다(요청마다 연결을 닫으면 재시작 뒤 아무것도 남지 않았다).
      */
     private fun record(exchange: ServerWebExchange, status: Int) {
-        Schedulers.boundedElastic().schedule { recordNow(exchange, status) }
+        // Redis 장애가 길어 기록 대기열이 차면 schedule 이 거절 예외를 던진다. 지표 때문에 요청을 실패시키지 않는다.
+        runCatching { Schedulers.boundedElastic().schedule { recordNow(exchange, status) } }
+            .onFailure { logger.warn("Failed to schedule gateway observability metrics", it) }
     }
 
     private fun recordNow(exchange: ServerWebExchange, status: Int) {
