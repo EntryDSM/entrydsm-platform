@@ -4,6 +4,8 @@ import hs.kr.entrydsm.gateway.domain.GatewayService
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import org.springframework.cloud.gateway.filter.GatewayFilterChain
 import org.springframework.cloud.gateway.filter.GlobalFilter
 import org.springframework.core.Ordered
@@ -14,11 +16,13 @@ import org.springframework.stereotype.Component
 import org.springframework.web.server.ServerWebExchange
 import reactor.core.publisher.Mono
 import reactor.core.scheduler.Schedulers
+import tools.jackson.databind.ObjectMapper
 
 /** 게이트웨이를 통과한 외부 API 요청을 한 번만 집계한다. */
 @Component
 class ObservabilityGlobalFilter(
     private val redis: StringRedisTemplate,
+    private val objectMapper: ObjectMapper,
 ) : GlobalFilter, Ordered {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -65,6 +69,7 @@ class ObservabilityGlobalFilter(
         val method = exchange.request.method.name()
         val path = normalizePath(exchange.request.path.value())
         val code = "HTTP_$status"
+        val message = exchange.response.statusCode?.toString() ?: "Request failed"
         val fingerprint = fingerprint(service, method, path, code)
         val entryKey = "monitor:server-log:entry:$fingerprint"
         val hash = redis.opsForHash<String, String>()
@@ -77,7 +82,7 @@ class ObservabilityGlobalFilter(
                 "path" to path,
                 "status" to status.toString(),
                 "code" to code,
-                "message" to (exchange.response.statusCode?.toString() ?: "Request failed"),
+                "message" to message,
                 "firstOccurredAt" to nowMillis,
                 "lastOccurredAt" to nowMillis,
             ))
@@ -92,6 +97,9 @@ class ObservabilityGlobalFilter(
             redis.opsForZSet().add(indexKey, fingerprint, now.toEpochMilli().toDouble())
             redis.opsForZSet().removeRangeByScore(indexKey, 0.0, expiredBefore)
         }
+        liveServerError(service, method, path, status, code, message, count, now)?.let {
+            redis.convertAndSend(LIVE_LOG_CHANNEL, objectMapper.writeValueAsString(it))
+        }
     }
 
     private fun result(success: Boolean) = if (success) "success" else "failure"
@@ -105,6 +113,9 @@ class ObservabilityGlobalFilter(
         val GRANULARITY: Duration = Duration.ofMinutes(5)
         val RETENTION: Duration = Duration.ofDays(91)
         val SERVER_LOG_RETENTION: Duration = Duration.ofDays(7)
+
+        /** observability 가 구독해 SSE log 이벤트로 내보내는 채널(SseLiveLogPublisher.CHANNEL). */
+        const val LIVE_LOG_CHANNEL = "monitor:live-log"
     }
 }
 
@@ -125,5 +136,34 @@ fun observedService(path: String): String? = GatewayService.entries.firstOrNull 
         else -> null
     }
 }
+
+/**
+ * 모니터링 화면이 SSE log 이벤트(kind SERVER)로 받는 실시간 서버 오류.
+ * 화면은 5xx 만 보여 주고 실시간 로그 버퍼를 클라이언트 로그와 같이 써서, 4xx 는 목록 API 로만 본다.
+ */
+fun liveServerError(
+    service: String,
+    method: String,
+    path: String,
+    status: Int,
+    code: String,
+    message: String,
+    count: Long,
+    at: Instant,
+): Map<String, Any>? = if (status < 500) null else mapOf(
+    "kind" to "SERVER",
+    "level" to "ERROR",
+    "service" to service,
+    "method" to method,
+    "path" to path,
+    "status" to status,
+    "code" to code,
+    "message" to message,
+    "count" to count,
+    // 모니터링 응답 시각과 같이 한국 시간으로 보낸다(#290).
+    "occurredAt" to DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(at.atZone(KOREA)),
+)
+
+private val KOREA: ZoneId = ZoneId.of("Asia/Seoul")
 
 private fun normalizePath(path: String): String = path.replace(Regex("/\\d+(?=/|$)"), "/{id}")

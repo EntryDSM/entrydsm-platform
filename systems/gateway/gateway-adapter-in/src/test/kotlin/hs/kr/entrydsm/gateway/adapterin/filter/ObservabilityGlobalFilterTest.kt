@@ -1,22 +1,29 @@
 package hs.kr.entrydsm.gateway.adapterin.filter
 
 import java.lang.reflect.Proxy
+import java.time.Instant
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.springframework.cloud.gateway.filter.GatewayFilterChain
+import org.springframework.data.redis.core.HashOperations
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.redis.core.ValueOperations
+import org.springframework.data.redis.core.ZSetOperations
 import org.springframework.http.HttpMethod
 import org.springframework.http.HttpStatus
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.mock.web.server.MockServerWebExchange
 import reactor.core.publisher.Mono
+import tools.jackson.databind.json.JsonMapper
 
 class ObservabilityGlobalFilterTest {
+    private val mapper = JsonMapper.builder().build()
+
     @Test
     fun classifiesBusinessRequests() {
         assertEquals("application-submit", businessMetric(HttpMethod.PATCH, "/api/application/v11/applicants"))
@@ -43,21 +50,60 @@ class ObservabilityGlobalFilterTest {
         exchange.response.statusCode = HttpStatus.OK
 
         // 응답 직후 연결이 닫히면 서버가 요청 구독을 취소한다.
-        ObservabilityGlobalFilter(redis).filter(exchange, GatewayFilterChain { Mono.empty() }).subscribe().dispose()
+        ObservabilityGlobalFilter(redis, mapper).filter(exchange, GatewayFilterChain { Mono.empty() }).subscribe().dispose()
         slowRedis.countDown()
 
         assertTrue(recorded.await(5, TimeUnit.SECONDS))
     }
 
-    private class FakeRedis(private val onIncrement: (String) -> Unit) : StringRedisTemplate() {
-        @Suppress("UNCHECKED_CAST")
-        override fun opsForValue(): ValueOperations<String, String> =
-            Proxy.newProxyInstance(javaClass.classLoader, arrayOf(ValueOperations::class.java)) { _, method, args ->
-                check(method.name == "increment") { "unexpected call: ${method.name}" }
-                onIncrement(args[0] as String)
-                1L
-            } as ValueOperations<String, String>
+    @Test
+    fun publishesServerErrorsToTheLiveLog() {
+        val redis = FakeRedis()
+        val exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/document/v11/applications"))
+        exchange.response.statusCode = HttpStatus.SERVICE_UNAVAILABLE
+
+        ObservabilityGlobalFilter(redis, mapper).filter(exchange, GatewayFilterChain { Mono.empty() }).block()
+
+        val event = mapper.readTree(requireNotNull(redis.published.poll(5, TimeUnit.SECONDS)))
+        assertEquals("SERVER", event["kind"].asString())
+        assertEquals("DOCUMENT", event["service"].asString())
+        assertEquals(503, event["status"].asInt())
+    }
+
+    @Test
+    fun keepsClientErrorsOutOfTheLiveLog() {
+        val at = Instant.parse("2026-09-27T13:00:00Z")
+
+        assertNull(liveServerError("APPLICATION", "GET", "/api/application/v11/applicants/landing", 401, "HTTP_401", "401 UNAUTHORIZED", 1, at))
+        assertEquals(
+            "2026-09-27T22:00:00+09:00",
+            liveServerError("APPLICATION", "PATCH", "/api/application/v11/applicants", 500, "HTTP_500", "500 INTERNAL_SERVER_ERROR", 1, at)?.get("occurredAt"),
+        )
+    }
+
+    private class FakeRedis(private val onIncrement: (String) -> Unit = {}) : StringRedisTemplate() {
+        val published = LinkedBlockingQueue<String>()
+
+        override fun opsForValue(): ValueOperations<String, String> = fake { method, args ->
+            if (method == "increment") onIncrement(args[0] as String)
+            1L
+        }
+
+        override fun <HK, HV> opsForHash(): HashOperations<String, HK, HV> = fake { _, _ -> 1L }
+
+        override fun opsForZSet(): ZSetOperations<String, String> = fake { _, _ -> null }
 
         override fun expire(key: String, timeout: Long, unit: TimeUnit): Boolean = true
+
+        override fun convertAndSend(channel: String, message: Any): Long {
+            published.add(message as String)
+            return 1L
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        private inline fun <reified T> fake(crossinline answer: (String, Array<Any?>) -> Any?): T =
+            Proxy.newProxyInstance(javaClass.classLoader, arrayOf(T::class.java)) { _, method, args ->
+                answer(method.name, args ?: emptyArray())
+            } as T
     }
 }
