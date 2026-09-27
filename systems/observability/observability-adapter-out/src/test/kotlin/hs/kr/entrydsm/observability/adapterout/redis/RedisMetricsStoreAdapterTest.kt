@@ -14,12 +14,18 @@ class RedisMetricsStoreAdapterTest {
 
     @Test
     fun sumsBucketsWithoutOneRoundTripPerBucket() {
-        val redis = FakeRedis { key -> if (key.contains(":success:")) "2" else null }
+        val redis = FakeRedis { key ->
+            when {
+                key.contains(":success:") -> "2"
+                key.startsWith("monitor:metric:business:pdf-download:failure:") -> "3"
+                else -> null
+            }
+        }
         val adapter = RedisMetricsStoreAdapter(redis)
 
         assertEquals(2880L, adapter.apiRequestCount(from, to, success = true))
         assertEquals(2880L, adapter.apiRequestCount(from, to))
-        assertEquals(0L, adapter.businessCount("pdf-download", from, to, success = false))
+        assertEquals(4320L, adapter.businessCount("pdf-download", from, to, success = false))
         // 키 1,440·2,880·1,440개를 1,000개씩 읽는다.
         assertEquals(7, redis.roundTrips)
     }
