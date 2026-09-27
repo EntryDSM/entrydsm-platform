@@ -79,6 +79,7 @@ class AccountServiceTest {
         assertEquals("01012345678", result.phone)
         assertEquals(LocalDate.of(2009, 3, 15), result.birthdate)
         assertEquals(SignupType.SELF, result.signupType)
+        assertEquals(false, result.isSensitiveAgree)
         assertEquals(ApplicantStatus.SUBMITTED, result.applicantStatus)
         assertEquals(CREATED_AT, result.createdAt)
         assertEquals(APPLICATION_UPDATED_AT, result.updatedAt)

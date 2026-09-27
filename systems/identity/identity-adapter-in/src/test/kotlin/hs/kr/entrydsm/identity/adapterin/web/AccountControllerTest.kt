@@ -34,6 +34,7 @@ class AccountControllerTest {
         assertEquals(123L, command.userId)
 
         assertEquals("user_123", response.data?.userId)
+        assertEquals(true, response.data?.isSensitiveAgree)
         assertEquals(ApplicantStatus.SUBMITTED, response.data?.applicantStatus)
     }
 
@@ -104,6 +105,7 @@ class AccountControllerTest {
                 phone = "01012345678",
                 birthdate = LocalDate.parse("2009-03-15"),
                 signupType = SignupType.SELF,
+                isSensitiveAgree = true,
                 applicantStatus = ApplicantStatus.SUBMITTED,
                 createdAt = NOW,
                 updatedAt = NOW,

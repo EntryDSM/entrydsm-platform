@@ -62,6 +62,7 @@ class ResponseMapperTest {
             phone = profile.phone,
             birthdate = profile.birthdate,
             signupType = profile.signupType,
+            isSensitiveAgree = true,
             applicantStatus = profile.applicantStatus,
             createdAt = timestamp,
             updatedAt = timestamp,
@@ -71,6 +72,7 @@ class ResponseMapperTest {
         assertEquals("USER", response.role)
         assertEquals(profile.birthdate, response.birthdate)
         assertEquals(profile.signupType, response.signupType)
+        assertEquals(true, response.isSensitiveAgree)
     }
 
     @Test

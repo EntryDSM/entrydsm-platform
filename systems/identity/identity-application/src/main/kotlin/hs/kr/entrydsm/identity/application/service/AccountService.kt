@@ -37,6 +37,7 @@ class AccountService(
             phone = account.profile.phone,
             birthdate = account.profile.birthdate,
             signupType = account.profile.signupType,
+            isSensitiveAgree = account.isSensitiveAgree,
             applicantStatus = application?.applicantStatus ?: account.profile.applicantStatus,
             createdAt = account.createdAt,
             updatedAt = application?.updatedAt ?: account.updatedAt,

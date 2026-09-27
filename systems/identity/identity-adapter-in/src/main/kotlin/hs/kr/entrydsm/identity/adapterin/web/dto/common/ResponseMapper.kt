@@ -50,6 +50,7 @@ fun BasicInfoResult.toResponse(): BasicInfoResponse =
         phone = phone,
         birthdate = birthdate,
         signupType = signupType,
+        isSensitiveAgree = isSensitiveAgree,
         applicantStatus = applicantStatus,
         createdAt = createdAt,
         updatedAt = updatedAt,
