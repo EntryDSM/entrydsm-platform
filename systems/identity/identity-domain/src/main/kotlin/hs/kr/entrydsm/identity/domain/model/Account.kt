@@ -12,7 +12,7 @@ class Account(
     val loginId: String,
     passwordHash: PasswordHash,
     val role: Role,
-    val isSensitiveAgree: Boolean = false,
+    isSensitiveAgree: Boolean = false,
     status: AccountStatus,
     val profile: StudentProfile,
     val createdAt: Instant,
@@ -24,6 +24,9 @@ class Account(
     var status: AccountStatus = status
         private set
 
+    var isSensitiveAgree: Boolean = isSensitiveAgree
+        private set
+
     var updatedAt: Instant = updatedAt
         private set
 
@@ -33,6 +36,13 @@ class Account(
         }
         passwordHash = newPasswordHash
         updatedAt = now
+    }
+
+    fun agreeSensitiveInformation(now: Instant): Boolean {
+        if (isSensitiveAgree) return false
+        isSensitiveAgree = true
+        updatedAt = now
+        return true
     }
 
     fun delete(now: Instant) {

@@ -39,6 +39,20 @@ class AccountServiceTest {
     }
 
     @Test
+    fun agreeSensitiveInformationPersistsOnceAndKeepsTheFirstUpdateTime() {
+        val commandPort = FakeAccountCommandPort()
+        val service = AccountService(FakeAccountQueryPort(account()), commandPort, FakeApplicationDataPort(), fixedClock)
+
+        val first = service.agreeSensitiveInformation(ReadAccountCommand(USER_ID))
+        val second = service.agreeSensitiveInformation(ReadAccountCommand(USER_ID))
+
+        assertEquals(true, first.isSensitiveAgree)
+        assertEquals(NOW, first.updatedAt)
+        assertEquals(first, second)
+        assertEquals(1, commandPort.saveCount)
+    }
+
+    @Test
     fun getBasicInfoMapsAccountAndApplicationFields() {
         val account = account()
         val application = ApplicationSnapshot(
@@ -135,9 +149,11 @@ class AccountServiceTest {
 
     private class FakeAccountCommandPort : AccountCommandPort {
         var savedAccount: Account? = null
+        var saveCount: Int = 0
 
         override fun save(account: Account): Account {
             savedAccount = account
+            saveCount++
             return account
         }
 

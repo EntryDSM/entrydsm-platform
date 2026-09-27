@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.identity.application.service
 
 import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
+import hs.kr.entrydsm.identity.application.port.`in`.SensitiveAgreeResult
 import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
@@ -50,6 +51,12 @@ class AccountService(
             status = account.status,
             isSensitiveAgree = account.isSensitiveAgree,
         )
+    }
+
+    override fun agreeSensitiveInformation(command: ReadAccountCommand): SensitiveAgreeResult {
+        val account = resolveAccount(command.userId)
+        if (account.agreeSensitiveInformation(now())) accountCommandPort.save(account)
+        return SensitiveAgreeResult(account.isSensitiveAgree, account.updatedAt)
     }
 
     private fun resolveAccount(userId: Long?) =
