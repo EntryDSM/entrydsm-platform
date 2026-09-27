@@ -28,13 +28,21 @@ class ObservabilityGlobalFilter(
             return chain.filter(exchange)
         }
         return chain.filter(exchange)
-            .then(Mono.defer { record(exchange, exchange.response.statusCode?.value() ?: 200) })
-            .onErrorResume { failure -> record(exchange, exchange.response.statusCode?.value() ?: 500).then(Mono.error(failure)) }
+            .doOnSuccess { record(exchange, exchange.response.statusCode?.value() ?: 200) }
+            .doOnError { record(exchange, exchange.response.statusCode?.value() ?: 500) }
     }
 
     override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE + 1
 
-    private fun record(exchange: ServerWebExchange, status: Int): Mono<Void> = Mono.fromRunnable<Void> {
+    /**
+     * 기록은 요청 흐름 밖에서 돈다. 요청 흐름에 묶으면 응답 직후 연결이 닫힐 때 구독과 함께 취소되고
+     * 스레드가 인터럽트돼 Redis 쓰기가 빠진다(요청마다 연결을 닫으면 재시작 뒤 아무것도 남지 않았다).
+     */
+    private fun record(exchange: ServerWebExchange, status: Int) {
+        Schedulers.boundedElastic().schedule { recordNow(exchange, status) }
+    }
+
+    private fun recordNow(exchange: ServerWebExchange, status: Int) {
         runCatching {
             val now = Instant.now()
             val bucket = now.toEpochMilli() / GRANULARITY.toMillis() * GRANULARITY.toMillis()
@@ -45,7 +53,7 @@ class ObservabilityGlobalFilter(
             }
             if (!success) recordServerError(exchange, status, now)
         }.onFailure { logger.warn("Failed to record gateway observability metrics", it) }
-    }.subscribeOn(Schedulers.boundedElastic()).then()
+    }
 
     private fun increment(key: String) {
         redis.opsForValue().increment(key)
