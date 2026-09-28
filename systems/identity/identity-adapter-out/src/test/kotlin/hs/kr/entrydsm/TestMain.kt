@@ -16,6 +16,7 @@ import hs.kr.entrydsm.identity.adapterout.persistence.TransactionalAccountRegist
 import hs.kr.entrydsm.identity.adapterout.repository.JpaAccountRepositoryAdapterIntegrationTest
 import hs.kr.entrydsm.identity.adapterout.persistence.PersistenceProfileContractTest
 import hs.kr.entrydsm.identity.adapterout.persistence.ApplicationStatusRedisConsumerTest
+import hs.kr.entrydsm.identity.adapterout.persistence.AccountApplicationDataPersistenceAdapterTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -42,6 +43,7 @@ import javax.crypto.AEADBadTagException
     KcbPassProviderAdapterTest::class,
     PersistenceProfileContractTest::class,
     ApplicationStatusRedisConsumerTest::class,
+    AccountApplicationDataPersistenceAdapterTest::class,
     GrpcApplicationDataAdapterTest::class,
 )
 class IdentityAdapterOutModuleTest

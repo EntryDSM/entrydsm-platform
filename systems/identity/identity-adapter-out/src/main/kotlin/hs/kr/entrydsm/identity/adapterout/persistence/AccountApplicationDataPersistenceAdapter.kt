@@ -17,6 +17,7 @@ import hs.kr.entrydsm.identity.domain.enum.ErrorCode
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Instant
 import java.util.UUID
+import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Primary
 import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
@@ -32,6 +33,8 @@ class AccountApplicationDataPersistenceAdapter(
     private val remoteApplicationDataAdapter: GrpcApplicationDataAdapter,
     private val studentProfileRepository: StudentProfileJpaRepository,
 ) : ApplicationDataPort, ApplicationEventConsumer, ApplicationOutboxPort {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     @Transactional
     override fun create(userId: Long, updatedAt: Instant): ApplicationSnapshot {
         val remote = remoteApplicationDataAdapter.create(userId, updatedAt)
@@ -83,8 +86,15 @@ class AccountApplicationDataPersistenceAdapter(
 
     @Transactional
     override fun consume(event: ApplicationStateChangedEvent): Boolean {
-        val profile = studentProfileRepository.findByAccount_Id(event.userId)
-            ?: error("Student profile not found for account ${event.userId}")
+        // 학생 프로필이 없는 계정(예: identity DB 만 비운 경우)은 반영할 곳이 없다. 던지면 ack 되지 않은 채 계속 남으니 건너뛴다.
+        val profile = studentProfileRepository.findByAccount_Id(event.userId) ?: run {
+            logger.warn(
+                "Skipping applicant status event for account without student profile [userId={}, eventId={}]",
+                event.userId,
+                event.eventId,
+            )
+            return false
+        }
         if (event.applicantId <= (profile.lastDeletedApplicantId ?: 0)) return false
 
         val projection = projectionRepository.findByUserIdForUpdate(event.userId)
