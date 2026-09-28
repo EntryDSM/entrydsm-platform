@@ -30,6 +30,7 @@ fun AccountResult.toResponse(): AccountResponse =
         profile = profile.toResponse(),
         createdAt = createdAt,
         updatedAt = updatedAt,
+        sensitiveAgree = isSensitiveAgree,
     )
 
 fun ProfileResult.toResponse(): ProfileResponse =

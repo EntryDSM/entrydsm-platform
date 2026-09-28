@@ -10,4 +10,5 @@ data class AccountResponse(
     val profile: ProfileResponse,
     val createdAt: Instant,
     val updatedAt: Instant,
+    val sensitiveAgree: Boolean,
 )

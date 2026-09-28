@@ -57,6 +57,7 @@ class AuthControllerTest {
         assertEquals(HttpStatus.CREATED, response.statusCode)
         assertEquals("/api/identity/v11/accounts/me", response.headers.location.toString())
         assertEquals("홍길동", response.body?.data?.profile?.name)
+        assertTrue(response.body?.data?.sensitiveAgree == true)
     }
 
     @Test
@@ -210,6 +211,7 @@ class AuthControllerTest {
                 ),
                 createdAt = NOW,
                 updatedAt = NOW,
+                isSensitiveAgree = command.isSensitiveAgree,
             )
         }
 
