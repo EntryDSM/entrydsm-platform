@@ -23,7 +23,7 @@ class InstitutionCodeJpaRepositoryTest {
     private lateinit var institutionCodeJpaRepository: InstitutionCodeJpaRepository
 
     @Test
-    fun findByNameStartingWithReturnsOnlyPrefixMatches() {
+    fun findByNameContainingReturnsAllContainsMatches() {
         institutionCodeJpaRepository.saveAll(
             listOf(
                 institution(
@@ -47,19 +47,15 @@ class InstitutionCodeJpaRepositoryTest {
 
         institutionCodeJpaRepository.flush()
 
-        val result = institutionCodeJpaRepository.findByNameStartingWith("대전")
+        val result = institutionCodeJpaRepository.findByNameContaining("대전")
 
-        assertEquals(3, result.size)
+        assertEquals(4, result.size)
 
         // 같은 학교명일 때 code ASC
         assertEquals("1000001", result[0].code)
         assertEquals("1000002", result[1].code)
 
-        // contains가 아니라 prefix 검색이어야 함
-        assertEquals(
-            false,
-            result.any { it.code == "1000004" },
-        )
+        assertEquals(true, result.any { it.code == "1000004" })
     }
 
     @Test
