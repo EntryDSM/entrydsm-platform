@@ -77,6 +77,12 @@ fun ApplicantStatistics.toResponse(): StatisticsResponse = StatisticsResponse(
                 it.mapKeys { (type, _) -> type.name },
             )
         }
+        firstPassQuota?.let {
+            put(
+                StatisticsMetric.FIRST_PASS_QUOTA.name,
+                it.mapKeys { (type, _) -> type.name },
+            )
+        }
         genderRatio?.let {
             put(
                 StatisticsMetric.GENDER_RATIO.name,
