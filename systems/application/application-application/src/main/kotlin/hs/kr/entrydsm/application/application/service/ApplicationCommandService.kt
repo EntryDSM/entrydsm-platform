@@ -445,7 +445,9 @@ class ApplicationCommandService(
      */
     private fun getWritableApplicant(accountId: Long?): Applicant {
         applicationPeriod.requireOpen()
-        return getApplicantByAccountId(accountId)
+        return getApplicantByAccountId(accountId).also {
+            require(it.status == ApplicantStatus.DRAFT) { "only draft applications can be modified" }
+        }
     }
 
     private fun getApplicantByAccountId(accountId: Long?): Applicant {

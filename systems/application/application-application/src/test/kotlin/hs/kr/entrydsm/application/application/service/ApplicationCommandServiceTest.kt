@@ -158,6 +158,21 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
+    fun submittedApplicationRejectsModificationAndResubmission() {
+        val repository = FakeApplicantRepository(
+            Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED),
+        )
+        val service = ApplicationCommandService(repository, OPEN)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            service.updateIntroduction(accountId = 10L, introduction = "고친 소개")
+        }
+        assertThrows(IllegalArgumentException::class.java) { service.submit(accountId = 10L) }
+
+        assertNull(repository.savedApplicant)
+    }
+
+    @Test
     fun cancelAndArrivalDoNotDependOnApplicationPeriod() {
         fun submitted() = FakeApplicantRepository(
             Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED, statusVersion = 2),
