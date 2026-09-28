@@ -90,20 +90,14 @@ fun ApplicantStatistics.toResponse(): StatisticsResponse = StatisticsResponse(
                 ),
             )
         }
-        regionStatus?.let {
+        regionDistribution?.let {
             put(
-                StatisticsMetric.REGION_STATUS.name,
+                StatisticsMetric.REGION_DISTRIBUTION.name,
                 mapOf(
                     "total" to it.total,
                     "byScope" to it.byScope,
                     "byRegion" to it.byRegion.mapKeys { (region, _) -> region.name },
                 ),
-            )
-        }
-        regionDistribution?.let {
-            put(
-                StatisticsMetric.REGION_DISTRIBUTION.name,
-                it.mapKeys { (region, _) -> region.name },
             )
         }
         typeDistribution?.let {
