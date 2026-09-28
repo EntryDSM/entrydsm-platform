@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.application.port.out.data.ApplicationStateChanged
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.PassStatus
 import io.lettuce.core.RedisBusyException
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.redis.RedisSystemException
 import org.springframework.data.redis.connection.stream.Consumer
@@ -28,6 +29,8 @@ class ApplicationStatusRedisConsumer(
     @Value("\${application.events.consumer-group:identity}") private val group: String,
     @Value("\${application.events.consumer-name:identity}") private val consumerName: String,
 ) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
     @Scheduled(fixedDelayString = "\${application.events.poll-delay-ms:1000}")
     fun poll() {
         ensureGroup()
@@ -49,9 +52,16 @@ class ApplicationStatusRedisConsumer(
             StreamReadOptions.empty().count(100),
             StreamOffset.create(stream, offset),
         ).orEmpty().forEach { record ->
-            val event = ApplicantStatusChangedEvent.parseFrom(Base64.getDecoder().decode(record.value.getValue("payload")))
-            eventConsumer.consume(event.toDomain())
-            redis.opsForStream<String, String>().acknowledge(stream, group, record.id)
+            // 한 이벤트가 실패해도 뒤 이벤트는 처리한다. 실패한 이벤트는 ack 하지 않아 다음 poll 에 다시 시도하고,
+            // 그사이 같은 지원자의 더 새 이벤트가 먼저 반영됐으면 version 검사로 버려진다.
+            // ponytail: 끝내 실패하는 이벤트는 poll 마다 다시 시도하며 ERROR 를 남긴다. 쌓이면 전달 횟수 상한과 dead-letter 를 둔다.
+            try {
+                val event = ApplicantStatusChangedEvent.parseFrom(Base64.getDecoder().decode(record.value.getValue("payload")))
+                eventConsumer.consume(event.toDomain())
+                redis.opsForStream<String, String>().acknowledge(stream, group, record.id)
+            } catch (exception: Exception) {
+                logger.error("Failed to consume applicant status event [recordId={}]", record.id, exception)
+            }
         }
     }
 
