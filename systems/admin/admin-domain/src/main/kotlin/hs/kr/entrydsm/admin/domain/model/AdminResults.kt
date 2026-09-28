@@ -3,7 +3,6 @@ package hs.kr.entrydsm.admin.domain.model
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.Gender
-import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import java.time.Instant
 import java.time.LocalDate
@@ -63,8 +62,7 @@ data class ApplicantStatistics(
     val applicantCount: ApplicantCount? = null,
     val competitionRate: Map<AdmissionType, Double>? = null,
     val genderRatio: GenderRatio? = null,
-    val regionStatus: RegionStatus? = null,
-    val regionDistribution: Map<Region, Long>? = null,
+    val regionDistribution: RegionStatus? = null,
     val typeDistribution: Map<AdmissionType, Long>? = null,
     val dailyTrend: List<DailyApplicantCount>? = null,
 )

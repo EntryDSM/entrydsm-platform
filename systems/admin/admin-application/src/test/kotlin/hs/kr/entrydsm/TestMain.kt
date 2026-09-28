@@ -109,7 +109,7 @@ class AdminApplicationModuleTest {
             setOf(
                 StatisticsMetric.COMPETITION_RATE,
                 StatisticsMetric.GENDER_RATIO,
-                StatisticsMetric.REGION_STATUS,
+                StatisticsMetric.REGION_DISTRIBUTION,
             ),
         )
 
@@ -117,10 +117,10 @@ class AdminApplicationModuleTest {
         assertEquals(3L, result.genderRatio?.total)
         assertEquals(0.667, result.genderRatio?.maleRatio)
         assertEquals(mapOf(Gender.MALE to 2L, Gender.FEMALE to 1L), result.genderRatio?.byGender)
-        assertEquals(mapOf("LOCAL" to 2L, "NATIONWIDE" to 1L), result.regionStatus?.byScope)
-        assertEquals(1L, result.regionStatus?.byRegion?.get(ResidenceRegion.DAEJEON))
-        assertEquals(1L, result.regionStatus?.byRegion?.get(ResidenceRegion.CHUNGNAM))
-        assertEquals(1L, result.regionStatus?.byRegion?.get(ResidenceRegion.SEJONG))
+        assertEquals(mapOf("LOCAL" to 2L, "NATIONWIDE" to 1L), result.regionDistribution?.byScope)
+        assertEquals(1L, result.regionDistribution?.byRegion?.get(ResidenceRegion.DAEJEON))
+        assertEquals(1L, result.regionDistribution?.byRegion?.get(ResidenceRegion.CHUNGNAM))
+        assertEquals(1L, result.regionDistribution?.byRegion?.get(ResidenceRegion.SEJONG))
     }
 
     @Test

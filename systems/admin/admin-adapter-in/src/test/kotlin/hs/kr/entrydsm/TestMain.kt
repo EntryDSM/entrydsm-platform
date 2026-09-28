@@ -75,7 +75,7 @@ class AdminAdapterInModuleTest {
                 maleRatio = 0.5,
                 byType = mapOf(AdmissionType.GENERAL to mapOf(Gender.MALE to 1)),
             ),
-            regionStatus = RegionStatus(
+            regionDistribution = RegionStatus(
                 total = 2,
                 byScope = mapOf("LOCAL" to 1, "NATIONWIDE" to 1),
                 byRegion = mapOf(ResidenceRegion.DAEJEON to 1, ResidenceRegion.CHUNGNAM to 1),
@@ -83,7 +83,7 @@ class AdminAdapterInModuleTest {
         ).toResponse()
 
         assertTrue(response.metrics.containsKey("GENDER_RATIO"))
-        assertTrue(response.metrics.containsKey("REGION_STATUS"))
+        assertTrue(response.metrics.containsKey("REGION_DISTRIBUTION"))
     }
 
     @Test
