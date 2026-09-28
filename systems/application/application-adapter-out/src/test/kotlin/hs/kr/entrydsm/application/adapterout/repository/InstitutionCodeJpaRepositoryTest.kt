@@ -15,7 +15,7 @@ import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.junit4.SpringRunner
 
 @RunWith(SpringRunner::class)
-@DataJpaTest
+@DataJpaTest(properties = ["security.pii.encryption-key-base64=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="])
 @ContextConfiguration(classes = [InstitutionCodeJpaRepositoryTest.JpaTestConfig::class])
 class InstitutionCodeJpaRepositoryTest {
 

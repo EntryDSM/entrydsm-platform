@@ -34,3 +34,7 @@ server:
 
 grpc:
   port: ${GRPC_PORT:9090}
+
+security:
+  pii:
+    encryption-key-base64: ${APPLICATION_PII_ENCRYPTION_KEY_BASE64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}

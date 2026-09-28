@@ -45,6 +45,10 @@ configuration:
     # 원서를 쓰는 요청마다 부르므로 짧게 둔다.
     deadline-ms: ${CONFIGURATION_GRPC_DEADLINE_MS:1000}
 
+security:
+  pii:
+    encryption-key-base64: ${APPLICATION_PII_ENCRYPTION_KEY_BASE64}
+
 server:
   port: ${SERVER_PORT}
   shutdown: graceful

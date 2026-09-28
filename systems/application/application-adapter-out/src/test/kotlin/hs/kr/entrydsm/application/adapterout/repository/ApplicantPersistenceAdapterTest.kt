@@ -7,6 +7,7 @@ import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import jakarta.persistence.EntityManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.springframework.beans.factory.annotation.Autowired
@@ -24,7 +25,7 @@ import org.springframework.test.context.junit4.SpringRunner
  * 영속성 컨텍스트를 비우고 읽어야 기관코드가 지연 프록시로 오므로, 프록시를 거쳐도 주소가 차는지 봅니다.
  */
 @RunWith(SpringRunner::class)
-@DataJpaTest
+@DataJpaTest(properties = ["security.pii.encryption-key-base64=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="])
 @ContextConfiguration(classes = [ApplicantPersistenceAdapterTest.JpaTestConfig::class])
 class ApplicantPersistenceAdapterTest {
 
@@ -36,6 +37,40 @@ class ApplicantPersistenceAdapterTest {
 
     @Autowired
     private lateinit var entityManager: EntityManager
+
+    @Test
+    fun `개인정보는 암호화해서 저장하고 평문으로 조회한다`() {
+        val applicant = Applicant(
+            id = 0,
+            accountId = 100,
+            name = "홍길동",
+            phoneNumber = "01012345678",
+            guardianName = "홍보호",
+            guardianPhoneNumber = "01087654321",
+            addressBase = "대전광역시 유성구",
+            addressDetail = "101동 101호",
+            zipCode = "34111",
+        )
+        applicantJpaRepository.saveAndFlush(ApplicantJpaEntity.from(applicant))
+        entityManager.clear()
+
+        val stored = entityManager.createNativeQuery(
+            "select name, phone_number, guardian_name, guardian_phone_number, address_base, address_detail, zip_code " +
+                "from applicants where account_id = 100",
+        ).singleResult as Array<*>
+        listOf(
+            applicant.name,
+            applicant.phoneNumber,
+            applicant.guardianName,
+            applicant.guardianPhoneNumber,
+            applicant.addressBase,
+            applicant.addressDetail,
+            applicant.zipCode,
+        ).zip(stored).forEach { (plain, encrypted) -> assertNotEquals(plain, encrypted) }
+
+        assertEquals(applicant.name, applicantJpaRepository.findByAccountId(100)?.name)
+        assertEquals(applicant.addressDetail, applicantJpaRepository.findByAccountId(100)?.addressDetail)
+    }
 
     @Test
     fun `중학교 소재지를 기관코드 표에서 채운다`() {
