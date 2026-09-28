@@ -11,7 +11,7 @@ class MiddleSchoolPersistenceAdapter(
     private val institutionCodeJpaRepository: InstitutionCodeJpaRepository,
 ) : MiddleSchoolRepository {
     override fun findMiddleSchools(command: SearchMiddleSchoolCommand): MiddleSchoolSearchResult {
-        val schools = institutionCodeJpaRepository.findByNameStartingWith(command.name)
+        val schools = institutionCodeJpaRepository.findByNameContaining(command.name)
         return MiddleSchoolSearchResult(
             schools = schools.map {
                 MiddleSchoolResult(

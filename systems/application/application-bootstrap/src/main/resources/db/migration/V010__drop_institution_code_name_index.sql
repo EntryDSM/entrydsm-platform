@@ -1,0 +1,1 @@
+DROP INDEX idx_institution_codes_name ON institution_codes;
