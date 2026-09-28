@@ -20,6 +20,7 @@ fun Account.toAccountResult(): AccountResult =
         ),
         createdAt = createdAt,
         updatedAt = updatedAt,
+        isSensitiveAgree = isSensitiveAgree,
     )
 
 fun ApplicationSnapshot.toStatusResult(): ApplicationStatusResult =

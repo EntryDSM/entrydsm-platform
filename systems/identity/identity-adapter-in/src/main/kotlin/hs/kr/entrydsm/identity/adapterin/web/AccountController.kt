@@ -73,12 +73,12 @@ class AccountController(
 
 data class SensitiveAgreeRequest(
     @field:AssertTrue
-    @JsonProperty("is_sensitive_agree")
+    @JsonProperty("sensitiveAgree")
     val isSensitiveAgree: Boolean,
 )
 
 data class SensitiveAgreeResponse(
-    @JsonProperty("is_sensitive_agree")
+    @JsonProperty("sensitiveAgree")
     val isSensitiveAgree: Boolean,
     val updatedAt: Instant,
 )

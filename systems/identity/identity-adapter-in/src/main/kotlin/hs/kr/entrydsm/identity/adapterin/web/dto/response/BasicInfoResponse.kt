@@ -15,7 +15,7 @@ data class BasicInfoResponse(
     val phone: String,
     val birthdate: LocalDate,
     val signupType: SignupType,
-    @JsonProperty("is_sensitive_agree")
+    @JsonProperty("sensitiveAgree")
     val isSensitiveAgree: Boolean,
     val applicantStatus: ApplicantStatus,
     val createdAt: Instant,
