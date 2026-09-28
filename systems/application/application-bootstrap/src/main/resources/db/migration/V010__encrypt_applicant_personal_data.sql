@@ -1,0 +1,8 @@
+ALTER TABLE applicants
+    MODIFY COLUMN name VARCHAR(512) NULL,
+    MODIFY COLUMN phone_number VARCHAR(512) NULL,
+    MODIFY COLUMN guardian_name VARCHAR(512) NULL,
+    MODIFY COLUMN guardian_phone_number VARCHAR(512) NULL,
+    MODIFY COLUMN address_base VARCHAR(512) NULL,
+    MODIFY COLUMN address_detail VARCHAR(512) NULL,
+    MODIFY COLUMN zip_code VARCHAR(512) NULL;
