@@ -102,17 +102,20 @@ class AdminApplicationModuleTest {
             applicantRepository = repository(ApplicantRepository::class.java, "findAll" to applicants),
             admissionQuotaRepository = repository(AdmissionQuotaRepository::class.java, "find" to quota),
             clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+            firstPassMultiplier = 1.5,
         )
 
         val result = service.collect(
             setOf(
                 StatisticsMetric.COMPETITION_RATE,
+                StatisticsMetric.FIRST_PASS_QUOTA,
                 StatisticsMetric.GENDER_RATIO,
                 StatisticsMetric.REGION_DISTRIBUTION,
             ),
         )
 
         assertEquals(1.5, result.competitionRate?.get(AdmissionType.GENERAL))
+        assertEquals(mapOf(AdmissionType.GENERAL to 3, AdmissionType.MEISTER to 0, AdmissionType.SOCIAL to 0), result.firstPassQuota)
         assertEquals(3L, result.genderRatio?.total)
         assertEquals(0.667, result.genderRatio?.maleRatio)
         assertEquals(mapOf(Gender.MALE to 2L, Gender.FEMALE to 1L), result.genderRatio?.byGender)

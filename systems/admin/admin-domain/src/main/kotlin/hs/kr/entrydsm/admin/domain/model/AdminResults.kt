@@ -61,6 +61,7 @@ data class ApplicantStatistics(
     val generatedAt: Instant,
     val applicantCount: ApplicantCount? = null,
     val competitionRate: Map<AdmissionType, Double>? = null,
+    val firstPassQuota: Map<AdmissionType, Int>? = null,
     val genderRatio: GenderRatio? = null,
     val regionDistribution: RegionStatus? = null,
     val typeDistribution: Map<AdmissionType, Long>? = null,
