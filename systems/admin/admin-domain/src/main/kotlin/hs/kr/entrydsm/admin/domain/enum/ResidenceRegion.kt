@@ -18,5 +18,4 @@ enum class ResidenceRegion {
     GYEONGBUK,
     GYEONGNAM,
     JEJU,
-    ETC,
 }

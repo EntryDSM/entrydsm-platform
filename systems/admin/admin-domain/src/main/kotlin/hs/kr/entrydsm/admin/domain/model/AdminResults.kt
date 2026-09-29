@@ -63,7 +63,7 @@ data class ApplicantStatistics(
     val competitionRate: Map<AdmissionType, Double>? = null,
     val firstPassQuota: Map<AdmissionType, Int>? = null,
     val genderRatio: GenderRatio? = null,
-    /** 지원자 주소의 시·도별 수. 주소가 없거나 알아볼 수 없으면 [ResidenceRegion.ETC] */
+    /** 지원자 주소의 시·도별 수. 17개 시·도를 모두 담고, 주소가 없거나 알아볼 수 없는 원서는 뺀다 */
     val regionDistribution: Map<ResidenceRegion, Long>? = null,
     val typeDistribution: Map<AdmissionType, Long>? = null,
     val dailyTrend: List<DailyApplicantCount>? = null,

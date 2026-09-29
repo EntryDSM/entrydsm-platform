@@ -60,7 +60,9 @@ class StatisticsService(
                 genderRatio(applicants)
             },
             regionDistribution = metrics.ifRequested(StatisticsMetric.REGION_DISTRIBUTION) {
-                applicants.countBy { residenceRegion(it.address) }
+                // 0명인 시·도도 enum 순서대로 채워 키 17개를 늘 내려준다.
+                val counts = applicants.countBy { residenceRegion(it.address) }
+                ResidenceRegion.entries.associateWith { counts[it] ?: 0L }
             },
             typeDistribution = metrics.ifRequested(StatisticsMetric.TYPE_DISTRIBUTION) {
                 countByType
@@ -108,10 +110,11 @@ class StatisticsService(
     /**
      * 주소 첫 토큰(시·도)으로 매깁니다. 원서 주소는 Daum 우편번호의 도로명 주소라 `(34503) 대전 유성구 …` 처럼
      * 우편번호가 앞에 붙고 시·도가 축약형입니다. 포함 검사를 하면 `경기 광주시` 가 광주로 잡혀 첫 토큰만 봅니다.
+     * 알아볼 수 없는 주소는 null 이라 시·도 분포에서 빠집니다. 총 지원자 수에는 그대로 듭니다.
      */
-    private fun residenceRegion(address: String?): ResidenceRegion {
+    private fun residenceRegion(address: String?): ResidenceRegion? {
         val sido = address.orEmpty().trim().substringAfter(") ").substringBefore(' ')
-        return REGION_NAMES[sido] ?: ResidenceRegion.ETC
+        return REGION_NAMES[sido]
     }
 
     /** 지역·전형이 비어 있는 원서는 분포에 넣을 칸이 없어 뺀다. 총 지원자 수에는 그대로 든다. */

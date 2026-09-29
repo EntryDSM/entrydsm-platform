@@ -95,6 +95,7 @@ class AdminApplicationModuleTest {
             // 원서 주소는 Daum 축약형에 우편번호가 앞에 붙는다
             applicant(4, AdmissionType.GENERAL, Gender.MALE, Region.DAEJEON, "(34111) 대전 유성구 가정북로 76 101호"),
             applicant(5, AdmissionType.GENERAL, Gender.MALE, Region.NATIONWIDE, "(12345) 경기 광주시 경안로 1"),
+            applicant(6, AdmissionType.GENERAL, Gender.FEMALE, Region.NATIONWIDE, "주소 미상"),
         )
         val quota = AdmissionQuota(
             quotas = AdmissionType.entries.associateWith { type -> if (type == AdmissionType.GENERAL) 2 else 0 },
@@ -117,11 +118,13 @@ class AdminApplicationModuleTest {
             ),
         )
 
-        assertEquals(2.5, result.competitionRate?.get(AdmissionType.GENERAL))
+        assertEquals(3.0, result.competitionRate?.get(AdmissionType.GENERAL))
         assertEquals(mapOf(AdmissionType.GENERAL to 3, AdmissionType.MEISTER to 0, AdmissionType.SOCIAL to 0), result.firstPassQuota)
-        assertEquals(5L, result.genderRatio?.total)
-        assertEquals(0.8, result.genderRatio?.maleRatio)
-        assertEquals(mapOf(Gender.MALE to 4L, Gender.FEMALE to 1L), result.genderRatio?.byGender)
+        assertEquals(6L, result.genderRatio?.total)
+        assertEquals(0.667, result.genderRatio?.maleRatio)
+        assertEquals(mapOf(Gender.MALE to 4L, Gender.FEMALE to 2L), result.genderRatio?.byGender)
+        // 0명인 시·도까지 표 순서대로 17개, 알아볼 수 없는 주소는 빠진다
+        assertEquals(ResidenceRegion.entries, result.regionDistribution?.keys?.toList())
         assertEquals(
             mapOf(
                 ResidenceRegion.DAEJEON to 2L,
@@ -129,7 +132,7 @@ class AdminApplicationModuleTest {
                 ResidenceRegion.SEJONG to 1L,
                 ResidenceRegion.GYEONGGI to 1L,
             ),
-            result.regionDistribution,
+            result.regionDistribution?.filterValues { it > 0 },
         )
     }
 

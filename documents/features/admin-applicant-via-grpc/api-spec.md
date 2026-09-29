@@ -27,7 +27,7 @@
 | `PATCH /score-policy` 의 `recalculate` | 지원자 총점 재계산 | **삭제**. 총점의 주인은 application 하나다 |
 | 목록 정렬 | 접수 번호 오름차순 | `applicantId` 오름차순 |
 | 통계 `DAILY_TREND` | 원본 도착일 기준 | **원서 제출일** 기준 |
-| 통계 `REGION_DISTRIBUTION` | 모집 지역(`DAEJEON`·`NATIONWIDE`) 기준 | 지원자 주소의 **시·도** 기준 `{ "DAEJEON": 12, "SEOUL": 3, … }`. 키는 광역시·도 17개(`SEOUL`·`BUSAN`·`DAEGU`·`INCHEON`·`GWANGJU`·`DAEJEON`·`ULSAN`·`SEJONG`·`GYEONGGI`·`GANGWON`·`CHUNGBUK`·`CHUNGNAM`·`JEONBUK`·`JEONNAM`·`GYEONGBUK`·`GYEONGNAM`·`JEJU`)와 주소가 없거나 알아볼 수 없는 `ETC`. 0명인 시·도는 빠진다 (#323 의 `{total, byScope, byRegion}` 을 되돌림) |
+| 통계 `REGION_DISTRIBUTION` | 모집 지역(`DAEJEON`·`NATIONWIDE`) 기준 | 지원자 주소의 **시·도** 기준 `{ "DAEJEON": 12, "SEOUL": 3, … }`. 키는 광역시·도 17개(`SEOUL`·`BUSAN`·`DAEGU`·`INCHEON`·`GWANGJU`·`DAEJEON`·`ULSAN`·`SEJONG`·`GYEONGGI`·`GANGWON`·`CHUNGBUK`·`CHUNGNAM`·`JEONBUK`·`JEONNAM`·`GYEONGBUK`·`GYEONGNAM`·`JEJU`)가 이 순서로 늘 다 오고, 0명이면 0 이다. 주소가 없거나 시·도를 알아볼 수 없는 원서는 빠진다 (#323 의 `{total, byScope, byRegion}` 을 되돌림) |
 | 통계 `TYPE_DISTRIBUTION` | 전원 집계 | 전형이 빈 원서는 빠진다. `APPLICANT_COUNT.total` 에는 든다 |
 | 엑셀 열 | 15열 | 12열 ("교과 점수"·"출결 점수"·"봉사 점수" 삭제, "접수번호" 값은 `applicantId` 를 네 자리로 채운 `0001` 꼴) |
 | 수험표 내보내기 파일 | ZIP 안에 지원자별 `admission_ticket_{receiptNumber}.pdf` | 1차 합격자 수험표를 수험번호 순으로 한 시트에 이어 그린 xlsx 하나(지난해 `수험표.xlsx` 양식). 객체 키 `admission-ticket/admission_tickets_{exportJobId}.xlsx`, 내보내기 완료 응답의 `downloadUrl` 로 받는다 (#254, `documents/features/admission-ticket-print`) |
