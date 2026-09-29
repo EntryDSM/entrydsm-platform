@@ -159,6 +159,23 @@ class ApplicationFormPdfTest {
     }
 
     @Test
+    fun `출신 중학교가 없거나 학번에서 반을 뽑지 못한 원서는 추천서 학교·반 괄호를 비운다`() {
+        // 검정고시 지원자는 출신 중학교가 없다. 학번이 다섯 자리가 아니면 application 이 반을 보내지 않는다.
+        val noSchool = adapter.render(form().copy(school = null), photo = null)
+        val noClass = adapter.render(form().let { it.copy(school = it.school!!.copy(classNumber = null)) }, photo = null)
+        fun cell(pdf: ByteArray, page: Int, left: Float, top: Float, right: Float, bottom: Float) = stamped(pdf, page)
+            .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+            .joinToString("") { it.unicode }
+
+        assertEquals("", cell(noSchool, 1, 254.70f, 690.18f, 362.59f, 712.18f))
+        assertEquals("", cell(noSchool, 4, 302.90f, 210.40f, 384.39f, 234.40f))
+        assertEquals("", cell(noSchool, 4, 345.06f, 240.40f, 374.20f, 264.40f))
+        assertEquals("", cell(noSchool, 4, 171.98f, 637.83f, 299.12f, 665.83f))
+        assertEquals("", cell(noClass, 4, 345.06f, 240.40f, 374.20f, 264.40f))
+        assertEquals("서귀포", cell(noClass, 4, 302.90f, 210.40f, 384.39f, 234.40f))
+    }
+
+    @Test
     fun `빈칸 포함 1,600자 자기소개서도 본문 칸을 넘치지 않고 다 찍는다`() {
         val sentence = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했고 중학교에서는 정보 동아리 부장을 맡았습니다. "
         val introduction = sentence.repeat(30).take(1596).chunked(320).joinToString("\n")
