@@ -10,9 +10,21 @@ import hs.kr.entrydsm.admin.domain.model.ExportJob
 import java.lang.reflect.Proxy
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.springframework.aop.framework.ProxyFactory
+import org.springframework.aop.support.AopUtils
 
 class ExportJobPersistenceAdapterTest {
+
+    @Test
+    fun `트랜잭션용 클래스 프록시를 생성한다`() {
+        val proxy = ProxyFactory(ExportJobPersistenceAdapter(echoingRepository())).apply {
+            isProxyTargetClass = true
+        }.proxy
+
+        assertTrue(AopUtils.isCglibProxy(proxy))
+    }
 
     @Test
     fun `대기 작업을 처리 중으로 선점한다`() {
