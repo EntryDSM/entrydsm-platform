@@ -99,11 +99,7 @@ fun ApplicantStatistics.toResponse(): StatisticsResponse = StatisticsResponse(
         regionDistribution?.let {
             put(
                 StatisticsMetric.REGION_DISTRIBUTION.name,
-                mapOf(
-                    "total" to it.total,
-                    "byScope" to it.byScope,
-                    "byRegion" to it.byRegion.mapKeys { (region, _) -> region.name },
-                ),
+                it.mapKeys { (region, _) -> region.name },
             )
         }
         typeDistribution?.let {

@@ -63,7 +63,8 @@ data class ApplicantStatistics(
     val competitionRate: Map<AdmissionType, Double>? = null,
     val firstPassQuota: Map<AdmissionType, Int>? = null,
     val genderRatio: GenderRatio? = null,
-    val regionDistribution: RegionStatus? = null,
+    /** 지원자 주소의 시·도별 수. 주소가 없거나 알아볼 수 없으면 [ResidenceRegion.ETC] */
+    val regionDistribution: Map<ResidenceRegion, Long>? = null,
     val typeDistribution: Map<AdmissionType, Long>? = null,
     val dailyTrend: List<DailyApplicantCount>? = null,
 )
@@ -73,12 +74,6 @@ data class GenderRatio(
     val byGender: Map<Gender, Long>,
     val maleRatio: Double,
     val byType: Map<AdmissionType, Map<Gender, Long>>,
-)
-
-data class RegionStatus(
-    val total: Long,
-    val byScope: Map<String, Long>,
-    val byRegion: Map<ResidenceRegion, Long>,
 )
 
 /**

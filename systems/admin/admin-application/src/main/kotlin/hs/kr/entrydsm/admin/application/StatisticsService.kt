@@ -3,14 +3,12 @@ package hs.kr.entrydsm.admin.application
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.StatisticsMetric
 import hs.kr.entrydsm.admin.domain.enum.Gender
-import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantCount
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.DailyApplicantCount
 import hs.kr.entrydsm.admin.domain.model.GenderRatio
-import hs.kr.entrydsm.admin.domain.model.RegionStatus
 import hs.kr.entrydsm.admin.domain.port.`in`.ReadStatisticsUseCase
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
@@ -62,7 +60,7 @@ class StatisticsService(
                 genderRatio(applicants)
             },
             regionDistribution = metrics.ifRequested(StatisticsMetric.REGION_DISTRIBUTION) {
-                regionDistribution(applicants)
+                applicants.countBy { residenceRegion(it.address) }
             },
             typeDistribution = metrics.ifRequested(StatisticsMetric.TYPE_DISTRIBUTION) {
                 countByType
@@ -107,22 +105,13 @@ class StatisticsService(
         )
     }
 
-    private fun regionDistribution(applicants: List<Applicant>): RegionStatus = RegionStatus(
-        total = applicants.size.toLong(),
-        byScope = applicants.countBy {
-            when (it.region) {
-                Region.DAEJEON -> "LOCAL"
-                Region.NATIONWIDE -> "NATIONWIDE"
-                null -> null
-            }
-        },
-        byRegion = applicants.groupingBy { residenceRegion(it.address) }.eachCount().mapValues { it.value.toLong() },
-    )
-
+    /**
+     * 주소 첫 토큰(시·도)으로 매깁니다. 원서 주소는 Daum 우편번호의 도로명 주소라 `(34503) 대전 유성구 …` 처럼
+     * 우편번호가 앞에 붙고 시·도가 축약형입니다. 포함 검사를 하면 `경기 광주시` 가 광주로 잡혀 첫 토큰만 봅니다.
+     */
     private fun residenceRegion(address: String?): ResidenceRegion {
-        val value = address.orEmpty()
-        return REGION_NAMES.entries.firstOrNull { (name, _) -> value.contains(name) }?.value
-            ?: ResidenceRegion.ETC
+        val sido = address.orEmpty().trim().substringAfter(") ").substringBefore(' ')
+        return REGION_NAMES[sido] ?: ResidenceRegion.ETC
     }
 
     /** 지역·전형이 비어 있는 원서는 분포에 넣을 칸이 없어 뺀다. 총 지원자 수에는 그대로 든다. */
@@ -135,27 +124,25 @@ class StatisticsService(
     ): T? = if (metric in this) block() else null
 
     private companion object {
-        val REGION_NAMES = linkedMapOf(
-            "서울특별시" to ResidenceRegion.SEOUL,
-            "부산광역시" to ResidenceRegion.BUSAN,
-            "대구광역시" to ResidenceRegion.DAEGU,
-            "인천광역시" to ResidenceRegion.INCHEON,
-            "광주광역시" to ResidenceRegion.GWANGJU,
-            "대전광역시" to ResidenceRegion.DAEJEON,
-            "울산광역시" to ResidenceRegion.ULSAN,
-            "세종특별자치시" to ResidenceRegion.SEJONG,
-            "경기도" to ResidenceRegion.GYEONGGI,
-            "강원특별자치도" to ResidenceRegion.GANGWON,
-            "강원도" to ResidenceRegion.GANGWON,
-            "충청북도" to ResidenceRegion.CHUNGBUK,
-            "충청남도" to ResidenceRegion.CHUNGNAM,
-            "전북특별자치도" to ResidenceRegion.JEONBUK,
-            "전라북도" to ResidenceRegion.JEONBUK,
-            "전라남도" to ResidenceRegion.JEONNAM,
-            "경상북도" to ResidenceRegion.GYEONGBUK,
-            "경상남도" to ResidenceRegion.GYEONGNAM,
-            "제주특별자치도" to ResidenceRegion.JEJU,
-            "제주도" to ResidenceRegion.JEJU,
-        )
+        // 정식 명칭과 Daum 축약형을 모두 받는다.
+        val REGION_NAMES = mapOf(
+            ResidenceRegion.SEOUL to listOf("서울특별시", "서울"),
+            ResidenceRegion.BUSAN to listOf("부산광역시", "부산"),
+            ResidenceRegion.DAEGU to listOf("대구광역시", "대구"),
+            ResidenceRegion.INCHEON to listOf("인천광역시", "인천"),
+            ResidenceRegion.GWANGJU to listOf("광주광역시", "광주"),
+            ResidenceRegion.DAEJEON to listOf("대전광역시", "대전"),
+            ResidenceRegion.ULSAN to listOf("울산광역시", "울산"),
+            ResidenceRegion.SEJONG to listOf("세종특별자치시", "세종"),
+            ResidenceRegion.GYEONGGI to listOf("경기도", "경기"),
+            ResidenceRegion.GANGWON to listOf("강원특별자치도", "강원도", "강원"),
+            ResidenceRegion.CHUNGBUK to listOf("충청북도", "충북"),
+            ResidenceRegion.CHUNGNAM to listOf("충청남도", "충남"),
+            ResidenceRegion.JEONBUK to listOf("전북특별자치도", "전라북도", "전북"),
+            ResidenceRegion.JEONNAM to listOf("전라남도", "전남"),
+            ResidenceRegion.GYEONGBUK to listOf("경상북도", "경북"),
+            ResidenceRegion.GYEONGNAM to listOf("경상남도", "경남"),
+            ResidenceRegion.JEJU to listOf("제주특별자치도", "제주도", "제주"),
+        ).flatMap { (region, names) -> names.map { it to region } }.toMap()
     }
 }

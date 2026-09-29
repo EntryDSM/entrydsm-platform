@@ -17,7 +17,6 @@ import hs.kr.entrydsm.admin.domain.model.GenderRatio
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.GedScores
-import hs.kr.entrydsm.admin.domain.model.RegionStatus
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.CreateExportUseCase
@@ -79,15 +78,11 @@ class AdminAdapterInModuleTest {
                 maleRatio = 0.5,
                 byType = mapOf(AdmissionType.GENERAL to mapOf(Gender.MALE to 1)),
             ),
-            regionDistribution = RegionStatus(
-                total = 2,
-                byScope = mapOf("LOCAL" to 1, "NATIONWIDE" to 1),
-                byRegion = mapOf(ResidenceRegion.DAEJEON to 1, ResidenceRegion.CHUNGNAM to 1),
-            ),
+            regionDistribution = mapOf(ResidenceRegion.DAEJEON to 1, ResidenceRegion.CHUNGNAM to 1),
         ).toResponse()
 
         assertTrue(response.metrics.containsKey("GENDER_RATIO"))
-        assertTrue(response.metrics.containsKey("REGION_DISTRIBUTION"))
+        assertEquals(mapOf("DAEJEON" to 1L, "CHUNGNAM" to 1L), response.metrics["REGION_DISTRIBUTION"])
     }
 
     @Test
