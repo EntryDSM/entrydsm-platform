@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.application.application.service
 
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
@@ -52,6 +53,7 @@ class ApplicationCommandService(
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
         val accountId = requireAccountId(command.accountId)
         val existing = applicantRepository.findByAccountId(accountId)
+        if (existing?.status == ApplicantStatus.SUBMITTED) throw ApplicantAlreadyExistsException(accountId)
         val applicant = existing ?: createApplicant(accountId)
         return CreateApplicantResult(applicant.id, applicant.toSnapshot(), created = existing == null)
     }

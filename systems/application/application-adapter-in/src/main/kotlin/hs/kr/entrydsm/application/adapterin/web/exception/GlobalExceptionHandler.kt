@@ -2,6 +2,7 @@ package hs.kr.entrydsm.application.adapterin.web.exception
 
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ErrorResponse
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationPeriodClosedException
 import hs.kr.entrydsm.application.application.exception.ApplicationPeriodLookupFailedException
@@ -29,6 +30,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    @ExceptionHandler(ApplicantAlreadyExistsException::class)
+    fun handleApplicantAlreadyExists(exception: ApplicantAlreadyExistsException): ResponseEntity<ErrorResponse> =
+        response(
+            status = HttpStatus.CONFLICT,
+            code = "APPLICANT_ALREADY_EXISTS",
+            message = exception.message ?: "applicant already exists",
+        )
 
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleDataIntegrityViolation(exception: DataIntegrityViolationException): ResponseEntity<ErrorResponse> =
