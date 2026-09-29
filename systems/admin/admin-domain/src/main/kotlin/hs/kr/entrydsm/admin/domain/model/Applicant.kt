@@ -59,6 +59,7 @@ data class ApplicantDetail(
     val introduction: String?,
     val studyPlan: String?,
     val score: ApplicantScore?,
+    val gedScores: GedScores? = null,
 )
 
 data class ApplicantScore(
@@ -67,4 +68,14 @@ data class ApplicantScore(
     val volunteerScore: Double,
     val additionalScore: Double,
     val totalScore: Double,
+)
+
+data class GedScores(
+    val korean: Int,
+    val society: Int,
+    val history: Int,
+    val math: Int,
+    val science: Int,
+    val technology: Int,
+    val english: Int,
 )

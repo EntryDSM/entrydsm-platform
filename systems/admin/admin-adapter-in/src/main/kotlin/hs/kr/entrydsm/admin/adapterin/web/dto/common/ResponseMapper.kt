@@ -3,6 +3,7 @@ package hs.kr.entrydsm.admin.adapterin.web.dto.common
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ApplicantDetailResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ApplicantSummaryResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExamineeNumberIssueResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.response.GedScoresResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.PageResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreResponse
 import hs.kr.entrydsm.admin.domain.model.Applicant
@@ -40,6 +41,17 @@ fun ApplicantDetail.toDetailResponse(): ApplicantDetailResponse = ApplicantDetai
             volunteerScore = it.volunteerScore,
             additionalScore = it.additionalScore,
             totalScore = it.totalScore,
+        )
+    },
+    gedScores = gedScores?.let {
+        GedScoresResponse(
+            korean = it.korean,
+            society = it.society,
+            history = it.history,
+            math = it.math,
+            science = it.science,
+            technology = it.technology,
+            english = it.english,
         )
     },
     submittedAt = applicant.submittedAt,

@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.adapterin.web.SupportController
 import hs.kr.entrydsm.admin.adapterin.web.ApplicantController
 import hs.kr.entrydsm.admin.adapterin.web.exception.GlobalExceptionHandler
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.common.toDetailResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.CreateExportRequest
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
@@ -13,6 +14,9 @@ import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.GenderRatio
+import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
+import hs.kr.entrydsm.admin.domain.model.GedScores
 import hs.kr.entrydsm.admin.domain.model.RegionStatus
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
@@ -84,6 +88,22 @@ class AdminAdapterInModuleTest {
 
         assertTrue(response.metrics.containsKey("GENDER_RATIO"))
         assertTrue(response.metrics.containsKey("REGION_DISTRIBUTION"))
+    }
+
+    @Test
+    fun mapsGedScoresToApplicantDetailResponse() {
+        val response = ApplicantDetail(
+            applicant = Applicant(id = 1L),
+            photoFileId = null,
+            introduction = null,
+            studyPlan = null,
+            score = null,
+            gedScores = GedScores(95, 90, 85, 80, 75, 70, 65),
+        ).toDetailResponse()
+
+        assertEquals(listOf(95, 90, 85, 80, 75, 70, 65), response.gedScores?.let {
+            listOf(it.korean, it.society, it.history, it.math, it.science, it.technology, it.english)
+        })
     }
 
     @Test
