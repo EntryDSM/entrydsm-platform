@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.admin.domain.port.out
 
 import hs.kr.entrydsm.admin.domain.command.UpdateNoticeCommand
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.Applicant
@@ -13,6 +14,7 @@ import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.model.QuestionAnswer
 import hs.kr.entrydsm.admin.domain.model.ScorePolicy
+import java.time.Instant
 
 interface ApplicantRepository {
     fun search(filter: ApplicantFilter, pageRequest: PageRequest): Page<Applicant>
@@ -39,6 +41,9 @@ interface ApplicantRepository {
     fun syncExportProjection() = Unit
 
     fun findFirstPassApplicants(): List<Applicant> = emptyList()
+
+    fun hasFirstPassApplicants(): Boolean =
+        findAll(ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS))).isNotEmpty()
 
 }
 
@@ -73,6 +78,8 @@ interface ExportJobRepository {
     fun save(exportJob: ExportJob): ExportJob
 
     fun findDownloadableByType(type: ExportType): List<ExportJob> = emptyList()
+
+    fun claimNext(now: Instant, staleBefore: Instant): ExportJob? = null
 }
 
 interface NoticeRepository {
