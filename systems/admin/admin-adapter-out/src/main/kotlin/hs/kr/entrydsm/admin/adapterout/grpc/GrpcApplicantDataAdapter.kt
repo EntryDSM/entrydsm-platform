@@ -16,6 +16,7 @@ import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ApplicantScore
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.FirstPassRow
+import hs.kr.entrydsm.admin.domain.model.GedScores
 import hs.kr.entrydsm.admin.domain.model.Page
 import hs.kr.entrydsm.admin.domain.model.PageRequest
 import hs.kr.entrydsm.admin.domain.model.SemesterGrades
@@ -113,6 +114,17 @@ class GrpcApplicantDataAdapter(
                     volunteerScore = it.volunteerScore,
                     additionalScore = it.additionalScore,
                     totalScore = it.totalScore,
+                )
+            },
+            gedScores = form.gedScores.takeIf { form.hasGedScores() }?.let {
+                GedScores(
+                    korean = it.korean,
+                    society = it.society,
+                    history = it.history,
+                    math = it.math,
+                    science = it.science,
+                    technology = it.technology,
+                    english = it.english,
                 )
             },
         )

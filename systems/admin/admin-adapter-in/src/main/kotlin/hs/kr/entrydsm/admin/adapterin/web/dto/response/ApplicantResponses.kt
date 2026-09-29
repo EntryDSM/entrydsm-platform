@@ -45,6 +45,7 @@ data class ApplicantDetailResponse(
     val isArrived: Boolean,
     val status: ApplicantStatus,
     val score: ScoreResponse?,
+    val gedScores: GedScoresResponse?,
     val submittedAt: Instant?,
     val arrivedAt: Instant?,
     val updatedAt: Instant?,
@@ -59,6 +60,16 @@ data class ScoreResponse(
     val volunteerScore: Double,
     val additionalScore: Double,
     val totalScore: Double,
+)
+
+data class GedScoresResponse(
+    val korean: Int,
+    val society: Int,
+    val history: Int,
+    val math: Int,
+    val science: Int,
+    val technology: Int,
+    val english: Int,
 )
 
 /**

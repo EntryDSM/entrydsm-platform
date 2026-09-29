@@ -26,6 +26,7 @@ import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
 import hs.kr.entrydsm.application.grpc.DeleteApplicantResponse
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
+import hs.kr.entrydsm.application.grpc.GedScores
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
@@ -174,6 +175,16 @@ class GrpcApplicantDataAdapterTest {
                     .setVolunteerScore(12.0)
                     .setAdditionalScore(3.0)
                     .setTotalScore(102.5)
+                    .setGedScores(
+                        GedScores.newBuilder()
+                            .setKorean(95)
+                            .setSociety(90)
+                            .setHistory(85)
+                            .setMath(80)
+                            .setScience(75)
+                            .setTechnology(70)
+                            .setEnglish(65),
+                    )
                     .build(),
                 ApplicationFormResponse.newBuilder().setApplicantId(2L).setUserId(102L).build(),
             ),
@@ -190,10 +201,14 @@ class GrpcApplicantDataAdapterTest {
         assertEquals(12.0, written.score?.volunteerScore)
         assertEquals(3.0, written.score?.additionalScore)
         assertEquals(102.5, written.score?.totalScore)
+        assertEquals(listOf(95, 90, 85, 80, 75, 70, 65), written.gedScores?.let {
+            listOf(it.korean, it.society, it.history, it.math, it.science, it.technology, it.english)
+        })
         assertNull(empty.photoFileId)
         assertNull(empty.introduction)
         assertNull(empty.studyPlan)
         assertNull(empty.score)
+        assertNull(empty.gedScores)
     }
 
     @Test
