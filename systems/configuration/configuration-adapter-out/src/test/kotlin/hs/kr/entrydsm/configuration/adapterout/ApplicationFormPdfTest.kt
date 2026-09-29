@@ -71,6 +71,8 @@ class ApplicationFormPdfTest {
 
         // 국어 95 · 사회 88 · 역사 100 · 수학 76 · 과학 90 · 기술·가정 85 · 영어 99
         assertEquals("958810076908599", cell(181.80f, 340.68f, 254.28f, 470.04f))
+        // 나머지 세 학기 열은 성적이 없어 하이픈이다.
+        assertEquals("-------", cell(326.76f, 340.68f, 399.24f, 470.04f))
         assertEquals("", cell(477.72f, 322.20f, 519.00f, 414.60f))
         assertEquals("O", cell(477.72f, 433.08f, 536.40f, 451.56f))
     }
@@ -106,6 +108,27 @@ class ApplicationFormPdfTest {
 
         // 서식 2 는 원서에서 옮겨 적는 칸이 없다.
         listOf(1, 3, 4, 5, 6).forEach { page -> assertTrue("서식 $page", pageText(pdf, page).contains("0012")) }
+    }
+
+    @Test
+    fun `특기사항·가산점·교과성적의 빈칸에는 하이픈을 찍는다`() {
+        val form = form().copy(
+            specialNote = null,
+            // 3학년 2학기 열은 졸업예정이라 통째로 없고, 직전학기 역사는 미이수다.
+            semesterGrades = listOf(null, grades("A"), grades("B").copy(history = ""), grades("C")),
+            academicRecord = form().academicRecord!!.copy(programmingCertified = false),
+        )
+        val glyphs = stamped(adapter.render(form, photo = null), page = 1)
+        fun cell(left: Float, top: Float, right: Float, bottom: Float) = glyphs
+            .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+            .sortedBy { it.yDirAdj }
+            .joinToString("") { it.unicode }
+
+        assertEquals("-", cell(399.24f, 279.48f, 536.40f, 303.72f))
+        assertEquals("-------", cell(109.32f, 340.68f, 181.80f, 470.04f))
+        assertEquals("BB-BBBB", cell(254.28f, 340.68f, 326.76f, 470.04f))
+        assertEquals("O", cell(477.72f, 433.08f, 536.40f, 451.56f))
+        assertEquals("-", cell(477.72f, 451.56f, 536.40f, 470.04f))
     }
 
     @Test

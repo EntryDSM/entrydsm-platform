@@ -90,7 +90,7 @@ data class ApplicationForm(
             }
     }
 
-    /** 한 학기 7과목의 성취도. 미이수(자유학기 등)는 빈 문자열이라 칸이 빈다. */
+    /** 한 학기 7과목의 성취도. 미이수(자유학기 등)는 빈 문자열이다. */
     data class SemesterGrades(
         val korean: String,
         val society: String,

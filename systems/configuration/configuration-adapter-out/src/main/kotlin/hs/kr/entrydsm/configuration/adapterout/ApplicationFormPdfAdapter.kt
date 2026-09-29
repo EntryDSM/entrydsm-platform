@@ -36,6 +36,9 @@ private const val PERSONAL_INFO_FONT_SIZE = 11f
 
 private const val CM = 72f / 2.54f
 
+/** 서식 1 의 특기사항·가산점·교과성적 칸에 값이 없을 때 빈칸 대신 찍는 표시. 학교가 요청했다. */
+private const val EMPTY_CELL = "-"
+
 private val log = LoggerFactory.getLogger(ApplicationFormPdfAdapter::class.java)
 
 /**
@@ -147,17 +150,20 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
 
     text(109.32f, 279.48f, 160.68f, 303.72f, form.region?.label)
     text(213.72f, 279.48f, 346.44f, 303.72f, form.admissionType?.label)
-    text(399.24f, 279.48f, 536.40f, 303.72f, form.specialNote)
+    text(399.24f, 279.48f, 536.40f, 303.72f, form.specialNote ?: EMPTY_CELL)
 
-    // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 반영할 성적이 없는 열은 빈다.
+    // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 반영할 성적이 없는 열과
+    // 미이수 과목은 [EMPTY_CELL] 을 찍는다.
     // 검정고시 지원자는 학기 성적과 출결·봉사 기록이 없다. 지난해 원서처럼 검정고시 점수를 3학년 1학기 열에 찍고
     // 출결·봉사 칸은 비운다(요강이 정하지 않은 칸이다).
     val ged = form.graduationType == ApplicationForm.GraduationType.GED
     val rows = floatArrayOf(340.68f, 359.16f, 377.64f, 396.12f, 414.60f, 433.08f, 451.56f, 470.04f)
     val columns = floatArrayOf(109.32f, 181.80f, 254.28f, 326.76f, 399.24f)
     val grades = if (ged) listOf(null, form.gedScores) else form.semesterGrades
-    grades.take(ApplicationForm.SEMESTER_COLUMN_COUNT).forEachIndexed { column, subjects ->
-        subjects?.inFormOrder()?.forEachIndexed { row, grade ->
+    repeat(ApplicationForm.SEMESTER_COLUMN_COUNT) { column ->
+        val subjects = grades.getOrNull(column)?.inFormOrder()
+        repeat(rows.size - 1) { row ->
+            val grade = subjects?.get(row)?.takeIf { it.isNotBlank() } ?: EMPTY_CELL
             text(columns[column], rows[row], columns[column + 1], rows[row + 1], grade)
         }
     }
@@ -171,9 +177,11 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
             text(477.72f, 377.64f, 519.00f, 396.12f, record.classAbsenceCount.toString())
             text(477.72f, 396.12f, 509.00f, 414.60f, record.volunteerTime.toString())
         }
-        text(477.72f, 433.08f, 536.40f, 451.56f, if (record.dsmAlgorithmAwarded) "O" else null)
-        text(477.72f, 451.56f, 536.40f, 470.04f, if (record.programmingCertified) "O" else null)
     }
+    // 가산점은 받았으면 O, 아니면 [EMPTY_CELL] 이다. 성적을 아직 넣지 않은 원서도 받지 않은 것으로 본다.
+    val record = form.academicRecord
+    text(477.72f, 433.08f, 536.40f, 451.56f, if (record?.dsmAlgorithmAwarded == true) "O" else EMPTY_CELL)
+    text(477.72f, 451.56f, 536.40f, 470.04f, if (record?.programmingCertified == true) "O" else EMPTY_CELL)
 
     // 추천서의 "(      )중학교장" 괄호 사이. 인쇄는 약 12pt 지만 나눔고딕은 글자 잉크가 커서 11pt 가 인쇄 글자 높이와 맞는다.
     text(254.70f, 690.18f, 362.59f, 712.18f, school?.namePrefix(), size = 11f)
