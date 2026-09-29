@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationPeriodClosedException
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
@@ -60,6 +61,19 @@ class ApplicationCommandServiceTest {
         assertEquals(11L, repository.savedApplicant?.accountId)
         assertEquals(11L, event?.accountId)
         assertEquals(ApplicantStatus.DRAFT, event?.status)
+    }
+
+    @Test
+    fun createRejectsSubmittedApplicant() {
+        val repository = FakeApplicantRepository(
+            Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED),
+        )
+        val service = ApplicationCommandService(repository, OPEN)
+
+        assertThrows(ApplicantAlreadyExistsException::class.java) {
+            service.createApplicant(CreateApplicantCommand(10L))
+        }
+        assertNull(repository.savedApplicant)
     }
 
     @Test
