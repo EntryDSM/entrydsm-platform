@@ -142,6 +142,23 @@ class ApplicationFormPdfTest {
     }
 
     @Test
+    fun `추천서 괄호에 중학교를 뗀 출신 중학교 이름과 반을 찍고 가장 긴 학교 이름도 괄호 안에 다 넣는다`() {
+        // 괄호 뒤에 "중학교" 가 인쇄돼 있다. 긴 쪽은 기관코드 표에서 "중학교" 로 끝나는 이름 중 가장 긴 학교다.
+        listOf("서귀포중학교" to "서귀포", "대구가톨릭대학교사범대학부속무학중학교" to "대구가톨릭대학교사범대학부속무학")
+            .forEach { (name, printed) ->
+                val pdf = adapter.render(form().let { it.copy(school = it.school!!.copy(name = name)) }, photo = null)
+                fun cell(page: Int, left: Float, top: Float, right: Float, bottom: Float) = stamped(pdf, page)
+                    .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+                    .joinToString("") { it.unicode }
+
+                assertEquals(printed, cell(1, 254.70f, 690.18f, 362.59f, 712.18f))
+                assertEquals(printed, cell(4, 302.90f, 210.40f, 384.39f, 234.40f))
+                assertEquals("1", cell(4, 345.06f, 240.40f, 374.20f, 264.40f))
+                assertEquals(printed, cell(4, 171.98f, 637.83f, 299.12f, 665.83f))
+            }
+    }
+
+    @Test
     fun `빈칸 포함 1,600자 자기소개서도 본문 칸을 넘치지 않고 다 찍는다`() {
         val sentence = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했고 중학교에서는 정보 동아리 부장을 맡았습니다. "
         val introduction = sentence.repeat(30).take(1596).chunked(320).joinToString("\n")
@@ -341,6 +358,7 @@ class ApplicationFormPdfTest {
             teacherName = "김선생",
             code = "9299009",
             address = "제주특별자치도 서귀포시 태평로 474",
+            classNumber = "1",
         ),
         semesterGrades = listOf(null, grades("A"), grades("B"), grades("C")),
         academicRecord = ApplicationForm.AcademicRecord(
