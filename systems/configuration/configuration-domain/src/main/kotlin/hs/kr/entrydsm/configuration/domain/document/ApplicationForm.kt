@@ -67,6 +67,8 @@ data class ApplicationForm(
         val code: String,
         /** 기관코드 표의 학교 도로명 주소. 표에 주소가 없는 학교는 null 이다. */
         val address: String?,
+        /** 서식 4 의 반 칸. application 이 학번(학년 1자리·반 2자리·번호 2자리)에서 뽑는다 — 30122 는 1. 모양이 다른 학번은 null 이다. */
+        val classNumber: String? = null,
     ) {
         /**
          * 서식의 출신지역 칸. 요강이 정의하지 않아 지난해 원서처럼 출신 중학교 소재지를 찍되 "OO시"까지만 자른다.

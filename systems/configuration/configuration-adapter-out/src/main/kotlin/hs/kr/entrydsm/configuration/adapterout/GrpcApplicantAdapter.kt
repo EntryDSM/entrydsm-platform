@@ -120,6 +120,7 @@ class GrpcApplicantAdapter(
                 phone = school.phone,
                 teacherName = school.teacherName,
                 address = school.address.takeIf { school.hasAddress() },
+                classNumber = classNumber.takeIf { hasClassNumber() },
             )
         },
         // 서식의 열 순서 그대로다 — 3학년 2학기, 3학년 1학기, 직전학기, 직전전학기.
