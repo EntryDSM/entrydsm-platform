@@ -19,7 +19,6 @@ import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -33,7 +32,6 @@ private const val EXPORT_JOB_ID_PREFIX = "exp_"
 class ExportService(
     private val exportJobRepository: ExportJobRepository,
     private val applicantRepository: ApplicantRepository,
-    private val applicationEventPublisher: ApplicationEventPublisher,
     private val storagePort: StoragePort,
     private val clock: Clock,
     @Value("\${admin.storage.download-url-expires-seconds:900}")
@@ -44,7 +42,7 @@ class ExportService(
     @Transactional
     override fun create(command: CreateExportCommand): ExportJob {
         val filter = if (command.type == ExportType.ADMISSION_TICKET) {
-            ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)).also(::requireTicketTargets)
+            ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)).also { requireTicketTargets() }
         } else {
             ApplicantFilter()
         }
@@ -58,7 +56,6 @@ class ExportService(
             ),
         )
 
-        applicationEventPublisher.publishEvent(ExportJobCreatedEvent(job))
         return job
     }
 
@@ -66,8 +63,8 @@ class ExportService(
      * 1차 산출 전처럼 대상이 없으면 접수하지 않는다. 비동기 작업의 실패로 두면 관리자 화면에는
      * "잠시 후 다시 시도" 만 떠서 무엇이 모자란지 알 수 없다.
      */
-    private fun requireTicketTargets(filter: ApplicantFilter) {
-        if (applicantRepository.findAll(filter).isEmpty()) {
+    private fun requireTicketTargets() {
+        if (!applicantRepository.hasFirstPassApplicants()) {
             throw AdminDomainException(ErrorCode.ADMISSION_TICKET_NO_TARGET)
         }
     }

@@ -1,8 +1,10 @@
 package hs.kr.entrydsm.admin.application
 
 import hs.kr.entrydsm.admin.domain.document.DocumentNaming
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.FirstPassRow
 import hs.kr.entrydsm.admin.domain.port.`in`.DownloadEssaysUseCase
@@ -18,10 +20,6 @@ import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Propagation
-import org.springframework.transaction.annotation.Transactional
-import org.springframework.transaction.event.TransactionPhase
-import org.springframework.transaction.event.TransactionalEventListener
 
 private const val XLSX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 private const val PDF_CONTENT_TYPE = "application/pdf"
@@ -123,18 +121,9 @@ class ExportJobProcessor(
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
-    /**
-     * 작업 생성 트랜잭션이 커밋된 뒤에 실행합니다. 커밋 전에 다른 스레드가 같은 행을 건드리면
-     * 아직 보이지 않는 행을 갱신하려다 실패합니다.
-     */
-    @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    fun onExportJobCreated(event: ExportJobCreatedEvent) {
-        process(event.job)
-    }
+    @Async("exportTaskExecutor")
+    fun processAsync(job: ExportJob) = process(job)
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     fun processNow(job: ExportJob) {
         process(job)
     }
@@ -180,7 +169,9 @@ class ExportJobProcessor(
                     objectKey
                 }
                 ExportType.ADMISSION_TICKET -> {
-                    val applicants = applicantRepository.findAll(job.filter)
+                    val applicants = applicantRepository.findAll(
+                        ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)),
+                    )
                     current = exportJobRepository.save(current.withTotal(applicants.size))
                     bundleAdmissionTickets(current, applicants).also {
                         current = exportJobRepository.save(current.processed(applicants.size))
