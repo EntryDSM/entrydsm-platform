@@ -54,6 +54,17 @@ import org.junit.Test
 class GrpcApplicantDataAdapterTest {
 
     @Test
+    fun `1차 합격자 존재 여부는 로컬 전형 정보로 확인한다`() {
+        val screening = ScreeningJpaEntity(applicantId = 1L, status = ApplicantStatus.FIRST_PASS)
+
+        val exists = withAdapter(FakeApplicationService(emptyList()), listOf(screening)) {
+            it.hasFirstPassApplicants()
+        }
+
+        assertTrue(exists)
+    }
+
+    @Test
     fun `삭제 RPC에 지원자 번호를 전달하고 오류를 변환한다`() {
         val service = FakeApplicationService(emptyList())
         withAdapter(service) { it.delete(7L) }
@@ -325,6 +336,7 @@ class GrpcApplicantDataAdapterTest {
         ) { _, method, args ->
             when (method.name) {
                 "findAll" -> screenings
+                "existsByStatus" -> screenings.any { it.status == args[0] }
                 "findById" -> Optional.ofNullable(screenings.find { it.applicantId == args[0] })
                 "saveAll" -> args[0]
                 else -> error("unexpected call: ${method.name}")

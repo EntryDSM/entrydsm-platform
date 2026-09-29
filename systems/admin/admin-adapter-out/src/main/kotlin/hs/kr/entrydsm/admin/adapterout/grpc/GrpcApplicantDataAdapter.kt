@@ -165,6 +165,9 @@ class GrpcApplicantDataAdapter(
         }.sortedBy { it.id }
     }
 
+    override fun hasFirstPassApplicants(): Boolean =
+        screeningJpaRepository.existsByStatus(ApplicantStatus.FIRST_PASS)
+
     override fun syncExportProjection() {
         if (exportProjectionRepository.count() == 0L) {
             val applicants = call { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }.applicantsList

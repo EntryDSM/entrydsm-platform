@@ -38,7 +38,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
-import org.springframework.context.ApplicationEventPublisher
 
 class AdminApplicationModuleTest {
     @Test
@@ -134,7 +133,7 @@ class AdminApplicationModuleTest {
         )
         val fixture = exportFixture(type = ExportType.ADMISSION_FILE, admissionRows = listOf(row))
 
-        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+        fixture.processor.processNow(fixture.job)
 
         assertEquals(EXPECTED_ADMISSION_FILE_HEADERS, fixture.header)
         assertEquals("0001", fixture.rows.single()[1])
@@ -158,7 +157,7 @@ class AdminApplicationModuleTest {
             ),
         )
 
-        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+        fixture.processor.processNow(fixture.job)
 
         assertEquals(listOf("수험번호", "접수번호", "성명"), fixture.header)
         assertEquals(listOf("11001", "0001", "홍길동"), fixture.rows.single())
@@ -168,7 +167,7 @@ class AdminApplicationModuleTest {
     fun preservesProcessedCountWhenFirstPassUploadFails() {
         val fixture = exportFixture(applicants = listOf(Applicant(id = 1L)), failUpload = true)
 
-        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+        fixture.processor.processNow(fixture.job)
 
         assertEquals(ExportStatus.FAILED, fixture.saved.last().status)
         assertEquals(1, fixture.saved.last().totalCount)
@@ -187,7 +186,7 @@ class AdminApplicationModuleTest {
         )
         val fixture = exportFixture(type = ExportType.ADMISSION_FILE, previous = previous)
 
-        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+        fixture.processor.processNow(fixture.job)
 
         assertEquals(listOf("dsm_Entry/Backend/admission-file/admission_file_exp_previous.xlsx"), fixture.deletedObjectKeys)
         assertNull(fixture.saved.last { it.exportJobId == previous.exportJobId }.objectKey)
@@ -212,7 +211,6 @@ class AdminApplicationModuleTest {
                 override fun save(exportJob: ExportJob) = exportJob
             },
             applicantRepository = repository(ApplicantRepository::class.java, "unused" to Unit),
-            applicationEventPublisher = repository(ApplicationEventPublisher::class.java, "unused" to Unit),
             storagePort = object : StoragePort {
                 override fun upload(objectKey: String, contentType: String, content: ByteArray) = Unit
                 override fun delete(objectKey: String) = Unit
@@ -237,7 +235,7 @@ class AdminApplicationModuleTest {
             essayWriter = { output -> output.write("pdf".toByteArray()); 2 },
         )
 
-        fixture.processor.onExportJobCreated(ExportJobCreatedEvent(fixture.job))
+        fixture.processor.processNow(fixture.job)
 
         assertEquals("dsm_Entry/backend/stag/essays/essays_exp_test.pdf", fixture.objectKey)
         assertEquals("application/pdf", fixture.contentType)
@@ -245,6 +243,21 @@ class AdminApplicationModuleTest {
         assertEquals(ExportStatus.COMPLETED, fixture.saved.last().status)
         assertEquals(2, fixture.saved.last().totalCount)
         assertEquals(2, fixture.saved.last().processedCount)
+    }
+
+    @Test
+    fun dispatchesPersistedUnfinishedExport() {
+        val fixture = exportFixture()
+
+        fixture.unfinished += fixture.job
+        ExportJobDispatcher(
+            fixture.repository,
+            fixture.processor,
+            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+            1_200_000,
+        ).dispatch()
+
+        assertEquals(ExportStatus.COMPLETED, fixture.saved.last().status)
     }
 
     private fun exportFixture(
@@ -256,10 +269,13 @@ class AdminApplicationModuleTest {
         essayWriter: (OutputStream) -> Int = { 0 },
     ): ExportFixture {
         val saved = mutableListOf<ExportJob>()
+        val unfinished = mutableListOf<ExportJob>()
         val exportRepository = object : ExportJobRepository {
             override fun findByExportJobId(exportJobId: String): ExportJob? = saved.lastOrNull()
             override fun save(exportJob: ExportJob): ExportJob = exportJob.also(saved::add)
             override fun findDownloadableByType(type: ExportType) = listOfNotNull(previous)
+            override fun claimNext(now: Instant, staleBefore: Instant) =
+                unfinished.removeFirstOrNull()?.started(now)?.also(saved::add)
         }
         var capturedHeader = emptyList<String>()
         var capturedRows = emptyList<List<Any?>>()
@@ -317,6 +333,8 @@ class AdminApplicationModuleTest {
             processor = processor,
             job = job,
             saved = saved,
+            repository = exportRepository,
+            unfinished = unfinished,
             headerProvider = { capturedHeader },
             rowsProvider = { capturedRows },
             objectKeyProvider = { capturedObjectKey },
@@ -330,6 +348,8 @@ class AdminApplicationModuleTest {
         val processor: ExportJobProcessor,
         val job: ExportJob,
         val saved: List<ExportJob>,
+        val repository: ExportJobRepository,
+        val unfinished: MutableList<ExportJob>,
         private val headerProvider: () -> List<String>,
         private val rowsProvider: () -> List<List<Any?>>,
         private val objectKeyProvider: () -> String?,

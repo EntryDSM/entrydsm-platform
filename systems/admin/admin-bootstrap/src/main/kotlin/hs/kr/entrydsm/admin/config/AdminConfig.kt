@@ -6,6 +6,7 @@ import java.time.Clock
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.scheduling.annotation.EnableAsync
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer
 import software.amazon.awssdk.services.s3.S3Client
@@ -23,6 +24,14 @@ class AdminConfig(
 
     @Bean
     fun clock(): Clock = Clock.systemUTC()
+
+    @Bean("exportTaskExecutor")
+    fun exportTaskExecutor() = ThreadPoolTaskExecutor().apply {
+        corePoolSize = 1
+        maxPoolSize = 1
+        queueCapacity = 10
+        setThreadNamePrefix("admin-export-")
+    }
 
     @Bean
     fun s3Client(): S3Client = S3Client.create()

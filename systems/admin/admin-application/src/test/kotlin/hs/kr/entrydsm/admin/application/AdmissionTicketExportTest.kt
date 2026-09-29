@@ -24,7 +24,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.springframework.context.ApplicationEventPublisher
 
 /**
  * "수험표 출력" 내보내기. 1차 합격자만, 증명사진이 든 수험표를, xlsx 하나로 받는다.
@@ -34,10 +33,9 @@ class AdmissionTicketExportTest {
     private val applicants = FakeApplicantRepository()
     private val jobs = FakeExportJobRepository()
     private val storage = RecordingStoragePort()
-    private val events = mutableListOf<Any>()
     private val clock = Clock.fixed(Instant.parse("2026-09-21T00:00:00Z"), ZoneOffset.UTC)
     private val exportService = ExportService(
-        jobs, applicants, ApplicationEventPublisher { events += it }, storage, clock, downloadUrlExpiresInSeconds = 900,
+        jobs, applicants, storage, clock, downloadUrlExpiresInSeconds = 900,
     )
 
     @Test
@@ -48,7 +46,7 @@ class AdmissionTicketExportTest {
 
         val expected = ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS))
         assertEquals(expected, job.filter)
-        assertEquals(listOf(ExportJobCreatedEvent(job)), events)
+        assertEquals(ExportStatus.PENDING, job.status)
     }
 
     @Test
@@ -64,7 +62,6 @@ class AdmissionTicketExportTest {
 
         assertEquals(ErrorCode.ADMISSION_TICKET_NO_TARGET, failure.errorCode)
         assertTrue(jobs.saved.isEmpty())
-        assertTrue(events.isEmpty())
     }
 
     @Test
@@ -76,7 +73,7 @@ class AdmissionTicketExportTest {
         applicants.all += applicant(4, ApplicantStatus.FIRST_PASS, examineeNumber = null)
         val tickets = RecordingAdmissionTicketPort()
 
-        processor(tickets).onExportJobCreated(ExportJobCreatedEvent(ticketJob()))
+        processor(tickets).processNow(ticketJob())
 
         assertEquals(listOf(listOf(3L to "100001", 1L to "100002", 4L to null)), tickets.requested)
         val upload = storage.uploads.single()
@@ -94,7 +91,7 @@ class AdmissionTicketExportTest {
         applicants.all += applicant(2, ApplicantStatus.FIRST_PASS, "100002")
         val tickets = RecordingAdmissionTicketPort(failingApplicantId = 2)
 
-        processor(tickets).onExportJobCreated(ExportJobCreatedEvent(ticketJob()))
+        processor(tickets).processNow(ticketJob())
 
         assertEquals(ExportStatus.FAILED, jobs.saved.last().status)
         assertTrue(storage.uploads.isEmpty())
