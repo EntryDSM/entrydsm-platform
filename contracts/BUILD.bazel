@@ -4,6 +4,22 @@ load("@rules_java//java:defs.bzl", "java_proto_library")
 package(default_visibility = ["//visibility:public"])
 
 alias(
+    name = "identity_proto",
+    actual = "//contracts/proto:entrydsm_identity_v1_proto",
+)
+
+java_proto_library(
+    name = "identity_java_proto",
+    deps = [":identity_proto"],
+)
+
+java_grpc_library(
+    name = "identity_grpc_java",
+    srcs = [":identity_proto"],
+    deps = [":identity_java_proto"],
+)
+
+alias(
     name = "application_proto",
     actual = "//contracts/proto:entrydsm_application_v1_proto",
 )

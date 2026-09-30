@@ -26,6 +26,20 @@ class AccountServiceTest {
     private val fixedClock = Clock.fixed(NOW, java.time.ZoneOffset.UTC)
 
     @Test
+    fun applicationPhoneChecksSelfSignupAndAllowsDifferentStudentPhoneForParentSignup() {
+        for (type in SignupType.entries) {
+            val service = AccountService(FakeAccountQueryPort(account(type)), FakeAccountCommandPort(), FakeApplicationDataPort(), fixedClock)
+            assertEquals(true, service.validateApplicationPhone(ReadAccountCommand(USER_ID), "01012345678"))
+            assertEquals(true, service.validateApplicationPhone(ReadAccountCommand(USER_ID), "010-1234-5678"))
+            assertEquals(type == SignupType.PARENT, service.validateApplicationPhone(ReadAccountCommand(USER_ID), "01099998888"))
+        }
+        val missing = AccountService(FakeAccountQueryPort(null), FakeAccountCommandPort(), FakeApplicationDataPort(), fixedClock)
+        org.junit.Assert.assertThrows(IdentityDomainException::class.java) {
+            missing.validateApplicationPhone(ReadAccountCommand(USER_ID), "01012345678")
+        }
+    }
+
+    @Test
     fun deleteAccountUsesAuthenticatedUserAndPersistsDeletionTime() {
         val queryPort = FakeAccountQueryPort(account())
         val commandPort = FakeAccountCommandPort()
@@ -121,7 +135,7 @@ class AccountServiceTest {
         ).getBasicInfo(ReadAccountCommand(null))
     }
 
-    private fun account(): Account = Account.create(
+    private fun account(signupType: SignupType = SignupType.SELF): Account = Account.create(
         userId = USER_ID,
         loginId = "01012345678",
         passwordHash = PasswordHash.fromEncoded("encoded-password"),
@@ -131,7 +145,7 @@ class AccountServiceTest {
             name = "홍길동",
             phone = "01012345678",
             birthdate = LocalDate.of(2009, 3, 15),
-            signupType = SignupType.SELF,
+            signupType = signupType,
             applicantStatus = ApplicantStatus.NONE,
             passStatus = PassStatus.NOT_ANNOUNCED,
             updatedAt = CREATED_AT,
