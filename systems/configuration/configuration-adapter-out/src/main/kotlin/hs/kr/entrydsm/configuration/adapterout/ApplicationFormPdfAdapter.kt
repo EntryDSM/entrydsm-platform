@@ -21,6 +21,12 @@ import java.io.ByteArrayOutputStream
 /** 학교가 한글에서 A4 로 뽑은 2027학년도 요강 서식 1~6. 한 서식이 한 장이다. */
 private const val TEMPLATE_RESOURCE = "/forms/application-form.pdf"
 
+/**
+ * 검정고시 지원자용 서식. 서식 1 이 검정고시 점수 표로 바뀌고 서식 4 추천서가 없어 서식 1·2·3·5·6 다섯 장이다.
+ * 서식 2·3·5·6 은 출신학교 칸에 "-" 가 인쇄된 것 말고는 [TEMPLATE_RESOURCE] 와 칸 위치가 같다.
+ */
+private const val GED_TEMPLATE_RESOURCE = "/forms/application-form-ged.pdf"
+
 /** 칸 테두리에서 글자까지 띄우는 간격(pt). 서식 1 교과성적 칸(18.48pt)에 10pt 한 줄이 들어가도록 위아래는 좁게 둔다. */
 private const val PADDING_X = 4f
 private const val PADDING_Y = 2f
@@ -56,37 +62,43 @@ private val log = LoggerFactory.getLogger(ApplicationFormPdfAdapter::class.java)
 class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
 
     private val template: ByteArray by lazy { resource(TEMPLATE_RESOURCE) }
+    private val gedTemplate: ByteArray by lazy { resource(GED_TEMPLATE_RESOURCE) }
     private val fontFile: ByteArray by lazy { resource(FONT_RESOURCE) }
 
     override fun render(form: ApplicationForm, photo: ByteArray?): ByteArray =
-        Loader.loadPDF(template).use { document ->
+        Loader.loadPDF(templateOf(form)).use { document ->
             val font = PDType0Font.load(document, fontFile.inputStream())
             val receipt = ReceiptNumber.of(form.applicantId)
             val pages = document.pages.toList()
+            // 검정고시 서식에는 서식 4 가 없어 서식 5·6 이 한 장씩 앞에 있다.
+            val ged = form.ged
+            val (noSmoking, smokingTest) = if (ged) pages[3] to pages[4] else pages[4] to pages[5]
 
             Sheet(document, pages[0], font).use { it.application(form, receipt, photo) }
             Sheet(document, pages[2], font).use { it.essays(form, receipt) }
-            Sheet(document, pages[4], font).use {
+            Sheet(document, noSmoking, font).use {
                 it.personalInfo(form, receipt, rows = floatArrayOf(136.44f, 162.60f, 188.76f, 215.04f))
                 // 다짐 문장 "나 (    )은(는)" 의 괄호 사이. 나눔고딕 12pt 가 인쇄된 본문 글자와 크기가 같다.
                 // 칸 높이 검사로 글자가 줄지 않게 위아래는 본문 줄 가운데(341.65)에서 넉넉히 잡는다.
                 it.text(112.24f, 330.65f, 202.83f, 352.65f, form.name, size = 12f)
             }
-            Sheet(document, pages[5], font).use {
+            Sheet(document, smokingTest, font).use {
                 it.personalInfo(form, receipt, rows = floatArrayOf(136.44f, 156.96f, 177.48f, 198.00f))
             }
             // 서식 4 는 특별전형 지원자만 내는 추천서다. 일반전형이거나 아직 전형을 고르지 않았으면 장을 통째로 뺀다.
-            when (form.admissionType) {
-                Applicant.AdmissionType.MEISTER, Applicant.AdmissionType.SOCIAL ->
-                    Sheet(document, pages[3], font).use { it.recommendation(form, receipt) }
-                else -> document.removePage(pages[3])
+            if (!ged) {
+                when (form.admissionType) {
+                    Applicant.AdmissionType.MEISTER, Applicant.AdmissionType.SOCIAL ->
+                        Sheet(document, pages[3], font).use { it.recommendation(form, receipt) }
+                    else -> document.removePage(pages[3])
+                }
             }
 
             ByteArrayOutputStream().also { document.save(it) }.toByteArray()
         }
 
     override fun renderEssay(form: ApplicationForm, introduction: Boolean): ByteArray =
-        Loader.loadPDF(template).use { document ->
+        Loader.loadPDF(templateOf(form)).use { document ->
             val page = document.pages[2]
             val font = PDType0Font.load(document, fontFile.inputStream())
             Sheet(document, page, font).use {
@@ -113,6 +125,8 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
     override fun isRegistrationTemplate(template: ByteArray): Boolean =
         runCatching { Loader.loadPDF(template).use { it.numberOfPages > 0 } }.getOrDefault(false)
 
+    private fun templateOf(form: ApplicationForm) = if (form.ged) gedTemplate else template
+
     private fun resource(path: String): ByteArray =
         checkNotNull(javaClass.getResourceAsStream(path)) { "Resource not found: $path" }.use { it.readBytes() }
 }
@@ -123,10 +137,14 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
  * 학교코드·출신지역·출신학교와 추천서의 학교 이름은 출신 중학교 값이라 검정고시 지원자는 빈다. 출신지역은 중학교 소재지다
  * ([ApplicationForm.MiddleSchool.originRegion]).
  *
+ * 검정고시 서식은 위쪽 칸과 가산점 칸의 위치가 같다. 학교 칸에는 "-", 졸업구분 칸에는 "검정고시" 가 인쇄돼 있고,
+ * 교과성적 표 자리에 교과마다 점수 칸 하나인 검정고시 점수 표가 있다. 출결·추천서·원서작성자 칸은 없다.
+ *
  * ponytail: 보훈번호는 원서에 저장하는 값이 없어 비운다. 수집하기로 하면 [ApplicationForm] 에 담아 찍는다.
  */
 private fun Sheet.application(form: ApplicationForm, receipt: String, photo: ByteArray?) {
     val school = form.school
+    val ged = form.ged
     text(109.32f, 104.88f, 219.36f, 129.00f, receipt)
     text(274.56f, 104.88f, 382.20f, 129.00f, school?.code)
 
@@ -136,7 +154,7 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
     text(326.64f, 153.12f, 439.80f, 177.36f, school?.originRegion)
     text(160.68f, 177.36f, 274.56f, 201.48f, form.gender?.label)
     text(326.64f, 177.36f, 439.80f, 201.48f, school?.name)
-    text(160.68f, 201.48f, 439.80f, 225.60f, graduation(form))
+    if (!ged) text(160.68f, 201.48f, 439.80f, 225.60f, graduation(form))
     text(160.68f, 225.60f, 439.80f, 255.36f, form.address, align = Align.LEFT, wrap = true)
     // 서식이 적어 둔 3cm×4cm 크기로 사진 칸 가운데에 넣는다.
     photo?.let {
@@ -152,15 +170,15 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
     text(213.72f, 279.48f, 346.44f, 303.72f, form.admissionType?.label)
     text(399.24f, 279.48f, 536.40f, 303.72f, form.specialNote ?: EMPTY_CELL)
 
-    // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 반영할 성적이 없는 열과
-    // 미이수 과목은 [EMPTY_CELL] 을 찍는다.
-    // 검정고시 지원자는 학기 성적과 출결·봉사 기록이 없다. 지난해 원서처럼 검정고시 점수를 3학년 1학기 열에 찍고
-    // 출결·봉사 칸은 비운다(요강이 정하지 않은 칸이다).
-    val ged = form.graduationType == ApplicationForm.GraduationType.GED
+    // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 검정고시 점수 표는 행이 같고
+    // 점수 열 하나다. 반영할 성적이 없는 열과 미이수 과목은 [EMPTY_CELL] 을 찍는다.
     val rows = floatArrayOf(340.68f, 359.16f, 377.64f, 396.12f, 414.60f, 433.08f, 451.56f, 470.04f)
-    val columns = floatArrayOf(109.32f, 181.80f, 254.28f, 326.76f, 399.24f)
-    val grades = if (ged) listOf(null, form.gedScores) else form.semesterGrades
-    repeat(ApplicationForm.SEMESTER_COLUMN_COUNT) { column ->
+    val (columns, grades) = if (ged) {
+        floatArrayOf(160.68f, 399.24f) to listOf(form.gedScores)
+    } else {
+        floatArrayOf(109.32f, 181.80f, 254.28f, 326.76f, 399.24f) to form.semesterGrades
+    }
+    repeat(columns.size - 1) { column ->
         val subjects = grades.getOrNull(column)?.inFormOrder()
         repeat(rows.size - 1) { row ->
             val grade = subjects?.get(row)?.takeIf { it.isNotBlank() } ?: EMPTY_CELL
@@ -265,6 +283,9 @@ private fun Sheet.admissionConsent(form: ApplicationForm) {
     text(475.75f, 222.36f, 519.47f, 248.88f, form.guardianRelation, size)
     text(157.92f, 248.88f, 538.68f, 274.80f, form.guardianPhoneNumber, size)
 }
+
+/** 검정고시 지원자는 서식이 따로 있다([GED_TEMPLATE_RESOURCE]). */
+private val ApplicationForm.ged get() = graduationType == ApplicationForm.GraduationType.GED
 
 /** 졸업구분 칸. "졸업예정 (2027-02)" 처럼 구분 뒤에 졸업 연월을 붙인다. */
 private fun graduation(form: ApplicationForm): String? {
