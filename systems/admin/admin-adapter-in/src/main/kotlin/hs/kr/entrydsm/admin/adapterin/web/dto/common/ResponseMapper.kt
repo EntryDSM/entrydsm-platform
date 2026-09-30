@@ -3,9 +3,9 @@ package hs.kr.entrydsm.admin.adapterin.web.dto.common
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ApplicantDetailResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ApplicantSummaryResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ExamineeNumberIssueResponse
-import hs.kr.entrydsm.admin.adapterin.web.dto.response.GedScoresResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.PageResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.response.ScoreResponse
+import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
 import hs.kr.entrydsm.admin.domain.model.ExamineeNumberIssueResult
@@ -35,23 +35,13 @@ fun ApplicantDetail.toDetailResponse(): ApplicantDetailResponse = ApplicantDetai
     isArrived = applicant.isArrived,
     status = applicant.status,
     score = score?.let {
+        val isGed = applicant.graduationStatus == GraduationStatus.GED
         ScoreResponse(
             subjectScore = it.subjectScore,
-            attendanceScore = it.attendanceScore,
-            volunteerScore = it.volunteerScore,
-            additionalScore = it.additionalScore,
+            attendanceScore = if (isGed) null else it.attendanceScore,
+            volunteerScore = if (isGed) null else it.volunteerScore,
+            additionalScore = if (isGed) null else it.additionalScore,
             totalScore = it.totalScore,
-        )
-    },
-    gedScores = gedScores?.let {
-        GedScoresResponse(
-            korean = it.korean,
-            society = it.society,
-            history = it.history,
-            math = it.math,
-            science = it.science,
-            technology = it.technology,
-            english = it.english,
         )
     },
     submittedAt = applicant.submittedAt,
