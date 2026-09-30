@@ -79,21 +79,15 @@ class ApplicationCommandServiceTest {
     @Test
     fun submitAndCancelPersistLifecycle() {
         val repository = FakeApplicantRepository(
-            Applicant(
-                id = 1L,
-                accountId = 10L,
-                admissionType = AdmissionType.REGULAR,
-                name = "홍길동",
-                guardianName = "보호자",
-                introduction = "소개",
-                studyPlan = "학업 계획",
-            ),
+            submittableGedApplicant(),
         )
         val service = ApplicationCommandService(repository, OPEN)
 
         service.submit(accountId = 10L)
         assertEquals(ApplicantStatus.SUBMITTED, repository.savedApplicant?.status)
         assertNotNull(repository.savedApplicant?.submittedAt)
+        assertEquals(170.0, repository.savedApplicant?.totalScore ?: 0.0, 0.0)
+        assertNotNull(repository.savedApplicant?.totalScoreUpdatedAt)
 
         val canceled = service.cancel(10L, "개인 사유")
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
@@ -373,6 +367,19 @@ class ApplicationCommandServiceTest {
         assertNull(service.findApplicationForm(10L)?.gedScores)
     }
 
+    @Test
+    fun applicationFormCalculatesMigratedSubmittedScore() {
+        val applicant = submittableGedApplicant().apply {
+            status = ApplicantStatus.SUBMITTED
+            totalScore = 0.0
+            totalScoreUpdatedAt = null
+        }
+
+        val form = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN).findApplicationForm(10L)
+
+        assertEquals(170.0, form?.score?.totalScore ?: 0.0, 0.0)
+    }
+
     /**
      * 시각을 시간대 없이 쓰면 UTC 로 도는 컨테이너에서만 맞습니다. gRPC 와 이벤트가 UTC 로
      * 되읽으므로, 기기 시간대가 무엇이든 저장하는 값은 UTC 여야 합니다. 어긋나면 통계의
@@ -382,15 +389,7 @@ class ApplicationCommandServiceTest {
     fun recordsTimestampsInUtcWhateverTheMachineZoneIs() {
         withDefaultTimeZone("Asia/Seoul") {
             val repository = FakeApplicantRepository(
-                Applicant(
-                    id = 1L,
-                    accountId = 10L,
-                    admissionType = AdmissionType.REGULAR,
-                    name = "홍길동",
-                    guardianName = "보호자",
-                    introduction = "소개",
-                    studyPlan = "학업 계획",
-                ),
+                submittableGedApplicant(),
             )
 
             ApplicationCommandService(repository, OPEN).submit(accountId = 10L)
@@ -461,5 +460,17 @@ class ApplicationCommandServiceTest {
                 technologyGrade = grade,
                 historyGrade = grade,
             )
+
+        fun submittableGedApplicant() = Applicant(
+            id = 1L,
+            accountId = 10L,
+            admissionType = AdmissionType.REGULAR,
+            graduationType = GraduationType.GED,
+            name = "홍길동",
+            guardianName = "보호자",
+            introduction = "소개",
+            studyPlan = "학업 계획",
+            academicRecord = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 100, 100)),
+        )
     }
 }

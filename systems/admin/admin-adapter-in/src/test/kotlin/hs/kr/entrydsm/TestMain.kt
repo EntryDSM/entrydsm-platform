@@ -10,13 +10,14 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.GenderRatio
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
-import hs.kr.entrydsm.admin.domain.model.GedScores
+import hs.kr.entrydsm.admin.domain.model.ApplicantScore
 import hs.kr.entrydsm.admin.domain.model.RegionStatus
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
@@ -32,6 +33,7 @@ import hs.kr.entrydsm.admin.domain.port.`in`.UpdateNoticeUseCase
 import java.lang.reflect.Proxy
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.springframework.http.HttpMethod
@@ -91,19 +93,35 @@ class AdminAdapterInModuleTest {
     }
 
     @Test
-    fun mapsGedScoresToApplicantDetailResponse() {
+    fun mapsGedScoreIntoScoreResponse() {
         val response = ApplicantDetail(
-            applicant = Applicant(id = 1L),
+            applicant = Applicant(id = 1L, graduationStatus = GraduationStatus.GED),
             photoFileId = null,
             introduction = null,
             studyPlan = null,
-            score = null,
-            gedScores = GedScores(95, 90, 85, 80, 75, 70, 65),
+            score = ApplicantScore(140.0, 15.0, 15.0, 3.0, 173.0),
         ).toDetailResponse()
 
-        assertEquals(listOf(95, 90, 85, 80, 75, 70, 65), response.gedScores?.let {
-            listOf(it.korean, it.society, it.history, it.math, it.science, it.technology, it.english)
-        })
+        assertEquals(140.0, response.score?.subjectScore)
+        assertEquals(173.0, response.score?.totalScore)
+        assertNull(response.score?.attendanceScore)
+        assertNull(response.score?.volunteerScore)
+        assertNull(response.score?.additionalScore)
+    }
+
+    @Test
+    fun preservesScoresForNonGedApplicant() {
+        val response = ApplicantDetail(
+            applicant = Applicant(id = 1L, graduationStatus = GraduationStatus.GRADUATED),
+            photoFileId = null,
+            introduction = null,
+            studyPlan = null,
+            score = ApplicantScore(140.0, 15.0, 14.0, 3.0, 172.0),
+        ).toDetailResponse()
+
+        assertEquals(15.0, response.score?.attendanceScore)
+        assertEquals(14.0, response.score?.volunteerScore)
+        assertEquals(3.0, response.score?.additionalScore)
     }
 
     @Test

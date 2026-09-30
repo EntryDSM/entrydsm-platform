@@ -167,7 +167,7 @@ class ApplicationGrpcServiceTest {
             birthdate = null,
             phoneNumber = null,
             graduationType = null,
-            totalScore = null,
+            totalScore = 0.0,
             status = ApplicantStatus.SUBMITTED,
             submittedAt = null,
             gender = Gender.FEMALE,
@@ -187,6 +187,7 @@ class ApplicationGrpcServiceTest {
         assertEquals(GrpcAdmissionType.ADMISSION_TYPE_UNSPECIFIED, found.admissionType)
         assertEquals("photo_3f2c9a1e0b7d4c55a1e2f3b4c5d6e7f8", found.photoFileId)
         assertEquals(GrpcGender.GENDER_FEMALE, found.gender)
+        assertEquals(0.0, found.totalScore, 0.0)
         assertEquals("충청남도 천안시", found.address)
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
     }

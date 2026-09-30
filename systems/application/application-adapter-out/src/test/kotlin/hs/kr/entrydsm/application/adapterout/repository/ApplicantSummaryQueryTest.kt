@@ -100,7 +100,7 @@ class ApplicantSummaryQueryTest {
         assertEquals(Region.DAEJEON, summary.region)
         assertEquals(AdmissionType.REGULAR, summary.admissionType)
         assertEquals(GraduationType.PROSPECTIVE, summary.graduationType)
-        assertEquals(150.5, summary.totalScore!!, 0.0)
+        assertEquals(150.5, summary.totalScore, 0.0)
         assertEquals(ApplicantStatus.SUBMITTED, summary.status)
         assertEquals(SUBMITTED_AT, summary.submittedAt)
         assertEquals(Gender.FEMALE, summary.gender)
