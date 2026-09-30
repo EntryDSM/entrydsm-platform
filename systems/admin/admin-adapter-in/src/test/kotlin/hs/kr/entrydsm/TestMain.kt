@@ -110,6 +110,21 @@ class AdminAdapterInModuleTest {
     }
 
     @Test
+    fun preservesScoresForNonGedApplicant() {
+        val response = ApplicantDetail(
+            applicant = Applicant(id = 1L, graduationStatus = GraduationStatus.GRADUATED),
+            photoFileId = null,
+            introduction = null,
+            studyPlan = null,
+            score = ApplicantScore(140.0, 15.0, 14.0, 3.0, 172.0),
+        ).toDetailResponse()
+
+        assertEquals(15.0, response.score?.attendanceScore)
+        assertEquals(14.0, response.score?.volunteerScore)
+        assertEquals(3.0, response.score?.additionalScore)
+    }
+
+    @Test
     fun createsExportJobsForAllFileTypes() {
         val types = mutableListOf<ExportType>()
         val controller = SupportController(

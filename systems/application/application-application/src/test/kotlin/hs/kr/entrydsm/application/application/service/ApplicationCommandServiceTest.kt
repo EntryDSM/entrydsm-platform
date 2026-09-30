@@ -367,6 +367,19 @@ class ApplicationCommandServiceTest {
         assertNull(service.findApplicationForm(10L)?.gedScores)
     }
 
+    @Test
+    fun applicationFormCalculatesMigratedSubmittedScore() {
+        val applicant = submittableGedApplicant().apply {
+            status = ApplicantStatus.SUBMITTED
+            totalScore = 0.0
+            totalScoreUpdatedAt = null
+        }
+
+        val form = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN).findApplicationForm(10L)
+
+        assertEquals(170.0, form?.score?.totalScore ?: 0.0, 0.0)
+    }
+
     /**
      * 시각을 시간대 없이 쓰면 UTC 로 도는 컨테이너에서만 맞습니다. gRPC 와 이벤트가 UTC 로
      * 되읽으므로, 기기 시간대가 무엇이든 저장하는 값은 UTC 여야 합니다. 어긋나면 통계의

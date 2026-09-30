@@ -218,7 +218,10 @@ class ApplicationCommandService(
             secondPreviousSemester = previous.getOrNull(1),
             academicRecord = academicRecord,
             score = takeIf { admissionType != null && (totalScoreUpdatedAt != null || status != ApplicantStatus.DRAFT) }
-                ?.let { scoreCalculator.calculateBreakdown(it).copy(totalScore = totalScore) },
+                ?.let {
+                    val breakdown = scoreCalculator.calculateBreakdown(it)
+                    if (totalScoreUpdatedAt == null) breakdown else breakdown.copy(totalScore = totalScore)
+                },
             introduction = introduction,
             studyPlan = studyPlan,
             classNumber = middleSchoolInfo?.studentNumber
