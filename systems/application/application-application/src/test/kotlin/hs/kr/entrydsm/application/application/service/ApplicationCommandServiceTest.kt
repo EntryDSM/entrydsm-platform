@@ -79,21 +79,15 @@ class ApplicationCommandServiceTest {
     @Test
     fun submitAndCancelPersistLifecycle() {
         val repository = FakeApplicantRepository(
-            Applicant(
-                id = 1L,
-                accountId = 10L,
-                admissionType = AdmissionType.REGULAR,
-                name = "홍길동",
-                guardianName = "보호자",
-                introduction = "소개",
-                studyPlan = "학업 계획",
-            ),
+            submittableGedApplicant(),
         )
         val service = ApplicationCommandService(repository, OPEN)
 
         service.submit(accountId = 10L)
         assertEquals(ApplicantStatus.SUBMITTED, repository.savedApplicant?.status)
         assertNotNull(repository.savedApplicant?.submittedAt)
+        assertEquals(170.0, repository.savedApplicant?.totalScore ?: 0.0, 0.0)
+        assertNotNull(repository.savedApplicant?.totalScoreUpdatedAt)
 
         val canceled = service.cancel(10L, "개인 사유")
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
@@ -382,15 +376,7 @@ class ApplicationCommandServiceTest {
     fun recordsTimestampsInUtcWhateverTheMachineZoneIs() {
         withDefaultTimeZone("Asia/Seoul") {
             val repository = FakeApplicantRepository(
-                Applicant(
-                    id = 1L,
-                    accountId = 10L,
-                    admissionType = AdmissionType.REGULAR,
-                    name = "홍길동",
-                    guardianName = "보호자",
-                    introduction = "소개",
-                    studyPlan = "학업 계획",
-                ),
+                submittableGedApplicant(),
             )
 
             ApplicationCommandService(repository, OPEN).submit(accountId = 10L)
@@ -461,5 +447,17 @@ class ApplicationCommandServiceTest {
                 technologyGrade = grade,
                 historyGrade = grade,
             )
+
+        fun submittableGedApplicant() = Applicant(
+            id = 1L,
+            accountId = 10L,
+            admissionType = AdmissionType.REGULAR,
+            graduationType = GraduationType.GED,
+            name = "홍길동",
+            guardianName = "보호자",
+            introduction = "소개",
+            studyPlan = "학업 계획",
+            academicRecord = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 100, 100)),
+        )
     }
 }

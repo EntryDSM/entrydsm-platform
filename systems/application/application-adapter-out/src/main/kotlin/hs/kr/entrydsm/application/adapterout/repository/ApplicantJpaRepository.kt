@@ -54,7 +54,7 @@ interface ApplicantSummaryRow {
     val birthdate: LocalDate?
     val phoneNumber: String?
     val graduationType: GraduationType?
-    val totalScore: Double?
+    val totalScore: Double
     val status: ApplicantStatus
     val submittedAt: LocalDateTime?
     val gender: Gender?

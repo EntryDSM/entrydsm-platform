@@ -113,8 +113,8 @@ open class ApplicantJpaEntity(
     @Column(name = "study_plan", columnDefinition = "TEXT")
     var studyPlan: String? = null,
 
-    @Column(name = "total_score")
-    var totalScore: Double? = null,
+    @Column(name = "total_score", nullable = false)
+    var totalScore: Double = 0.0,
 
     @Column(name = "total_score_updated_at")
     var totalScoreUpdatedAt: LocalDateTime? = null,

@@ -15,7 +15,7 @@ class DocumentPassCalculator {
             .groupBy { requireNotNull(it.admissionType) }
             .flatMap { (type, candidates) ->
                 candidates
-                    .sortedWith(compareByDescending<Applicant> { it.totalScore ?: Double.NEGATIVE_INFINITY }.thenBy { it.id })
+                    .sortedWith(compareByDescending<Applicant> { it.totalScore }.thenBy { it.id })
                     .take(requireNotNull(DOCUMENT_PASS_LIMITS[type]))
             }
             .mapTo(hashSetOf()) { it.id }

@@ -217,7 +217,8 @@ class ApplicationCommandService(
             previousSemester = previous.getOrNull(0),
             secondPreviousSemester = previous.getOrNull(1),
             academicRecord = academicRecord,
-            score = totalScore?.let { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) },
+            score = takeIf { admissionType != null && (totalScoreUpdatedAt != null || status != ApplicantStatus.DRAFT) }
+                ?.let { scoreCalculator.calculateBreakdown(it).copy(totalScore = totalScore) },
             introduction = introduction,
             studyPlan = studyPlan,
             classNumber = middleSchoolInfo?.studentNumber
@@ -462,6 +463,8 @@ class ApplicationCommandService(
         accountId ?: throw AuthenticationRequiredException()
 
     private fun markSubmitted(applicant: Applicant) {
+        applicant.totalScore = scoreCalculator.calculate(applicant)
+        applicant.totalScoreUpdatedAt = nowUtc()
         applicant.status = ApplicantStatus.SUBMITTED
         applicant.statusVersion += 1
         applicant.submittedAt = nowUtc()
