@@ -16,6 +16,29 @@ import org.junit.Test
 
 class EvaluationControllerTest {
     @Test
+    fun gedScoresIdentifyEachSubjectAndAcceptBoundaryValues() {
+        val controller = EvaluationController(FakeEvaluationPort())
+        val scores = hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(0, 0, 0, 0, 0, 0, 0)
+        val cases = listOf(
+            "KOREAN" to scores.copy(koreanScore = -1),
+            "MATH" to scores.copy(mathScore = 101),
+            "ENGLISH" to scores.copy(englishScore = -1),
+            "SCIENCE" to scores.copy(scienceScore = 101),
+            "SOCIETY" to scores.copy(societyScore = -1),
+            "TECHNOLOGY" to scores.copy(technologyScore = 101),
+            "HISTORY" to scores.copy(historyScore = -1),
+        )
+        for ((subject, request) in cases) {
+            val error = org.junit.Assert.assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) {
+                controller.saveGedScores(10L, request)
+            }
+            assertEquals("APPLICATION_${subject}_SCORE_OUT_OF_RANGE", error.errorCode.name)
+        }
+        controller.saveGedScores(10L, scores)
+        controller.saveGedScores(10L, hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(100, 100, 100, 100, 100, 100, 100))
+    }
+
+    @Test
     fun subjectGradesRequestConvertsEverySubjectGrade() {
         val request = SubjectGradesRequest(
             koreanGrade = SubjectGrade.A,

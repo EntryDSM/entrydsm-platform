@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.application.application.service
 
+import hs.kr.entrydsm.application.application.exception.ApplicationErrorCode.*
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
@@ -70,9 +71,7 @@ class EvaluationCommandService(
         subjectGrades: SubjectGrades,
     ) {
         val applicant = getWritableApplicant(accountId)
-        require(applicant.graduationType != GraduationType.GED) {
-            "subject grades are unavailable for GED applicants"
-        }
+        APPLICATION_SUBJECTS_NOT_ALLOWED.requireValid(applicant.graduationType != GraduationType.GED)
         val record = getOrCreateAcademicRecord(applicant)
         record.gedScores = null
         record.subjectGrades[schoolSemester] = subjectGrades
@@ -83,9 +82,7 @@ class EvaluationCommandService(
 
     fun saveGedScores(accountId: Long?, gedScores: GedScores) {
         val applicant = getWritableApplicant(accountId)
-        require(applicant.graduationType == GraduationType.GED) {
-            "GED scores are available only for GED applicants"
-        }
+        APPLICATION_GED_SCORES_NOT_ALLOWED.requireValid(applicant.graduationType == GraduationType.GED)
         val record = getOrCreateAcademicRecord(applicant)
         record.subjectGrades.clear()
         record.gedScores = gedScores
@@ -102,11 +99,11 @@ class EvaluationCommandService(
         classAbsenceCount: Int,
         volunteerTime: Int,
     ): AcademicRecord {
-        require(absentCount >= 0) { "absentCount must be greater than or equal to 0" }
-        require(earlyLeaveCount >= 0) { "earlyLeaveCount must be greater than or equal to 0" }
-        require(lateCount >= 0) { "lateCount must be greater than or equal to 0" }
-        require(classAbsenceCount >= 0) { "classAbsenceCount must be greater than or equal to 0" }
-        require(volunteerTime >= 0) { "volunteerTime must be greater than or equal to 0" }
+        APPLICATION_ABSENT_COUNT_OUT_OF_RANGE.requireValid(absentCount >= 0)
+        APPLICATION_EARLY_LEAVE_COUNT_OUT_OF_RANGE.requireValid(earlyLeaveCount >= 0)
+        APPLICATION_LATE_COUNT_OUT_OF_RANGE.requireValid(lateCount >= 0)
+        APPLICATION_CLASS_ABSENCE_COUNT_OUT_OF_RANGE.requireValid(classAbsenceCount >= 0)
+        APPLICATION_VOLUNTEER_TIME_OUT_OF_RANGE.requireValid(volunteerTime >= 0)
 
         val applicant = getWritableApplicant(accountId)
         val record = getOrCreateAcademicRecord(applicant)

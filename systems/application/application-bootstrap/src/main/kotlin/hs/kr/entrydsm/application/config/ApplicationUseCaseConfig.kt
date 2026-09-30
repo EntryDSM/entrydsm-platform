@@ -4,6 +4,7 @@ import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
 import hs.kr.entrydsm.application.application.port.`in`.MiddleSchoolPort
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
 import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
 import hs.kr.entrydsm.application.application.port.out.MiddleSchoolRepository
@@ -24,7 +25,8 @@ class ApplicationUseCaseConfig {
         applicantRepository: ApplicantRepository,
         applicationPeriodReader: ApplicationPeriodReader,
         applicantStatusEventOutbox: ApplicantStatusEventOutbox,
-    ): ApplicationPort = ApplicationCommandService(applicantRepository, applicationPeriodReader, applicantStatusEventOutbox)
+        accountPhoneValidator: AccountPhoneValidator,
+    ): ApplicationPort = ApplicationCommandService(applicantRepository, applicationPeriodReader, accountPhoneValidator, applicantStatusEventOutbox)
 
     @Bean
     fun evaluationService(

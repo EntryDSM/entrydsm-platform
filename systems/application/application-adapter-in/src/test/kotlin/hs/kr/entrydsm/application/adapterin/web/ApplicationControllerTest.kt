@@ -33,6 +33,50 @@ import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedE
 
 class ApplicationControllerTest {
     @Test
+    fun fieldErrorsReturnSpecificCodesWithoutInputDetails() {
+        val mapper = tools.jackson.module.kotlin.jacksonMapperBuilder().build()
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(FakeApplicationPort(), scheduleProperties()))
+            .setMessageConverters(org.springframework.http.converter.json.JacksonJsonHttpMessageConverter(mapper))
+            .setControllerAdvice(GlobalExceptionHandler())
+            .build()
+        val personal = """{"photoFileId":"photo_123","name":"홍길동","phoneNumber":"010-1234-5678","gender":"MALE","birthdate":"2010-01-01"}"""
+        val cases = listOf(
+            Triple("personal", personal.replace("010-1234-5678", "private-phone"), "PHONE_NUMBER_INVALID_FORMAT"),
+            Triple("personal", personal.replace("홍길동", ""), "NAME_REQUIRED"),
+            Triple("personal", personal.replace("홍길동", "가".repeat(21)), "NAME_TOO_LONG"),
+            Triple("personal", personal.replace("\"name\":\"홍길동\",", ""), "NAME_REQUIRED"),
+            Triple("personal", personal.replace("\"name\":\"홍길동\"", "\"name\":null"), "NAME_REQUIRED"),
+            Triple("personal", personal.replace("MALE", "unknown"), "GENDER_INVALID_VALUE"),
+            Triple("personal", personal.replace("2010-01-01", "2010-02-30"), "BIRTHDATE_INVALID_FORMAT"),
+            Triple("type", """{"admissionType":"REGULAR","region":"DAEJEON","graduationType":"PROSPECTIVE","graduationDate":"2027-13"}""", "GRADUATION_DATE_INVALID_FORMAT"),
+            Triple("family", """{"guardianName":"보호자","guardianPhoneNumber":"010-1234-5678","guardianGender":"MALE","guardianRelation":"부","address":{"zipCode":"","addressBase":"주소","addressDetail":"상세"}}""", "ADDRESS_ZIP_CODE_REQUIRED"),
+            Triple("personal", personal.replace("\"홍길동\"", "{}"), "NAME_INVALID_TYPE"),
+        )
+        for ((path, body, code) in cases) {
+            val response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/application/v11/applicants/$path")
+                .header("X-USER-ID", "10").contentType("application/json").content(body)).andReturn().response
+            assertEquals("$path / $code: ${response.contentAsString}", 400, response.status)
+            val error = mapper.readTree(response.contentAsString).get("error")
+            assertEquals("APPLICATION_$code", error.get("code").asString())
+            assertEquals(hs.kr.entrydsm.application.application.exception.ApplicationErrorCode.valueOf("APPLICATION_$code").message, error.get("message").asString())
+            org.junit.Assert.assertFalse(response.contentAsString.contains("private-phone"))
+        }
+        for (date in listOf("2010-01", "2010-01-01")) {
+            assertEquals(200, mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/application/v11/applicants/personal")
+                .header("X-USER-ID", "10").contentType("application/json").content(personal.replace("2010-01-01", date))).andReturn().response.status)
+        }
+        val multiple = personal.replace("2010-01-01", "").replace("홍길동", "").replace("010-1234-5678", "bad")
+        val response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/application/v11/applicants/personal")
+            .header("X-USER-ID", "10").contentType("application/json").content(multiple)).andReturn().response
+        assertEquals("APPLICATION_BIRTHDATE_REQUIRED", mapper.readTree(response.contentAsString).get("error").get("code").asString())
+        val malformed = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/application/v11/applicants/personal")
+            .header("X-USER-ID", "10").contentType("application/json").content("{private-input")).andReturn().response
+        assertEquals(400, malformed.status)
+        assertEquals("INVALID_REQUEST", mapper.readTree(malformed.contentAsString).get("error").get("code").asString())
+        org.junit.Assert.assertFalse(malformed.contentAsString.contains("private-input"))
+    }
+
+    @Test
     fun submittedApplicantCreateReturns409() {
         val port = object : ApplicationPort by FakeApplicationPort() {
             override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult =
