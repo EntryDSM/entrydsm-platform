@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile
 private const val MAX_PAGE_SIZE = 100
 
 /**
- * 공개 ID(`photo_…`, `attachment_…`, `guideline_…`)로 찾는 증명사진·첨부·요강.
+ * 공개 ID(`photo_…`, `attachment_…`, `guideline_…`)로 찾는 증명사진·첨부·요강과, 최근 것 하나만 주는 등록 서류.
  * 누가 적재·다운로드·삭제할 수 있는지는 FileCategory 권한표가 정한다.
  */
 @RestController
@@ -88,6 +88,20 @@ class FileController(
         @PathVariable guidelineId: String,
         @RequestAttribute(REQUESTER_ATTRIBUTE) requester: Requester,
     ) = delete(FileCategory.GUIDELINE, guidelineId, requester)
+
+    @PostMapping("/registration-documents")
+    fun uploadRegistrationDocument(
+        @RequestParam("file") file: MultipartFile,
+        @RequestAttribute(REQUESTER_ATTRIBUTE) requester: Requester,
+    ) = upload(FileCategory.REGISTRATION_DOCUMENT, file, requester)
+
+    /**
+     * 가장 최근에 올린 최종 합격자 등록 서류. 관리자는 원본을, 최종 합격한 학생은 첫 장 입학 동의서에 자기 정보를 채운 것을 받는다.
+     */
+    @GetMapping("/registration-documents/latest")
+    fun findRegistrationDocument(
+        @RequestAttribute(REQUESTER_ATTRIBUTE) requester: Requester,
+    ): ApiResponse<FileResponse> = ApiResponse.success(FileResponse.of(fileUseCase.findRegistrationDocument(requester)))
 
     private fun upload(category: FileCategory, file: MultipartFile, requester: Requester): ApiResponse<FileResponse> {
         val uploaded = file.inputStream.use { fileUseCase.upload(file.toUploadCommand(category, requester), it) }

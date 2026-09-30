@@ -6,8 +6,9 @@ package hs.kr.entrydsm.admin.domain.enum
 enum class StatisticsMetric {
     APPLICANT_COUNT,
     COMPETITION_RATE,
+    /** 전형별 1차 선발 인원(모집 정원 × 1차 배수, 올림). 1차 합격자 산출이 쓰는 정원과 같다. */
+    FIRST_PASS_QUOTA,
     GENDER_RATIO,
-    REGION_STATUS,
     REGION_DISTRIBUTION,
     TYPE_DISTRIBUTION,
     DAILY_TREND,

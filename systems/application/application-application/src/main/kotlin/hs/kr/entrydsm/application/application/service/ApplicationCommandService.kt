@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.application.application.service
 
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
@@ -52,6 +53,7 @@ class ApplicationCommandService(
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
         val accountId = requireAccountId(command.accountId)
         val existing = applicantRepository.findByAccountId(accountId)
+        if (existing?.status == ApplicantStatus.SUBMITTED) throw ApplicantAlreadyExistsException(accountId)
         val applicant = existing ?: createApplicant(accountId)
         return CreateApplicantResult(applicant.id, applicant.toSnapshot(), created = existing == null)
     }
@@ -215,7 +217,11 @@ class ApplicationCommandService(
             previousSemester = previous.getOrNull(0),
             secondPreviousSemester = previous.getOrNull(1),
             academicRecord = academicRecord,
-            score = totalScore?.let { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) },
+            score = takeIf { admissionType != null && (totalScoreUpdatedAt != null || status != ApplicantStatus.DRAFT) }
+                ?.let {
+                    val breakdown = scoreCalculator.calculateBreakdown(it)
+                    if (totalScoreUpdatedAt == null) breakdown else breakdown.copy(totalScore = totalScore)
+                },
             introduction = introduction,
             studyPlan = studyPlan,
             classNumber = middleSchoolInfo?.studentNumber
@@ -445,7 +451,9 @@ class ApplicationCommandService(
      */
     private fun getWritableApplicant(accountId: Long?): Applicant {
         applicationPeriod.requireOpen()
-        return getApplicantByAccountId(accountId)
+        return getApplicantByAccountId(accountId).also {
+            require(it.status == ApplicantStatus.DRAFT) { "only draft applications can be modified" }
+        }
     }
 
     private fun getApplicantByAccountId(accountId: Long?): Applicant {
@@ -458,6 +466,8 @@ class ApplicationCommandService(
         accountId ?: throw AuthenticationRequiredException()
 
     private fun markSubmitted(applicant: Applicant) {
+        applicant.totalScore = scoreCalculator.calculate(applicant)
+        applicant.totalScoreUpdatedAt = nowUtc()
         applicant.status = ApplicantStatus.SUBMITTED
         applicant.statusVersion += 1
         applicant.submittedAt = nowUtc()

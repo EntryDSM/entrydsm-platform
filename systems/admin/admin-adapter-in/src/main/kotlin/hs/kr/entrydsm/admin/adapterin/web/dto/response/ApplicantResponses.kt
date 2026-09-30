@@ -55,9 +55,9 @@ data class ApplicantDetailResponse(
 
 data class ScoreResponse(
     val subjectScore: Double,
-    val attendanceScore: Double,
-    val volunteerScore: Double,
-    val additionalScore: Double,
+    val attendanceScore: Double?,
+    val volunteerScore: Double?,
+    val additionalScore: Double?,
     val totalScore: Double,
 )
 

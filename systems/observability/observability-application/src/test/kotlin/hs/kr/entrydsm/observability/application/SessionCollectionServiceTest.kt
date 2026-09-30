@@ -92,6 +92,17 @@ class SessionCollectionServiceTest {
         assertEquals(ErrorCode.TOO_MANY_REQUESTS, exception.errorCode)
     }
 
+    @Test
+    fun heartbeatAndLeaveAreNotCountedAgainstIpLimit() {
+        val sessionId = SessionCollectionService(sessionStore, FakeRateLimitPort(true), FakeMetricsStorePort(), clock)
+            .record(SessionEventType.ENTER, null, ServiceName.APPLICATION, null, "127.0.0.1").sessionId
+        // 같은 IP 뒤 지원자가 많아 IP 한도를 다 쓴 상황
+        val service = SessionCollectionService(sessionStore, FakeRateLimitPort(false), FakeMetricsStorePort(), clock)
+
+        assertEquals(sessionId, service.record(SessionEventType.HEARTBEAT, sessionId, ServiceName.APPLICATION, null, "127.0.0.1").sessionId)
+        assertEquals(sessionId, service.record(SessionEventType.LEAVE, sessionId, ServiceName.APPLICATION, null, "127.0.0.1").sessionId)
+    }
+
     private class FakeSessionStorePort : SessionStorePort {
         private val active = mutableSetOf<String>()
 

@@ -6,6 +6,7 @@ import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
+import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateFamilyCommand
@@ -31,6 +32,23 @@ import org.springframework.mock.web.MockHttpServletResponse
 import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedException
 
 class ApplicationControllerTest {
+    @Test
+    fun submittedApplicantCreateReturns409() {
+        val port = object : ApplicationPort by FakeApplicationPort() {
+            override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult =
+                throw ApplicantAlreadyExistsException(requireNotNull(command.accountId))
+        }
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port, scheduleProperties()))
+            .setControllerAdvice(GlobalExceptionHandler())
+            .build()
+
+        val response = mvc.perform(post("/api/application/v11/applicants").header("X-USER-ID", "10"))
+            .andReturn().response
+
+        assertEquals(409, response.status)
+        org.junit.Assert.assertTrue(response.contentAsString.contains("\"code\":\"APPLICANT_ALREADY_EXISTS\""))
+    }
+
     @Test
     fun saveConflictReturns409WithoutDatabaseDetails() {
         val port = object : ApplicationPort by FakeApplicationPort() {

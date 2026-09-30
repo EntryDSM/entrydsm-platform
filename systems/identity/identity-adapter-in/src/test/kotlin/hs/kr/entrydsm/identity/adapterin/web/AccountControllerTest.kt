@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.identity.adapterin.web
 
 import hs.kr.entrydsm.identity.application.port.`in`.AccountPort
+import hs.kr.entrydsm.identity.application.port.`in`.SensitiveAgreeResult
 import hs.kr.entrydsm.identity.application.port.`in`.command.DeleteAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.command.ReadAccountCommand
 import hs.kr.entrydsm.identity.application.port.`in`.result.BasicInfoResult
@@ -15,6 +16,7 @@ import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.springframework.http.HttpStatus
 
 class AccountControllerTest {
     @Test
@@ -32,6 +34,7 @@ class AccountControllerTest {
         assertEquals(123L, command.userId)
 
         assertEquals("user_123", response.data?.userId)
+        assertEquals(true, response.data?.isSensitiveAgree)
         assertEquals(ApplicantStatus.SUBMITTED, response.data?.applicantStatus)
     }
 
@@ -68,10 +71,25 @@ class AccountControllerTest {
         assertEquals(123L, requireNotNull(accountPort.deleteAccountCommand).userId)
     }
 
+    @Test
+    fun agreeSensitiveInformationReturnsCreatedResponse() {
+        val accountPort = FakeAccountPort()
+        val response = AccountController(accountPort).agreeSensitiveInformation(
+            SensitiveAgreeRequest(true),
+            AuthenticatedUser(userId = 123L),
+        )
+
+        assertEquals(HttpStatus.CREATED, response.statusCode)
+        assertEquals(true, response.body?.data?.isSensitiveAgree)
+        assertEquals(NOW, response.body?.data?.updatedAt)
+        assertEquals(123L, accountPort.sensitiveAgreeCommand?.userId)
+    }
+
     private class FakeAccountPort : AccountPort {
         var readAccountCommand: ReadAccountCommand? = null
         var deleteAccountCommand: DeleteAccountCommand? = null
         var authorityCommand: ReadAccountCommand? = null
+        var sensitiveAgreeCommand: ReadAccountCommand? = null
 
         override fun deleteAccount(command: DeleteAccountCommand) {
             deleteAccountCommand = command
@@ -87,6 +105,7 @@ class AccountControllerTest {
                 phone = "01012345678",
                 birthdate = LocalDate.parse("2009-03-15"),
                 signupType = SignupType.SELF,
+                isSensitiveAgree = true,
                 applicantStatus = ApplicantStatus.SUBMITTED,
                 createdAt = NOW,
                 updatedAt = NOW,
@@ -100,6 +119,11 @@ class AccountControllerTest {
                 role = Role.STUDENT,
                 status = AccountStatus.ACTIVE,
             )
+        }
+
+        override fun agreeSensitiveInformation(command: ReadAccountCommand): SensitiveAgreeResult {
+            sensitiveAgreeCommand = command
+            return SensitiveAgreeResult(true, NOW)
         }
     }
 

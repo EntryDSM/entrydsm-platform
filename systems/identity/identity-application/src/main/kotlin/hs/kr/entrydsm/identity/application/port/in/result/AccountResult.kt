@@ -11,4 +11,5 @@ data class AccountResult(
     val profile: ProfileResult,
     val createdAt: Instant,
     val updatedAt: Instant,
+    val isSensitiveAgree: Boolean = false,
 )

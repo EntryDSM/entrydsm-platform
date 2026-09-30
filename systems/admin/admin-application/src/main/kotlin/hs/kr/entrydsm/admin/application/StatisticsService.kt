@@ -19,6 +19,7 @@ import java.math.RoundingMode
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -32,6 +33,7 @@ class StatisticsService(
     private val applicantRepository: ApplicantRepository,
     private val admissionQuotaRepository: AdmissionQuotaRepository,
     private val clock: Clock,
+    @Value("\${admin.screening.first-pass-multiplier}") private val firstPassMultiplier: Double,
 ) : ReadStatisticsUseCase {
 
     /**
@@ -52,14 +54,15 @@ class StatisticsService(
             competitionRate = metrics.ifRequested(StatisticsMetric.COMPETITION_RATE) {
                 competitionRate(countByType)
             },
+            firstPassQuota = metrics.ifRequested(StatisticsMetric.FIRST_PASS_QUOTA) {
+                // 정원이 없으면 빈 맵이다. 경쟁률과 같다.
+                admissionQuotaRepository.find()?.scaled(firstPassMultiplier).orEmpty()
+            },
             genderRatio = metrics.ifRequested(StatisticsMetric.GENDER_RATIO) {
                 genderRatio(applicants)
             },
-            regionStatus = metrics.ifRequested(StatisticsMetric.REGION_STATUS) {
-                regionStatus(applicants)
-            },
             regionDistribution = metrics.ifRequested(StatisticsMetric.REGION_DISTRIBUTION) {
-                applicants.countBy { it.region }
+                regionDistribution(applicants)
             },
             typeDistribution = metrics.ifRequested(StatisticsMetric.TYPE_DISTRIBUTION) {
                 countByType
@@ -104,7 +107,7 @@ class StatisticsService(
         )
     }
 
-    private fun regionStatus(applicants: List<Applicant>): RegionStatus = RegionStatus(
+    private fun regionDistribution(applicants: List<Applicant>): RegionStatus = RegionStatus(
         total = applicants.size.toLong(),
         byScope = applicants.countBy {
             when (it.region) {

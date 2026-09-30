@@ -40,16 +40,18 @@ class RedisMetricsStoreAdapter(
         }
     }
 
-    override fun apiRequestCount(from: Instant, to: Instant, success: Boolean?): Long =
-        bucketsBetween(from, to).sumOf { bucket ->
-            fun count(result: Boolean) = redis.opsForValue().get(apiBucketKey(bucket, result))?.toLongOrNull() ?: 0L
-            success?.let(::count) ?: count(true) + count(false)
-        }
+    override fun apiRequestCount(from: Instant, to: Instant, success: Boolean?): Long {
+        val results = success?.let { listOf(it) } ?: listOf(true, false)
+        return sum(bucketsBetween(from, to).flatMap { bucket -> results.map { apiBucketKey(bucket, it) } })
+    }
 
     override fun businessCount(type: String, from: Instant, to: Instant, success: Boolean): Long =
-        bucketsBetween(from, to).sumOf { bucket ->
-            redis.opsForValue().get(businessBucketKey(type, bucket, success))?.toLongOrNull() ?: 0L
-        }
+        sum(bucketsBetween(from, to).map { businessBucketKey(type, it, success) })
+
+    /** 대시보드는 회차 시작부터 합친다. 버킷마다 GET 하면 5분마다 왕복이 늘어 한 달이면 스냅샷 하나에 4만 번을 넘는다. */
+    private fun sum(keys: List<String>): Long = keys.chunked(MGET_CHUNK_SIZE).sumOf { chunk ->
+        redis.opsForValue().multiGet(chunk).orEmpty().sumOf { it?.toLongOrNull() ?: 0L }
+    }
 
     private fun bucketStart(at: Instant): Instant {
         val granularityMillis = GRANULARITY.toMillis()
@@ -77,5 +79,6 @@ class RedisMetricsStoreAdapter(
     companion object {
         private val GRANULARITY: Duration = Duration.ofMinutes(5)
         private val TTL: Duration = Duration.ofDays(91)
+        private const val MGET_CHUNK_SIZE = 1000
     }
 }

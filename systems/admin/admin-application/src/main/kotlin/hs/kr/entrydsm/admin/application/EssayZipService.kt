@@ -16,18 +16,21 @@ class EssayPdfService(
     private val applicationEssayPort: ApplicationEssayPort,
 ) : DownloadEssaysUseCase {
     override fun writeTo(output: OutputStream): Int {
-        var count = 0
+        val targets = applicantRepository.findAll(ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)))
+            .map { applicant ->
+                applicant.id to checkNotNull(applicant.examineeNumber) {
+                    "1차 합격자의 수험 번호가 없습니다: ${applicant.id}"
+                }
+            }
+        val documents = applicationEssayPort.renderBatch(targets)
         PDDocument().use { merged ->
-            applicantRepository.findAll(ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS))).forEach { applicant ->
-                count++
-                val examineeNumber = checkNotNull(applicant.examineeNumber) { "1차 합격자의 수험 번호가 없습니다: ${applicant.id}" }
-                val pdfs = applicationEssayPort.render(applicant.id, examineeNumber)
+            documents.forEach { pdfs ->
                 (pdfs.introduction ?: pdfs.studyPlan)?.let { pdf ->
                     Loader.loadPDF(pdf).use { source -> source.pages.forEach(merged::importPage) }
                 }
             }
             merged.save(output)
         }
-        return count
+        return targets.size
     }
 }

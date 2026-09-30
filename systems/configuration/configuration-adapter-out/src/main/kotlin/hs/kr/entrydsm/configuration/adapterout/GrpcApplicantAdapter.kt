@@ -7,6 +7,8 @@ import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
+import hs.kr.entrydsm.application.grpc.GetApplicationRequest
+import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.SemesterGrades as GrpcSemesterGrades
 import hs.kr.entrydsm.application.grpc.SpecialAdmissionType as GrpcSpecialAdmissionType
@@ -53,6 +55,15 @@ class GrpcApplicantAdapter(
                 .toApplicationForm()
         } catch (e: StatusRuntimeException) {
             if (e.status.code in NO_APPLICANT) null else throw ApplicantLookupFailedException(accountId, "accountId", e)
+        }
+
+    override fun isFinalPassed(accountId: Long): Boolean =
+        try {
+            stub.withDeadlineAfter(deadlineMs, TimeUnit.MILLISECONDS)
+                .getApplication(GetApplicationRequest.newBuilder().setUserId(accountId).build())
+                .passStatus == GrpcPassStatus.PASS_STATUS_FINAL_PASSED
+        } catch (e: StatusRuntimeException) {
+            if (e.status.code in NO_APPLICANT) false else throw ApplicantLookupFailedException(accountId, "accountId", e)
         }
 
     override fun destroy() {
@@ -109,6 +120,7 @@ class GrpcApplicantAdapter(
                 phone = school.phone,
                 teacherName = school.teacherName,
                 address = school.address.takeIf { school.hasAddress() },
+                classNumber = classNumber.takeIf { hasClassNumber() },
             )
         },
         // 서식의 열 순서 그대로다 — 3학년 2학기, 3학년 1학기, 직전학기, 직전전학기.
@@ -140,6 +152,7 @@ class GrpcApplicantAdapter(
                 programmingCertified = it.programmingCertified,
             )
         },
+        examineeNumber = examineeNumber.takeIf { hasExamineeNumber() },
     )
 
     private fun GrpcSemesterGrades.toSemesterGrades() = ApplicationForm.SemesterGrades(

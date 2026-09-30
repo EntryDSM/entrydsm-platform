@@ -15,6 +15,7 @@ data class BasicInfoResult(
     val phone: String,
     val birthdate: LocalDate,
     val signupType: SignupType,
+    val isSensitiveAgree: Boolean,
     val applicantStatus: ApplicantStatus,
     val createdAt: Instant,
     val updatedAt: Instant,

@@ -14,6 +14,7 @@ import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.nowUtc
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
+import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
@@ -42,10 +43,12 @@ open class ApplicantJpaEntity(
     @Column(name = "photo_file_id", length = 64)
     var photoFileId: String? = null,
 
-    @Column(name = "name", length = 20)
+    @Convert(converter = PersonalDataConverter::class)
+    @Column(name = "name", length = 512)
     var name: String? = null,
 
-    @Column(name = "phone_number", length = 16)
+    @Convert(converter = PersonalDataConverter::class)
+    @Column(name = "phone_number", length = 512)
     var phoneNumber: String? = null,
 
     @Column(name = "examinee_number", length = 16)
@@ -77,10 +80,12 @@ open class ApplicantJpaEntity(
     @Column(name = "graduation_date")
     var graduationDate: LocalDate? = null,
 
-    @Column(name = "guardian_name", length = 20)
+    @Convert(converter = PersonalDataConverter::class)
+    @Column(name = "guardian_name", length = 512)
     var guardianName: String? = null,
 
-    @Column(name = "guardian_phone_number", length = 16)
+    @Convert(converter = PersonalDataConverter::class)
+    @Column(name = "guardian_phone_number", length = 512)
     var guardianPhoneNumber: String? = null,
 
     @Enumerated(EnumType.STRING)
@@ -90,13 +95,16 @@ open class ApplicantJpaEntity(
     @Column(name = "guardian_relation", length = 10)
     var guardianRelation: String? = null,
 
-    @Column(name = "address_base", length = 255)
+    @Convert(converter = PersonalDataConverter::class)
+    @Column(name = "address_base", length = 512)
     var addressBase: String? = null,
 
-    @Column(name = "address_detail", length = 255)
+    @Convert(converter = PersonalDataConverter::class)
+    @Column(name = "address_detail", length = 512)
     var addressDetail: String? = null,
 
-    @Column(name = "zip_code", length = 10)
+    @Convert(converter = PersonalDataConverter::class)
+    @Column(name = "zip_code", length = 512)
     var zipCode: String? = null,
 
     @Column(name = "introduction", columnDefinition = "TEXT")
@@ -105,8 +113,8 @@ open class ApplicantJpaEntity(
     @Column(name = "study_plan", columnDefinition = "TEXT")
     var studyPlan: String? = null,
 
-    @Column(name = "total_score")
-    var totalScore: Double? = null,
+    @Column(name = "total_score", nullable = false)
+    var totalScore: Double = 0.0,
 
     @Column(name = "total_score_updated_at")
     var totalScoreUpdatedAt: LocalDateTime? = null,

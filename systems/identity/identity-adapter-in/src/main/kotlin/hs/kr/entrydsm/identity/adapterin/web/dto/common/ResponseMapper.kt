@@ -30,6 +30,7 @@ fun AccountResult.toResponse(): AccountResponse =
         profile = profile.toResponse(),
         createdAt = createdAt,
         updatedAt = updatedAt,
+        sensitiveAgree = isSensitiveAgree,
     )
 
 fun ProfileResult.toResponse(): ProfileResponse =
@@ -50,6 +51,7 @@ fun BasicInfoResult.toResponse(): BasicInfoResponse =
         phone = phone,
         birthdate = birthdate,
         signupType = signupType,
+        isSensitiveAgree = isSensitiveAgree,
         applicantStatus = applicantStatus,
         createdAt = createdAt,
         updatedAt = updatedAt,

@@ -14,7 +14,9 @@ import hs.kr.entrydsm.admin.domain.model.ScorePolicy
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
 import hs.kr.entrydsm.admin.domain.port.out.ExportJobRepository
 import hs.kr.entrydsm.admin.domain.port.out.ScorePolicyRepository
+import java.time.Instant
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Transactional
 
 @Component
 class ScorePolicyPersistenceAdapter(
@@ -73,6 +75,11 @@ class ExportJobPersistenceAdapter(
     override fun findDownloadableByType(type: ExportType): List<ExportJob> =
         exportJobJpaRepository.findAllByTypeAndStatusAndObjectKeyIsNotNull(type, ExportStatus.COMPLETED)
             .map { it.toDomain() }
+
+    @Transactional
+    override fun claimNext(now: Instant, staleBefore: Instant): ExportJob? =
+        exportJobJpaRepository.findClaimable(staleBefore)
+            ?.toDomain()?.started(now)?.let(::save)
 
     /**
      * 필터는 테이블에 컬럼이 없어 엔티티를 거치면 사라집니다. 처리기가 반환값의 필터로

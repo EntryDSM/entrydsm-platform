@@ -42,6 +42,8 @@ data class ApplicationForm(
     /** 서식 3 에 찍는 자기소개서·학업계획서 본문. 지원자가 쓴 줄바꿈까지 그대로 옮긴다. */
     val introduction: String?,
     val studyPlan: String?,
+    /** 관리자가 매긴 수험번호. 아직 매기지 않았으면 null 이다. */
+    val examineeNumber: String? = null,
 ) {
     /** @property label 원서에 찍는 한글 표기 */
     enum class Gender(val label: String) {
@@ -65,6 +67,8 @@ data class ApplicationForm(
         val code: String,
         /** 기관코드 표의 학교 도로명 주소. 표에 주소가 없는 학교는 null 이다. */
         val address: String?,
+        /** 서식 4 의 반 칸. application 이 학번(학년 1자리·반 2자리·번호 2자리)에서 뽑는다 — 30122 는 1. 모양이 다른 학번은 null 이다. */
+        val classNumber: String? = null,
     ) {
         /**
          * 서식의 출신지역 칸. 요강이 정의하지 않아 지난해 원서처럼 출신 중학교 소재지를 찍되 "OO시"까지만 자른다.
@@ -86,7 +90,7 @@ data class ApplicationForm(
             }
     }
 
-    /** 한 학기 7과목의 성취도. 미이수(자유학기 등)는 빈 문자열이라 칸이 빈다. */
+    /** 한 학기 7과목의 성취도. 미이수(자유학기 등)는 빈 문자열이다. */
     data class SemesterGrades(
         val korean: String,
         val society: String,

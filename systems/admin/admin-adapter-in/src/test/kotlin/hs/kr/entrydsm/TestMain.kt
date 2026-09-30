@@ -4,15 +4,20 @@ import hs.kr.entrydsm.admin.adapterin.web.SupportController
 import hs.kr.entrydsm.admin.adapterin.web.ApplicantController
 import hs.kr.entrydsm.admin.adapterin.web.exception.GlobalExceptionHandler
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.common.toDetailResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.CreateExportRequest
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
 import hs.kr.entrydsm.admin.domain.model.ApplicantStatistics
 import hs.kr.entrydsm.admin.domain.model.GenderRatio
+import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.model.ApplicantDetail
+import hs.kr.entrydsm.admin.domain.model.ApplicantScore
 import hs.kr.entrydsm.admin.domain.model.RegionStatus
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.port.`in`.AnswerQuestionUseCase
@@ -28,6 +33,7 @@ import hs.kr.entrydsm.admin.domain.port.`in`.UpdateNoticeUseCase
 import java.lang.reflect.Proxy
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.springframework.http.HttpMethod
@@ -75,7 +81,7 @@ class AdminAdapterInModuleTest {
                 maleRatio = 0.5,
                 byType = mapOf(AdmissionType.GENERAL to mapOf(Gender.MALE to 1)),
             ),
-            regionStatus = RegionStatus(
+            regionDistribution = RegionStatus(
                 total = 2,
                 byScope = mapOf("LOCAL" to 1, "NATIONWIDE" to 1),
                 byRegion = mapOf(ResidenceRegion.DAEJEON to 1, ResidenceRegion.CHUNGNAM to 1),
@@ -83,7 +89,39 @@ class AdminAdapterInModuleTest {
         ).toResponse()
 
         assertTrue(response.metrics.containsKey("GENDER_RATIO"))
-        assertTrue(response.metrics.containsKey("REGION_STATUS"))
+        assertTrue(response.metrics.containsKey("REGION_DISTRIBUTION"))
+    }
+
+    @Test
+    fun mapsGedScoreIntoScoreResponse() {
+        val response = ApplicantDetail(
+            applicant = Applicant(id = 1L, graduationStatus = GraduationStatus.GED),
+            photoFileId = null,
+            introduction = null,
+            studyPlan = null,
+            score = ApplicantScore(140.0, 15.0, 15.0, 3.0, 173.0),
+        ).toDetailResponse()
+
+        assertEquals(140.0, response.score?.subjectScore)
+        assertEquals(173.0, response.score?.totalScore)
+        assertNull(response.score?.attendanceScore)
+        assertNull(response.score?.volunteerScore)
+        assertNull(response.score?.additionalScore)
+    }
+
+    @Test
+    fun preservesScoresForNonGedApplicant() {
+        val response = ApplicantDetail(
+            applicant = Applicant(id = 1L, graduationStatus = GraduationStatus.GRADUATED),
+            photoFileId = null,
+            introduction = null,
+            studyPlan = null,
+            score = ApplicantScore(140.0, 15.0, 14.0, 3.0, 172.0),
+        ).toDetailResponse()
+
+        assertEquals(15.0, response.score?.attendanceScore)
+        assertEquals(14.0, response.score?.volunteerScore)
+        assertEquals(3.0, response.score?.additionalScore)
     }
 
     @Test

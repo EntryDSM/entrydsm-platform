@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.adapterout.persistence
 
+import hs.kr.entrydsm.admin.adapterout.entity.ExportJobJpaEntity
 import hs.kr.entrydsm.admin.adapterout.repository.ExportJobJpaRepository
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
@@ -9,9 +10,51 @@ import hs.kr.entrydsm.admin.domain.model.ExportJob
 import java.lang.reflect.Proxy
 import java.time.Instant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.springframework.aop.framework.ProxyFactory
+import org.springframework.aop.support.AopUtils
 
 class ExportJobPersistenceAdapterTest {
+
+    @Test
+    fun `트랜잭션용 클래스 프록시를 생성한다`() {
+        val proxy = ProxyFactory(ExportJobPersistenceAdapter(echoingRepository())).apply {
+            isProxyTargetClass = true
+        }.proxy
+
+        assertTrue(AopUtils.isCglibProxy(proxy))
+    }
+
+    @Test
+    fun `대기 작업을 처리 중으로 선점한다`() {
+        val now = Instant.parse("2026-09-29T00:00:00Z")
+        val staleBefore = now.minusSeconds(1800)
+        val pending = ExportJobJpaEntity(
+            exportJobId = "exp_1",
+            type = ExportType.FIRST_PASS,
+            status = ExportStatus.PENDING,
+            createdAt = Instant.EPOCH,
+        )
+        val repository = Proxy.newProxyInstance(
+            javaClass.classLoader,
+            arrayOf(ExportJobJpaRepository::class.java),
+        ) { _, method, args ->
+            when (method.name) {
+                "findClaimable" -> {
+                    assertEquals(listOf(staleBefore), args.toList())
+                    pending
+                }
+                "save" -> args[0]
+                else -> error("unexpected call: ${method.name}")
+            }
+        } as ExportJobJpaRepository
+
+        val claimed = ExportJobPersistenceAdapter(repository).claimNext(now, staleBefore)
+
+        assertEquals(ExportStatus.PROCESSING, claimed?.status)
+        assertEquals(now, claimed?.startedAt)
+    }
 
     /** 처리기는 저장 결과로 받은 작업의 필터로 지원자를 고른다. 비면 전체가 나간다. */
     @Test

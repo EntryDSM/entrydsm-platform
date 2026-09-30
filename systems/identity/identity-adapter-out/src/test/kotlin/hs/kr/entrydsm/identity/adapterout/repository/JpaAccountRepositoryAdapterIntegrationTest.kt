@@ -113,11 +113,14 @@ class JpaAccountRepositoryAdapterIntegrationTest {
         )
 
         saved.profile.cancel(TRANSITION_TIME)
+        saved.agreeSensitiveInformation(TRANSITION_TIME)
         val updated = adapter.save(saved)
         val accountEntity = requireNotNull(accountJpaRepository.findById(saved.userId).orElse(null))
         val profileEntity = requireNotNull(studentProfileJpaRepository.findByAccount_Id(saved.userId))
 
         assertEquals(ApplicantStatus.CANCELED, updated.profile.applicantStatus)
+        assertEquals(true, updated.isSensitiveAgree)
+        assertEquals(true, accountEntity.isSensitiveAgree)
         assertEquals(ApplicantStatus.CANCELED, profileEntity.applicantStatus)
         assertEquals(accountCreatedAt, accountEntity.createdAtValue())
         assertEquals(profileCreatedAt, profileEntity.createdAtValue())

@@ -30,7 +30,7 @@ import org.springframework.test.context.junit4.SpringRunner
  * 값이 제자리에 오는지 여기서 확인합니다.
  */
 @RunWith(SpringRunner::class)
-@DataJpaTest
+@DataJpaTest(properties = ["security.pii.encryption-key-base64=MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="])
 @ContextConfiguration(classes = [ApplicantSummaryQueryTest.JpaTestConfig::class])
 class ApplicantSummaryQueryTest {
 
@@ -100,7 +100,7 @@ class ApplicantSummaryQueryTest {
         assertEquals(Region.DAEJEON, summary.region)
         assertEquals(AdmissionType.REGULAR, summary.admissionType)
         assertEquals(GraduationType.PROSPECTIVE, summary.graduationType)
-        assertEquals(150.5, summary.totalScore!!, 0.0)
+        assertEquals(150.5, summary.totalScore, 0.0)
         assertEquals(ApplicantStatus.SUBMITTED, summary.status)
         assertEquals(SUBMITTED_AT, summary.submittedAt)
         assertEquals(Gender.FEMALE, summary.gender)

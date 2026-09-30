@@ -20,9 +20,13 @@ data class ExportJob(
     val totalCount: Int = 0,
     val processedCount: Int = 0,
     val createdAt: Instant,
+    val startedAt: Instant? = null,
     val completedAt: Instant? = null,
 ) {
-    fun started(): ExportJob = copy(status = ExportStatus.PROCESSING)
+    fun started(startedAt: Instant? = this.startedAt): ExportJob =
+        copy(status = ExportStatus.PROCESSING, startedAt = startedAt)
+
+    fun pending(): ExportJob = copy(status = ExportStatus.PENDING, startedAt = null)
 
     fun withTotal(totalCount: Int): ExportJob = copy(totalCount = totalCount)
 

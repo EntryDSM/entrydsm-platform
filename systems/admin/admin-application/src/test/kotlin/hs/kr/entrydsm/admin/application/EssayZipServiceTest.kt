@@ -23,10 +23,16 @@ class EssayPdfServiceTest {
             Applicant(id = 3, name = "불합격", status = ApplicantStatus.FIRST_FAIL),
         )
         val requested = mutableListOf<Pair<Long, String>>()
-        val service = EssayPdfService(repository(applicants), ApplicationEssayPort { id, examineeNumber ->
-            requested += id to examineeNumber
-            val pdf = pdf(id.toInt())
-            if (id == 1L) ApplicationEssayPdfs(pdf, null) else ApplicationEssayPdfs(pdf, pdf)
+        val service = EssayPdfService(repository(applicants), object : ApplicationEssayPort {
+            override fun render(applicantId: Long, examineeNumber: String) = error("batch 호출 필요")
+
+            override fun renderBatch(targets: List<Pair<Long, String>>): List<ApplicationEssayPdfs> {
+                requested += targets
+                return targets.map { (id, _) ->
+                    val pdf = pdf(id.toInt())
+                    if (id == 1L) ApplicationEssayPdfs(pdf, null) else ApplicationEssayPdfs(pdf, pdf)
+                }
+            }
         })
 
         val output = ByteArrayOutputStream()

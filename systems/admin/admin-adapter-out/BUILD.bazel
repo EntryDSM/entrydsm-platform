@@ -1,4 +1,5 @@
 load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load("//:kotlin.bzl", "jpa_allopen_plugins")
 load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
 package(default_visibility = ["//visibility:public"])
@@ -9,8 +10,7 @@ kt_jvm_library(
     resources = glob(["src/main/resources/**"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
-    # JPA 엔티티에 인자 없는 생성자를 만들어 준다.
-    plugins = ["//:jpa_noarg"],
+    plugins = jpa_allopen_plugins(target_name = "spring_allopen") + ["//:jpa_noarg"],
     deps = MODULE_DEPS,
 )
 

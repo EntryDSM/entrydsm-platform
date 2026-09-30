@@ -34,7 +34,7 @@ open class AccountJpaEntity(
     val role: Role = Role.USER,
 
     @Column(name = "is_sensitive_agree", nullable = false)
-    val isSensitiveAgree: Boolean = false,
+    var isSensitiveAgree: Boolean = false,
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)

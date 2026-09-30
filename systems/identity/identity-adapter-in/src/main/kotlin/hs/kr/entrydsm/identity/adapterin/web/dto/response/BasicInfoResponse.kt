@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.identity.adapterin.web.dto.response
 
+import com.fasterxml.jackson.annotation.JsonProperty
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.identity.domain.enum.SignupType
@@ -14,6 +15,8 @@ data class BasicInfoResponse(
     val phone: String,
     val birthdate: LocalDate,
     val signupType: SignupType,
+    @JsonProperty("sensitiveAgree")
+    val isSensitiveAgree: Boolean,
     val applicantStatus: ApplicantStatus,
     val createdAt: Instant,
     val updatedAt: Instant,

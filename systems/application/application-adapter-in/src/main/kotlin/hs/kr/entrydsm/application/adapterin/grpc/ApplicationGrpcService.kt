@@ -217,6 +217,7 @@ class ApplicationGrpcService(
             .setAdmissionType(admissionType.toGrpc())
             .setGraduationType(graduationType.toGrpc())
             .setApplicantStatus(status.toGrpc())
+            .setTotalScore(totalScore)
             .setGender(
                 when (gender) {
                     Gender.MALE -> GrpcGender.GENDER_MALE
@@ -231,7 +232,6 @@ class ApplicationGrpcService(
                 photoFileId?.let(builder::setPhotoFileId)
                 birthdate?.let { builder.setBirthdate(it.toString()) }
                 phoneNumber?.let(builder::setPhoneNumber)
-                totalScore?.let(builder::setTotalScore)
                 submittedAt?.let {
                     builder.setSubmittedAtEpochMillis(it.toInstant(ZoneOffset.UTC).toEpochMilli())
                 }

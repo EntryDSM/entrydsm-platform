@@ -26,6 +26,7 @@ import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
 import hs.kr.entrydsm.application.grpc.DeleteApplicantResponse
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
+import hs.kr.entrydsm.application.grpc.GedScores
 import hs.kr.entrydsm.application.grpc.GraduationType as GrpcGraduationType
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
 import hs.kr.entrydsm.application.grpc.ListApplicantsRequest
@@ -52,6 +53,17 @@ import org.junit.Test
  * 실제 직렬화를 거쳐 확인합니다.
  */
 class GrpcApplicantDataAdapterTest {
+
+    @Test
+    fun `1차 합격자 존재 여부는 로컬 전형 정보로 확인한다`() {
+        val screening = ScreeningJpaEntity(applicantId = 1L, status = ApplicantStatus.FIRST_PASS)
+
+        val exists = withAdapter(FakeApplicationService(emptyList()), listOf(screening)) {
+            it.hasFirstPassApplicants()
+        }
+
+        assertTrue(exists)
+    }
 
     @Test
     fun `삭제 RPC에 지원자 번호를 전달하고 오류를 변환한다`() {
@@ -163,6 +175,16 @@ class GrpcApplicantDataAdapterTest {
                     .setVolunteerScore(12.0)
                     .setAdditionalScore(3.0)
                     .setTotalScore(102.5)
+                    .setGedScores(
+                        GedScores.newBuilder()
+                            .setKorean(95)
+                            .setSociety(90)
+                            .setHistory(85)
+                            .setMath(80)
+                            .setScience(75)
+                            .setTechnology(70)
+                            .setEnglish(65),
+                    )
                     .build(),
                 ApplicationFormResponse.newBuilder().setApplicantId(2L).setUserId(102L).build(),
             ),
@@ -179,10 +201,14 @@ class GrpcApplicantDataAdapterTest {
         assertEquals(12.0, written.score?.volunteerScore)
         assertEquals(3.0, written.score?.additionalScore)
         assertEquals(102.5, written.score?.totalScore)
+        assertEquals(listOf(95, 90, 85, 80, 75, 70, 65), written.gedScores?.let {
+            listOf(it.korean, it.society, it.history, it.math, it.science, it.technology, it.english)
+        })
         assertNull(empty.photoFileId)
         assertNull(empty.introduction)
         assertNull(empty.studyPlan)
         assertNull(empty.score)
+        assertNull(empty.gedScores)
     }
 
     @Test
@@ -325,6 +351,7 @@ class GrpcApplicantDataAdapterTest {
         ) { _, method, args ->
             when (method.name) {
                 "findAll" -> screenings
+                "existsByStatus" -> screenings.any { it.status == args[0] }
                 "findById" -> Optional.ofNullable(screenings.find { it.applicantId == args[0] })
                 "saveAll" -> args[0]
                 else -> error("unexpected call: ${method.name}")

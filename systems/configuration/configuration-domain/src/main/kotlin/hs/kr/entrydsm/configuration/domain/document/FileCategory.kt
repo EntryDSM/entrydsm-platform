@@ -41,6 +41,22 @@ enum class FileCategory(
         "guideline", FileExtension.attachmentFormats, MAX_ATTACHMENT_SIZE_BYTES,
         storers = setOf(ADMIN), downloaders = setOf(ADMIN, STUDENT),
     ),
+    /**
+     * 최종 합격자 등록 서류 원본. 관리자가 올리고 가장 최근 것을 쓴다. 학생은 첫 장을 채운 [REGISTRATION_FORM] 을 받는다.
+     * 칸을 채우려면 PDF 여야 한다.
+     */
+    REGISTRATION_DOCUMENT(
+        "registration-document", setOf(FileExtension.PDF), MAX_ATTACHMENT_SIZE_BYTES,
+        storers = setOf(ADMIN), downloaders = setOf(ADMIN),
+    ),
+    /**
+     * [REGISTRATION_DOCUMENT] 첫 장 입학 동의서에 지원자 정보를 채운 것. 서버가 만든다. 학생은 최종 합격자만 받는데,
+     * 합격 여부는 권한표로 알 수 없어 서비스가 application 에 묻는다.
+     */
+    REGISTRATION_FORM(
+        "registration-form", FileExtension.documentFormats, MAX_ATTACHMENT_SIZE_BYTES,
+        storers = emptySet(), downloaders = setOf(ADMIN, OWNER),
+    ),
     ;
 
     /** 이 종류의 객체가 모이는 저장소 폴더 */
