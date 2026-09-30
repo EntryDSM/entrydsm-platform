@@ -51,7 +51,7 @@ class ApplicationFormPdfTest {
     }
 
     @Test
-    fun `검정고시 원서는 검정고시 점수를 3학년 1학기 열에 찍고 출결·봉사 칸은 비운다`() {
+    fun `검정고시 원서는 추천서 없는 검정고시 서식 다섯 장에 찍고 점수 표에 검정고시 점수를 찍는다`() {
         val ged = form().copy(
             graduationType = ApplicationForm.GraduationType.GED,
             graduationDate = null,
@@ -61,7 +61,8 @@ class ApplicationFormPdfTest {
             // 검정고시 점수를 저장하면 출결이 0 인 성적 기록이 같이 생긴다.
             academicRecord = ApplicationForm.AcademicRecord(0, 0, 0, 0, 0, dsmAlgorithmAwarded = true, programmingCertified = false),
         )
-        val glyphs = stamped(adapter.render(ged, photo = null), page = 1)
+        val pdf = adapter.render(ged, png())
+        val glyphs = stamped(pdf, page = 1)
 
         // 칸 안에 기준선과 좌우가 다 드는 원서 글자를 위 행부터 읽는다.
         fun cell(left: Float, top: Float, right: Float, bottom: Float) = glyphs
@@ -69,12 +70,25 @@ class ApplicationFormPdfTest {
             .sortedBy { it.yDirAdj }
             .joinToString("") { it.unicode }
 
+        assertA4Pages(pdf, FORM_COUNT - 1)
+        assertTrue(pageText(pdf, 1).contains("검정고시 점수"))
+        assertEquals(1, images(pdf, page = 1))
         // 국어 95 · 사회 88 · 역사 100 · 수학 76 · 과학 90 · 기술·가정 85 · 영어 99
-        assertEquals("958810076908599", cell(181.80f, 340.68f, 254.28f, 470.04f))
-        // 나머지 세 학기 열은 성적이 없어 하이픈이다.
-        assertEquals("-------", cell(326.76f, 340.68f, 399.24f, 470.04f))
-        assertEquals("", cell(477.72f, 322.20f, 519.00f, 414.60f))
+        assertEquals("958810076908599", cell(160.68f, 340.68f, 399.24f, 470.04f))
+        // 졸업구분 칸에는 "검정고시" 가 인쇄돼 있고, 점수 표 오른쪽 빈 칸에는 출결을 찍지 않는다.
+        assertEquals("", cell(160.68f, 201.48f, 439.80f, 225.60f))
+        assertEquals("", cell(399.24f, 303.72f, 536.40f, 414.60f))
         assertEquals("O", cell(477.72f, 433.08f, 536.40f, 451.56f))
+        assertEquals("-", cell(477.72f, 451.56f, 536.40f, 470.04f))
+        // 추천서가 빠져 서식 5·6 이 4·5쪽이다. 특별전형이어도 같다.
+        listOf(3, 4, 5).forEach { page -> assertTrue("${page}쪽", pageText(pdf, page).contains("0012")) }
+        assertTrue(pageText(pdf, 4).contains("금연 동의서"))
+        assertFalse(stamped(pdf, page = 4).any { it.unicode == "○" })
+        assertInside(stamped(pdf, page = 4), 3, left = 112.24f, top = 330.65f, right = 202.83f, bottom = 352.65f)
+        // 일반전형이어도 추천서를 빼느라 금연 동의서를 지우지 않는다.
+        assertA4Pages(adapter.render(ged.copy(admissionType = Applicant.AdmissionType.REGULAR), photo = null), FORM_COUNT - 1)
+
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "application-form-ged.pdf").writeBytes(pdf) }
     }
 
     @Test
