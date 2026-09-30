@@ -71,6 +71,8 @@ class ApplicationFormPdfTest {
 
         // 국어 95 · 사회 88 · 역사 100 · 수학 76 · 과학 90 · 기술·가정 85 · 영어 99
         assertEquals("958810076908599", cell(181.80f, 340.68f, 254.28f, 470.04f))
+        // 나머지 세 학기 열은 성적이 없어 하이픈이다.
+        assertEquals("-------", cell(326.76f, 340.68f, 399.24f, 470.04f))
         assertEquals("", cell(477.72f, 322.20f, 519.00f, 414.60f))
         assertEquals("O", cell(477.72f, 433.08f, 536.40f, 451.56f))
     }
@@ -109,6 +111,27 @@ class ApplicationFormPdfTest {
     }
 
     @Test
+    fun `특기사항·가산점·교과성적의 빈칸에는 하이픈을 찍는다`() {
+        val form = form().copy(
+            specialNote = null,
+            // 3학년 2학기 열은 졸업예정이라 통째로 없고, 직전학기 역사는 미이수다.
+            semesterGrades = listOf(null, grades("A"), grades("B").copy(history = ""), grades("C")),
+            academicRecord = form().academicRecord!!.copy(programmingCertified = false),
+        )
+        val glyphs = stamped(adapter.render(form, photo = null), page = 1)
+        fun cell(left: Float, top: Float, right: Float, bottom: Float) = glyphs
+            .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+            .sortedBy { it.yDirAdj }
+            .joinToString("") { it.unicode }
+
+        assertEquals("-", cell(399.24f, 279.48f, 536.40f, 303.72f))
+        assertEquals("-------", cell(109.32f, 340.68f, 181.80f, 470.04f))
+        assertEquals("BB-BBBB", cell(254.28f, 340.68f, 326.76f, 470.04f))
+        assertEquals("O", cell(477.72f, 433.08f, 536.40f, 451.56f))
+        assertEquals("-", cell(477.72f, 451.56f, 536.40f, 470.04f))
+    }
+
+    @Test
     fun `학교코드와 출신지역은 출신 중학교 값으로 찍는다`() {
         val text = pageText(adapter.render(form(), photo = null), page = 1)
 
@@ -139,6 +162,40 @@ class ApplicationFormPdfTest {
                 left = 112.24f, top = 330.65f, right = 202.83f, bottom = 352.65f,
             )
         }
+    }
+
+    @Test
+    fun `추천서 괄호에 중학교를 뗀 출신 중학교 이름과 반을 찍고 가장 긴 학교 이름도 괄호 안에 다 넣는다`() {
+        // 괄호 뒤에 "중학교" 가 인쇄돼 있다. 긴 쪽은 기관코드 표에서 "중학교" 로 끝나는 이름 중 가장 긴 학교다.
+        listOf("서귀포중학교" to "서귀포", "대구가톨릭대학교사범대학부속무학중학교" to "대구가톨릭대학교사범대학부속무학")
+            .forEach { (name, printed) ->
+                val pdf = adapter.render(form().let { it.copy(school = it.school!!.copy(name = name)) }, photo = null)
+                fun cell(page: Int, left: Float, top: Float, right: Float, bottom: Float) = stamped(pdf, page)
+                    .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+                    .joinToString("") { it.unicode }
+
+                assertEquals(printed, cell(1, 254.70f, 690.18f, 362.59f, 712.18f))
+                assertEquals(printed, cell(4, 302.90f, 210.40f, 384.39f, 234.40f))
+                assertEquals("1", cell(4, 345.06f, 240.40f, 374.20f, 264.40f))
+                assertEquals(printed, cell(4, 171.98f, 637.83f, 299.12f, 665.83f))
+            }
+    }
+
+    @Test
+    fun `출신 중학교가 없거나 학번에서 반을 뽑지 못한 원서는 추천서 학교·반 괄호를 비운다`() {
+        // 검정고시 지원자는 출신 중학교가 없다. 학번이 다섯 자리가 아니면 application 이 반을 보내지 않는다.
+        val noSchool = adapter.render(form().copy(school = null), photo = null)
+        val noClass = adapter.render(form().let { it.copy(school = it.school!!.copy(classNumber = null)) }, photo = null)
+        fun cell(pdf: ByteArray, page: Int, left: Float, top: Float, right: Float, bottom: Float) = stamped(pdf, page)
+            .filter { it.yDirAdj in top..bottom && it.xDirAdj >= left && it.xDirAdj + it.widthDirAdj <= right }
+            .joinToString("") { it.unicode }
+
+        assertEquals("", cell(noSchool, 1, 254.70f, 690.18f, 362.59f, 712.18f))
+        assertEquals("", cell(noSchool, 4, 302.90f, 210.40f, 384.39f, 234.40f))
+        assertEquals("", cell(noSchool, 4, 345.06f, 240.40f, 374.20f, 264.40f))
+        assertEquals("", cell(noSchool, 4, 171.98f, 637.83f, 299.12f, 665.83f))
+        assertEquals("", cell(noClass, 4, 345.06f, 240.40f, 374.20f, 264.40f))
+        assertEquals("서귀포", cell(noClass, 4, 302.90f, 210.40f, 384.39f, 234.40f))
     }
 
     @Test
@@ -341,6 +398,7 @@ class ApplicationFormPdfTest {
             teacherName = "김선생",
             code = "9299009",
             address = "제주특별자치도 서귀포시 태평로 474",
+            classNumber = "1",
         ),
         semesterGrades = listOf(null, grades("A"), grades("B"), grades("C")),
         academicRecord = ApplicationForm.AcademicRecord(

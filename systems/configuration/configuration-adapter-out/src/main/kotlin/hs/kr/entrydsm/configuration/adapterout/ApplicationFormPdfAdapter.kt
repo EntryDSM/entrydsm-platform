@@ -36,6 +36,9 @@ private const val PERSONAL_INFO_FONT_SIZE = 11f
 
 private const val CM = 72f / 2.54f
 
+/** 서식 1 의 특기사항·가산점·교과성적 칸에 값이 없을 때 빈칸 대신 찍는 표시. 학교가 요청했다. */
+private const val EMPTY_CELL = "-"
+
 private val log = LoggerFactory.getLogger(ApplicationFormPdfAdapter::class.java)
 
 /**
@@ -46,7 +49,8 @@ private val log = LoggerFactory.getLogger(ApplicationFormPdfAdapter::class.java)
  *
  * 해마다 요강이 바뀌면 [TEMPLATE_RESOURCE] 를 새 서식으로 갈고 칸 좌표를 다시 잰다. 학년도·날짜 골격도 서식에 인쇄돼 있다.
  *
- * 날짜·서명 칸과 `( )`·`[ ]` 안은 지원자·학교가 손으로 쓰는 칸이라 비운다. 서식 5 다짐 문장의 이름 괄호만 채운다.
+ * 날짜·서명 칸과 `( )`·`[ ]` 안은 지원자·학교가 손으로 쓰는 칸이라 비운다. 학교가 채워 달라고 표시한 괄호만 채운다 —
+ * 서식 5 다짐 문장의 이름, 서식 1·4 의 출신 중학교 이름, 서식 4 의 반.
  */
 @Component
 class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
@@ -116,7 +120,7 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
 /**
  * 서식 1 입학원서. 수험번호 칸은 서식에 "*기재하지 않음" 이 인쇄돼 있다.
  *
- * 학교코드·출신지역·출신학교는 출신 중학교 값이라 검정고시 지원자는 빈다. 출신지역은 중학교 소재지다
+ * 학교코드·출신지역·출신학교와 추천서의 학교 이름은 출신 중학교 값이라 검정고시 지원자는 빈다. 출신지역은 중학교 소재지다
  * ([ApplicationForm.MiddleSchool.originRegion]).
  *
  * ponytail: 보훈번호는 원서에 저장하는 값이 없어 비운다. 수집하기로 하면 [ApplicationForm] 에 담아 찍는다.
@@ -146,17 +150,20 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
 
     text(109.32f, 279.48f, 160.68f, 303.72f, form.region?.label)
     text(213.72f, 279.48f, 346.44f, 303.72f, form.admissionType?.label)
-    text(399.24f, 279.48f, 536.40f, 303.72f, form.specialNote)
+    text(399.24f, 279.48f, 536.40f, 303.72f, form.specialNote ?: EMPTY_CELL)
 
-    // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 반영할 성적이 없는 열은 빈다.
+    // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 반영할 성적이 없는 열과
+    // 미이수 과목은 [EMPTY_CELL] 을 찍는다.
     // 검정고시 지원자는 학기 성적과 출결·봉사 기록이 없다. 지난해 원서처럼 검정고시 점수를 3학년 1학기 열에 찍고
     // 출결·봉사 칸은 비운다(요강이 정하지 않은 칸이다).
     val ged = form.graduationType == ApplicationForm.GraduationType.GED
     val rows = floatArrayOf(340.68f, 359.16f, 377.64f, 396.12f, 414.60f, 433.08f, 451.56f, 470.04f)
     val columns = floatArrayOf(109.32f, 181.80f, 254.28f, 326.76f, 399.24f)
     val grades = if (ged) listOf(null, form.gedScores) else form.semesterGrades
-    grades.take(ApplicationForm.SEMESTER_COLUMN_COUNT).forEachIndexed { column, subjects ->
-        subjects?.inFormOrder()?.forEachIndexed { row, grade ->
+    repeat(ApplicationForm.SEMESTER_COLUMN_COUNT) { column ->
+        val subjects = grades.getOrNull(column)?.inFormOrder()
+        repeat(rows.size - 1) { row ->
+            val grade = subjects?.get(row)?.takeIf { it.isNotBlank() } ?: EMPTY_CELL
             text(columns[column], rows[row], columns[column + 1], rows[row + 1], grade)
         }
     }
@@ -170,9 +177,14 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
             text(477.72f, 377.64f, 519.00f, 396.12f, record.classAbsenceCount.toString())
             text(477.72f, 396.12f, 509.00f, 414.60f, record.volunteerTime.toString())
         }
-        text(477.72f, 433.08f, 536.40f, 451.56f, if (record.dsmAlgorithmAwarded) "O" else null)
-        text(477.72f, 451.56f, 536.40f, 470.04f, if (record.programmingCertified) "O" else null)
     }
+    // 가산점은 받았으면 O, 아니면 [EMPTY_CELL] 이다. 성적을 아직 넣지 않은 원서도 받지 않은 것으로 본다.
+    val record = form.academicRecord
+    text(477.72f, 433.08f, 536.40f, 451.56f, if (record?.dsmAlgorithmAwarded == true) "O" else EMPTY_CELL)
+    text(477.72f, 451.56f, 536.40f, 470.04f, if (record?.programmingCertified == true) "O" else EMPTY_CELL)
+
+    // 추천서의 "(      )중학교장" 괄호 사이. 인쇄는 약 12pt 지만 나눔고딕은 글자 잉크가 커서 11pt 가 인쇄 글자 높이와 맞는다.
+    text(254.70f, 690.18f, 362.59f, 712.18f, school?.namePrefix(), size = 11f)
 
     // 원서작성자 칸에는 "교사:" 와 "(서명 또는 인)" 이 인쇄돼 있어 그 사이에 담임 이름만 찍는다.
     text(166.57f, 751.44f, 241.56f, 775.56f, school?.teacherName)
@@ -201,15 +213,28 @@ private fun Sheet.personalInfo(form: ApplicationForm, receipt: String, rows: Flo
 }
 
 /**
- * 서식 4 학교장 추천서. 학교·반·날짜·담임 이름은 학교가 손으로 쓰는 칸이라 비운다.
+ * 서식 4 학교장 추천서. 날짜·담임 이름은 학교가 손으로 쓰는 칸이라 비운다.
  * 접수번호와 성명은 인쇄된 "접수번호:"·"성 명 :" 뒤에 같은 크기로 이어 쓰고, 추천분야 표에는 지원한 전형 칸에만 ○ 를 찍는다.
+ * 학교·반 괄호도 인쇄된 글자와 같은 크기로 괄호 사이에 찍는다.
  */
 private fun Sheet.recommendation(form: ApplicationForm, receipt: String) {
+    val school = form.school
     text(387.00f, 148.74f, 533.04f, 168.74f, receipt, size = 12f, align = Align.LEFT)
+    text(302.90f, 210.40f, 384.39f, 234.40f, school?.namePrefix(), size = 15f)
+    text(345.06f, 240.40f, 374.20f, 264.40f, school?.classNumber, size = 15f)
     text(344.00f, 270.40f, 533.04f, 294.40f, form.name, size = 15f, align = Align.LEFT)
     text(93.36f, 398.64f, 295.08f, 426.24f, "○".takeIf { form.admissionType == Applicant.AdmissionType.MEISTER }, size = 14f)
     text(295.08f, 398.64f, 496.80f, 426.24f, "○".takeIf { form.admissionType == Applicant.AdmissionType.SOCIAL }, size = 14f)
+    text(171.98f, 637.83f, 299.12f, 665.83f, school?.namePrefix(), size = 18f)
 }
+
+/**
+ * "(    )중학교"·"[    ] 중학교장" 괄호에 넣는 학교 이름. 괄호 뒤에 "중학교" 가 인쇄돼 있어 떼고 넣는다.
+ *
+ * ponytail: 기관코드 표 3,281개 중 분교장·캠퍼스 19개("원이중학교이원분교장")는 "중학교" 로 끝나지 않아 이름을 통째로 넣는다.
+ * 그런 학교 지원자가 생기면 본교 이름을 넣도록 바꾼다.
+ */
+private fun ApplicationForm.MiddleSchool.namePrefix() = name.trim().removeSuffix("중학교")
 
 /**
  * 서식 7 최종 합격자 제출 서류의 입학 동의서. 인쇄된 라벨과 같은 11pt 로 찍는다.
