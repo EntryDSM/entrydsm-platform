@@ -1,5 +1,5 @@
 load("@grpc-java//:java_grpc_library.bzl", "java_grpc_library")
-load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@rules_java//java:defs.bzl", "java_proto_library", "java_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -65,4 +65,9 @@ java_grpc_library(
     name = "notification_grpc_java",
     srcs = [":notification_proto"],
     deps = [":notification_java_proto"],
+)
+
+java_library(
+    name = "snapshot_cipher",
+    srcs = glob(["src/main/java/**/*.java"]),
 )
