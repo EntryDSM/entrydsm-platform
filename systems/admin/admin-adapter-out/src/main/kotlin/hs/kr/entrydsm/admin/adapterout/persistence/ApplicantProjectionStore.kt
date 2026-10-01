@@ -4,15 +4,15 @@ import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRe
 import hs.kr.entrydsm.application.grpc.ApplicantStatus
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
+import hs.kr.entrydsm.common.crypto.SnapshotCipher
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
 class ApplicantProjectionStore(
     private val repository: ApplicantExportProjectionJpaRepository,
-    @org.springframework.beans.factory.annotation.Value("\${security.pii.encryption-key-base64}") key: String,
+    private val cipher: SnapshotCipher,
 ) {
-    private val cipher = hs.kr.entrydsm.contracts.SnapshotCipher(key)
     fun read(payload: ByteArray): ApplicationFormResponse = ApplicationFormResponse.parseFrom(cipher.decrypt(payload))
     @Transactional
     fun apply(event: ApplicantStatusChangedEvent) {

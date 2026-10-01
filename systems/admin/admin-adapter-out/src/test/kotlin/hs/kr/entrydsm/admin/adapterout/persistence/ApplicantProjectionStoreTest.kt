@@ -4,7 +4,7 @@ import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRe
 import hs.kr.entrydsm.application.grpc.ApplicantStatus
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
-import hs.kr.entrydsm.contracts.SnapshotCipher
+import hs.kr.entrydsm.common.crypto.SnapshotCipher
 import com.google.protobuf.ByteString
 import java.lang.reflect.Proxy
 import java.sql.DriverManager
@@ -47,8 +47,8 @@ class ApplicantProjectionStoreTest {
             }
         } as ApplicantExportProjectionJpaRepository
         val key = Base64.getEncoder().encodeToString(ByteArray(32) { 7 })
-        val cipher = SnapshotCipher(key)
-        val store = ApplicantProjectionStore(repository, key)
+        val cipher = SnapshotCipher("test", mapOf("test" to key))
+        val store = ApplicantProjectionStore(repository, cipher)
         fun form(version: Long) = ApplicationFormResponse.newBuilder().setApplicantId(1).setUserId(10)
             .setStatusVersion(version).setApplicantStatus(ApplicantStatus.APPLICANT_STATUS_SUBMITTED).setName("홍길동").build()
         fun event(version: Long, deleted: Boolean = false) = ApplicantStatusChangedEvent.newBuilder()
@@ -120,7 +120,7 @@ class ApplicantProjectionStoreTest {
                 operations as org.springframework.data.redis.core.StreamOperations<String, HK, HV>
         }
         val metrics = io.micrometer.core.instrument.simple.SimpleMeterRegistry()
-        val consumer = ApplicantExportEventConsumer(redis, ApplicantProjectionStore(repository, key), metrics, "events")
+        val consumer = ApplicantExportEventConsumer(redis, ApplicantProjectionStore(repository, SnapshotCipher("test", mapOf("test" to key))), metrics, "events")
         consumer.receive()
         assertEquals(listOf("claim", "commit"), calls)
         fail = false; calls.clear(); consumer.receive()
