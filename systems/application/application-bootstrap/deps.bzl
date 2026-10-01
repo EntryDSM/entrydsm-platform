@@ -19,4 +19,4 @@ TEST_DEPS = [
     "@maven//:junit_junit",
 ]
 
-MODULE_DEPS = SPRING_DEPS + KOTLIN_DEPS
+MODULE_DEPS = SPRING_DEPS + KOTLIN_DEPS + ["//systems/common/common-crypto:main"]
