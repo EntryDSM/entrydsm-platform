@@ -62,7 +62,7 @@ class EvaluationCommandServiceTest {
         service.calculateResult(accountId = 10L)
 
         val savedApplicant = requireNotNull(repository.savedApplicant)
-        assertEquals(173.0, savedApplicant.totalScore, 0.0)
+        assertEquals(173.0, requireNotNull(savedApplicant.totalScore), 0.0)
         assertNotNull(savedApplicant.totalScoreUpdatedAt)
     }
 

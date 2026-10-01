@@ -217,7 +217,6 @@ class ApplicationGrpcService(
             .setAdmissionType(admissionType.toGrpc())
             .setGraduationType(graduationType.toGrpc())
             .setApplicantStatus(status.toGrpc())
-            .setTotalScore(totalScore)
             .setGender(
                 when (gender) {
                     Gender.MALE -> GrpcGender.GENDER_MALE
@@ -227,6 +226,7 @@ class ApplicationGrpcService(
             )
             // apply 안에서는 name 이 빌더의 getName() 으로 잡히므로 also 로 넘긴다.
             .also { builder ->
+                totalScore?.let(builder::setTotalScore)
                 name?.let(builder::setName)
                 schoolName?.let(builder::setSchoolName)
                 photoFileId?.let(builder::setPhotoFileId)

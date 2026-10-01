@@ -466,16 +466,74 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
-    fun applicationFormCalculatesMigratedSubmittedScore() {
+    fun applicationFormRecalculatesAndSavesMissingSubmittedScore() {
         val applicant = submittableGedApplicant().apply {
             status = ApplicantStatus.SUBMITTED
-            totalScore = 0.0
+            totalScore = null
             totalScoreUpdatedAt = null
         }
 
-        val form = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN, ACCEPT_PHONE).findApplicationForm(10L)
+        val repository = FakeApplicantRepository(applicant)
+        val form = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE).findApplicationForm(10L)
 
         assertEquals(170.0, form?.score?.totalScore ?: 0.0, 0.0)
+        assertEquals(170.0, repository.savedApplicant?.totalScore ?: 0.0, 0.0)
+        assertNotNull(repository.savedApplicant?.totalScoreUpdatedAt)
+    }
+
+    @Test
+    fun scoreQueriesRecalculateMissingScoresOnlyOnce() {
+        val queries: List<(ApplicationCommandService) -> Double?> = listOf(
+            { it.findApplicant(1L)?.totalScore },
+            { it.findApplicationForms(listOf(10L)).single().score?.totalScore },
+            { it.listApplicants().first().totalScore },
+        )
+        queries.forEach { query ->
+            val summary = ApplicantResult(
+                applicantId = 1L, accountId = 10L, name = null, schoolName = null,
+                region = null, admissionType = AdmissionType.REGULAR, photoFileId = null,
+                birthdate = null, phoneNumber = null, graduationType = GraduationType.GED,
+                totalScore = null, status = ApplicantStatus.SUBMITTED, submittedAt = null,
+            )
+            val repository = FakeApplicantRepository(submittableGedApplicant(), listOf(summary, summary.copy(applicantId = 2L, totalScore = 0.0)))
+            val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+            assertEquals(170.0, query(service) ?: 0.0, 0.0)
+            assertEquals(170.0, query(service) ?: 0.0, 0.0)
+            assertEquals(0.0, service.listApplicants().last().totalScore ?: -1.0, 0.0)
+            assertEquals(1, repository.saveCount)
+        }
+    }
+
+    @Test
+    fun queriesKeepMissingScoreWhenGradesAreIncomplete() {
+        val applicant = submittableGedApplicant()
+        val incomplete = listOf(
+            applicant.copy(admissionType = null),
+            applicant.copy(graduationType = null),
+            applicant.copy(academicRecord = null),
+            applicant.copy(academicRecord = AcademicRecord()),
+            applicant.copy(graduationType = GraduationType.PROSPECTIVE, academicRecord = AcademicRecord()),
+            applicant.copy(graduationType = GraduationType.GRADUATED, academicRecord = AcademicRecord(
+                subjectGrades = linkedMapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.X)),
+            )),
+        )
+        incomplete.forEach {
+            val repository = FakeApplicantRepository(it)
+            val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+            assertNull(service.findApplicant(1L)?.totalScore)
+            assertNull(service.findApplicationForm(10L)?.score)
+            assertNull(it.totalScoreUpdatedAt)
+            assertEquals(0, repository.saveCount)
+        }
+    }
+
+    @Test
+    fun queriesPreserveSavedZeroScoreWithoutRecalculating() {
+        val repository = FakeApplicantRepository(submittableGedApplicant().copy(totalScore = 0.0))
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+        assertEquals(0.0, service.findApplicant(1L)?.totalScore ?: -1.0, 0.0)
+        assertEquals(0.0, service.findApplicationForm(10L)?.score?.totalScore ?: -1.0, 0.0)
+        assertEquals(0, repository.saveCount)
     }
 
     /**
@@ -518,11 +576,14 @@ class ApplicationCommandServiceTest {
 
     private class FakeApplicantRepository(
         private var applicant: Applicant?,
+        private val summaries: List<ApplicantResult> = emptyList(),
     ) : ApplicantRepository {
         var savedApplicant: Applicant? = null
+        var saveCount = 0
         var deletedId: Long? = null
 
         override fun save(applicant: Applicant): Applicant {
+            saveCount += 1
             savedApplicant = applicant
             this.applicant = applicant
             return applicant
@@ -530,7 +591,7 @@ class ApplicationCommandServiceTest {
 
         // 목록은 쿼리가 거른다. ApplicantSummaryQueryTest 가 덮는다.
         override fun findSummariesByStatusIn(statuses: Set<ApplicantStatus>): List<ApplicantResult> =
-            emptyList()
+            summaries
 
         override fun findById(id: Long): Applicant? =
             applicant?.takeIf { it.id == id }
