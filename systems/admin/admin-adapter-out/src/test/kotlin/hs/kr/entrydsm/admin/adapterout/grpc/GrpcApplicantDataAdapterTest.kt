@@ -1,8 +1,10 @@
 package hs.kr.entrydsm.admin.adapterout.grpc
 
+import hs.kr.entrydsm.admin.adapterout.entity.ApplicantExportProjectionJpaEntity
+import hs.kr.entrydsm.admin.adapterout.persistence.ApplicantProjectionStore
+import hs.kr.entrydsm.contracts.SnapshotCipher
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
 import hs.kr.entrydsm.admin.adapterout.repository.ScreeningJpaRepository
-import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportEventJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRepository
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
@@ -53,6 +55,17 @@ import org.junit.Test
  * 실제 직렬화를 거쳐 확인합니다.
  */
 class GrpcApplicantDataAdapterTest {
+    @Test
+    fun `application 장애 중 다른 ID 100개의 상세는 로컬 데이터만 조회한다`() {
+        val forms = (1L..100L).map { ApplicationFormResponse.newBuilder().setApplicantId(it).setUserId(it + 100)
+            .setName("지원자$it").setIntroduction("소개$it").build() }
+        val service = FakeApplicationService(emptyList(), Status.UNAVAILABLE, forms)
+        withAdapter(service) { adapter ->
+            (1L..100L).forEach { assertEquals("소개$it", adapter.findDetailById(it)?.introduction) }
+        }
+        assertEquals(0, service.detailCalls)
+    }
+
 
     @Test
     fun `1차 합격자 존재 여부는 로컬 전형 정보로 확인한다`() {
@@ -192,6 +205,7 @@ class GrpcApplicantDataAdapterTest {
 
         val (written, empty) = withAdapter(service) { it.findDetailById(1L)!! to it.findDetailById(2L)!! }
 
+        assertEquals(0, service.detailCalls)
         assertEquals("지원자1", written.applicant.name)
         assertEquals("photo_1", written.photoFileId)
         assertEquals("첫 줄\n둘째 줄", written.introduction)
@@ -259,7 +273,7 @@ class GrpcApplicantDataAdapterTest {
     fun `없는 지원자는 null 이고 application 장애는 503 으로 옮긴다`() {
         withAdapter(FakeApplicationService(listOf(applicant(id = 1L)))) { adapter ->
             assertNull(adapter.findById(404L))
-            assertNull(adapter.findDetailById(404L))
+            assertEquals(ErrorCode.APPLICANT_SYNC_PENDING, (runCatching { adapter.findDetailById(404L) }.exceptionOrNull() as AdminDomainException).errorCode)
         }
 
         // UNIMPLEMENTED 는 ListApplicants 가 없는 옛 application 이 떠 있을 때다. 500 으로 나가면
@@ -328,13 +342,30 @@ class GrpcApplicantDataAdapterTest {
     ): T {
         val server = ServerBuilder.forPort(0).addService(application).build().start()
         val channel = ApplicationGrpcChannel("localhost", server.port, 3000, 3000)
+        val key = java.util.Base64.getEncoder().encodeToString(ByteArray(32) { 7 })
+        val cipher = SnapshotCipher(key)
+        val projections = application.forms.map { form ->
+            val applicant = application.applicants.find { it.applicantId == form.applicantId }
+            val local = form.toBuilder().also { builder ->
+                applicant?.let { builder.setName(it.name).setRegion(it.region).setGender(it.gender)
+                    .setGraduationType(it.graduationType).setAdmissionType(it.admissionType).setAddressBase(it.address) }
+            }.build()
+            ApplicantExportProjectionJpaEntity(form.applicantId, form.userId, cipher.encrypt(local.toByteArray()))
+        }
+        val projectionRepository = Proxy.newProxyInstance(javaClass.classLoader,
+            arrayOf(ApplicantExportProjectionJpaRepository::class.java)) { _, method, args ->
+                when (method.name) {
+                    "findById" -> Optional.ofNullable(projections.find { it.applicantId == args[0] })
+                    else -> error("unexpected projection call: ${method.name}")
+                }
+            } as ApplicantExportProjectionJpaRepository
         return try {
             block(
                 GrpcApplicantDataAdapter(
                     channel,
                     screeningRepository(screenings),
-                    unusedRepository(ApplicantExportEventJpaRepository::class.java),
-                    unusedRepository(ApplicantExportProjectionJpaRepository::class.java),
+                    projectionRepository,
+                    ApplicantProjectionStore(projectionRepository, key),
                 ),
             )
         } finally {
@@ -364,12 +395,13 @@ class GrpcApplicantDataAdapterTest {
     ) { _, method, _ -> error("unexpected call: ${method.name}") } as T
 
     private class FakeApplicationService(
-        private val applicants: List<ApplicantResponse>,
+        val applicants: List<ApplicantResponse>,
         private val failure: Status? = null,
-        private val forms: List<ApplicationFormResponse> = emptyList(),
+        val forms: List<ApplicationFormResponse> = emptyList(),
     ) : ApplicationServiceGrpc.ApplicationServiceImplBase() {
         var arrival: UpdateApplicantArrivalRequest? = null
         var examineeNumberUpdate: UpdateExamineeNumberRequest? = null
+        var detailCalls = 0
         var batchCalls = 0
         var batchAccountIds: List<Long> = emptyList()
         var deletedApplicantId: Long? = null
@@ -405,6 +437,7 @@ class GrpcApplicantDataAdapterTest {
             request: GetApplicationFormRequest,
             responseObserver: StreamObserver<ApplicationFormResponse>,
         ) {
+            detailCalls += 1
             val found = forms.find { it.userId == request.accountId }
                 ?: return responseObserver.onError(Status.NOT_FOUND.asRuntimeException())
             respond(responseObserver, found)
@@ -436,6 +469,7 @@ class GrpcApplicantDataAdapterTest {
             request: GetApplicantRequest,
             responseObserver: StreamObserver<ApplicantResponse>,
         ) {
+            detailCalls += 1
             val found = applicants.find { it.applicantId == request.applicantId }
                 ?: return responseObserver.onError(Status.NOT_FOUND.asRuntimeException())
             respond(responseObserver, found)

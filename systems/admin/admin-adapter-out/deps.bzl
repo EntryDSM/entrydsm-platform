@@ -1,4 +1,6 @@
 KOTLIN_DEPS = [
+    "@maven//:io_micrometer_micrometer_core",
+    "//contracts:snapshot_cipher",
     "@maven//:org_springframework_boot_spring_boot_starter_data_jpa",
     "@maven//:org_springframework_boot_spring_boot_starter_data_redis",
     "@maven//:com_mysql_mysql_connector_j",
@@ -21,6 +23,7 @@ KOTLIN_DEPS = [
 ]
 
 TEST_DEPS = [
+    "@maven//:com_h2database_h2",
     "@maven//:junit_junit",
 ]
 
