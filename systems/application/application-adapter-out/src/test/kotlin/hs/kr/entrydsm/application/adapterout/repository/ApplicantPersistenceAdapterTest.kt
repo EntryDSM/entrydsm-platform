@@ -4,9 +4,31 @@ import hs.kr.entrydsm.application.adapterout.entity.ApplicantJpaEntity
 import hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
+import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
+import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
+import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
+import hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator
+import hs.kr.entrydsm.application.application.service.ApplicationCommandService
+import hs.kr.entrydsm.common.crypto.SnapshotCipher
+import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
+import hs.kr.entrydsm.application.domain.enum.ResultType
+import hs.kr.entrydsm.application.grpc.PassStatus
+import hs.kr.entrydsm.application.grpc.ScreeningResultChangedEvent
+import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
+import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.data.redis.core.StreamOperations
+import org.springframework.data.redis.core.RedisCallback
+import org.springframework.data.redis.connection.stream.StreamRecords
+import org.springframework.data.redis.connection.stream.RecordId
+import java.lang.reflect.Proxy
+import java.util.Base64
 import jakarta.persistence.EntityManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,6 +59,114 @@ class ApplicantPersistenceAdapterTest {
 
     @Autowired
     private lateinit var entityManager: EntityManager
+
+    @Autowired
+    private lateinit var statusOutboxRepository: ApplicantStatusOutboxJpaRepository
+
+    private fun applicationPort() = ApplicationCommandService(ApplicantPersistenceAdapter(applicantJpaRepository),
+        ApplicationPeriodReader { null }, AccountPhoneValidator { _, _ -> true })
+
+    @Test
+    fun `동시에 변경된 원서의 오래된 쓰기는 거절한다`() {
+        val saved = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 505))
+        entityManager.createNativeQuery("UPDATE applicants SET lock_version = lock_version + 1 WHERE id = :id")
+            .setParameter("id", saved.id).executeUpdate()
+        saved.name = "동시 수정"
+        assertThrows(jakarta.persistence.OptimisticLockException::class.java) { entityManager.flush() }
+    }
+
+    @Test
+    fun `최종 결과와 identity 전달 이벤트를 함께 영속화한다`() {
+        val applicant = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 504, status = ApplicantStatus.SUBMITTED))
+        val cipher = SnapshotCipher("test", mapOf("test" to Base64.getEncoder().encodeToString(ByteArray(32) { 7 })))
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusOutboxAdapter(statusOutboxRepository, cipher), applicationPort())
+        handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(requireNotNull(applicant.id)).setVersion(10)
+            .setPassStatus(PassStatus.PASS_STATUS_FINAL_PASSED).setOccurredAtEpochMillis(1000).build())
+        entityManager.flush()
+        entityManager.clear()
+        val event = ApplicantStatusChangedEvent.parseFrom(statusOutboxRepository.findAll().single().payload)
+        assertEquals(PassStatus.PASS_STATUS_FINAL_PASSED, event.passStatus)
+        assertEquals(504L, event.accountId)
+        assertEquals(1000L, event.announcedAtEpochMillis)
+        assertEquals(1L, event.version)
+        val form = ApplicationFormResponse.parseFrom(cipher.decrypt(event.encryptedApplicationForm.toByteArray()))
+        assertEquals(event.applicantId, form.applicantId)
+        assertEquals(event.version, form.statusVersion)
+        assertEquals(ResultType.FINAL, applicantJpaRepository.findById(requireNotNull(applicant.id)).get().toDomain().passResultType)
+    }
+
+    @Test
+    fun `수신 실패 이벤트는 ack하지 않고 뒤의 정상 이벤트를 처리한다`() {
+        val applicant = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 503, status = ApplicantStatus.SUBMITTED))
+        val event = ScreeningResultChangedEvent.newBuilder().setApplicantId(requireNotNull(applicant.id)).setVersion(1)
+            .setPassStatus(PassStatus.PASS_STATUS_FINAL_PASSED).setOccurredAtEpochMillis(1000).build()
+        val records = listOf("invalid-base64", Base64.getEncoder().encodeToString(event.toByteArray())).mapIndexed { index, payload ->
+            StreamRecords.newRecord().`in`("test").ofMap(mapOf("payload" to payload)).withId(RecordId.of("1-$index"))
+        }
+        val acknowledged = mutableListOf<Any?>()
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val redis = object : StringRedisTemplate() {
+            override fun <T : Any?> execute(action: RedisCallback<T>): T? = null
+            override fun <HK : Any, HV : Any> opsForStream(): StreamOperations<String, HK, HV> =
+                Proxy.newProxyInstance(javaClass.classLoader, arrayOf(StreamOperations::class.java)) { _, method, args ->
+                    when (method.name) {
+                        "read" -> records
+                        "acknowledge" -> { acknowledged.addAll((args[2] as Array<*>).toList()); 1L }
+                        else -> error("예상하지 못한 호출: ${method.name}")
+                    }
+                } as StreamOperations<String, HK, HV>
+        }
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort())
+        val consumer = ScreeningResultRedisConsumer(redis, handler, "test", "application", "application")
+        consumer.poll()
+        consumer.poll()
+        assertEquals(1, events.size)
+        assertTrue(acknowledged.isNotEmpty())
+        assertTrue(acknowledged.all { it == RecordId.of("1-1") })
+    }
+
+    @Test
+    fun `관리자 결과를 영속화하고 학생 이벤트로 전달하며 중복 역순 정정을 처리한다`() {
+        val saved = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 501, status = ApplicantStatus.SUBMITTED))
+        val id = requireNotNull(saved.id)
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort())
+        fun consume(version: Long, status: PassStatus) {
+            handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(id).setVersion(version)
+                .setPassStatus(status).setOccurredAtEpochMillis(1000).build())
+            entityManager.flush()
+            entityManager.clear()
+        }
+        consume(1, PassStatus.PASS_STATUS_FIRST_PASSED)
+        assertEquals(ResultType.DOCUMENT, applicantJpaRepository.findById(id).get().toDomain().passResultType)
+        consume(2, PassStatus.PASS_STATUS_FINAL_PASSED)
+        assertEquals(ResultType.FINAL, applicantJpaRepository.findById(id).get().toDomain().passResultType)
+        assertEquals(PassResultStatus.PASS, events.last().passStatus)
+        consume(2, PassStatus.PASS_STATUS_FINAL_PASSED)
+        consume(1, PassStatus.PASS_STATUS_FIRST_FAILED)
+        assertEquals(2, events.size)
+        consume(3, PassStatus.PASS_STATUS_FIRST_FAILED)
+        assertEquals(ResultType.DOCUMENT, events.last().passResultType)
+        assertEquals(PassResultStatus.FAIL, events.last().passStatus)
+        consume(4, PassStatus.PASS_STATUS_NOT_ANNOUNCED)
+        assertEquals(PassResultStatus.PENDING, events.last().passStatus)
+        assertEquals(0, applicantJpaRepository.findById(id).get().passResults.size)
+        assertEquals(listOf(1L, 2L, 3L, 4L), events.map { it.version })
+        assertEquals(501L, events.last().accountId)
+    }
+
+    @Test
+    fun `취소되거나 삭제된 지원자에게 지연 결과를 반영하지 않는다`() {
+        val saved = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 502, status = ApplicantStatus.CANCELED))
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort())
+        for (id in listOf(requireNotNull(saved.id), Long.MAX_VALUE)) {
+            handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(id).setVersion(1)
+                .setPassStatus(PassStatus.PASS_STATUS_FINAL_PASSED).build())
+        }
+        assertTrue(events.isEmpty())
+        assertTrue(saved.passResults.isEmpty())
+    }
 
     @Test
     fun `개인정보는 암호화해서 저장하고 평문으로 조회한다`() {
