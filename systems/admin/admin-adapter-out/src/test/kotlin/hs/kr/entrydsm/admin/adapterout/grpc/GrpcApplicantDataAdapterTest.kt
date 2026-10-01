@@ -4,6 +4,15 @@ import hs.kr.entrydsm.admin.adapterout.entity.ApplicantExportProjectionJpaEntity
 import hs.kr.entrydsm.admin.adapterout.persistence.ApplicantProjectionStore
 import hs.kr.entrydsm.common.crypto.SnapshotCipher
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
+import hs.kr.entrydsm.admin.adapterout.entity.ScreeningResultOutboxJpaEntity
+import hs.kr.entrydsm.admin.adapterout.repository.ScreeningResultOutboxJpaRepository
+import hs.kr.entrydsm.admin.adapterout.persistence.ScreeningResultOutboxRelay
+import hs.kr.entrydsm.application.grpc.ScreeningResultChangedEvent
+import hs.kr.entrydsm.application.grpc.PassStatus
+import org.springframework.data.redis.core.StringRedisTemplate
+import org.springframework.data.redis.core.StreamOperations
+import org.springframework.data.redis.connection.stream.RecordId
+import java.util.Base64
 import hs.kr.entrydsm.admin.adapterout.repository.ScreeningJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRepository
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
@@ -66,6 +75,52 @@ class GrpcApplicantDataAdapterTest {
         assertEquals(0, service.detailCalls)
     }
 
+
+    @Test
+    fun `합격 이벤트 전송 실패는 미발행으로 남겨 재시도하고 모든 상태를 직렬화한다`() {
+        val rows = ApplicantStatus.entries.mapIndexed { index, status ->
+            ScreeningResultOutboxJpaEntity(id = index + 1L, applicantId = 7, status = status, createdAt = Instant.EPOCH)
+        }
+        val repository = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(ScreeningResultOutboxJpaRepository::class.java)) { _, method, _ ->
+            check(method.name == "findUnpublishedForUpdate")
+            rows.filter { it.publishedAt == null }
+        } as ScreeningResultOutboxJpaRepository
+        var fail = true
+        val received = mutableListOf<ScreeningResultChangedEvent>()
+        val redis = object : StringRedisTemplate() {
+            override fun <HK : Any, HV : Any> opsForStream(): StreamOperations<String, HK, HV> =
+                Proxy.newProxyInstance(javaClass.classLoader, arrayOf(StreamOperations::class.java)) { _, method, args ->
+                    check(method.name == "add")
+                    if (fail) throw IllegalStateException("연결 실패")
+                    val payload = (args[1] as Map<*, *>)["payload"] as String
+                    received.add(ScreeningResultChangedEvent.parseFrom(Base64.getDecoder().decode(payload)))
+                    RecordId.of("1-0")
+                } as StreamOperations<String, HK, HV>
+        }
+        val relay = ScreeningResultOutboxRelay(repository, redis, "test.screening-result")
+        relay.relay()
+        assertTrue(rows.all { it.publishedAt == null })
+        fail = false
+        relay.relay()
+        relay.relay()
+        assertEquals(listOf(PassStatus.PASS_STATUS_NOT_ANNOUNCED, PassStatus.PASS_STATUS_FIRST_PASSED,
+            PassStatus.PASS_STATUS_FIRST_FAILED, PassStatus.PASS_STATUS_FINAL_PASSED, PassStatus.PASS_STATUS_FINAL_FAILED), received.map { it.passStatus })
+        assertEquals(listOf(1L, 2L, 3L, 4L, 5L), received.map { it.version })
+        assertTrue(rows.all { it.publishedAt != null })
+    }
+
+    @Test
+    fun `단건과 일괄 상태 변경은 outbox에 저장하고 같은 상태는 중복 발행하지 않는다`() {
+        val events = mutableListOf<ScreeningResultOutboxJpaEntity>()
+        withAdapter(FakeApplicationService(emptyList()), resultEvents = events) { adapter ->
+            adapter.save(Applicant(id = 1L, status = ApplicantStatus.FIRST_PASS))
+            adapter.saveAll(listOf(Applicant(id = 2L, status = ApplicantStatus.FINAL_PASS)))
+            adapter.save(Applicant(id = 1L, status = ApplicantStatus.FIRST_PASS))
+            adapter.save(Applicant(id = 1L, status = ApplicantStatus.PENDING))
+        }
+        assertEquals(listOf(ApplicantStatus.FIRST_PASS, ApplicantStatus.FINAL_PASS, ApplicantStatus.PENDING), events.map { it.status })
+        assertEquals(listOf(1L, 2L, 1L), events.map { it.applicantId })
+    }
 
     @Test
     fun `1차 합격자 존재 여부는 로컬 전형 정보로 확인한다`() {
@@ -338,6 +393,7 @@ class GrpcApplicantDataAdapterTest {
     private fun <T> withAdapter(
         application: FakeApplicationService,
         screenings: List<ScreeningJpaEntity> = emptyList(),
+        resultEvents: MutableList<ScreeningResultOutboxJpaEntity> = mutableListOf(),
         block: (GrpcApplicantDataAdapter) -> T,
     ): T {
         val server = ServerBuilder.forPort(0).addService(application).build().start()
@@ -366,6 +422,10 @@ class GrpcApplicantDataAdapterTest {
                     screeningRepository(screenings),
                     projectionRepository,
                     ApplicantProjectionStore(projectionRepository, cipher),
+                    Proxy.newProxyInstance(javaClass.classLoader, arrayOf(ScreeningResultOutboxJpaRepository::class.java)) { _, method, args ->
+                        check(method.name == "save")
+                        (args[0] as ScreeningResultOutboxJpaEntity).also { resultEvents.add(it) }
+                    } as ScreeningResultOutboxJpaRepository,
                 ),
             )
         } finally {
@@ -375,19 +435,23 @@ class GrpcApplicantDataAdapterTest {
     }
 
     /** DB 없이 읽기만 흉내 낸다. */
-    private fun screeningRepository(screenings: List<ScreeningJpaEntity>): ScreeningJpaRepository =
-        Proxy.newProxyInstance(
+    private fun screeningRepository(screenings: List<ScreeningJpaEntity>): ScreeningJpaRepository {
+        val rows = screenings.associateBy { it.applicantId }.toMutableMap()
+        return Proxy.newProxyInstance(
             javaClass.classLoader,
             arrayOf(ScreeningJpaRepository::class.java),
         ) { _, method, args ->
             when (method.name) {
-                "findAll" -> screenings
-                "existsByStatus" -> screenings.any { it.status == args[0] }
-                "findById" -> Optional.ofNullable(screenings.find { it.applicantId == args[0] })
+                "findAll" -> rows.values.toList()
+                "existsByStatus" -> rows.values.any { it.status == args[0] }
+                "findById" -> Optional.ofNullable(rows[args[0]])
+                "findForUpdate" -> rows[args[0]]
+                "save" -> (args[0] as ScreeningJpaEntity).also { rows[it.applicantId] = it }
                 "saveAll" -> args[0]
                 else -> error("unexpected call: ${method.name}")
             }
         } as ScreeningJpaRepository
+    }
 
     private fun <T> unusedRepository(type: Class<T>): T = Proxy.newProxyInstance(
         javaClass.classLoader,
