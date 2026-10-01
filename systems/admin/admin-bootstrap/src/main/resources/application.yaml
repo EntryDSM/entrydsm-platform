@@ -1,6 +1,10 @@
 spring:
   application:
     name: admin
+  task:
+    scheduling:
+      pool:
+        size: 2
   main:
     lazy-initialization: true
   datasource:
@@ -78,3 +82,7 @@ management:
 logging:
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}
+
+security:
+  pii:
+    encryption-key-base64: ${APPLICATION_PII_ENCRYPTION_KEY_BASE64}
