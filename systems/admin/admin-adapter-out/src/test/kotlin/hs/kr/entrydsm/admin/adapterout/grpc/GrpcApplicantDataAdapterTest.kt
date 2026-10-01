@@ -85,6 +85,26 @@ class GrpcApplicantDataAdapterTest {
     }
 
     @Test
+    fun `대사 응답의 지원자 계정이 서로 바뀌면 프로젝션을 저장하지 않는다`() {
+        val forms = (1L..2L).map { id ->
+            ApplicationFormResponse.newBuilder()
+                .setApplicantId(id)
+                .setUserId(103L - id)
+                .setStatusVersion(1)
+                .setApplicantStatus(hs.kr.entrydsm.application.grpc.ApplicantStatus.APPLICANT_STATUS_SUBMITTED)
+                .build()
+        }
+        val service = FakeApplicationService(listOf(applicant(1), applicant(2)), forms = forms)
+        withAdapter(service, projectedIds = emptySet()) { adapter ->
+            val exception = runCatching { adapter.syncExportProjection() }.exceptionOrNull() as AdminDomainException
+            assertEquals(ErrorCode.APPLICANT_SYNC_PENDING, exception.errorCode)
+            assertTrue(adapter.findAdmissionFileRows().isEmpty())
+        }
+        assertEquals(listOf(101L, 102L), service.batchAccountIds)
+        assertEquals(1, service.batchCalls)
+    }
+
+    @Test
     fun `application 장애 중 다른 ID 100개의 상세는 로컬 데이터만 조회한다`() {
         val forms = (1L..100L).map { ApplicationFormResponse.newBuilder().setApplicantId(it).setUserId(it + 100)
             .setName("지원자$it").setIntroduction("소개$it").build() }
