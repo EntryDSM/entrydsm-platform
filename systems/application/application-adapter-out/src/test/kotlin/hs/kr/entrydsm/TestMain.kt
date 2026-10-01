@@ -21,5 +21,6 @@ import org.junit.runners.Suite
     ApplicantPersistenceAdapterTest::class,
     ApplicantSummaryQueryTest::class,
     InstitutionCodeJpaRepositoryTest::class,
+    hs.kr.entrydsm.application.adapterout.repository.ApplicantSnapshotRetentionTest::class,
 )
 class ApplicationAdapterOutModuleTest

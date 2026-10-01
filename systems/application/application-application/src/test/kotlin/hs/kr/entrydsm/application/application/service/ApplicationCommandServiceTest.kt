@@ -175,7 +175,8 @@ class ApplicationCommandServiceTest {
         val repository = FakeApplicantRepository(
             submittableGedApplicant(),
         )
-        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE) { events.add(it) }
 
         service.submit(accountId = 10L)
         assertEquals(ApplicantStatus.SUBMITTED, repository.savedApplicant?.status)
@@ -183,9 +184,13 @@ class ApplicationCommandServiceTest {
         assertEquals(170.0, repository.savedApplicant?.totalScore ?: 0.0, 0.0)
         assertNotNull(repository.savedApplicant?.totalScoreUpdatedAt)
 
+        assertEquals("홍길동", events.single().applicationForm?.name)
+        assertEquals(repository.savedApplicant?.statusVersion, events.single().applicationForm?.statusVersion)
+
         val canceled = service.cancel(10L, "개인 사유")
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
         assertEquals("개인 사유", repository.savedApplicant?.cancelReason)
+        assertNull(events.last().applicationForm)
     }
 
     @Test
@@ -470,7 +475,7 @@ class ApplicationCommandServiceTest {
             totalScoreUpdatedAt = null
         }
 
-        val form = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN).findApplicationForm(10L)
+        val form = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN, ACCEPT_PHONE).findApplicationForm(10L)
 
         assertEquals(170.0, form?.score?.totalScore ?: 0.0, 0.0)
     }
