@@ -1,7 +1,7 @@
 KOTLIN_DEPS = [
     "//contracts:identity_grpc_java",
     "//contracts:identity_java_proto",
-    "//contracts:snapshot_cipher",
+    "//systems/common/common-crypto:main",
     "//systems/application/application-grpc-mapping:main",
     "@maven//:org_springframework_boot_spring_boot_starter_data_jpa",
     "@maven//:org_springframework_boot_spring_boot_starter_data_redis",

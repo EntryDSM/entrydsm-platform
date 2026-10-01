@@ -2,7 +2,7 @@ package hs.kr.entrydsm.admin.adapterout.grpc
 
 import hs.kr.entrydsm.admin.adapterout.entity.ApplicantExportProjectionJpaEntity
 import hs.kr.entrydsm.admin.adapterout.persistence.ApplicantProjectionStore
-import hs.kr.entrydsm.contracts.SnapshotCipher
+import hs.kr.entrydsm.common.crypto.SnapshotCipher
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
 import hs.kr.entrydsm.admin.adapterout.repository.ScreeningJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRepository
@@ -343,7 +343,7 @@ class GrpcApplicantDataAdapterTest {
         val server = ServerBuilder.forPort(0).addService(application).build().start()
         val channel = ApplicationGrpcChannel("localhost", server.port, 3000, 3000)
         val key = java.util.Base64.getEncoder().encodeToString(ByteArray(32) { 7 })
-        val cipher = SnapshotCipher(key)
+        val cipher = SnapshotCipher("test", mapOf("test" to key))
         val projections = application.forms.map { form ->
             val applicant = application.applicants.find { it.applicantId == form.applicantId }
             val local = form.toBuilder().also { builder ->
@@ -365,7 +365,7 @@ class GrpcApplicantDataAdapterTest {
                     channel,
                     screeningRepository(screenings),
                     projectionRepository,
-                    ApplicantProjectionStore(projectionRepository, key),
+                    ApplicantProjectionStore(projectionRepository, cipher),
                 ),
             )
         } finally {

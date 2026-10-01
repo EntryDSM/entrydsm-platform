@@ -21,10 +21,24 @@ kt_jvm_binary(
 
 kt_jvm_test(
     name = "test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    srcs = glob(["src/test/kotlin/**/*.kt"]) + [
+        "src/main/kotlin/hs/kr/entrydsm/admin/config/SnapshotCipherConfiguration.kt",
+    ],
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     plugins = ["//:spring_allopen"],
     test_class = "hs.kr.entrydsm.admin.AdminBootstrapApplicationTest",
+    deps = MODULE_DEPS + TEST_DEPS,
+)
+
+kt_jvm_test(
+    name = "snapshot_cipher_configuration_test",
+    srcs = [
+        "src/main/kotlin/hs/kr/entrydsm/admin/config/SnapshotCipherConfiguration.kt",
+        "src/test/kotlin/hs/kr/entrydsm/admin/config/SnapshotCipherConfigurationTest.kt",
+    ],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.admin.config.SnapshotCipherConfigurationTest",
     deps = MODULE_DEPS + TEST_DEPS,
 )
