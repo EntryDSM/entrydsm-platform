@@ -21,6 +21,10 @@ kt_jvm_binary(
 
 kt_jvm_test(
     name = "test",
+    resources = [
+        "src/main/resources/db/migration/V012__make_applicant_total_score_not_null.sql",
+        "src/main/resources/db/migration/V013__restore_nullable_applicant_total_score.sql",
+    ],
     srcs = glob(["src/test/kotlin/**/*.kt"]) + [
         "src/main/kotlin/hs/kr/entrydsm/application/config/InstitutionCodeInitializer.kt",
     ],
