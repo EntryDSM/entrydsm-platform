@@ -220,7 +220,7 @@ message ApplicantStatusChangedEvent {
     optional int64 announced_at_epoch_millis = 8;
     int64 applicant_id = 9;
     bool applicant_deleted = 10;
-    // AES-GCM envelope. application/admin share APPLICATION_PII_ENCRYPTION_KEY_BASE64.
+    // Versioned AES-GCM envelope; application/admin share dedicated snapshot keys.
     optional bytes encrypted_application_form = 11;
 }
 
