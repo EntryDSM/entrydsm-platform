@@ -36,7 +36,7 @@ class ScoreCalculator {
 
     fun calculateBreakdown(applicant: Applicant): ScoreBreakdown {
         val admissionType = requireNotNull(applicant.admissionType) {
-            "admissionType is required"
+            "전형 구분이 누락되었습니다"
         }
         val isRegular = admissionType == AdmissionType.REGULAR
 
@@ -47,7 +47,7 @@ class ScoreCalculator {
         val subjectBaseScore = if (isGed) {
             calculateGedBaseScore(
                 requireNotNull(record.gedScores) {
-                    "gedScores is required for GED applicants"
+                    "검정고시 성적이 누락되었습니다"
                 },
             )
         } else {
@@ -146,8 +146,7 @@ class ScoreCalculator {
                     SchoolSemester.THIRD_GRADE_FIRST_SEMESTER
                 ],
             ) {
-                "3rd grade first semester grades are required " +
-                        "for prospective graduates"
+                "3학년 1학기 성적이 누락되었습니다"
             }
 
         val thirdGradeAverage =
@@ -156,8 +155,7 @@ class ScoreCalculator {
                     thirdGradeFirstSemester,
                 ),
             ) {
-                "3rd grade first semester must contain " +
-                        "at least one reflected subject grade"
+                "3학년 1학기 성적 입력은 필수입니다"
             }
 
         val previousSemesters =
@@ -226,6 +224,7 @@ class ScoreCalculator {
                 }
                 .take(GRADUATED_REFLECTED_SEMESTER_COUNT)
 
+        require(semesters.isNotEmpty()) { "반영 가능한 교과 성적이 없습니다. 모든 과목이 X인지 확인해주세요" }
         return normalizeSubjectScore(semesters)
     }
 
@@ -287,7 +286,7 @@ class ScoreCalculator {
                 it.toDouble() in MIN_GED_SCORE..PERFECT_GED_SCORE
             },
         ) {
-            "GED subject scores must be between 0 and 100"
+            "검정고시 과목 점수는 0 이상 100 이하여야 합니다"
         }
 
         return subjectScores
@@ -350,16 +349,16 @@ class ScoreCalculator {
         record: AcademicRecord,
     ): Double {
         require(record.absentCount >= 0) {
-            "absentCount cannot be negative"
+            "미인정 결석 횟수는 음수일 수 없습니다"
         }
         require(record.lateCount >= 0) {
-            "lateCount cannot be negative"
+            "미인정 지각 횟수는 음수일 수 없습니다"
         }
         require(record.earlyLeaveCount >= 0) {
-            "earlyLeaveCount cannot be negative"
+            "미인정 조퇴 횟수는 음수일 수 없습니다"
         }
         require(record.classAbsenceCount >= 0) {
-            "classAbsenceCount cannot be negative"
+            "미인정 결과 횟수는 음수일 수 없습니다"
         }
 
         val convertedFromAttendanceEvents =
@@ -387,7 +386,7 @@ class ScoreCalculator {
         volunteerTime: Int,
     ): Double {
         require(volunteerTime >= 0) {
-            "volunteerTime cannot be negative"
+            "봉사활동 시간은 음수일 수 없습니다"
         }
 
         return volunteerTime

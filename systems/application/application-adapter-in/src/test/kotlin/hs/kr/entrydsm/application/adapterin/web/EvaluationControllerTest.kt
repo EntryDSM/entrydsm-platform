@@ -46,7 +46,7 @@ class EvaluationControllerTest {
     @Test
     fun resultReturnsDetailedBadRequestReason() {
         val port = FakeEvaluationPort()
-        port.calculationFailure = IllegalArgumentException("검정고시 성적이 누락되었습니다")
+        port.calculationFailure = hs.kr.entrydsm.application.application.exception.EvaluationValidationException("검정고시 성적이 누락되었습니다")
         val mvc = MockMvcBuilders.standaloneSetup(EvaluationController(port))
             .setControllerAdvice(GlobalExceptionHandler()).build()
         val response = mvc.perform(post("/api/evaluation/v11/evaluations/result")
