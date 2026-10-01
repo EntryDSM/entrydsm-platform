@@ -39,6 +39,22 @@ class EvaluationCommandServiceTest {
     }
 
     @Test
+    fun thirdGradeFirstSemesterRequiresAtLeastOneGradeForBothGraduationTypes() {
+        listOf(GraduationType.PROSPECTIVE, GraduationType.GRADUATED).forEach { graduationType ->
+            val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L, graduationType = graduationType))
+            val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
+            val exception = assertThrows(IllegalArgumentException::class.java) {
+                service.saveSubjectGrades(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.X))
+            }
+            assertEquals("3학년 1학기 성적 입력은 필수입니다", exception.message)
+            assertNull(repository.savedApplicant)
+            service.saveSubjectGrades(10L, SchoolSemester.SECOND_GRADE_FIRST_SEMESTER, all(SubjectGrade.X))
+            service.saveSubjectGrades(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.X).copy(historyGrade = SubjectGrade.A))
+            assertEquals(SubjectGrade.A, repository.savedApplicant?.academicRecord?.subjectGrades?.get(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER)?.historyGrade)
+        }
+    }
+
+    @Test
     fun calculateResultSavesScoreForApplicantsAdmissionType() {
         val repository = FakeApplicantRepository(
             Applicant(

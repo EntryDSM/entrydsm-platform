@@ -14,6 +14,7 @@ import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
+import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.GedScores
@@ -72,6 +73,14 @@ class EvaluationCommandService(
     ) {
         val applicant = getWritableApplicant(accountId)
         APPLICATION_SUBJECTS_NOT_ALLOWED.requireValid(applicant.graduationType != GraduationType.GED)
+        require(
+            schoolSemester != SchoolSemester.THIRD_GRADE_FIRST_SEMESTER ||
+                listOf(
+                    subjectGrades.koreanGrade, subjectGrades.mathGrade, subjectGrades.englishGrade,
+                    subjectGrades.scienceGrade, subjectGrades.societyGrade, subjectGrades.technologyGrade,
+                    subjectGrades.historyGrade,
+                ).any { it != SubjectGrade.X },
+        ) { "3학년 1학기 성적 입력은 필수입니다" }
         val record = getOrCreateAcademicRecord(applicant)
         record.gedScores = null
         record.subjectGrades[schoolSemester] = subjectGrades
