@@ -15,5 +15,4 @@ enum class ScreeningStage(
     val fail: ApplicantStatus,
 ) {
     FIRST(ApplicantStatus.PENDING, ApplicantStatus.FIRST_PASS, ApplicantStatus.FIRST_FAIL),
-    FINAL(ApplicantStatus.FIRST_PASS, ApplicantStatus.FINAL_PASS, ApplicantStatus.FINAL_FAIL),
 }

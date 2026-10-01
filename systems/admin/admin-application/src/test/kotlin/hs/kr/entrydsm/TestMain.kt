@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.admin.application
 
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
@@ -398,6 +399,36 @@ class AdminApplicationModuleTest {
         assertEquals(listOf("주소1", "주소2"), requested)
         assertTrue(repository.saved.isEmpty())
     }
+
+    @Test
+    fun registersFinalPassWithoutRerankingAndKeepsAlreadyRegisteredApplicant() {
+        // 정원 0, 서류 점수 꼴찌여도 관리자가 등록하면 합격이다. 다시 등록해도 불합격으로 덮이지 않는다.
+        val repository = FakeApplicantRepository(
+            listOf(
+                Applicant(1L, status = ApplicantStatus.FIRST_PASS, totalScore = 10.0),
+                Applicant(2L, status = ApplicantStatus.FINAL_PASS, totalScore = 99.0),
+                Applicant(3L, status = ApplicantStatus.FIRST_FAIL),
+            ),
+        )
+        val service = screeningService(repository)
+
+        assertEquals(ApplicantStatus.FINAL_PASS, service.evaluateFinal(1L).status)
+        assertEquals(ApplicantStatus.FINAL_PASS, service.evaluateFinal(2L).status)
+        val rejected = assertThrows(AdminDomainException::class.java) { service.evaluateFinal(3L) }
+
+        assertEquals(ErrorCode.INVALID_STATUS_TRANSITION, rejected.errorCode)
+        assertEquals(listOf(1L to ApplicantStatus.FINAL_PASS), repository.saved.map { it.id to it.status })
+    }
+
+    private fun screeningService(applicants: ApplicantRepository) = ScreeningService(
+        applicantRepository = applicants,
+        admissionQuotaRepository = repository(
+            AdmissionQuotaRepository::class.java,
+            "find" to AdmissionQuota(AdmissionType.entries.associateWith { 0 }, Instant.EPOCH, "test"),
+        ),
+        clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+        firstPassMultiplier = 1.0,
+    )
 
     private fun applicant(
         id: Long,
