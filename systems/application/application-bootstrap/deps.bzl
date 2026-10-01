@@ -15,6 +15,7 @@ KOTLIN_DEPS = [
 ]
 
 TEST_DEPS = [
+    "@maven//:com_h2database_h2",
     "@maven//:org_springframework_boot_spring_boot_starter_test",
     "@maven//:junit_junit",
 ]

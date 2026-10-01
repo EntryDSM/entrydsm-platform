@@ -158,16 +158,34 @@ class ApplicationCommandService(
         applicantRepository.findByAccountId(accountId)?.toSnapshot()
 
     override fun findApplicant(applicantId: Long): ApplicantResult? =
-        applicantRepository.findById(applicantId)?.toApplicantResult()
+        applicantRepository.findById(applicantId)?.recalculateMissingScore()?.toApplicantResult()
 
     override fun listApplicants(): List<ApplicantResult> =
-        applicantRepository.findSummariesByStatusIn(APPLIED_STATUSES)
+        applicantRepository.findSummariesByStatusIn(APPLIED_STATUSES).map { summary ->
+            if (summary.totalScore != null) summary else summary.copy(
+                totalScore = applicantRepository.findById(summary.applicantId)?.recalculateMissingScore()?.totalScore,
+            )
+        }
 
     override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
-        applicantRepository.findByAccountId(accountId)?.toApplicationFormResult()
+        applicantRepository.findByAccountId(accountId)?.recalculateMissingScore()?.toApplicationFormResult()
 
     override fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> =
-        applicantRepository.findAllByAccountIdIn(accountIds.distinct()).map { it.toApplicationFormResult() }
+        applicantRepository.findAllByAccountIdIn(accountIds.distinct()).map { it.recalculateMissingScore().toApplicationFormResult() }
+
+    private fun Applicant.recalculateMissingScore(): Applicant {
+        if (totalScore != null || admissionType == null || graduationType == null || academicRecord == null) return this
+        val record = requireNotNull(academicRecord)
+        if (graduationType != GraduationType.GED && record.subjectGrades.values.none { it.hasReflectedSubject() }) return this
+        val calculated = try {
+            scoreCalculator.calculate(this)
+        } catch (_: IllegalArgumentException) {
+            return this
+        }
+        totalScore = calculated
+        totalScoreUpdatedAt = nowUtc()
+        return applicantRepository.save(this)
+    }
 
     private fun Applicant.toApplicantResult(): ApplicantResult = ApplicantResult(
         applicantId = id,
@@ -223,11 +241,8 @@ class ApplicationCommandService(
             previousSemester = previous.getOrNull(0),
             secondPreviousSemester = previous.getOrNull(1),
             academicRecord = academicRecord,
-            score = takeIf { admissionType != null && (totalScoreUpdatedAt != null || status != ApplicantStatus.DRAFT) }
-                ?.let {
-                    val breakdown = scoreCalculator.calculateBreakdown(it)
-                    if (totalScoreUpdatedAt == null) breakdown else breakdown.copy(totalScore = totalScore)
-                },
+            score = totalScore?.takeIf { admissionType != null }
+                ?.let { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) },
             introduction = introduction,
             studyPlan = studyPlan,
             classNumber = middleSchoolInfo?.studentNumber

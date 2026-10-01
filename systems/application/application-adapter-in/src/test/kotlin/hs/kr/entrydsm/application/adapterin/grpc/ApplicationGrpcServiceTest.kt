@@ -167,7 +167,7 @@ class ApplicationGrpcServiceTest {
             birthdate = null,
             phoneNumber = null,
             graduationType = null,
-            totalScore = 0.0,
+            totalScore = null,
             status = ApplicantStatus.SUBMITTED,
             submittedAt = null,
             gender = Gender.FEMALE,
