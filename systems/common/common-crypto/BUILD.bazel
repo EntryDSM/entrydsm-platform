@@ -1,0 +1,27 @@
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(default_visibility = ["//visibility:public"])
+
+java_library(
+    name = "main",
+    srcs = glob(["src/main/java/**/*.java"]),
+)
+
+java_test(
+    name = "snapshot_cipher_test",
+    srcs = ["src/test/java/hs/kr/entrydsm/common/crypto/SnapshotCipherTest.java"],
+    test_class = "hs.kr.entrydsm.common.crypto.SnapshotCipherTest",
+    deps = [":main", "@maven//:junit_junit"],
+)
+
+java_test(
+    name = "personal_data_test",
+    srcs = ["src/test/java/hs/kr/entrydsm/common/crypto/PersonalDataCipherTest.java"],
+    test_class = "hs.kr.entrydsm.common.crypto.PersonalDataCipherTest",
+    deps = [":main", "@maven//:junit_junit"],
+)
+
+test_suite(
+    name = "test",
+    tests = [":snapshot_cipher_test", ":personal_data_test"],
+)

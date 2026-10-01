@@ -8,7 +8,6 @@ import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
-import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
@@ -17,14 +16,10 @@ import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.ResultType
-import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
-import hs.kr.entrydsm.application.domain.enum.SubjectGrade
-import hs.kr.entrydsm.application.domain.model.GedScores
-import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicantStatus as GrpcApplicantStatus
-import hs.kr.entrydsm.application.grpc.AcademicRecord as GrpcAcademicRecord
+import hs.kr.entrydsm.application.grpcmapping.toGrpcForm
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.application.grpc.ApplicationResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
@@ -35,7 +30,6 @@ import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
 import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
 import hs.kr.entrydsm.application.grpc.DeleteApplicantResponse
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
-import hs.kr.entrydsm.application.grpc.GedScores as GrpcGedScores
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
@@ -45,11 +39,8 @@ import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
 import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
 import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberRequest
 import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberResponse
-import hs.kr.entrydsm.application.grpc.MiddleSchool as GrpcMiddleSchool
 import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
-import hs.kr.entrydsm.application.grpc.SemesterGrades as GrpcSemesterGrades
-import hs.kr.entrydsm.application.grpc.SpecialAdmissionType as GrpcSpecialAdmissionType
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import java.time.ZoneOffset
@@ -109,7 +100,7 @@ class ApplicationGrpcService(
     ) = responseObserver.respondWith {
         request.accountId.validate()
         (applicationPort.findApplicationForm(request.accountId) ?: throw ApplicantNotFoundException(request.accountId))
-            .toResponse()
+            .toGrpcForm()
     }
 
     override fun batchGetApplicationForms(
@@ -118,7 +109,7 @@ class ApplicationGrpcService(
     ) = responseObserver.respondWith {
         request.accountIdList.forEach { it.validate() }
         BatchGetApplicationFormsResponse.newBuilder()
-            .addAllApplications(applicationPort.findApplicationForms(request.accountIdList).map { it.toResponse() })
+            .addAllApplications(applicationPort.findApplicationForms(request.accountIdList).map { it.toGrpcForm() })
             .build()
     }
 
@@ -237,132 +228,6 @@ class ApplicationGrpcService(
                 }
                 address?.let(builder::setAddress)
             }
-            .build()
-
-    private fun ApplicationFormResult.toResponse(): ApplicationFormResponse =
-        ApplicationFormResponse.newBuilder()
-            .setApplicantId(applicantId)
-            .setUserId(accountId)
-            .setApplicantStatus(status.toGrpc())
-            .setGender(
-                when (gender) {
-                    Gender.MALE -> GrpcGender.GENDER_MALE
-                    Gender.FEMALE -> GrpcGender.GENDER_FEMALE
-                    null -> GrpcGender.GENDER_UNSPECIFIED
-                },
-            )
-            .setRegion(region.toGrpc())
-            .setAdmissionType(admissionType.toGrpc())
-            .setSpecialAdmissionType(
-                when (specialAdmissionType) {
-                    SpecialAdmissionType.NONE -> GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NONE
-                    SpecialAdmissionType.NATIONAL_MERIT -> GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NATIONAL_MERIT
-                    SpecialAdmissionType.SPECIAL_ADMISSION -> GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_SPECIAL_ADMISSION
-                },
-            )
-            .setGraduationType(graduationType.toGrpc())
-            // apply 안에서는 name 이 빌더의 getName() 으로 잡히므로 also 로 넘긴다.
-            .also { builder ->
-                name?.let(builder::setName)
-                phoneNumber?.let(builder::setPhoneNumber)
-                birthdate?.let { builder.setBirthdate(it.toString()) }
-                address?.let(builder::setAddress)
-                photoFileId?.let(builder::setPhotoFileId)
-                graduationDate?.let { builder.setGraduationDate(it.toString()) }
-                guardianName?.let(builder::setGuardianName)
-                guardianRelation?.let(builder::setGuardianRelation)
-                guardianPhoneNumber?.let(builder::setGuardianPhoneNumber)
-                introduction?.let(builder::setIntroduction)
-                studyPlan?.let(builder::setStudyPlan)
-                middleSchool?.let {
-                    builder.setMiddleSchool(
-                        GrpcMiddleSchool.newBuilder()
-                            .setCode(it.schoolCode)
-                            .setName(it.schoolName)
-                            .setStudentNumber(it.studentNumber)
-                            .setPhone(it.schoolPhone)
-                            .setTeacherName(it.teacherName)
-                            .also { schoolBuilder -> it.schoolAddress?.let(schoolBuilder::setAddress) }
-                            .build(),
-                    )
-                }
-                thirdGradeSecondSemester?.let { builder.setThirdGradeSecondSemester(it.toGrpc()) }
-                thirdGradeFirstSemester?.let { builder.setThirdGradeFirstSemester(it.toGrpc()) }
-                previousSemester?.let { builder.setPreviousSemester(it.toGrpc()) }
-                secondPreviousSemester?.let { builder.setSecondPreviousSemester(it.toGrpc()) }
-                academicRecord?.let {
-                    builder.setAcademicRecord(
-                        GrpcAcademicRecord.newBuilder()
-                            .setAbsentCount(it.absentCount)
-                            .setLateCount(it.lateCount)
-                            .setEarlyLeaveCount(it.earlyLeaveCount)
-                            .setClassAbsenceCount(it.classAbsenceCount)
-                            .setVolunteerTime(it.volunteerTime)
-                            .setDsmAlgorithmAwarded(it.isDsmAlgorithmAwarded)
-                            .setProgrammingCertified(it.isProgrammingCertified)
-                            .build(),
-                    )
-                }
-                score?.let {
-                    builder.setSubjectScore(it.subjectScore)
-                    builder.setAttendanceScore(it.attendanceScore)
-                    builder.setVolunteerScore(it.volunteerScore)
-                    builder.setAdditionalScore(it.additionalScore)
-                    builder.setTotalScore(it.totalScore)
-                }
-                classNumber?.let(builder::setClassNumber)
-                studentNumber?.let(builder::setStudentNumber)
-                gedAverage?.let(builder::setGedAverage)
-                gedScores?.let { builder.setGedScores(it.toGrpc()) }
-                examineeNumber?.let(builder::setExamineeNumber)
-                admissionType.code()?.let(builder::setAdmissionTypeCode)
-                region.code()?.let(builder::setRegionCode)
-                builder.setSpecialAdmissionTypeCode(specialAdmissionType.code())
-            }
-            .build()
-
-    private fun AdmissionType?.code(): String? = when (this) {
-        AdmissionType.MEISTER -> "1"
-        AdmissionType.SOCIAL -> "2"
-        AdmissionType.REGULAR -> "3"
-        null -> null
-    }
-
-    private fun Region?.code(): String? = when (this) {
-        Region.DAEJEON -> "1"
-        Region.NATIONAL -> "2"
-        null -> null
-    }
-
-    private fun SpecialAdmissionType.code(): String = when (this) {
-        SpecialAdmissionType.NONE -> "0"
-        SpecialAdmissionType.NATIONAL_MERIT -> "1"
-        SpecialAdmissionType.SPECIAL_ADMISSION -> "2"
-    }
-
-    /** 성취도 A~E. 미이수(X)는 요강에 없는 값이라 빈 문자열로 준다. */
-    private fun SubjectGrades.toGrpc(): GrpcSemesterGrades =
-        GrpcSemesterGrades.newBuilder()
-            .setKorean(koreanGrade.label())
-            .setSociety(societyGrade.label())
-            .setHistory(historyGrade.label())
-            .setMath(mathGrade.label())
-            .setScience(scienceGrade.label())
-            .setTechnology(technologyGrade.label())
-            .setEnglish(englishGrade.label())
-            .build()
-
-    private fun SubjectGrade.label(): String = if (this == SubjectGrade.X) "" else name
-
-    private fun GedScores.toGrpc(): GrpcGedScores =
-        GrpcGedScores.newBuilder()
-            .setKorean(koreanScore)
-            .setSociety(societyScore)
-            .setHistory(historyScore)
-            .setMath(mathScore)
-            .setScience(scienceScore)
-            .setTechnology(technologyScore)
-            .setEnglish(englishScore)
             .build()
 
     private fun Region?.toGrpc(): GrpcRegion = when (this) {

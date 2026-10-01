@@ -15,11 +15,13 @@ import org.junit.runners.Suite
 @Suite.SuiteClasses(
     AcademicRecordJpaEntityTest::class,
     ApplicantJpaEntityTest::class,
+    hs.kr.entrydsm.application.adapterout.entity.PersonalDataConverterTest::class,
     ApplicantStatusOutboxJpaEntityTest::class,
     GrpcApplicationPeriodAdapterTest::class,
     GrpcAccountPhoneAdapterTest::class,
     ApplicantPersistenceAdapterTest::class,
     ApplicantSummaryQueryTest::class,
     InstitutionCodeJpaRepositoryTest::class,
+    hs.kr.entrydsm.application.adapterout.repository.ApplicantSnapshotRetentionTest::class,
 )
 class ApplicationAdapterOutModuleTest

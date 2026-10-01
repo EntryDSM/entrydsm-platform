@@ -1,5 +1,6 @@
 KOTLIN_DEPS = [
     "@maven//:tools_jackson_core_jackson_databind",
+    "//systems/application/application-grpc-mapping:main",
     "@maven//:org_springframework_spring_tx",
     "@maven//:io_grpc_grpc_protobuf",
     "@maven//:io_grpc_grpc_stub",

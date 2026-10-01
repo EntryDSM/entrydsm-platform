@@ -1,0 +1,14 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library")
+package(default_visibility = ["//visibility:public"])
+kt_jvm_library(
+    name = "main",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    deps = [
+        "@maven//:com_google_protobuf_protobuf_java",
+        "//contracts:application_java_proto",
+        "//systems/application/application-application:main",
+        "//systems/application/application-domain:main",
+    ],
+)

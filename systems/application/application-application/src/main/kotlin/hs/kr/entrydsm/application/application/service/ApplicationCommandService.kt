@@ -197,6 +197,9 @@ class ApplicationCommandService(
         val previous = PREVIOUS_SEMESTERS.mapNotNull(grades::reflected)
         return ApplicationFormResult(
             applicantId = id,
+            statusVersion = statusVersion,
+            submittedAt = submittedAt,
+            addressBase = addressBase,
             examineeNumber = examineeNumber,
             accountId = accountId,
             status = status,
@@ -336,6 +339,7 @@ class ApplicationCommandService(
             passStatus = applicant.passStatus,
             announcedAt = applicant.announcedAt,
             passResultType = applicant.passResultType,
+            applicationForm = applicant.takeIf { it.status in APPLIED_STATUSES }?.toApplicationFormResult(),
         ),
     )
 

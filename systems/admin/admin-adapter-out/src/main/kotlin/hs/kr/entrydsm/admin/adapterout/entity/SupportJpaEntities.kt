@@ -97,6 +97,10 @@ class ApplicantExportProjectionJpaEntity(
     @Lob
     @Column(name = "payload", nullable = false, columnDefinition = "LONGBLOB")
     val payload: ByteArray,
+    @Column(name = "event_version", nullable = false)
+    val eventVersion: Long = 0,
+    @Column(name = "deleted", nullable = false)
+    val deleted: Boolean = false,
 )
 
 /**

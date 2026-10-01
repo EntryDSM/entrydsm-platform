@@ -18,6 +18,7 @@ data class ApplicantStatusChanged(
     val announcedAt: LocalDateTime?,
     val passResultType: ResultType? = null,
     val deleted: Boolean = false,
+    val applicationForm: hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult? = null,
 )
 
 fun interface ApplicantStatusEventOutbox {

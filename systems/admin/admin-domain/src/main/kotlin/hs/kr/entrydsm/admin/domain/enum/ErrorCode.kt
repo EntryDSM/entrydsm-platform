@@ -24,6 +24,7 @@ enum class ErrorCode(
     QUESTION_NOT_FOUND(404, "질문을 찾을 수 없습니다."),
     NOTICE_NOT_FOUND(404, "공지를 찾을 수 없습니다."),
     METHOD_NOT_ALLOWED(405, "지원하지 않는 HTTP 메서드입니다."),
+    APPLICANT_SYNC_PENDING(409, "지원자 정보 동기화 중입니다. 잠시 후 다시 조회해 주세요."),
     INVALID_STATUS_TRANSITION(409, "현재 상태에서는 변경할 수 없는 상태입니다."),
     EXAMINEE_NUMBER_NOT_ISSUED(409, "수험 번호가 발급되지 않은 지원자입니다."),
     EXPORT_NOT_COMPLETED(409, "아직 완료되지 않은 Export 작업입니다."),
