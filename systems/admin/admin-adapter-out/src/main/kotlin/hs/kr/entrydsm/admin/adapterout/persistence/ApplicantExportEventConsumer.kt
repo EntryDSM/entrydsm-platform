@@ -1,5 +1,6 @@
 package hs.kr.entrydsm.admin.adapterout.persistence
 
+import com.google.protobuf.InvalidProtocolBufferException
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
 import java.time.Duration
 import java.util.Base64
@@ -53,7 +54,8 @@ class ApplicantExportEventConsumer(
                 } catch (exception: Exception) {
                     metrics.counter("admin.applicant.projection.events", "result", "failure").increment()
                     logger.error("Applicant projection event failed [recordId={}]", record.id, exception)
-                    if ((pending.find { it.id == record.id }?.totalDeliveryCount ?: 0) >= 5) {
+                    if (exception is IllegalArgumentException || exception is InvalidProtocolBufferException ||
+                        (pending.find { it.id == record.id }?.totalDeliveryCount ?: 0) >= 5) {
                         // 개인정보를 복제하지 않는다. 원본 recordId만 남기고 정기 대사로 복구한다.
                         ops.add("$stream.admin-failed", mapOf("recordId" to record.id.value))
                         ops.acknowledge(stream, group, record.id)

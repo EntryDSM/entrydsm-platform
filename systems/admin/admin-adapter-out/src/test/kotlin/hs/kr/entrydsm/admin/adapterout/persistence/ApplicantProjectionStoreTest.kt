@@ -97,17 +97,18 @@ class ApplicantProjectionStoreTest {
         val key = Base64.getEncoder().encodeToString(ByteArray(32) { 7 })
         val event = ApplicantStatusChangedEvent.newBuilder().setApplicantId(1).setAccountId(10)
             .setVersion(3).setApplicantDeleted(true).build()
-        val record = org.springframework.data.redis.connection.stream.StreamRecords.string(mapOf("payload" to Base64.getEncoder().encodeToString(event.toByteArray())))
+        var record = org.springframework.data.redis.connection.stream.StreamRecords.string(mapOf("payload" to Base64.getEncoder().encodeToString(event.toByteArray())))
             .withStreamKey("events").withId(org.springframework.data.redis.connection.stream.RecordId.of("1000-0"))
         val owner = org.springframework.data.redis.connection.stream.Consumer.from("admin-applicant-export", "old-process")
         var deliveryCount = 1L
+        var fresh = false
         @Suppress("UNCHECKED_CAST")
         val operations = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(org.springframework.data.redis.core.StreamOperations::class.java)) { _, method, _ ->
             when (method.name) {
                 "createGroup" -> throw IllegalStateException("BUSYGROUP")
-                "pending" -> org.springframework.data.redis.connection.stream.PendingMessages(owner.group, listOf(org.springframework.data.redis.connection.stream.PendingMessage(record.id, owner, java.time.Duration.ofMinutes(1), deliveryCount)))
+                "pending" -> org.springframework.data.redis.connection.stream.PendingMessages(owner.group, if (fresh) emptyList() else listOf(org.springframework.data.redis.connection.stream.PendingMessage(record.id, owner, java.time.Duration.ofMinutes(1), deliveryCount)))
                 "claim" -> { calls.add("claim"); listOf(record) }
-                "read" -> emptyList<Any>()
+                "read" -> if (fresh) listOf(record) else emptyList<Any>()
                 "acknowledge" -> { calls.add("ack"); 1L }
                 "add" -> { calls.add("quarantine"); org.springframework.data.redis.connection.stream.RecordId.of("2000-0") }
                 "trim" -> { calls.add("trim"); 0L }
@@ -130,6 +131,23 @@ class ApplicantProjectionStoreTest {
         fail = true; deliveryCount = 5; calls.clear(); consumer.receive()
         assertEquals(listOf("claim", "commit", "quarantine", "ack", "trim"), calls)
         assertEquals(1.0, metrics.counter("admin.applicant.projection.events", "result", "quarantined").count(), 0.0)
+        // 새로 읽은 결정적 오류는 pending 재전달 없이 즉시 격리한다.
+        fresh = true
+        val invalidPayloads = listOf(
+            emptyMap<String, String>(),
+            mapOf("payload" to "%%%"),
+            mapOf("payload" to Base64.getEncoder().encodeToString(byteArrayOf(0x80.toByte()))),
+            mapOf("payload" to Base64.getEncoder().encodeToString(event.toBuilder().setAccountId(0).build().toByteArray())),
+        )
+        invalidPayloads.forEachIndexed { index, payload ->
+            record = org.springframework.data.redis.connection.stream.StreamRecords.string(payload)
+                .withStreamKey("events").withId(org.springframework.data.redis.connection.stream.RecordId.of("1001-$index"))
+            calls.clear()
+            consumer.receive()
+            assertEquals(listOf("quarantine", "ack", "trim"), calls)
+        }
+        assertEquals(6.0, metrics.counter("admin.applicant.projection.events", "result", "failure").count(), 0.0)
+        assertEquals(5.0, metrics.counter("admin.applicant.projection.events", "result", "quarantined").count(), 0.0)
     }
 
 }
