@@ -405,7 +405,11 @@ class ApplicationCommandService(
         APPLICATION_SCHOOL_NAME_REQUIRED.requireValid(schoolName.isNotBlank())
         APPLICATION_STUDENT_NUMBER_REQUIRED.requireValid(studentNumber.isNotBlank())
         APPLICATION_STUDENT_NUMBER_INVALID_FORMAT.requireValid(studentNumber.matches(Regex("[0-9]{5}")))
-        APPLICATION_STUDENT_NUMBER_OUT_OF_RANGE.requireValid(studentNumber.first() in '1'..'3')
+        APPLICATION_STUDENT_NUMBER_OUT_OF_RANGE.requireValid(
+            studentNumber.first() in '1'..'3' &&
+                studentNumber.substring(1, 3).toInt() in 1..99 &&
+                studentNumber.substring(3, 5).toInt() in 1..99,
+        )
         APPLICATION_SCHOOL_PHONE_REQUIRED.requireValid(schoolPhone.isNotBlank())
         APPLICATION_TEACHER_NAME_REQUIRED.requireValid(teacherName.isNotBlank())
 
