@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicantAlreadyExistsException
+import hs.kr.entrydsm.application.application.exception.ApplicationErrorCode.*
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.ApplicationCancelNotAllowedException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
@@ -21,6 +22,7 @@ import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapsh
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
 import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
@@ -46,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional
 class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
     private val applicationPeriod: ApplicationPeriodReader,
+    private val accountPhoneValidator: AccountPhoneValidator,
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
     private val scoreCalculator = ScoreCalculator()
@@ -307,12 +310,9 @@ class ApplicationCommandService(
         graduationDate: YearMonth?,
     ) {
         val applicant = getWritableApplicant(accountId)
-        require(graduationType == GraduationType.GED || graduationDate != null) {
-            "graduationDate is required unless graduationType is GED"
-        }
-        require(graduationType != GraduationType.GED || graduationDate == null) {
-            "graduationDate must be null when graduationType is GED"
-        }
+        APPLICATION_GRADUATION_DATE_REQUIRED.requireValid(graduationType == GraduationType.GED || graduationDate != null)
+        APPLICATION_GRADUATION_DATE_NOT_ALLOWED.requireValid(graduationType != GraduationType.GED || graduationDate == null)
+        APPLICATION_GRADUATION_DATE_OUT_OF_RANGE.requireValid(graduationDate == null || graduationDate.year in 2026..2027)
 
         applicant.admissionType = admissionType
         applicant.region = region
@@ -348,11 +348,13 @@ class ApplicationCommandService(
         birthdate: LocalDate,
         specialAdmissionType: SpecialAdmissionType,
     ) {
-        require(photoFileId.isNotBlank() && photoFileId.length <= MAX_PHOTO_FILE_ID_LENGTH) { "photoFileId is invalid" }
-        require(name.isNotBlank()) { "name is required" }
-        require(phoneNumber.matches(PHONE_NUMBER_REGEX)) { "phoneNumber format is invalid" }
+        APPLICATION_PHOTO_FILE_ID_REQUIRED.requireValid(photoFileId.isNotBlank())
+        APPLICATION_PHOTO_FILE_ID_TOO_LONG.requireValid(photoFileId.length <= MAX_PHOTO_FILE_ID_LENGTH)
+        APPLICATION_NAME_REQUIRED.requireValid(name.isNotBlank())
+        APPLICATION_PHONE_NUMBER_INVALID_FORMAT.requireValid(phoneNumber.matches(PHONE_NUMBER_REGEX))
 
         val applicant = getWritableApplicant(accountId)
+        APPLICATION_PHONE_NUMBER_MISMATCH.requireValid(accountPhoneValidator.validate(applicant.accountId, phoneNumber))
         applicant.photoFileId = photoFileId
         applicant.name = name
         applicant.phoneNumber = phoneNumber
@@ -372,11 +374,11 @@ class ApplicationCommandService(
         addressBase: String,
         addressDetail: String,
     ) {
-        require(guardianName.isNotBlank()) { "guardianName is required" }
-        require(guardianPhoneNumber.matches(PHONE_NUMBER_REGEX)) { "guardianPhoneNumber format is invalid" }
-        require(zipCode.isNotBlank()) { "zipCode is required" }
-        require(addressBase.isNotBlank()) { "addressBase is required" }
-        require(addressDetail.isNotBlank()) { "addressDetail is required" }
+        APPLICATION_GUARDIAN_NAME_REQUIRED.requireValid(guardianName.isNotBlank())
+        APPLICATION_GUARDIAN_PHONE_NUMBER_INVALID_FORMAT.requireValid(guardianPhoneNumber.matches(PHONE_NUMBER_REGEX))
+        APPLICATION_ADDRESS_ZIP_CODE_REQUIRED.requireValid(zipCode.isNotBlank())
+        APPLICATION_ADDRESS_ADDRESS_BASE_REQUIRED.requireValid(addressBase.isNotBlank())
+        APPLICATION_ADDRESS_ADDRESS_DETAIL_REQUIRED.requireValid(addressDetail.isNotBlank())
 
         val applicant = getWritableApplicant(accountId)
         applicant.guardianName = guardianName
@@ -398,14 +400,14 @@ class ApplicationCommandService(
         teacherName: String,
     ) {
         val applicant = getWritableApplicant(accountId)
-        require(applicant.graduationType != GraduationType.GED) {
-            "middle school info is unavailable for GED applicants"
-        }
-        require(schoolCode.isNotBlank()) { "schoolCode is required" }
-        require(schoolName.isNotBlank()) { "schoolName is required" }
-        require(studentNumber.isNotBlank()) { "studentNumber is required" }
-        require(schoolPhone.isNotBlank()) { "schoolPhone is required" }
-        require(teacherName.isNotBlank()) { "teacherName is required" }
+        APPLICATION_MIDDLE_SCHOOL_NOT_ALLOWED.requireValid(applicant.graduationType != GraduationType.GED)
+        APPLICATION_SCHOOL_CODE_REQUIRED.requireValid(schoolCode.isNotBlank())
+        APPLICATION_SCHOOL_NAME_REQUIRED.requireValid(schoolName.isNotBlank())
+        APPLICATION_STUDENT_NUMBER_REQUIRED.requireValid(studentNumber.isNotBlank())
+        APPLICATION_STUDENT_NUMBER_INVALID_FORMAT.requireValid(studentNumber.matches(Regex("[0-9]{5}")))
+        APPLICATION_STUDENT_NUMBER_OUT_OF_RANGE.requireValid(studentNumber.first() in '1'..'3')
+        APPLICATION_SCHOOL_PHONE_REQUIRED.requireValid(schoolPhone.isNotBlank())
+        APPLICATION_TEACHER_NAME_REQUIRED.requireValid(teacherName.isNotBlank())
 
         applicant.middleSchoolInfo = MiddleSchoolInfo(
             schoolCode = schoolCode,
@@ -418,8 +420,8 @@ class ApplicationCommandService(
     }
 
     fun updateIntroduction(accountId: Long?, introduction: String) {
-        require(introduction.isNotBlank()) { "introduction is required" }
-        require(introduction.length <= MAX_ESSAY_LENGTH) { "introduction is too long" }
+        APPLICATION_INTRODUCTION_REQUIRED.requireValid(introduction.isNotBlank())
+        APPLICATION_INTRODUCTION_TOO_LONG.requireValid(introduction.length <= MAX_ESSAY_LENGTH)
 
         val applicant = getWritableApplicant(accountId)
         applicant.introduction = introduction
@@ -427,8 +429,8 @@ class ApplicationCommandService(
     }
 
     fun updateStudyPlan(accountId: Long?, studyPlan: String) {
-        require(studyPlan.isNotBlank()) { "studyPlan is required" }
-        require(studyPlan.length <= MAX_ESSAY_LENGTH) { "studyPlan is too long" }
+        APPLICATION_STUDY_PLAN_REQUIRED.requireValid(studyPlan.isNotBlank())
+        APPLICATION_STUDY_PLAN_TOO_LONG.requireValid(studyPlan.length <= MAX_ESSAY_LENGTH)
 
         val applicant = getWritableApplicant(accountId)
         applicant.studyPlan = studyPlan
@@ -437,11 +439,11 @@ class ApplicationCommandService(
 
     fun submit(accountId: Long?) {
         val applicant = getWritableApplicant(accountId)
-        require(applicant.admissionType != null) { "admission type is required" }
-        require(!applicant.name.isNullOrBlank()) { "personal info is required" }
-        require(!applicant.guardianName.isNullOrBlank()) { "family info is required" }
-        require(!applicant.introduction.isNullOrBlank()) { "introduction is required" }
-        require(!applicant.studyPlan.isNullOrBlank()) { "studyPlan is required" }
+        APPLICATION_ADMISSION_TYPE_REQUIRED.requireValid(applicant.admissionType != null)
+        APPLICATION_NAME_REQUIRED.requireValid(!applicant.name.isNullOrBlank())
+        APPLICATION_GUARDIAN_NAME_REQUIRED.requireValid(!applicant.guardianName.isNullOrBlank())
+        APPLICATION_INTRODUCTION_REQUIRED.requireValid(!applicant.introduction.isNullOrBlank())
+        APPLICATION_STUDY_PLAN_REQUIRED.requireValid(!applicant.studyPlan.isNullOrBlank())
         markSubmitted(applicant)
     }
 
@@ -452,7 +454,7 @@ class ApplicationCommandService(
     private fun getWritableApplicant(accountId: Long?): Applicant {
         applicationPeriod.requireOpen()
         return getApplicantByAccountId(accountId).also {
-            require(it.status == ApplicantStatus.DRAFT) { "only draft applications can be modified" }
+            APPLICATION_NOT_EDITABLE.requireValid(it.status == ApplicantStatus.DRAFT)
         }
     }
 

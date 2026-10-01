@@ -41,7 +41,11 @@ class MiddleSchoolControllerTest {
         assertEquals(200, response.status)
         assertEquals(SearchMiddleSchoolCommand(name = "대성"), command)
         assertTrue(body, body.contains("\"success\":true"))
-        assertTrue(body, body.contains("\"schools\":[{\"address\":\"대전 주소\",\"code\":\"7441263\",\"name\":\"대전대성여자중학교\"}]"))
+        val schools = tools.jackson.module.kotlin.jacksonMapperBuilder().build().readTree(body).get("data").get("schools")
+        assertEquals(1, schools.size())
+        assertEquals("대전 주소", schools.get(0).get("address").asString())
+        assertEquals("7441263", schools.get(0).get("code").asString())
+        assertEquals("대전대성여자중학교", schools.get(0).get("name").asString())
         assertTrue(body, body.contains("\"totalCount\":1"))
     }
 

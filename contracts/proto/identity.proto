@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package entrydsm.identity.v1;
+option java_multiple_files = true;
+option java_package = "hs.kr.entrydsm.identity.grpc";
+
+service IdentityService {
+  rpc ValidateApplicationPhone(ValidateApplicationPhoneRequest) returns (ValidateApplicationPhoneResponse);
+}
+
+message ValidateApplicationPhoneRequest {
+  int64 account_id = 1;
+  string phone_number = 2;
+}
+
+message ValidateApplicationPhoneResponse {
+  bool valid = 1;
+}

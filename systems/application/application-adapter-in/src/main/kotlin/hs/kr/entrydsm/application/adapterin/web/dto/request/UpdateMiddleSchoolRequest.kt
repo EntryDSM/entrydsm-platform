@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.application.adapterin.web.dto.request
 
 import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 
 data class UpdateMiddleSchoolRequest(
@@ -11,7 +12,7 @@ data class UpdateMiddleSchoolRequest(
     @field:Size(max = 50)
     val schoolName: String,
     @field:NotBlank
-    @field:Size(max = 8)
+    @field:Pattern(regexp = "[0-9]{5}")
     val studentNumber: String,
     @field:NotBlank
     @field:Size(max = 16)

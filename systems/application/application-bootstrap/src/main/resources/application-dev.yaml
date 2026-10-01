@@ -35,6 +35,12 @@ server:
 grpc:
   port: ${GRPC_PORT:9090}
 
+identity:
+  grpc:
+    host: ${IDENTITY_GRPC_HOST:localhost}
+    port: ${IDENTITY_GRPC_PORT:9091}
+    deadline-ms: ${IDENTITY_GRPC_DEADLINE_MS:1000}
+
 security:
   pii:
     encryption-key-base64: ${APPLICATION_PII_ENCRYPTION_KEY_BASE64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}

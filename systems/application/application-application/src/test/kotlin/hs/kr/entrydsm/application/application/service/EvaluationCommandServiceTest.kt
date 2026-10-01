@@ -22,6 +22,23 @@ import org.junit.Test
 
 class EvaluationCommandServiceTest {
     @Test
+    fun academicRecordValidationIdentifiesEachNegativeFieldWithoutSaving() {
+        val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+        val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
+        val fields = listOf("ABSENT_COUNT", "EARLY_LEAVE_COUNT", "LATE_COUNT", "CLASS_ABSENCE_COUNT", "VOLUNTEER_TIME")
+        for ((index, field) in fields.withIndex()) {
+            val values = List(5) { if (it == index) -1 else 0 }
+            val exception = assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) {
+                service.saveAcademicRecord(10L, values[0], values[1], values[2], values[3], values[4])
+            }
+            assertEquals("APPLICATION_${field}_OUT_OF_RANGE", exception.errorCode.name)
+            assertNull(repository.savedApplicant)
+        }
+        service.saveAcademicRecord(10L, 0, 0, 0, 0, 0)
+        assertNotNull(repository.savedApplicant)
+    }
+
+    @Test
     fun calculateResultSavesScoreForApplicantsAdmissionType() {
         val repository = FakeApplicantRepository(
             Applicant(
