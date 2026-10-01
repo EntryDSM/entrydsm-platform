@@ -56,6 +56,55 @@ import org.junit.Test
  */
 class GrpcApplicantDataAdapterTest {
     @Test
+    fun `출력 대사는 기존 프로젝션에 빠진 지원자도 복구한다`() {
+        val forms = (1L..2L).map { ApplicationFormResponse.newBuilder().setApplicantId(it).setUserId(it + 100)
+            .setName("지원자$it").setStatusVersion(1)
+            .setApplicantStatus(hs.kr.entrydsm.application.grpc.ApplicantStatus.APPLICANT_STATUS_SUBMITTED).build() }
+        val service = FakeApplicationService(listOf(applicant(1), applicant(2)), forms = forms)
+        val screenings = (1L..2L).map { ScreeningJpaEntity(applicantId = it, status = ApplicantStatus.FIRST_PASS) }
+        withAdapter(service, screenings, projectedIds = setOf(1L)) { adapter ->
+            assertEquals(listOf("0001"), adapter.findAdmissionFileRows().map { it.receiptNumber })
+            adapter.syncExportProjection()
+            assertEquals(listOf("0001", "0002"), adapter.findAdmissionFileRows().map { it.receiptNumber })
+            assertEquals(listOf("0001", "0002"), adapter.findApplicationChecklistRows().map { it.receiptNumber })
+            assertEquals(listOf(1L, 2L), adapter.findFirstPassApplicants().map { it.id })
+        }
+        assertEquals(1, service.batchCalls)
+    }
+
+    @Test
+    fun `대사 응답에서 원서가 누락되면 부분 출력 대신 동기화 오류를 낸다`() {
+        val form = ApplicationFormResponse.newBuilder().setApplicantId(1).setUserId(101).setStatusVersion(1)
+            .setApplicantStatus(hs.kr.entrydsm.application.grpc.ApplicantStatus.APPLICANT_STATUS_SUBMITTED).build()
+        val service = FakeApplicationService(listOf(applicant(1), applicant(2)), forms = listOf(form))
+        withAdapter(service, projectedIds = emptySet()) { adapter ->
+            val exception = runCatching { adapter.syncExportProjection() }.exceptionOrNull() as AdminDomainException
+            assertEquals(ErrorCode.APPLICANT_SYNC_PENDING, exception.errorCode)
+            assertTrue(adapter.findAdmissionFileRows().isEmpty())
+        }
+    }
+
+    @Test
+    fun `대사 응답의 지원자 계정이 서로 바뀌면 프로젝션을 저장하지 않는다`() {
+        val forms = (1L..2L).map { id ->
+            ApplicationFormResponse.newBuilder()
+                .setApplicantId(id)
+                .setUserId(103L - id)
+                .setStatusVersion(1)
+                .setApplicantStatus(hs.kr.entrydsm.application.grpc.ApplicantStatus.APPLICANT_STATUS_SUBMITTED)
+                .build()
+        }
+        val service = FakeApplicationService(listOf(applicant(1), applicant(2)), forms = forms)
+        withAdapter(service, projectedIds = emptySet()) { adapter ->
+            val exception = runCatching { adapter.syncExportProjection() }.exceptionOrNull() as AdminDomainException
+            assertEquals(ErrorCode.APPLICANT_SYNC_PENDING, exception.errorCode)
+            assertTrue(adapter.findAdmissionFileRows().isEmpty())
+        }
+        assertEquals(listOf(101L, 102L), service.batchAccountIds)
+        assertEquals(1, service.batchCalls)
+    }
+
+    @Test
     fun `application 장애 중 다른 ID 100개의 상세는 로컬 데이터만 조회한다`() {
         val forms = (1L..100L).map { ApplicationFormResponse.newBuilder().setApplicantId(it).setUserId(it + 100)
             .setName("지원자$it").setIntroduction("소개$it").build() }
@@ -338,24 +387,36 @@ class GrpcApplicantDataAdapterTest {
     private fun <T> withAdapter(
         application: FakeApplicationService,
         screenings: List<ScreeningJpaEntity> = emptyList(),
+        projectedIds: Set<Long>? = null,
         block: (GrpcApplicantDataAdapter) -> T,
     ): T {
         val server = ServerBuilder.forPort(0).addService(application).build().start()
         val channel = ApplicationGrpcChannel("localhost", server.port, 3000, 3000)
         val key = java.util.Base64.getEncoder().encodeToString(ByteArray(32) { 7 })
         val cipher = SnapshotCipher("test", mapOf("test" to key))
-        val projections = application.forms.map { form ->
+        val projections = application.forms.filter { projectedIds == null || it.applicantId in projectedIds }.map { form ->
             val applicant = application.applicants.find { it.applicantId == form.applicantId }
             val local = form.toBuilder().also { builder ->
                 applicant?.let { builder.setName(it.name).setRegion(it.region).setGender(it.gender)
                     .setGraduationType(it.graduationType).setAdmissionType(it.admissionType).setAddressBase(it.address) }
             }.build()
-            ApplicantExportProjectionJpaEntity(form.applicantId, form.userId, cipher.encrypt(local.toByteArray()))
-        }
+            ApplicantExportProjectionJpaEntity(form.applicantId, form.userId, cipher.encrypt(local.toByteArray()), form.statusVersion)
+        }.toMutableList()
         val projectionRepository = Proxy.newProxyInstance(javaClass.classLoader,
             arrayOf(ApplicantExportProjectionJpaRepository::class.java)) { _, method, args ->
                 when (method.name) {
                     "findById" -> Optional.ofNullable(projections.find { it.applicantId == args[0] })
+                    "findAllByDeletedFalse" -> projections.filter { !it.deleted }
+                    "findAllByApplicantIdInAndDeletedFalse" -> projections.filter { !it.deleted && it.applicantId in (args[0] as Collection<Long>) }
+                    "applyVersion" -> {
+                        val current = projections.find { it.applicantId == args[0] }
+                        if (current == null || current.eventVersion < args[3] as Long) {
+                            projections.remove(current)
+                            projections.add(ApplicantExportProjectionJpaEntity(args[0] as Long, args[1] as Long,
+                                args[2] as ByteArray, args[3] as Long, args[4] as Boolean))
+                        }
+                        1
+                    }
                     else -> error("unexpected projection call: ${method.name}")
                 }
             } as ApplicantExportProjectionJpaRepository

@@ -189,6 +189,10 @@ class GrpcApplicantDataAdapter(
                 listStub().batchGetApplicationForms(BatchGetApplicationFormsRequest.newBuilder()
                     .addAllAccountId(batch.map { it.userId }).build())
             }.applicationsList
+            val formsById = forms.associateBy { it.applicantId }
+            if (batch.any { applicant -> formsById[applicant.applicantId]?.userId != applicant.userId }) {
+                throw AdminDomainException(ErrorCode.APPLICANT_SYNC_PENDING)
+            }
             forms.forEach(projectionStore::save)
         }
         before.filter { it.applicantId !in ids }.forEach { projectionStore.removeIfUnchanged(it.applicantId, it.eventVersion) }
