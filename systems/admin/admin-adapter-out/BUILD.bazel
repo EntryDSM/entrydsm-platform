@@ -67,3 +67,12 @@ kt_jvm_test(
     test_class = "hs.kr.entrydsm.admin.adapterout.persistence.ApplicantProjectionStoreTest",
     deps = MODULE_DEPS + TEST_DEPS + [":main"],
 )
+
+kt_jvm_test(
+    name = "applicant_event_consumer_test",
+    srcs = ["src/test/kotlin/hs/kr/entrydsm/admin/adapterout/persistence/ApplicantExportEventConsumerTest.kt"],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.admin.adapterout.persistence.ApplicantExportEventConsumerTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
