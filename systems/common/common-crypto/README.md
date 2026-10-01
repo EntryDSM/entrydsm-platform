@@ -29,7 +29,6 @@ byte[] decrypted = cipher.decrypt(encrypted);
 
 - `APPLICATION_SNAPSHOT_KEY_ID`: 현재 암호화 키 ID.
 - `APPLICATION_SNAPSHOT_KEY_BASE64`: 현재 스냅샷 전용 키. 원본 `APPLICATION_PII_ENCRYPTION_KEY_BASE64`와 다른 키를 사용한다.
-- `APPLICATION_SNAPSHOT_LEGACY_KEY_BASE64`: 버전 1을 읽을 때만 필요한 이전 스냅샷 키. 기존 #349 데이터에서는 당시 application 개인정보 키다. 자동 fallback은 없다.
 
 이전 버전 2 키는 Spring의 `security.snapshot.previous-keys` 맵으로 설정한다. 키 ID를 다른 키 재료에 재사용하거나 현재 ID를 이 맵에 중복 등록하지 않는다.
 
@@ -40,21 +39,17 @@ security:
     current-key-base64: ${APPLICATION_SNAPSHOT_KEY_BASE64}
     previous-keys:
       snapshot-2026-09: ${APPLICATION_SNAPSHOT_PREVIOUS_KEY_BASE64}
-    legacy-key-base64: ${APPLICATION_SNAPSHOT_LEGACY_KEY_BASE64:}
 ```
 
 같은 스냅샷을 다루는 application/admin은 읽어야 하는 키 ID와 키 재료를 공유한다. 다른 서비스가 라이브러리를 사용한다고 같은 키를 제공할 필요는 없다. 키 설정은 환경변수·배포 Secret 등 서비스 설정에서 주입하고 저장소에는 실제 키를 기록하지 않는다.
 
-## 기존 형식 전환과 키 교체
+## 스냅샷 배포와 키 교체
 
-1. 새 스냅샷 키와 필요한 이전 키를 준비한다. 버전 1 데이터가 있으면 legacy 키를 명시한다.
-2. **admin을 먼저 배포한다.** 새 admin은 기존 버전 1과 새 버전 2를 읽는다. application은 아직 버전 1 이벤트를 발행해도 된다.
-3. application을 배포하여 버전 2로 발행한다. 이전 admin은 버전 2를 읽지 못하므로 이 단계 뒤에는 admin만 이전 바이너리로 되돌리지 않는다.
-4. 이후 키 교체는 모든 소비 서비스에 새 키를 읽을 수 있도록 먼저 배포한 뒤 현재 키 ID를 변경한다. 이전 버전 2 키는 `previous-keys`에 유지한다.
-5. 이전 키로 암호화된 모든 outbox·Redis 이벤트·실패 복구 대상·admin projection이 정리되거나 새 키로 재암호화된 것을 확인한 뒤 이전 키를 제거한다. admin의 활성 projection은 TTL로 만료되지 않고 같은 원서 버전의 대사는 payload를 갱신하지 않으므로, 이벤트 보관 기간 7일만 기다려서는 키를 제거할 수 없다. 자동 일괄 재암호화 작업은 이 모듈에 포함하지 않는다.
-
-legacy 키가 남아 있는 동안 admin은 이전 원본 개인정보 키에 접근할 수 있다. 기존 스냅샷 정리 또는 재암호화를 완료하고 legacy 설정을 제거해야 해당 키 접근도 해제된다.
+1. application/admin에 동일한 스냅샷 키 ID·키를 설정하고 두 서비스 모두 버전 2 스냅샷을 사용하는 코드로 전환한다.
+2. **버전 1 스냅샷은 읽지 않는다.** 기존 버전 1 이벤트·projection이 있는 환경은 별도 정리·버전 2 재적재 계획이 필요하다. 이 변경은 기존 DB/Redis 데이터를 자동으로 삭제하거나 마이그레이션하지 않는다. identity/application의 `v1.` 개인정보 문자열 형식과는 별개다.
+3. 버전 2 키 교체는 모든 소비 서비스에 새 키를 읽을 수 있도록 먼저 배포한 뒤 현재 키 ID를 변경한다. 이전 버전 2 키는 `previous-keys`에 유지한다.
+4. 이전 키로 암호화된 모든 outbox·Redis 이벤트·실패 복구 대상·admin projection이 정리되거나 새 키로 재암호화된 것을 확인한 뒤 이전 키를 제거한다. admin의 활성 projection은 TTL로 만료되지 않고 같은 원서 버전의 대사는 payload를 갱신하지 않으므로, 이벤트 보관 기간 7일만 기다려서는 키를 제거할 수 없다. 자동 일괄 재암호화 작업은 이 모듈에 포함하지 않는다.
 
 ## 검증
 
-`bazel test //systems/common/common-crypto:test`로 두 암호문 형식의 왕복 복호화, nonce 생성, 스냅샷 키 교체, 기존 형식 양방향 호환성, 잘못된 키와 암호문 변조를 검증한다. 각 서비스의 `snapshot_cipher_configuration_test`는 Spring 설정 바인딩과 잘못된 설정의 시작 실패를 검증한다. identity 전체 테스트와 application 개인정보 저장 테스트도 실행한다. Docker가 없으면 기존 identity MySQL·Redis·HTTP 통합 테스트는 조건부로 생략되므로 해당 환경의 검증 결과와 구분한다.
+`bazel test //systems/common/common-crypto:test`로 두 암호문 형식의 왕복 복호화, nonce 생성, 버전 2 스냅샷 키 교체, 버전 1 스냅샷 거부, 개인정보 문자열의 기존 형식 양방향 호환성, 잘못된 키와 암호문 변조를 검증한다. 각 서비스의 `snapshot_cipher_configuration_test`는 Spring 설정 바인딩과 잘못된 설정의 시작 실패를 검증한다. identity 전체 테스트와 application 개인정보 저장 테스트도 실행한다. Docker가 없으면 기존 identity MySQL·Redis·HTTP 통합 테스트는 조건부로 생략되므로 해당 환경의 검증 결과와 구분한다.

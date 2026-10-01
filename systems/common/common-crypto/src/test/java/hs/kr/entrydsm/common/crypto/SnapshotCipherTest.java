@@ -47,26 +47,23 @@ public class SnapshotCipherTest {
     }
 
     @Test
-    public void legacyVersionRequiresAnExplicitLegacyKey() throws Exception {
+    public void versionOneSnapshotsAreRejected() throws Exception {
         byte[] nonce = new byte[12];
         Arrays.fill(nonce, (byte) 5);
         Cipher original = Cipher.getInstance("AES/GCM/NoPadding");
         original.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(Base64.getDecoder().decode(OLD), "AES"),
                 new GCMParameterSpec(128, nonce));
         byte[] ciphertext = original.doFinal(PLAIN);
-        byte[] legacy = ByteBuffer.allocate(1 + nonce.length + ciphertext.length)
+        byte[] versionOne = ByteBuffer.allocate(1 + nonce.length + ciphertext.length)
                 .put((byte) 1).put(nonce).put(ciphertext).array();
-        assertArrayEquals(PLAIN, new SnapshotCipher("new", Map.of("new", NEW), OLD).decrypt(legacy));
         assertThrows(IllegalArgumentException.class,
-                () -> new SnapshotCipher("new", Map.of("new", OLD)).decrypt(legacy));
-        assertThrows(IllegalStateException.class,
-                () -> new SnapshotCipher("new", Map.of("new", NEW), NEW).decrypt(legacy));
+                () -> new SnapshotCipher("old", Map.of("old", OLD)).decrypt(versionOne));
     }
 
     @Test
     public void authenticationCoversKeyIdNonceAndPayload() {
         // 두 ID가 같은 키를 가리키더라도 헤더 변조를 검출한다.
-        SnapshotCipher cipher = new SnapshotCipher("old", Map.of("old", OLD, "new", OLD), OLD);
+        SnapshotCipher cipher = new SnapshotCipher("old", Map.of("old", OLD, "new", OLD));
         byte[] encrypted = cipher.encrypt(PLAIN);
         byte[] renamed = encrypted.clone();
         System.arraycopy("new".getBytes(StandardCharsets.US_ASCII), 0, renamed, 2, 3);
@@ -78,7 +75,7 @@ public class SnapshotCipherTest {
         }
         byte[] changedVersion = encrypted.clone();
         changedVersion[0] = 1;
-        assertThrows(IllegalStateException.class, () -> cipher.decrypt(changedVersion));
+        assertThrows(IllegalArgumentException.class, () -> cipher.decrypt(changedVersion));
         byte[] invalidLength = encrypted.clone();
         invalidLength[1] = (byte) 255;
         assertThrows(IllegalArgumentException.class, () -> cipher.decrypt(invalidLength));
@@ -98,7 +95,6 @@ public class SnapshotCipherTest {
         for (String id : new String[] {"", "한글", "a.b", "a".repeat(65)}) {
             assertThrows(IllegalArgumentException.class, () -> new SnapshotCipher(id, Map.of(id, NEW)));
         }
-        assertThrows(IllegalArgumentException.class, () -> new SnapshotCipher("new", Map.of("new", NEW), "invalid"));
     }
 
     private static String key(int size, byte value) {
