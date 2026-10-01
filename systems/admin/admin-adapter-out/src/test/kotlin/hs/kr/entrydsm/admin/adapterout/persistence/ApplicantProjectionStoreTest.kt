@@ -103,12 +103,15 @@ class ApplicantProjectionStoreTest {
         var deliveryCount = 1L
         var fresh = false
         @Suppress("UNCHECKED_CAST")
-        val operations = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(org.springframework.data.redis.core.StreamOperations::class.java)) { _, method, _ ->
+        val operations = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(org.springframework.data.redis.core.StreamOperations::class.java)) { _, method, args ->
             when (method.name) {
                 "createGroup" -> throw IllegalStateException("BUSYGROUP")
                 "pending" -> org.springframework.data.redis.connection.stream.PendingMessages(owner.group, if (fresh) emptyList() else listOf(org.springframework.data.redis.connection.stream.PendingMessage(record.id, owner, java.time.Duration.ofMinutes(1), deliveryCount)))
                 "claim" -> { calls.add("claim"); listOf(record) }
-                "read" -> if (fresh) listOf(record) else emptyList<Any>()
+                "read" -> {
+                    val offsets = args[2] as Array<org.springframework.data.redis.connection.stream.StreamOffset<String>>
+                    if (fresh && offsets.single().offset.offset == ">") listOf(record) else emptyList<Any>()
+                }
                 "acknowledge" -> { calls.add("ack"); 1L }
                 "add" -> { calls.add("quarantine"); org.springframework.data.redis.connection.stream.RecordId.of("2000-0") }
                 "trim" -> { calls.add("trim"); 0L }
@@ -121,7 +124,7 @@ class ApplicantProjectionStoreTest {
                 operations as org.springframework.data.redis.core.StreamOperations<String, HK, HV>
         }
         val metrics = io.micrometer.core.instrument.simple.SimpleMeterRegistry()
-        val consumer = ApplicantExportEventConsumer(redis, ApplicantProjectionStore(repository, SnapshotCipher("test", mapOf("test" to key))), metrics, "events")
+        val consumer = ApplicantExportEventConsumer(redis, ApplicantProjectionStore(repository, SnapshotCipher("test", mapOf("test" to key))), metrics, "events", "admin-1")
         consumer.receive()
         assertEquals(listOf("claim", "commit"), calls)
         fail = false; calls.clear(); consumer.receive()
