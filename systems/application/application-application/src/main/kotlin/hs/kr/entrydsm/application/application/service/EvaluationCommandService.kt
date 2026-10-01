@@ -13,6 +13,7 @@ import hs.kr.entrydsm.application.application.port.`in`.command.SaveSubjectGrade
 import hs.kr.entrydsm.application.application.port.`in`.result.AcademicRecordResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
+import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
@@ -22,8 +23,9 @@ import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.domain.nowUtc
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
-import java.time.LocalDateTime
+import org.springframework.transaction.annotation.Transactional
 
+@Transactional
 class EvaluationCommandService(
     private val applicantRepository: ApplicantRepository,
     private val scoreCalculator: ScoreCalculator,
@@ -156,12 +158,14 @@ class EvaluationCommandService(
         applicantRepository.save(applicant)
     }
 
-    /** 성적도 원서의 일부라 원서 접수 기간에만 받는다. */
+    /** 성적도 원서의 일부라 접수 기간에 작성 중인 원서만 수정한다. */
     private fun getWritableApplicant(accountId: Long?): Applicant {
         applicationPeriod.requireOpen()
         val id = requireAccountId(accountId)
-        return applicantRepository.findByAccountId(id)
+        val applicant = applicantRepository.findByAccountId(id)
             ?: throw ApplicantNotFoundException(id)
+        APPLICATION_NOT_EDITABLE.requireValid(applicant.status == ApplicantStatus.DRAFT)
+        return applicant
     }
 
     private fun requireAccountId(accountId: Long?): Long =
