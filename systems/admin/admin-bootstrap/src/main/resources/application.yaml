@@ -87,4 +87,3 @@ security:
   snapshot:
     current-key-id: ${APPLICATION_SNAPSHOT_KEY_ID}
     current-key-base64: ${APPLICATION_SNAPSHOT_KEY_BASE64}
-    legacy-key-base64: ${APPLICATION_SNAPSHOT_LEGACY_KEY_BASE64:}

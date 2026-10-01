@@ -13,13 +13,12 @@ class SnapshotCipherConfigurationTest {
     private val previous = Base64.getEncoder().encodeToString(ByteArray(32) { 7 })
 
     @Test
-    fun `Spring 설정으로 현재 키 이전 키와 legacy 키를 주입한다`() {
+    fun `Spring 설정으로 현재 키와 이전 키를 주입한다`() {
         AnnotationConfigApplicationContext().use { context ->
             context.environment.propertySources.addFirst(MapPropertySource("snapshot-test", mapOf(
                 "security.snapshot.current-key-id" to "new",
                 "security.snapshot.current-key-base64" to current,
                 "security.snapshot.previous-keys.old" to previous,
-                "security.snapshot.legacy-key-base64" to previous,
             )))
             context.register(SnapshotCipherConfiguration::class.java)
             context.refresh()
@@ -27,7 +26,6 @@ class SnapshotCipherConfigurationTest {
             val plaintext = "개인정보".toByteArray()
             assertArrayEquals(plaintext, cipher.decrypt(SnapshotCipher("old", mapOf("old" to previous)).encrypt(plaintext)))
             assertArrayEquals(plaintext, SnapshotCipher("new", mapOf("new" to current)).decrypt(cipher.encrypt(plaintext)))
-            assertEquals(previous, context.getBean(SnapshotCipherProperties::class.java).legacyKeyBase64)
         }
     }
 

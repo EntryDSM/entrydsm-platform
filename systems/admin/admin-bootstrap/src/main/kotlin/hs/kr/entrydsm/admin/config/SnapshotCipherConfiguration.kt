@@ -12,7 +12,6 @@ class SnapshotCipherProperties(
     val currentKeyId: String,
     val currentKeyBase64: String,
     val previousKeys: Map<String, String> = emptyMap(),
-    val legacyKeyBase64: String? = null,
 )
 
 @Configuration(proxyBeanMethods = false)
@@ -23,6 +22,6 @@ class SnapshotCipherConfiguration {
     fun snapshotCipher(properties: SnapshotCipherProperties): SnapshotCipher {
         require(properties.currentKeyId !in properties.previousKeys) { "Current snapshot key ID must not be reused in previous keys" }
         return SnapshotCipher(properties.currentKeyId,
-            properties.previousKeys + (properties.currentKeyId to properties.currentKeyBase64), properties.legacyKeyBase64)
+            properties.previousKeys + (properties.currentKeyId to properties.currentKeyBase64))
     }
 }
