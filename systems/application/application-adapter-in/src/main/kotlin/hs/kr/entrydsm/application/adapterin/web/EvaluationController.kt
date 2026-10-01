@@ -17,6 +17,7 @@ import hs.kr.entrydsm.application.application.exception.ApplicationErrorCode.*
 import hs.kr.entrydsm.application.application.exception.ApplicationValidationException
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.model.GedScores
+import jakarta.validation.Valid
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
@@ -78,7 +79,7 @@ class EvaluationController(
     @PostMapping("/academic-records")
     fun saveAcademicRecords(
         @RequestHeader(USER_ID_HEADER) accountId: Long,
-        @RequestBody request: SaveAcademicRecordRequest,
+        @Valid @RequestBody request: SaveAcademicRecordRequest,
     ): ApiResponse<AcademicRecordResponse> {
         val result = evaluationPort.saveAcademicRecord(
             SaveAcademicRecordCommand(

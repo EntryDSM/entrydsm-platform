@@ -3,6 +3,7 @@ package hs.kr.entrydsm.application.application.service
 import hs.kr.entrydsm.application.application.exception.ApplicationErrorCode.*
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.AuthenticationRequiredException
+import hs.kr.entrydsm.application.application.exception.EvaluationValidationException
 import hs.kr.entrydsm.application.application.port.`in`.EvaluationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CalculateEvaluationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SaveAcademicRecordCommand
@@ -14,6 +15,7 @@ import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
+import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.GedScores
@@ -72,6 +74,14 @@ class EvaluationCommandService(
     ) {
         val applicant = getWritableApplicant(accountId)
         APPLICATION_SUBJECTS_NOT_ALLOWED.requireValid(applicant.graduationType != GraduationType.GED)
+        if (
+            schoolSemester == SchoolSemester.THIRD_GRADE_FIRST_SEMESTER &&
+                listOf(
+                    subjectGrades.koreanGrade, subjectGrades.mathGrade, subjectGrades.englishGrade,
+                    subjectGrades.scienceGrade, subjectGrades.societyGrade, subjectGrades.technologyGrade,
+                    subjectGrades.historyGrade,
+                ).all { it == SubjectGrade.X }
+        ) { throw EvaluationValidationException("3학년 1학기 성적 입력은 필수입니다") }
         val record = getOrCreateAcademicRecord(applicant)
         record.gedScores = null
         record.subjectGrades[schoolSemester] = subjectGrades
@@ -134,7 +144,13 @@ class EvaluationCommandService(
 
     fun calculateResult(accountId: Long?) {
         val applicant = getWritableApplicant(accountId)
-        applicant.totalScore = scoreCalculator.calculate(applicant)
+        applicant.totalScore = try {
+            requireNotNull(applicant.graduationType) { "졸업 구분이 누락되었습니다" }
+            requireNotNull(applicant.academicRecord) { "성적 및 출결·봉사활동 기록이 누락되었습니다" }
+            scoreCalculator.calculate(applicant)
+        } catch (exception: IllegalArgumentException) {
+            throw EvaluationValidationException(exception.message ?: "평가에 필요한 성적을 확인해주세요")
+        }
         applicant.totalScoreUpdatedAt = nowUtc()
         applicant.touch()
         applicantRepository.save(applicant)

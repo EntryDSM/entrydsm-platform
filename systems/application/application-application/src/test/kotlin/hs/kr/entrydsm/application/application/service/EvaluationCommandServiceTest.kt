@@ -39,6 +39,50 @@ class EvaluationCommandServiceTest {
     }
 
     @Test
+    fun calculateResultReportsMissingDataWithoutSavingScores() {
+        val applicant = Applicant(id = 1L, accountId = 10L, graduationType = GraduationType.PROSPECTIVE)
+        val cases = listOf(
+            applicant.copy(graduationType = null) to "졸업 구분이 누락되었습니다",
+            applicant to "성적 및 출결·봉사활동 기록이 누락되었습니다",
+            applicant.copy(academicRecord = AcademicRecord()) to "전형 구분이 누락되었습니다",
+            applicant.copy(admissionType = AdmissionType.REGULAR, academicRecord = AcademicRecord()) to "3학년 1학기 성적이 누락되었습니다",
+            applicant.copy(admissionType = AdmissionType.REGULAR, graduationType = GraduationType.GED, academicRecord = AcademicRecord()) to "검정고시 성적이 누락되었습니다",
+            applicant.copy(admissionType = AdmissionType.REGULAR, graduationType = GraduationType.GRADUATED, academicRecord = AcademicRecord(
+                subjectGrades = linkedMapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.X)),
+            )) to "반영 가능한 교과 성적이 없습니다. 모든 과목이 X인지 확인해주세요",
+            applicant.copy(admissionType = AdmissionType.REGULAR, academicRecord = AcademicRecord(
+                subjectGrades = linkedMapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.X)),
+            )) to "3학년 1학기 성적 입력은 필수입니다",
+        )
+        cases.forEach { (incomplete, message) ->
+            val repository = FakeApplicantRepository(incomplete)
+            val exception = assertThrows(IllegalArgumentException::class.java) {
+                EvaluationCommandService(repository, ScoreCalculator(), OPEN).calculateResult(10L)
+            }
+            assertEquals(message, exception.message)
+            assertNull(repository.savedApplicant)
+            assertEquals(0.0, incomplete.totalScore, 0.0)
+            assertNull(incomplete.totalScoreUpdatedAt)
+        }
+    }
+
+    @Test
+    fun thirdGradeFirstSemesterRequiresAtLeastOneGradeForBothGraduationTypes() {
+        listOf(GraduationType.PROSPECTIVE, GraduationType.GRADUATED).forEach { graduationType ->
+            val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L, graduationType = graduationType))
+            val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
+            val exception = assertThrows(IllegalArgumentException::class.java) {
+                service.saveSubjectGrades(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.X))
+            }
+            assertEquals("3학년 1학기 성적 입력은 필수입니다", exception.message)
+            assertNull(repository.savedApplicant)
+            service.saveSubjectGrades(10L, SchoolSemester.SECOND_GRADE_FIRST_SEMESTER, all(SubjectGrade.X))
+            service.saveSubjectGrades(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.X).copy(historyGrade = SubjectGrade.A))
+            assertEquals(SubjectGrade.A, repository.savedApplicant?.academicRecord?.subjectGrades?.get(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER)?.historyGrade)
+        }
+    }
+
+    @Test
     fun calculateResultSavesScoreForApplicantsAdmissionType() {
         val repository = FakeApplicantRepository(
             Applicant(

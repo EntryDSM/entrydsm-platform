@@ -12,6 +12,7 @@ import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedE
 import hs.kr.entrydsm.application.application.exception.ApplicationErrorCode
 import hs.kr.entrydsm.application.application.exception.AccountPhoneLookupFailedException
 import hs.kr.entrydsm.application.application.exception.ApplicationValidationException
+import hs.kr.entrydsm.application.application.exception.EvaluationValidationException
 import jakarta.servlet.http.HttpServletRequest
 import tools.jackson.core.JsonToken
 import tools.jackson.databind.exc.InvalidNullException
@@ -37,6 +38,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException
 @RestControllerAdvice
 class GlobalExceptionHandler {
     private val logger = LoggerFactory.getLogger(javaClass)
+
+    @ExceptionHandler(EvaluationValidationException::class)
+    fun handleEvaluationValidation(exception: EvaluationValidationException): ResponseEntity<ErrorResponse> =
+        response(HttpStatus.BAD_REQUEST, "INVALID_REQUEST", exception.message ?: "평가에 필요한 성적을 확인해주세요")
 
     @ExceptionHandler(AccountPhoneLookupFailedException::class)
     fun handleAccountPhoneLookupFailed(exception: AccountPhoneLookupFailedException): ResponseEntity<ErrorResponse> =
