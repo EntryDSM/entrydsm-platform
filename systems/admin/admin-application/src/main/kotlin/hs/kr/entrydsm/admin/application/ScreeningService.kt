@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.admin.application
 
 import hs.kr.entrydsm.admin.domain.command.EvaluateScreeningCommand
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
@@ -62,26 +63,28 @@ class ScreeningService(
     }
 
     /**
-     * 지원자 한 명의 최종 합격 여부를 산출해 상태에 반영합니다.
+     * 1차 합격자 한 명을 최종 합격자로 등록합니다.
      *
-     * 정원 안에 드는지 보려면 순위가 필요해 회차 전체를 읽는다.
-     * ponytail: 지원자가 수백 명 수준이라 지금은 매 호출마다 전체를 읽어도 충분하다.
-     * 규모가 커지면 순위 계산을 쿼리로 내린다.
+     * 2차(면접) 결과는 시스템에 없어 관리자가 합격자를 고른다. 서버는 순위를 다시 매기지 않고
+     * `FIRST_PASS` -> `FINAL_PASS` 로 바꾸기만 한다. 이미 등록한 지원자는 다시 불러도 그대로 둔다.
+     * 등록을 되돌리려면 지원자 상태 강제 변경을 쓴다.
      */
     @Transactional
     override fun evaluateFinal(applicantId: Long): FinalScreeningResult {
-        val applicants = applicantRepository.findAll()
-        val applicant = applicants.find { it.id == applicantId }
+        val applicant = applicantRepository.findById(applicantId)
             ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
-
-        val status = ScreeningPolicy.evaluateFinal(applicant, applicants, currentQuota().quotas)
         val now = Instant.now(clock)
 
-        applicantRepository.save(applicant.copy(status = status, updatedAt = now))
+        if (applicant.status != ApplicantStatus.FINAL_PASS) {
+            if (!applicant.status.canTransitionTo(ApplicantStatus.FINAL_PASS)) {
+                throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+            }
+            applicantRepository.save(applicant.copy(status = ApplicantStatus.FINAL_PASS, updatedAt = now))
+        }
 
         return FinalScreeningResult(
             applicantId = applicantId,
-            status = status,
+            status = ApplicantStatus.FINAL_PASS,
             processedAt = now,
         )
     }

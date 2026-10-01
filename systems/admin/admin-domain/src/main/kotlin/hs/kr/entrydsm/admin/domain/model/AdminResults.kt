@@ -28,9 +28,9 @@ data class ScreeningResult(
 )
 
 /**
- * 지원자 한 명의 최종 합격 산출 결과입니다.
+ * 지원자 한 명의 최종 합격 등록 결과입니다.
  *
- * @property status 산출된 최종 상태. 산출되지 않으면 `FINAL_FAIL`
+ * @property status 등록된 최종 상태. 항상 `FINAL_PASS`
  */
 data class FinalScreeningResult(
     val applicantId: Long,
