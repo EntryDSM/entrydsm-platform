@@ -6,6 +6,7 @@ import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbo
 import hs.kr.entrydsm.application.grpc.ApplicantStatus
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
 import hs.kr.entrydsm.application.grpcmapping.toGrpcForm
+import hs.kr.entrydsm.common.crypto.SnapshotCipher
 import hs.kr.entrydsm.application.grpc.PassStatus
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.ResultType
@@ -36,9 +37,8 @@ interface ApplicantStatusOutboxJpaRepository : JpaRepository<ApplicantStatusOutb
 @Repository
 class ApplicantStatusOutboxAdapter(
     private val repository: ApplicantStatusOutboxJpaRepository,
-    @org.springframework.beans.factory.annotation.Value("\${security.pii.encryption-key-base64}") key: String,
+    private val cipher: SnapshotCipher,
 ) : ApplicantStatusEventOutbox {
-    private val cipher = hs.kr.entrydsm.contracts.SnapshotCipher(key)
     override fun add(event: ApplicantStatusChanged) {
         val payload = ApplicantStatusChangedEvent.newBuilder()
             .setEventId(event.eventId.toString())
