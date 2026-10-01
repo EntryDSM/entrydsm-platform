@@ -68,7 +68,7 @@ enum class ApplicationErrorCode(
     APPLICATION_STUDENT_NUMBER_INVALID_TYPE("studentNumber", "INVALID_TYPE", "학번 항목의 데이터 형식을 확인해주세요."),
     APPLICATION_STUDENT_NUMBER_TOO_LONG("studentNumber", "TOO_LONG", "학번 항목은 8자 이내로 입력해주세요."),
     APPLICATION_STUDENT_NUMBER_INVALID_FORMAT("studentNumber", "INVALID_FORMAT", "학번은 5자리 숫자로 입력해주세요."),
-    APPLICATION_STUDENT_NUMBER_OUT_OF_RANGE("studentNumber", "OUT_OF_RANGE", "중학교 학년은 1~3 사이로 입력해주세요"),
+    APPLICATION_STUDENT_NUMBER_OUT_OF_RANGE("studentNumber", "OUT_OF_RANGE", "중학교 학년은 1~3, 반과 번호는 각각 01~99 사이로 입력해주세요."),
     APPLICATION_SCHOOL_PHONE_REQUIRED("schoolPhone", "REQUIRED", "학교 전화번호 항목을 입력해주세요."),
     APPLICATION_SCHOOL_PHONE_INVALID_TYPE("schoolPhone", "INVALID_TYPE", "학교 전화번호 항목의 데이터 형식을 확인해주세요."),
     APPLICATION_SCHOOL_PHONE_TOO_LONG("schoolPhone", "TOO_LONG", "학교 전화번호 항목은 16자 이내로 입력해주세요."),

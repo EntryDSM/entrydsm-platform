@@ -69,10 +69,12 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
-    fun studentNumberMustHaveFiveDigitsAndGradeBetweenOneAndThree() {
+    fun studentNumberMustHaveFiveDigitsAndValidGradeClassAndNumber() {
         val cases = listOf(
-            "10314" to null, "30401" to null,
+            "10314" to null, "30401" to null, "30101" to null,
+            "10101" to null, "20199" to null, "39901" to null, "39999" to null,
             "54441" to "OUT_OF_RANGE", "00314" to "OUT_OF_RANGE",
+            "30000" to "OUT_OF_RANGE", "30001" to "OUT_OF_RANGE", "30100" to "OUT_OF_RANGE",
             "1031" to "INVALID_FORMAT", "103140" to "INVALID_FORMAT",
             "10가14" to "INVALID_FORMAT", "１０３１４" to "INVALID_FORMAT",
         )
@@ -86,8 +88,9 @@ class ApplicationCommandServiceTest {
             } else {
                 val exception = assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) { update() }
                 assertEquals("APPLICATION_STUDENT_NUMBER_$reason", exception.errorCode.name)
-                if (reason == "OUT_OF_RANGE") assertEquals("중학교 학년은 1~3 사이로 입력해주세요", exception.message)
+                if (reason == "OUT_OF_RANGE") assertEquals("중학교 학년은 1~3, 반과 번호는 각각 01~99 사이로 입력해주세요.", exception.message)
                 assertNull(repository.savedApplicant)
+                assertNull(repository.findByAccountId(10L)?.middleSchoolInfo)
             }
         }
     }
@@ -470,7 +473,7 @@ class ApplicationCommandServiceTest {
             totalScoreUpdatedAt = null
         }
 
-        val form = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN).findApplicationForm(10L)
+        val form = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN, ACCEPT_PHONE).findApplicationForm(10L)
 
         assertEquals(170.0, form?.score?.totalScore ?: 0.0, 0.0)
     }
