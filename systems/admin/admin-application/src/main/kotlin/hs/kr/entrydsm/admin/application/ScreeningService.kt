@@ -36,6 +36,9 @@ class ScreeningService(
 
     /**
      * 1차(서류) 합격자를 산출합니다. 묶음별 정원은 모집 정원 × 배수(올림)다.
+     *
+     * 다시 실행하면 이미 1차 결과를 받은 지원자까지 다시 줄 세워 정원 안에서만 합격시킨다.
+     * 최종 결과를 받은 지원자가 하나라도 있으면 다시 산출하지 않는다.
      */
     @Transactional
     override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult {

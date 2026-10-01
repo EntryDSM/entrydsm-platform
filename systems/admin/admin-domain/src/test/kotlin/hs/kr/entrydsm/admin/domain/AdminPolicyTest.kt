@@ -178,6 +178,39 @@ class AdminPolicyTest {
     }
 
     @Test
+    fun `1차를 다시 산출하면 이미 산출된 지원자와 함께 줄 세워 정원을 넘기지 않는다`() {
+        val outcome = ScreeningPolicy.evaluate(
+            listOf(
+                applicant(id = 1L, examineeNumber = "100001", totalScore = 80.0, status = ApplicantStatus.FIRST_PASS),
+                applicant(id = 2L, examineeNumber = "100002", totalScore = 70.0, status = ApplicantStatus.FIRST_PASS),
+                applicant(id = 3L, examineeNumber = "100003", totalScore = 60.0, status = ApplicantStatus.FIRST_FAIL),
+                applicant(id = 4L, examineeNumber = "100004", totalScore = 95.0),
+            ),
+            stage = ScreeningStage.FIRST,
+            quotas = quotas(2),
+        )
+
+        assertEquals(listOf(4L, 1L), outcome.passed.map { it.id })
+        assertEquals(listOf(2L, 3L), outcome.failed.map { it.id })
+    }
+
+    @Test
+    fun `최종 결과를 받은 지원자가 있으면 1차를 다시 산출할 수 없다`() {
+        val exception = runCatching {
+            ScreeningPolicy.evaluate(
+                listOf(
+                    applicant(id = 1L, examineeNumber = "100001", totalScore = 80.0, status = ApplicantStatus.FINAL_PASS),
+                    applicant(id = 2L, examineeNumber = "100002", totalScore = 95.0),
+                ),
+                stage = ScreeningStage.FIRST,
+                quotas = quotas(1),
+            )
+        }.exceptionOrNull()
+
+        assertEquals(ErrorCode.INVALID_STATUS_TRANSITION, (exception as AdminDomainException).errorCode)
+    }
+
+    @Test
     fun `원서 미도착·수험 번호 미발급·전형이 빈 지원자는 산출에서 제외한다`() {
         val outcome = ScreeningPolicy.evaluate(
             listOf(

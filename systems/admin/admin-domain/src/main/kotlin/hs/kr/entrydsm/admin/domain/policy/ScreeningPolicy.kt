@@ -3,6 +3,8 @@ package hs.kr.entrydsm.admin.domain.policy
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.model.Applicant
+import hs.kr.entrydsm.admin.domain.enum.ErrorCode
+import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 
 /**
  * 합격자 산출 규칙입니다.
@@ -11,6 +13,9 @@ import hs.kr.entrydsm.admin.domain.model.Applicant
  * 전형이 비어 묶을 수 없는 지원자는 평가에서 제외한다. 지원자를 전형별로
  * 나눠 총점 내림차순으로 해당 전형의 정원까지 채우고, 동점이면 지원자 번호가
  * 빠른 지원자를 우선한다.
+ *
+ * 같은 단계를 다시 산출하면 그 단계 결과를 이미 받은 지원자도 함께 다시 줄 세운다.
+ * 늦게 평가 조건을 갖춘 지원자가 기존 합격자를 밀어낼 수 있고, 정원은 넘지 않는다.
  */
 object ScreeningPolicy {
 
@@ -18,13 +23,18 @@ object ScreeningPolicy {
      * @param applicants 회차에 속한 지원자 전체
      * @param stage 산출 단계
      * @param quotas 해당 단계의 전형별 합격 정원. 없는 전형은 정원 0으로 본다
+     * @throws AdminDomainException 다음 단계 결과를 받은 지원자가 있을 때. 그 지원자는 다시 줄 세울 수
+     *   없어 자리가 비고, 정원을 넘겨 뽑게 된다
      */
     fun evaluate(
         applicants: List<Applicant>,
         stage: ScreeningStage,
         quotas: Map<AdmissionType, Int>,
     ): ScreeningOutcome {
-        val candidates = applicants.filter { it.status == stage.from }
+        if (applicants.any { stage.pass.canTransitionTo(it.status) }) {
+            throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        }
+        val candidates = applicants.filter { it.status in setOf(stage.from, stage.pass, stage.fail) }
         val (evaluable, excluded) = candidates.partition(::isEvaluable)
 
         val passed = mutableListOf<Applicant>()
