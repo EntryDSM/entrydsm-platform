@@ -1,5 +1,7 @@
 package hs.kr.entrydsm.gateway.adapterin.configuration
 
+import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
+import org.springframework.http.HttpStatus
 import org.springframework.cloud.gateway.config.GlobalCorsProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -13,7 +15,7 @@ import org.springframework.security.web.server.util.matcher.OrServerWebExchangeM
 import org.springframework.security.web.server.util.matcher.PathPatternParserServerWebExchangeMatcher
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.web.cors.reactive.CorsWebFilter
+import org.springframework.web.cors.reactive.CorsConfigurationSource
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
 
 @Configuration(proxyBeanMethods = false)
@@ -21,16 +23,16 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
 class SecurityWebConfig {
 
     @Bean
-    fun corsWebFilter(corsProperties: GlobalCorsProperties): CorsWebFilter =
-        CorsWebFilter(
-            UrlBasedCorsConfigurationSource().apply {
-                registerCorsConfiguration("/**", corsProperties.corsConfigurations.getValue("/**"))
-            },
-        )
+    fun corsConfigurationSource(corsProperties: GlobalCorsProperties): CorsConfigurationSource =
+        UrlBasedCorsConfigurationSource().apply {
+            registerCorsConfiguration("/**", corsProperties.corsConfigurations.getValue("/**"))
+        }
 
     @Bean
     fun securityWebFilterChain(
         http: ServerHttpSecurity,
+        responseWriter: GatewayErrorResponseWriter,
+        corsConfigurationSource: CorsConfigurationSource,
         @Value("\${gateway.security.secure-cookies:true}") secureCookies: Boolean,
     ): SecurityWebFilterChain {
         val csrfTokenRepository =
@@ -48,6 +50,7 @@ class SecurityWebConfig {
             }
 
         return http
+            .cors { it.configurationSource(corsConfigurationSource) }
             .csrf {
                 it
                     .csrfTokenRepository(csrfTokenRepository)
@@ -55,6 +58,9 @@ class SecurityWebConfig {
                         ServerCsrfTokenRequestAttributeHandler(),
                     )
                     .requireCsrfProtectionMatcher(csrfProtectionMatcher())
+                    .accessDeniedHandler { exchange, _ ->
+                        responseWriter.write(exchange, HttpStatus.FORBIDDEN, "CSRF_INVALID")
+                    }
             }
             .formLogin { it.disable() }
             .httpBasic { it.disable() }

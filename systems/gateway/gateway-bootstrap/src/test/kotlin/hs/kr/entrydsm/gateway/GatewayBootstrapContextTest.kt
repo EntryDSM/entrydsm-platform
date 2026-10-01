@@ -74,4 +74,17 @@ class GatewayBootstrapContextTest {
             .expectHeader().valueEquals("Access-Control-Allow-Origin", "https://stag-auth.entrydsm.hs.kr")
             .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
     }
+
+    @Test
+    fun returnsJsonAndCorsHeadersWhenSecurityRejectsCsrf() {
+        WebTestClient.bindToApplicationContext(applicationContext)
+            .configureClient().baseUrl("http://gateway.local").build()
+            .post().uri("/api/identity/v11/auth/login")
+            .header("Origin", "https://stag-auth.entrydsm.hs.kr")
+            .exchange().expectStatus().isForbidden
+            .expectHeader().valueEquals("Access-Control-Allow-Origin", "https://stag-auth.entrydsm.hs.kr")
+            .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
+            .expectHeader().contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+            .expectBody().jsonPath("$.error").isEqualTo("CSRF_INVALID")
+    }
 }

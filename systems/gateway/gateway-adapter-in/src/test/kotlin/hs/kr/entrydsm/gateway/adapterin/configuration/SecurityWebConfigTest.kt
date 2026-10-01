@@ -1,6 +1,9 @@
 package hs.kr.entrydsm.gateway.adapterin.configuration
 
 import hs.kr.entrydsm.gateway.adapterin.web.CsrfController
+import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
+import org.springframework.http.MediaType
+import tools.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -34,6 +37,8 @@ class SecurityWebConfigTest {
         client = WebTestClient
             .bindToApplicationContext(context)
             .apply(springSecurity())
+            .configureClient()
+            .baseUrl("http://gateway.local")
             .build()
     }
 
@@ -51,6 +56,41 @@ class SecurityWebConfigTest {
             .uri("/test")
             .exchange()
             .expectStatus().isForbidden
+            .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            .expectBody().jsonPath("$.error").isEqualTo("CSRF_INVALID")
+    }
+
+    @Test
+    fun `CSRF 거절에도 CORS 헤더와 JSON 오류를 제공하고 재발급 후 복구한다`() {
+        val issued = issueCsrfToken()
+        for (token in listOf(null, "invalid-token")) {
+            val request = client.post().uri("/test")
+                .header("Origin", "http://localhost")
+                .cookie(CSRF_COOKIE, issued.cookie.value)
+            if (token != null) request.header(CSRF_HEADER, token)
+            request.exchange()
+                .expectStatus().isForbidden
+                .expectHeader().valueEquals("Access-Control-Allow-Origin", "http://localhost")
+                .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
+                .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody().jsonPath("$.error").isEqualTo("CSRF_INVALID")
+        }
+        val renewed = issueCsrfToken()
+        client.post().uri("/test")
+            .header("Origin", "http://localhost")
+            .cookie(CSRF_COOKIE, renewed.cookie.value)
+            .header(CSRF_HEADER, renewed.token)
+            .exchange().expectStatus().isOk
+    }
+
+    @Test
+    fun `허용된 Origin의 사전 요청은 CSRF 없이 통과한다`() {
+        client.options().uri("/test")
+            .header("Origin", "http://localhost")
+            .header("Access-Control-Request-Method", "POST")
+            .header("Access-Control-Request-Headers", CSRF_HEADER)
+            .exchange().expectStatus().isOk
+            .expectHeader().valueEquals("Access-Control-Allow-Origin", "http://localhost")
     }
 
     @Test
@@ -156,8 +196,12 @@ class SecurityWebConfigTest {
     @Import(
         SecurityWebConfig::class,
         CsrfController::class,
+        GatewayErrorResponseWriter::class,
     )
     class TestConfig {
+
+        @Bean
+        fun objectMapper(): ObjectMapper = ObjectMapper()
 
         @Bean
         fun testController(): TestController = TestController()
@@ -166,6 +210,9 @@ class SecurityWebConfigTest {
         fun globalCorsProperties(): GlobalCorsProperties = GlobalCorsProperties().apply {
             corsConfigurations["/**"] = CorsConfiguration().apply {
                 allowedOrigins = listOf("http://localhost")
+                allowedMethods = listOf("GET", "POST", "OPTIONS")
+                allowedHeaders = listOf("*")
+                allowCredentials = true
             }
         }
     }

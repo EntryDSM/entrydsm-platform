@@ -5,6 +5,9 @@ import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import org.springframework.scheduling.annotation.Scheduled
 import org.slf4j.LoggerFactory
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
+import hs.kr.entrydsm.admin.adapterout.entity.ScreeningResultOutboxJpaEntity
+import hs.kr.entrydsm.admin.adapterout.repository.ScreeningResultOutboxJpaRepository
+import org.springframework.transaction.annotation.Transactional
 import hs.kr.entrydsm.admin.adapterout.repository.ApplicantExportProjectionJpaRepository
 import hs.kr.entrydsm.admin.adapterout.repository.ScreeningJpaRepository
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
@@ -63,6 +66,7 @@ class GrpcApplicantDataAdapter(
     private val screeningJpaRepository: ScreeningJpaRepository,
     private val exportProjectionRepository: ApplicantExportProjectionJpaRepository,
     private val projectionStore: ApplicantProjectionStore,
+    private val resultOutboxRepository: ScreeningResultOutboxJpaRepository,
 ) : ApplicantRepository, ApplicantArrivalPort, ApplicantDeletionPort {
     private val stub = ApplicationServiceGrpc.newBlockingStub(grpc.channel)
 
@@ -227,15 +231,23 @@ class GrpcApplicantDataAdapter(
             if (exception.status.code in NO_APPLICANT) null else throw exception.toApplicationException()
         }
 
+    @Transactional
     override fun save(applicant: Applicant): Applicant {
+        val previous = screeningJpaRepository.findForUpdate(applicant.id)?.status ?: ApplicantStatus.PENDING
         screeningJpaRepository.save(applicant.toScreening())
+        if (previous != applicant.status) {
+            resultOutboxRepository.save(ScreeningResultOutboxJpaEntity(
+                applicantId = applicant.id, status = applicant.status,
+                createdAt = applicant.updatedAt ?: Instant.now(),
+            ))
+        }
         syncExamineeNumber(applicant)
         return applicant
     }
 
+    @Transactional
     override fun saveAll(applicants: List<Applicant>): List<Applicant> {
-        screeningJpaRepository.saveAll(applicants.map { it.toScreening() })
-        applicants.forEach(::syncExamineeNumber)
+        applicants.sortedBy { it.id }.forEach { save(it) }
         return applicants
     }
 

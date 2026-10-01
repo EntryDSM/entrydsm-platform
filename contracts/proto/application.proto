@@ -209,6 +209,14 @@ message AcademicRecord {
     bool programming_certified = 7;
 }
 
+// 관리자 결과의 version은 관리자 outbox의 단조 증가 ID이다.
+message ScreeningResultChangedEvent {
+    int64 applicant_id = 1;
+    int64 version = 2;
+    PassStatus pass_status = 3;
+    int64 occurred_at_epoch_millis = 4;
+}
+
 message ApplicantStatusChangedEvent {
     string event_id = 1;
     int64 account_id = 2;

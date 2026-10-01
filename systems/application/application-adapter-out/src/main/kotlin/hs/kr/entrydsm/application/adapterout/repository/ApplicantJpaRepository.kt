@@ -11,8 +11,14 @@ import java.time.LocalDateTime
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.jpa.repository.Lock
+import jakarta.persistence.LockModeType
 
 interface ApplicantJpaRepository : JpaRepository<ApplicantJpaEntity, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from ApplicantJpaEntity a where a.id = :id")
+    fun findForUpdate(id: Long): ApplicantJpaEntity?
+
     fun findByAccountId(accountId: Long): ApplicantJpaEntity?
 
     @EntityGraph(attributePaths = ["middleSchoolInfo", "academicRecord", "academicRecord.subjectGrades", "academicRecord.gedScores"])

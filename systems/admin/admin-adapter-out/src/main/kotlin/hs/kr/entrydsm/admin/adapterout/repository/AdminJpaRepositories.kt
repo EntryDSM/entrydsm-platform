@@ -6,6 +6,7 @@ import hs.kr.entrydsm.admin.adapterout.entity.ApplicantExportProjectionJpaEntity
 import hs.kr.entrydsm.admin.adapterout.entity.ExportJobJpaEntity
 import hs.kr.entrydsm.admin.adapterout.entity.ScorePolicyJpaEntity
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
+import hs.kr.entrydsm.admin.adapterout.entity.ScreeningResultOutboxJpaEntity
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
@@ -15,7 +16,16 @@ import org.springframework.data.jpa.repository.Lock
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
+interface ScreeningResultOutboxJpaRepository : JpaRepository<ScreeningResultOutboxJpaEntity, Long> {
+    @Query(value = "SELECT * FROM screening_result_outbox WHERE published_at IS NULL ORDER BY id LIMIT 100 FOR UPDATE SKIP LOCKED", nativeQuery = true)
+    fun findUnpublishedForUpdate(): List<ScreeningResultOutboxJpaEntity>
+}
+
 interface ScreeningJpaRepository : JpaRepository<ScreeningJpaEntity, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from ScreeningJpaEntity s where s.applicantId = :applicantId")
+    fun findForUpdate(@Param("applicantId") applicantId: Long): ScreeningJpaEntity?
+
     fun existsByStatus(status: ApplicantStatus): Boolean
 }
 
