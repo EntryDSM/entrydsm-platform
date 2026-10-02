@@ -10,6 +10,8 @@ import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.ErrorCode
+import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.enum.GraduationStatus
 import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.enum.ResidenceRegion
@@ -168,6 +170,22 @@ class AdminAdapterInModuleTest {
 
         assertEquals(204, response.statusCode.value())
         assertEquals(7L, deletedId)
+    }
+
+    @Test
+    fun exposesSafeExportFailureDetails() {
+        val job = ExportJob(exportJobId = "exp_failed", type = ExportType.APPLICATION_CHECKLIST,
+            status = ExportStatus.PROCESSING, createdAt = Instant.EPOCH, totalCount = 3)
+            .failed(Instant.EPOCH, ErrorCode.APPLICATION_FORM_INVALID, 1)
+        val response = hs.kr.entrydsm.admin.domain.model.ExportJobView(job, null).toResponse()
+        assertEquals("APPLICATION_FORM_INVALID", response.failureCode)
+        assertEquals(ErrorCode.APPLICATION_FORM_INVALID.message, response.failureMessage)
+        assertEquals(1, response.failedCount)
+        assertEquals(ExportStatus.FAILED, response.status)
+        val error = GlobalExceptionHandler().handleAdminException(AdminDomainException(ErrorCode.APPLICATION_FORM_INVALID))
+        assertEquals(502, error.statusCode.value())
+        val badRequest = GlobalExceptionHandler().handleInvalidRequest(IllegalArgumentException("invalid"))
+        assertEquals(400, badRequest.statusCode.value())
     }
 
     private fun <T> unused(type: Class<T>): T = Proxy.newProxyInstance(

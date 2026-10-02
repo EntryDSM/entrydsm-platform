@@ -67,7 +67,11 @@ class ApplicantProjectionStoreTest {
         assertEquals("홍길동", store.read(row().third).name)
         assertFalse(row().third.contentEquals(form(2).toByteArray()))
         val corrupted = row().third.clone().also { it[it.lastIndex] = (it.last() + 1).toByte() }
-        assertThrows(IllegalStateException::class.java) { store.read(corrupted) }
+        val failure = assertThrows(hs.kr.entrydsm.admin.domain.exception.AdminDomainException::class.java) { store.read(corrupted) }
+        assertEquals(hs.kr.entrydsm.admin.domain.enum.ErrorCode.APPLICATION_SNAPSHOT_INVALID, failure.errorCode)
+        assertTrue(failure.cause is IllegalStateException)
+        val invalidEnvelope = assertThrows(hs.kr.entrydsm.admin.domain.exception.AdminDomainException::class.java) { store.read(byteArrayOf()) }
+        assertEquals(hs.kr.entrydsm.admin.domain.enum.ErrorCode.APPLICATION_SNAPSHOT_INVALID, invalidEnvelope.errorCode)
         store.apply(event(3, true)); store.save(form(2))
         assertEquals(3L, row().first); assertTrue(row().second); assertEquals(0, row().third.size)
         store.apply(event(4)); assertFalse(row().second)

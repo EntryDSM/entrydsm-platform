@@ -2,6 +2,8 @@ package hs.kr.entrydsm.admin.adapterout.grpc
 
 import hs.kr.entrydsm.admin.adapterout.persistence.ApplicantProjectionStore
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
+import hs.kr.entrydsm.admin.domain.exception.safeStackTrace
+import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsResponse
 import org.springframework.scheduling.annotation.Scheduled
 import org.slf4j.LoggerFactory
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
@@ -86,7 +88,7 @@ class GrpcApplicantDataAdapter(
     override fun findAll(filter: ApplicantFilter): List<Applicant> {
         val screenings = screeningJpaRepository.findAll().associateBy { it.applicantId }
 
-        return call { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }
+        return call("ListApplicants") { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }
             .applicantsList
             .map { it.toApplicant(screenings[it.applicantId]) }
             .filter { it.matches(filter) }
@@ -94,7 +96,7 @@ class GrpcApplicantDataAdapter(
     }
 
     override fun findById(applicantId: Long): Applicant? =
-        getApplicant(applicantId)?.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null))
+        applicantId.takeIf { it > 0 }?.let { getApplicant(it)?.toApplicant(screeningJpaRepository.findById(it).orElse(null)) }
 
     /** 상세 조회는 이벤트로 동기화된 로컬 원서와 전형 정보만 읽는다. */
     override fun findDetailById(applicantId: Long): ApplicantDetail? {
@@ -139,21 +141,25 @@ class GrpcApplicantDataAdapter(
             .mapTo(hashSetOf()) { it.applicantId }
         if (firstPassIds.isEmpty()) return emptyList()
 
-        val applicants = call { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }
+        val applicants = call("ListApplicants") { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }
             .applicantsList
             .filter { it.applicantId in firstPassIds }
         if (applicants.isEmpty()) return emptyList()
 
-        val forms = call {
-            listStub().batchGetApplicationForms(
-                BatchGetApplicationFormsRequest.newBuilder()
-                    .addAllAccountId(applicants.map { it.userId })
-                    .build(),
+        val response = requestApplicationForms(applicants)
+        val forms = response.applicationsList.associateBy { it.applicantId }
+        val failures = response.failuresList.associate { it.accountId to applicationFailureCode(it.code) }
+        val mismatched = applicants.filter { forms[it.applicantId]?.userId != it.userId && it.userId !in failures }
+        if (failures.isNotEmpty() || mismatched.isNotEmpty()) {
+            throw applicationSyncFailure(
+                failures.values + if (mismatched.isEmpty()) emptyList() else listOf(ErrorCode.APPLICATION_FORM_NOT_FOUND),
+                applicants.filter { it.userId in failures }.map { it.applicantId } + mismatched.map { it.applicantId },
+                applicants.size,
             )
-        }.applicationsList.associateBy { it.userId }
+        }
 
-        return applicants.mapNotNull { applicant ->
-            forms[applicant.userId]?.toFirstPassRow()
+        return applicants.map { applicant ->
+            forms.getValue(applicant.applicantId).toFirstPassRow()
         }.sortedBy { it.receiptNumber }
     }
 
@@ -186,27 +192,73 @@ class GrpcApplicantDataAdapter(
     override fun syncExportProjection() {
         // 네트워크 호출 동안 DB 트랜잭션을 잡지 않는다. 행별 반영은 store의 짧은 트랜잭션이다.
         val before = exportProjectionRepository.findAllByDeletedFalse()
-        val applicants = call { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }.applicantsList
+        val applicants = call("ListApplicants") { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }.applicantsList
         val ids = applicants.mapTo(hashSetOf()) { it.applicantId }
+        val failureCodes = mutableSetOf<ErrorCode>()
+        val failedIds = mutableListOf<Long>()
         applicants.chunked(100).forEach { batch ->
-            val forms = call {
-                listStub().batchGetApplicationForms(BatchGetApplicationFormsRequest.newBuilder()
-                    .addAllAccountId(batch.map { it.userId }).build())
-            }.applicationsList
-            val formsById = forms.associateBy { it.applicantId }
-            if (batch.any { applicant -> formsById[applicant.applicantId]?.userId != applicant.userId }) {
-                throw AdminDomainException(ErrorCode.APPLICANT_SYNC_PENDING)
+            val response = requestApplicationForms(batch, applicants.size)
+            response.failuresList.forEach { failure ->
+                val code = applicationFailureCode(failure.code)
+                failureCodes.add(code)
+                LoggerFactory.getLogger(javaClass).error("Projection source failed [rpc=BatchGetApplicationForms, accountId={}, code={}]",
+                    failure.accountId, code)
             }
-            forms.forEach(projectionStore::save)
+            val forms = response.applicationsList
+            val formsById = forms.associateBy { it.applicantId }
+            batch.forEach { applicant ->
+                val form = formsById[applicant.applicantId]
+                if (form == null || form.userId != applicant.userId || response.failuresList.any { it.accountId == applicant.userId }) {
+                    failedIds.add(applicant.applicantId)
+                    if (response.failuresList.none { it.accountId == applicant.userId }) failureCodes.add(ErrorCode.APPLICATION_FORM_NOT_FOUND)
+                    LoggerFactory.getLogger(javaClass).error("Projection form missing or mismatched [rpc=BatchGetApplicationForms, applicantId={}, accountId={}]",
+                        applicant.applicantId, applicant.userId)
+                } else {
+                    try { projectionStore.save(form) } catch (exception: IllegalArgumentException) {
+                        failedIds.add(applicant.applicantId)
+                        failureCodes.add(ErrorCode.APPLICATION_FORM_INVALID)
+                        LoggerFactory.getLogger(javaClass).error("Projection validation failed [applicantId={}, code=APPLICATION_FORM_INVALID, stack={}]",
+                            applicant.applicantId, exception.safeStackTrace())
+                    }
+                }
+            }
         }
+        if (failedIds.isNotEmpty() || failureCodes.isNotEmpty()) throw applicationSyncFailure(failureCodes, failedIds, applicants.size)
         before.filter { it.applicantId !in ids }.forEach { projectionStore.removeIfUnchanged(it.applicantId, it.eventVersion) }
+    }
+
+    private fun requestApplicationForms(applicants: List<ApplicantResponse>, totalCount: Int = applicants.size): BatchGetApplicationFormsResponse =
+        try {
+            call("BatchGetApplicationForms") {
+                listStub().batchGetApplicationForms(BatchGetApplicationFormsRequest.newBuilder()
+                    .addAllAccountId(applicants.map { it.userId }).build())
+            }
+        } catch (exception: AdminDomainException) {
+            throw AdminDomainException(exception.errorCode, exception, totalCount = totalCount,
+                rpc = exception.rpc, grpcStatus = exception.grpcStatus, targetIds = applicants.map { it.applicantId })
+        }
+
+    private fun applicationFailureCode(code: String): ErrorCode = when (code) {
+        "APPLICATION_INVALID_ID" -> ErrorCode.APPLICATION_INVALID_ID
+        "APPLICATION_FORM_INVALID" -> ErrorCode.APPLICATION_FORM_INVALID
+        "APPLICATION_SCORE_INVALID" -> ErrorCode.APPLICATION_SCORE_INVALID
+        "APPLICATION_FORM_NOT_FOUND" -> ErrorCode.APPLICATION_FORM_NOT_FOUND
+        else -> ErrorCode.APPLICATION_SYNC_FAILED
+    }
+
+    private fun applicationSyncFailure(codes: Collection<ErrorCode>, targetIds: List<Long>, totalCount: Int): AdminDomainException {
+        val affected = targetIds.distinct()
+        return AdminDomainException(codes.toSet().singleOrNull() ?: ErrorCode.APPLICATION_SYNC_FAILED,
+            failedCount = affected.size, totalCount = totalCount, rpc = "ApplicationService/BatchGetApplicationForms",
+            grpcStatus = "OK", targetIds = affected)
     }
 
     @Scheduled(initialDelayString = "\${admin.projection.initial-delay-ms:1000}",
         fixedDelayString = "\${admin.projection.reconcile-delay-ms:300000}")
     fun reconcileProjection() {
         try { syncExportProjection() } catch (exception: Exception) {
-            LoggerFactory.getLogger(javaClass).error("Applicant projection reconciliation failed", exception)
+            LoggerFactory.getLogger(javaClass).error("Applicant projection reconciliation failed [code={}, exception={}, stack={}]",
+                (exception as? AdminDomainException)?.errorCode, exception.javaClass.name, exception.safeStackTrace())
         }
     }
 
@@ -228,7 +280,7 @@ class GrpcApplicantDataAdapter(
             oneStub().getApplicant(GetApplicantRequest.newBuilder().setApplicantId(applicantId).build())
         } catch (exception: StatusRuntimeException) {
             // 0 이하 id 는 application 이 INVALID_ARGUMENT 로 거절한다. 없는 지원자와 같다.
-            if (exception.status.code in NO_APPLICANT) null else throw exception.toApplicationException()
+            if (exception.status.code == Status.Code.NOT_FOUND) null else throw exception.toApplicationException("GetApplicant", listOf(applicantId))
         }
 
     @Transactional
@@ -253,7 +305,7 @@ class GrpcApplicantDataAdapter(
 
     private fun syncExamineeNumber(applicant: Applicant) {
         val number = applicant.examineeNumber ?: return
-        call {
+        call("UpdateExamineeNumber") {
             oneStub().updateExamineeNumber(
                 UpdateExamineeNumberRequest.newBuilder()
                     .setApplicantId(applicant.id)
@@ -268,13 +320,13 @@ class GrpcApplicantDataAdapter(
     }
 
     override fun delete(applicantId: Long) {
-        call {
+        call("DeleteApplicant") {
             oneStub().deleteApplicant(DeleteApplicantRequest.newBuilder().setApplicantId(applicantId).build())
         }
     }
 
     override fun update(applicantId: Long, isArrived: Boolean) {
-        call {
+        call("UpdateApplicantArrival") {
             oneStub().updateApplicantArrival(
                 UpdateApplicantArrivalRequest.newBuilder()
                     .setApplicantId(applicantId)
@@ -441,21 +493,20 @@ class GrpcApplicantDataAdapter(
 
     private fun listStub() = stub.withDeadlineAfter(grpc.listDeadlineMs, TimeUnit.MILLISECONDS)
 
-    private fun <T> call(block: () -> T): T =
+    private fun <T> call(rpc: String, block: () -> T): T =
         try {
             block()
         } catch (exception: StatusRuntimeException) {
-            throw exception.toApplicationException()
+            throw exception.toApplicationException(rpc)
         }
 
-    private fun StatusRuntimeException.toApplicationException() =
+    private fun StatusRuntimeException.toApplicationException(rpc: String, targetIds: List<Long> = emptyList()) =
         toAdminException(
             notFound = ErrorCode.APPLICANT_NOT_FOUND,
             unavailable = ErrorCode.APPLICATION_SERVICE_UNAVAILABLE,
             failedPrecondition = ErrorCode.INVALID_STATUS_TRANSITION,
+            rpc = "ApplicationService/$rpc",
+            targetIds = targetIds,
         )
 
-    private companion object {
-        val NO_APPLICANT = setOf(Status.Code.NOT_FOUND, Status.Code.INVALID_ARGUMENT)
-    }
 }

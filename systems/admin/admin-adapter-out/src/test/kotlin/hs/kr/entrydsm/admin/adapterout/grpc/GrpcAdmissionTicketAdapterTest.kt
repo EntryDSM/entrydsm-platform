@@ -21,6 +21,24 @@ import org.junit.Test
 class GrpcAdmissionTicketAdapterTest {
 
     @Test
+    fun `원격 예외 본문은 응답 메시지와 로그에 노출하지 않는다`() {
+        val logger = org.slf4j.LoggerFactory.getLogger("admin.grpc") as ch.qos.logback.classic.Logger
+        val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>().apply { start() }
+        logger.addAppender(appender)
+        try {
+            val failure = withAdapter(FakeConfigurationService {
+                throw Status.INVALID_ARGUMENT.withDescription("비밀 원서 본문과 주소").asRuntimeException()
+            }) { adapter -> assertThrows(AdminDomainException::class.java) { adapter.render(listOf(12L to null)) } }
+            assertEquals(ErrorCode.ADMISSION_TICKET_INVALID_DATA.message, failure.message)
+            assertTrue(appender.list.isNotEmpty())
+            assertTrue(appender.list.all { !it.formattedMessage.contains("비밀 원서") && it.throwableProxy == null })
+        } finally {
+            logger.detachAppender(appender)
+            appender.stop()
+        }
+    }
+
+    @Test
     fun `지원자 번호와 수험 번호를 순서대로 넘기고 xlsx 바이트를 받는다`() {
         val service = FakeConfigurationService { request ->
             request.ticketsList.joinToString("|") { target ->
@@ -59,6 +77,8 @@ class GrpcAdmissionTicketAdapterTest {
     fun `없는 지원자와 document 장애를 admin 오류로 옮긴다`() {
         mapOf(
             Status.NOT_FOUND to ErrorCode.APPLICANT_NOT_FOUND,
+            Status.INVALID_ARGUMENT.withDescription("개인정보를 포함한 원격 오류") to ErrorCode.ADMISSION_TICKET_INVALID_DATA,
+            Status.DATA_LOSS.withDescription("APPLICATION_FORM_INVALID") to ErrorCode.APPLICATION_FORM_INVALID,
             Status.UNAVAILABLE to ErrorCode.ADMISSION_TICKET_GENERATION_FAILED,
             // 새 RPC 가 없는 옛 configuration 이 떠 있을 때다.
             Status.UNIMPLEMENTED to ErrorCode.ADMISSION_TICKET_GENERATION_FAILED,
@@ -68,6 +88,10 @@ class GrpcAdmissionTicketAdapterTest {
             }
 
             assertEquals(code, failure.errorCode)
+            assertEquals("ConfigurationService/RenderAdmissionTickets", failure.rpc)
+            assertEquals(status.code.name, failure.grpcStatus)
+            assertEquals(listOf(12L), failure.targetIds)
+            assertTrue(failure.cause is StatusRuntimeException)
         }
     }
 

@@ -53,11 +53,7 @@ class ConfigurationGrpcService(
             applicantFileUseCase.renderApplicationEssay(request.applicantId)
         } catch (exception: Exception) {
             return responseObserver.onError(
-                when (exception) {
-                    is ApplicantNotFoundException -> Status.NOT_FOUND
-                    is ApplicantLookupFailedException -> Status.UNAVAILABLE
-                    else -> Status.INTERNAL
-                }.withDescription(exception.message).withCause(exception).asRuntimeException(),
+                documentFailure(exception, "RenderApplicationEssay", listOf(request.applicantId)),
             )
         }
         responseObserver.onNext(
@@ -82,15 +78,31 @@ class ConfigurationGrpcService(
             )
         } catch (exception: Exception) {
             return responseObserver.onError(
-                when (exception) {
-                    is ApplicantNotFoundException -> Status.NOT_FOUND
-                    is ApplicantLookupFailedException -> Status.UNAVAILABLE
-                    else -> Status.INTERNAL
-                }.withDescription(exception.message).withCause(exception).asRuntimeException(),
+                documentFailure(exception, "RenderAdmissionTickets", request.ticketsList.map { it.applicantId }),
             )
         }
         responseObserver.onNext(RenderAdmissionTicketsResponse.newBuilder().setXlsx(ByteString.copyFrom(xlsx)).build())
         responseObserver.onCompleted()
+    }
+
+    private fun documentFailure(exception: Exception, rpc: String, targetIds: List<Long>): io.grpc.StatusRuntimeException {
+        val upstream = generateSequence(exception as Throwable) { it.cause }
+            .filterIsInstance<io.grpc.StatusRuntimeException>().firstOrNull()
+        val applicationCode = upstream?.status?.description?.takeIf {
+            it in setOf("APPLICATION_INVALID_ID", "APPLICATION_FORM_INVALID", "APPLICATION_SCORE_INVALID", "APPLICATION_FORM_NOT_FOUND")
+        }
+        val status = when {
+            applicationCode != null -> upstream!!.status.withDescription(applicationCode)
+            exception is ApplicantNotFoundException -> Status.NOT_FOUND.withDescription("DOCUMENT_APPLICANT_NOT_FOUND")
+            exception is ApplicantLookupFailedException -> Status.UNAVAILABLE.withDescription("DOCUMENT_APPLICATION_UNAVAILABLE")
+            exception is IllegalArgumentException -> Status.INVALID_ARGUMENT.withDescription("DOCUMENT_INVALID_DATA")
+            else -> Status.INTERNAL.withDescription("DOCUMENT_RENDER_FAILED")
+        }
+        org.slf4j.LoggerFactory.getLogger(javaClass).error(
+            "Document gRPC failed [rpc={}, targetIds={}, status={}, code={}, exception={}, stack={}]",
+            rpc, targetIds, status.code, status.description, exception.javaClass.name, exception.stackTrace.joinToString("\n"),
+        )
+        return status.withCause(exception).asRuntimeException()
     }
 
     /** application 이 원서 접수 기간을 확인할 때 부른다. */

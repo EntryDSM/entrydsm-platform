@@ -242,7 +242,14 @@ class ApplicationCommandService(
             secondPreviousSemester = previous.getOrNull(1),
             academicRecord = academicRecord,
             score = totalScore?.takeIf { admissionType != null }
-                ?.let { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) },
+                ?.let {
+                    try { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) }
+                    catch (exception: IllegalArgumentException) {
+                        throw hs.kr.entrydsm.application.application.exception.EvaluationValidationException(
+                            "원서 성적 상세 계산에 필요한 데이터를 확인해 주세요.", exception,
+                        )
+                    }
+                },
             introduction = introduction,
             studyPlan = studyPlan,
             classNumber = middleSchoolInfo?.studentNumber

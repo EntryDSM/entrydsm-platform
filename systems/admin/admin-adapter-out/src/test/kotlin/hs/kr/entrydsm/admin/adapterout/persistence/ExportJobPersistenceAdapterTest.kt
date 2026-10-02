@@ -70,12 +70,18 @@ class ExportJobPersistenceAdapterTest {
                 totalCount = 10,
                 processedCount = 7,
                 createdAt = Instant.EPOCH,
+                failureCode = "APPLICATION_FORM_INVALID",
+                failureMessage = "원서 데이터 오류",
+                failedCount = 3,
             ),
         )
 
         assertEquals(filter, saved.filter)
         assertEquals(10, saved.totalCount)
         assertEquals(7, saved.processedCount)
+        assertEquals("APPLICATION_FORM_INVALID", saved.failureCode)
+        assertEquals("원서 데이터 오류", saved.failureMessage)
+        assertEquals(3, saved.failedCount)
     }
 
     /** DB 없이 save 만 흉내 낸다. 받은 엔티티를 그대로 돌려준다. */

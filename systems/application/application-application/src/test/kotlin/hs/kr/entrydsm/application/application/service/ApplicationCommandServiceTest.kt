@@ -541,6 +541,17 @@ class ApplicationCommandServiceTest {
         assertEquals(0, repository.saveCount)
     }
 
+    @Test
+    fun formQueriesIdentifyInvalidStoredScoreData() {
+        val repository = FakeApplicantRepository(submittableGedApplicant().copy(totalScore = 100.0, academicRecord = AcademicRecord()))
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+        val failure = org.junit.Assert.assertThrows(hs.kr.entrydsm.application.application.exception.EvaluationValidationException::class.java) {
+            service.findApplicationForm(10L)
+        }
+        assertTrue(failure.cause is IllegalArgumentException)
+        assertEquals("원서 성적 상세 계산에 필요한 데이터를 확인해 주세요.", failure.message)
+    }
+
     /**
      * 시각을 시간대 없이 쓰면 UTC 로 도는 컨테이너에서만 맞습니다. gRPC 와 이벤트가 UTC 로
      * 되읽으므로, 기기 시간대가 무엇이든 저장하는 값은 UTC 여야 합니다. 어긋나면 통계의

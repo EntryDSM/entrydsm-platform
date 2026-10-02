@@ -73,6 +73,20 @@ class ConfigurationGrpcServiceTest {
         assertEquals(Status.Code.NOT_FOUND, Status.fromThrowable(missing.error).code)
     }
 
+    @Test
+    fun `수험표 원서 오류 코드를 유지하고 임의 예외 메시지는 전달하지 않는다`() {
+        val upstream = Status.DATA_LOSS.withDescription("APPLICATION_FORM_INVALID").asRuntimeException()
+        val observer = RecordingObserver<RenderAdmissionTicketsResponse>()
+        service { throw ApplicantLookupFailedException(12, cause = upstream) }
+            .renderAdmissionTickets(request(12L to null), observer)
+        assertEquals(Status.Code.DATA_LOSS, Status.fromThrowable(observer.error).code)
+        assertEquals("APPLICATION_FORM_INVALID", Status.fromThrowable(observer.error).description)
+        val invalid = RecordingObserver<RenderAdmissionTicketsResponse>()
+        service { throw IllegalArgumentException("원서 본문 개인정보") }
+            .renderAdmissionTickets(request(12L to null), invalid)
+        assertEquals("DOCUMENT_INVALID_DATA", Status.fromThrowable(invalid.error).description)
+    }
+
     private fun request(vararg tickets: Pair<Long, String?>) =
         RenderAdmissionTicketsRequest.newBuilder()
             .addAllTickets(

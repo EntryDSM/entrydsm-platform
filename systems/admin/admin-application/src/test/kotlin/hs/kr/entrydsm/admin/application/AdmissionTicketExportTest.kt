@@ -94,6 +94,23 @@ class AdmissionTicketExportTest {
         processor(tickets).processNow(ticketJob())
 
         assertEquals(ExportStatus.FAILED, jobs.saved.last().status)
+        assertEquals(ErrorCode.ADMISSION_TICKET_GENERATION_FAILED.name, jobs.saved.last().failureCode)
+        assertEquals(ErrorCode.ADMISSION_TICKET_GENERATION_FAILED.message, jobs.saved.last().failureMessage)
+        assertTrue(storage.uploads.isEmpty())
+    }
+
+    @Test
+    fun `체크리스트 동기화 실패 사유와 건수를 남기고 산출물을 올리지 않는다`() {
+        applicants.syncFailure = AdminDomainException(ErrorCode.APPLICATION_FORM_INVALID,
+            IllegalArgumentException("개인정보 원서 본문"), failedCount = 1, totalCount = 3)
+        processor(RecordingAdmissionTicketPort()).processNow(ticketJob().copy(type = ExportType.APPLICATION_CHECKLIST))
+        val failed = jobs.saved.last()
+        assertEquals(ExportStatus.FAILED, failed.status)
+        assertEquals("APPLICATION_FORM_INVALID", failed.failureCode)
+        assertEquals(ErrorCode.APPLICATION_FORM_INVALID.message, failed.failureMessage)
+        assertEquals(1, failed.failedCount)
+        assertEquals(3, failed.totalCount)
+        assertEquals(0, failed.processedCount)
         assertTrue(storage.uploads.isEmpty())
     }
 
@@ -133,6 +150,8 @@ class AdmissionTicketExportTest {
 
     /** 상태 조건만 흉내 낸다. 나머지 조건은 GrpcApplicantDataAdapterTest 가 덮는다. */
     private class FakeApplicantRepository : ApplicantRepository {
+        var syncFailure: AdminDomainException? = null
+        override fun syncExportProjection() { syncFailure?.let { throw it } }
         val all = mutableListOf<Applicant>()
         val queried = mutableListOf<ApplicantFilter>()
 
