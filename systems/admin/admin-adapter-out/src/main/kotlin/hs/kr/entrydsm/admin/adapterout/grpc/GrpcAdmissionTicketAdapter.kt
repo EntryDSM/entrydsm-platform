@@ -41,6 +41,9 @@ class GrpcAdmissionTicketAdapter(
             throw exception.toAdminException(
                 notFound = ErrorCode.APPLICANT_NOT_FOUND,
                 unavailable = ErrorCode.ADMISSION_TICKET_GENERATION_FAILED,
+                invalidArgument = ErrorCode.ADMISSION_TICKET_INVALID_DATA,
+                rpc = "ConfigurationService/RenderAdmissionTickets",
+                targetIds = tickets.map { it.first },
             )
         }
 }

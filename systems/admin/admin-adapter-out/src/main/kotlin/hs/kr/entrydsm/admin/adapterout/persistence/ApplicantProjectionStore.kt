@@ -5,6 +5,8 @@ import hs.kr.entrydsm.application.grpc.ApplicantStatus
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.common.crypto.SnapshotCipher
+import hs.kr.entrydsm.admin.domain.enum.ErrorCode
+import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -13,7 +15,15 @@ class ApplicantProjectionStore(
     private val repository: ApplicantExportProjectionJpaRepository,
     private val cipher: SnapshotCipher,
 ) {
-    fun read(payload: ByteArray): ApplicationFormResponse = ApplicationFormResponse.parseFrom(cipher.decrypt(payload))
+    fun read(payload: ByteArray): ApplicationFormResponse = try {
+        ApplicationFormResponse.parseFrom(cipher.decrypt(payload))
+    } catch (exception: IllegalArgumentException) {
+        throw AdminDomainException(ErrorCode.APPLICATION_SNAPSHOT_INVALID, exception)
+    } catch (exception: IllegalStateException) {
+        throw AdminDomainException(ErrorCode.APPLICATION_SNAPSHOT_INVALID, exception)
+    } catch (exception: com.google.protobuf.InvalidProtocolBufferException) {
+        throw AdminDomainException(ErrorCode.APPLICATION_FORM_INVALID, exception)
+    }
     @Transactional
     fun apply(event: ApplicantStatusChangedEvent) {
         require(event.applicantId > 0 && event.accountId > 0 && event.version > 0)

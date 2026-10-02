@@ -33,6 +33,8 @@ class GrpcApplicationEssayAdapter(private val grpc: ConfigurationGrpcChannel) : 
         throw exception.toAdminException(
             notFound = ErrorCode.APPLICANT_NOT_FOUND,
             unavailable = ErrorCode.ESSAY_GENERATION_FAILED,
+            rpc = "ConfigurationService/RenderApplicationEssay",
+            targetIds = listOf(applicantId),
         )
     }
 

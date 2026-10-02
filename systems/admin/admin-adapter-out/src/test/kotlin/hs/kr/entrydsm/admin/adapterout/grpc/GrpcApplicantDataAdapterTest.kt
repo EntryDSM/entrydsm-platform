@@ -65,6 +65,35 @@ import org.junit.Test
  */
 class GrpcApplicantDataAdapterTest {
     @Test
+    fun `원서 검증 실패는 정상 원서를 반영하고 기존 프로젝션 삭제를 막는다`() {
+        val forms = listOf(1L, 3L).map { ApplicationFormResponse.newBuilder().setApplicantId(it).setUserId(it + 100)
+            .setStatusVersion(1).setApplicantStatus(hs.kr.entrydsm.application.grpc.ApplicantStatus.APPLICANT_STATUS_SUBMITTED).build() }
+        val failure = hs.kr.entrydsm.application.grpc.ApplicationFormFailure.newBuilder()
+            .setAccountId(102).setCode("APPLICATION_FORM_INVALID").build()
+        val service = FakeApplicationService(listOf(applicant(1), applicant(2)), forms = forms, failures = listOf(failure))
+        withAdapter(service, projectedIds = setOf(3L)) { adapter ->
+            val exception = runCatching { adapter.syncExportProjection() }.exceptionOrNull() as AdminDomainException
+            assertEquals(ErrorCode.APPLICATION_FORM_INVALID, exception.errorCode)
+            assertEquals(1, exception.failedCount)
+            assertEquals(listOf(2L), exception.targetIds)
+            assertEquals(listOf("0001", "0003"), adapter.findApplicationChecklistRows().map { it.receiptNumber })
+        }
+    }
+
+    @Test
+    fun `원서 조회의 내부 입력 오류는 요청 본문 400으로 변환하지 않는다`() {
+        val service = FakeApplicationService(listOf(applicant(1)), Status.INVALID_ARGUMENT.withDescription("APPLICATION_INVALID_ID"))
+        withAdapter(service) { adapter ->
+            val exception = runCatching { adapter.findById(1) }.exceptionOrNull() as AdminDomainException
+            assertEquals(ErrorCode.APPLICATION_INVALID_ID, exception.errorCode)
+            assertEquals(502, exception.errorCode.status)
+            assertEquals("ApplicationService/GetApplicant", exception.rpc)
+            assertTrue(exception.cause is io.grpc.StatusRuntimeException)
+            assertNull(adapter.findById(0))
+        }
+    }
+
+    @Test
     fun `출력 대사는 기존 프로젝션에 빠진 지원자도 복구한다`() {
         val forms = (1L..2L).map { ApplicationFormResponse.newBuilder().setApplicantId(it).setUserId(it + 100)
             .setName("지원자$it").setStatusVersion(1)
@@ -88,8 +117,10 @@ class GrpcApplicantDataAdapterTest {
         val service = FakeApplicationService(listOf(applicant(1), applicant(2)), forms = listOf(form))
         withAdapter(service, projectedIds = emptySet()) { adapter ->
             val exception = runCatching { adapter.syncExportProjection() }.exceptionOrNull() as AdminDomainException
-            assertEquals(ErrorCode.APPLICANT_SYNC_PENDING, exception.errorCode)
-            assertTrue(adapter.findAdmissionFileRows().isEmpty())
+            assertEquals(ErrorCode.APPLICATION_FORM_NOT_FOUND, exception.errorCode)
+            assertEquals(1, exception.failedCount)
+            assertEquals(2, exception.totalCount)
+            assertEquals(listOf("0001"), adapter.findAdmissionFileRows().map { it.receiptNumber })
         }
     }
 
@@ -106,7 +137,7 @@ class GrpcApplicantDataAdapterTest {
         val service = FakeApplicationService(listOf(applicant(1), applicant(2)), forms = forms)
         withAdapter(service, projectedIds = emptySet()) { adapter ->
             val exception = runCatching { adapter.syncExportProjection() }.exceptionOrNull() as AdminDomainException
-            assertEquals(ErrorCode.APPLICANT_SYNC_PENDING, exception.errorCode)
+            assertEquals(ErrorCode.APPLICATION_FORM_NOT_FOUND, exception.errorCode)
             assertTrue(adapter.findAdmissionFileRows().isEmpty())
         }
         assertEquals(listOf(101L, 102L), service.batchAccountIds)
@@ -523,6 +554,7 @@ class GrpcApplicantDataAdapterTest {
         val applicants: List<ApplicantResponse>,
         private val failure: Status? = null,
         val forms: List<ApplicationFormResponse> = emptyList(),
+        val failures: List<hs.kr.entrydsm.application.grpc.ApplicationFormFailure> = emptyList(),
     ) : ApplicationServiceGrpc.ApplicationServiceImplBase() {
         var arrival: UpdateApplicantArrivalRequest? = null
         var examineeNumberUpdate: UpdateExamineeNumberRequest? = null
@@ -578,6 +610,7 @@ class GrpcApplicantDataAdapterTest {
                 responseObserver,
                 BatchGetApplicationFormsResponse.newBuilder()
                     .addAllApplications(forms.filter { it.userId in request.accountIdList })
+                    .addAllFailures(failures.filter { it.accountId in request.accountIdList })
                     .build(),
             )
         }
