@@ -72,6 +72,7 @@ class ExportJobPersistenceAdapter(
     override fun findByExportJobId(exportJobId: String): ExportJob? =
         exportJobJpaRepository.findByExportJobId(exportJobId)?.toDomain()
 
+    @Transactional
     override fun findDownloadableByType(type: ExportType): List<ExportJob> =
         exportJobJpaRepository.findAllByTypeAndStatusAndObjectKeyIsNotNull(type, ExportStatus.COMPLETED)
             .map { it.toDomain() }

@@ -199,7 +199,14 @@ class ExportJobProcessor(
     }
 
     private fun deletePreviousExports(latest: ExportJob) {
-        exportJobRepository.findDownloadableByType(latest.type)
+        val previousExports = try {
+            exportJobRepository.findDownloadableByType(latest.type)
+        } catch (cause: Exception) {
+            logger.error("Previous export lookup failed [exportJobId={}, stack={}]",
+                latest.exportJobId, cause.safeStackTrace())
+            return
+        }
+        previousExports
             .filter { it.exportJobId != latest.exportJobId }
             .forEach { previous ->
                 val objectKey = previous.objectKey ?: return@forEach

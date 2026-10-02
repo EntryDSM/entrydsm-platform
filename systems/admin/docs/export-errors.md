@@ -34,3 +34,16 @@ application의 배치 원서 조회는 정상 원서와 계정별 `failures`를 
 로그에서 작업 ID, RPC, gRPC 상태, 고정 오류 코드와 대상 ID를 확인한다. 임의 예외 메시지 대신 예외 타입·발생 위치를 기록하며 원서 본문·주소·API 키를 남기지 않는다. 운영 장애의 정확한 원인은 해당 시각의 서비스 로그로 확인한다.
 
 배포 시 application·configuration·admin을 함께 갱신하고 admin Flyway `V011__add_export_failure_details.sql` 적용을 확인한다. proto 필드는 추가 방식이라 직렬화 호환성을 유지하지만, 구버전 소비자는 실패 목록을 확인하지 않으므로 부분 결과 격리를 이용하려면 생산자와 소비자를 함께 갱신해야 한다.
+
+## 수험표 시간 초과와 완료 후 정리 오류 진단
+
+`ADMISSION_TICKET_GENERATION_FAILED`와 `grpcStatus=DEADLINE_EXCEEDED`가 함께 있으면 원서 데이터 오류가 아니라 제한 시간 내 응답을 받지 못한 것이다. admin의 기본 `CONFIGURATION_GRPC_DEADLINE_MS`는 10000이며 요청 인원수를 곱해 적용한다. `failedCount=0`으로도 작업 전체가 실패할 수 있다.
+
+admin·configuration 갱신 후 수험표를 다시 요청하고 같은 시각의 로그를 비교한다.
+
+1. configuration에 `Document gRPC started`가 없으면 admin의 `CONFIGURATION_GRPC_HOST`·`CONFIGURATION_GRPC_PORT`, configuration gRPC 서버 등록·연결 상태를 확인한다.
+2. 진입 로그가 있으면 `Admission ticket stage`의 시작·완료와 `elapsedMs`를 확인한다. 단계는 `applicant_lookup`, `photo_lookup`, `photo_download`, `photo_resize`, `sheet_render`이며 사진 없는 지원자는 사진 단계를 건너뛴다.
+3. 시작만 있는 단계는 아직 처리 중이거나 중단된 구간이다. 지원자 조회는 application, 사진 조회는 DB, 다운로드는 S3, 이미지·엑셀 생성은 configuration에서 확인한다. 서버 종료 여부도 함께 확인한다.
+4. 단계별 실측으로 병목을 해결한 뒤 필요한 경우 제한 시간을 조정하고 완료·파일 다운로드까지 재검증한다.
+
+체크리스트 완료 후 `Previous export lookup failed`가 있으면 이전 산출물 정리가 실패한 것이다. 새 파일 완료 상태는 유지한다. 이전 산출물 조회의 비관적 잠금은 짧은 트랜잭션 안에서 실행하며, S3 삭제는 그 트랜잭션 밖에서 처리한다. 정리 실패 시 이전 파일이 남을 수 있으므로 원인을 수정한 뒤 다음 정상 내보내기에서 재정리됐는지 확인한다.
