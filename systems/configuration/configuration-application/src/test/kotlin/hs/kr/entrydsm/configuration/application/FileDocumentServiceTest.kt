@@ -40,6 +40,38 @@ import javax.imageio.ImageIO
 
 class FileDocumentServiceTest {
 
+    @Test
+    fun `수험표 단계 로그는 성공과 실패 위치를 기록하고 사진 키와 예외 메시지를 숨긴다`() {
+        val logger = org.slf4j.LoggerFactory.getLogger(FileDocumentService::class.java) as ch.qos.logback.classic.Logger
+        val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+        try {
+            val uploaded = service.upload(photo(student(STUDENT_ID)), content())
+            applicants[APPLICANT_ID] = applicant(photoFileId = uploaded.document.publicId)
+            storage.contents[uploaded.document.objectKey] = image(BufferedImage(30, 40, BufferedImage.TYPE_INT_RGB), "png")
+            assertEquals("xlsx", String(service.renderAdmissionTickets(listOf(APPLICANT_ID to null))))
+            val completed = appender.list.map { it.formattedMessage }
+            listOf("applicant_lookup", "photo_lookup", "photo_download", "photo_resize", "sheet_render").forEach { stage ->
+                assertTrue(completed.any { it.contains("stage started [stage=$stage,") })
+                assertTrue(completed.any { it.contains("stage completed [stage=$stage,") && it.contains("elapsedMs=") })
+            }
+            appender.list.clear()
+            val failure = IllegalStateException("민감한 사진 경로 ${uploaded.document.objectKey}")
+            storage.downloadFailure = failure
+            assertTrue(failure === assertThrows(IllegalStateException::class.java) {
+                service.renderAdmissionTickets(listOf(APPLICANT_ID to null))
+            })
+            val failed = appender.list.map { it.formattedMessage }
+            assertTrue(failed.any { it.contains("stage failed [stage=photo_download,") && it.contains("elapsedMs=") })
+            assertFalse(failed.any { it.contains("stage=photo_resize") || it.contains("stage=sheet_render") })
+            assertFalse((completed + failed).any { it.contains(uploaded.document.objectKey) || it.contains("민감한 사진 경로") })
+        } finally {
+            logger.detachAppender(appender)
+            appender.stop()
+        }
+    }
+
     private val storage = FakeStoragePort()
     private val repository = FakeFileDocumentRepository()
     private val applicants = mutableMapOf(APPLICANT_ID to applicant())
@@ -517,6 +549,7 @@ class FileDocumentServiceTest {
         val contents = mutableMapOf<String, ByteArray>()
         var failOnDelete = false
         var failOnPresign = false
+        var downloadFailure: RuntimeException? = null
 
         override fun upload(
             objectKey: String,
@@ -533,7 +566,10 @@ class FileDocumentServiceTest {
             return "https://s3/$objectKey?expires=$expiresInSeconds"
         }
 
-        override fun download(objectKey: String): ByteArray = contents[objectKey] ?: objectKey.toByteArray()
+        override fun download(objectKey: String): ByteArray {
+            downloadFailure?.let { throw it }
+            return contents[objectKey] ?: objectKey.toByteArray()
+        }
 
         override fun delete(objectKey: String) {
             if (failOnDelete) throw IllegalStateException("delete failed")

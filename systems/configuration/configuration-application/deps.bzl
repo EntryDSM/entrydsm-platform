@@ -5,6 +5,8 @@ KOTLIN_DEPS = [
 ]
 
 TEST_DEPS = [
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
     "@maven//:junit_junit",
 ]
 
