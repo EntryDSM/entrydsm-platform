@@ -25,6 +25,34 @@ import org.junit.Test
 class ConfigurationGrpcServiceTest {
 
     @Test
+    fun `수험표 RPC는 성공과 실패 소요 시간을 기록하고 예외 메시지를 노출하지 않는다`() {
+        val logger = org.slf4j.LoggerFactory.getLogger(ConfigurationGrpcService::class.java) as ch.qos.logback.classic.Logger
+        val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
+        appender.start()
+        logger.addAppender(appender)
+        try {
+            val success = RecordingObserver<RenderAdmissionTicketsResponse>()
+            service { "xlsx".toByteArray() }.renderAdmissionTickets(request(12L to null), success)
+            assertTrue(success.completed)
+            assertTrue(appender.list.any { it.formattedMessage.contains("Document gRPC started") })
+            assertTrue(appender.list.any { it.formattedMessage.contains("Document gRPC completed") &&
+                it.formattedMessage.contains("elapsedMs=") && it.formattedMessage.contains("bytes=4") })
+            appender.list.clear()
+            val failure = RecordingObserver<RenderAdmissionTicketsResponse>()
+            service { throw IllegalStateException("개인정보와 인증정보") }
+                .renderAdmissionTickets(request(12L to null), failure)
+            assertEquals(Status.Code.INTERNAL, Status.fromThrowable(failure.error).code)
+            assertTrue(appender.list.any { it.formattedMessage.contains("Document gRPC failed timing") &&
+                it.formattedMessage.contains("elapsedMs=") })
+            assertTrue(appender.list.none { it.formattedMessage.contains("Document gRPC completed") ||
+                it.formattedMessage.contains("개인정보와 인증정보") || it.throwableProxy != null })
+        } finally {
+            logger.detachAppender(appender)
+            appender.stop()
+        }
+    }
+
+    @Test
     fun `받은 순서 그대로 넘겨 xlsx 바이트를 돌려주고 수험번호가 없으면 비워서 넘긴다`() {
         val calls = mutableListOf<List<Pair<Long, String?>>>()
         val service = service { tickets ->

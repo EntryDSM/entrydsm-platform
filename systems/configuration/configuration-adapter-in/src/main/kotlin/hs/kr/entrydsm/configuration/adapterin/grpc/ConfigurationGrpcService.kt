@@ -70,6 +70,9 @@ class ConfigurationGrpcService(
         request: RenderAdmissionTicketsRequest,
         responseObserver: StreamObserver<RenderAdmissionTicketsResponse>,
     ) {
+        val started = System.nanoTime()
+        val log = org.slf4j.LoggerFactory.getLogger(javaClass)
+        log.info("Document gRPC started [rpc=RenderAdmissionTickets, targetCount={}]", request.ticketsCount)
         val xlsx = try {
             applicantFileUseCase.renderAdmissionTickets(
                 request.ticketsList.map { target ->
@@ -77,12 +80,16 @@ class ConfigurationGrpcService(
                 },
             )
         } catch (exception: Exception) {
+            log.error("Document gRPC failed timing [rpc=RenderAdmissionTickets, targetCount={}, elapsedMs={}]",
+                request.ticketsCount, (System.nanoTime() - started) / 1_000_000)
             return responseObserver.onError(
                 documentFailure(exception, "RenderAdmissionTickets", request.ticketsList.map { it.applicantId }),
             )
         }
         responseObserver.onNext(RenderAdmissionTicketsResponse.newBuilder().setXlsx(ByteString.copyFrom(xlsx)).build())
         responseObserver.onCompleted()
+        log.info("Document gRPC completed [rpc=RenderAdmissionTickets, targetCount={}, elapsedMs={}, bytes={}]",
+            request.ticketsCount, (System.nanoTime() - started) / 1_000_000, xlsx.size)
     }
 
     private fun documentFailure(exception: Exception, rpc: String, targetIds: List<Long>): io.grpc.StatusRuntimeException {

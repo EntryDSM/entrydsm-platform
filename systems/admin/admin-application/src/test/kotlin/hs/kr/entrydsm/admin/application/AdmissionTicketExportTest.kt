@@ -114,11 +114,23 @@ class AdmissionTicketExportTest {
         assertTrue(storage.uploads.isEmpty())
     }
 
+    @Test
+    fun `이전 파일 목록 조회 실패가 새 체크리스트 완료를 취소하지 않는다`() {
+        applicants.all += applicant(1, ApplicantStatus.PENDING, "100001")
+        jobs.lookupFailure = IllegalStateException("No active transaction")
+        processor(RecordingAdmissionTicketPort()).processNow(ticketJob().copy(type = ExportType.APPLICATION_CHECKLIST))
+        assertEquals(ExportStatus.COMPLETED, jobs.saved.last().status)
+        assertEquals(1, storage.uploads.size)
+        assertEquals(1, jobs.lookupCount)
+    }
+
     private fun processor(tickets: AdmissionTicketPort) = ExportJobProcessor(
         jobs, applicants, tickets,
         object : XlsxRenderPort {
             override fun render(sheetName: String, header: List<String>, rows: List<List<Any?>>): ByteArray =
                 error("unused")
+            override fun renderApplicationChecklist(rows: List<hs.kr.entrydsm.admin.domain.model.FirstPassRow>): ByteArray =
+                "checklist".toByteArray()
         },
         hs.kr.entrydsm.admin.domain.port.`in`.DownloadEssaysUseCase { 0 },
         storage, clock,
@@ -173,6 +185,13 @@ class AdmissionTicketExportTest {
 
     private class FakeExportJobRepository : ExportJobRepository {
         val saved = mutableListOf<ExportJob>()
+        var lookupFailure: Exception? = null
+        var lookupCount = 0
+        override fun findDownloadableByType(type: ExportType): List<ExportJob> {
+            lookupCount++
+            lookupFailure?.let { throw it }
+            return emptyList()
+        }
 
         override fun findByExportJobId(exportJobId: String): ExportJob? = saved.lastOrNull { it.exportJobId == exportJobId }
 

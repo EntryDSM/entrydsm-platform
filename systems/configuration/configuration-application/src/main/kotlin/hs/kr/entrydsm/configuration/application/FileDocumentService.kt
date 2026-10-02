@@ -81,13 +81,15 @@ class FileDocumentService(
      * ponytail: 지원자마다 application 조회·사진 받기를 차례로 하고 사진을 모두 힙에 둔다. 1차 합격자(백여 명)는
      * 줄인 사진이 한 장에 수십 KB 라 감당한다. 길어지면 application 을 한 번에 묻고 사진을 병렬로 받는다.
      */
-    override fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>): ByteArray =
-        admissionTicketSheetPort.render(
-            tickets.map { (applicantId, examineeNumber) ->
-                val applicant = applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
-                ticket(applicantId, applicant, examineeNumber)
-            },
-        )
+    override fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>): ByteArray {
+        val prepared = tickets.map { (applicantId, examineeNumber) ->
+            val applicant = ticketStage("applicant_lookup", applicantId) {
+                applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+            }
+            ticket(applicantId, applicant, examineeNumber)
+        }
+        return ticketStage("sheet_render", null) { admissionTicketSheetPort.render(prepared) }
+    }
 
     override fun renderApplicationEssay(applicantId: Long): Pair<ByteArray?, ByteArray?> {
         val applicant = applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
@@ -97,12 +99,32 @@ class FileDocumentService(
     }
 
     private fun ticket(applicantId: Long, applicant: Applicant, examineeNumber: String?): AdmissionTicket {
-        val file = applicant.photoFileId?.let { findPhoto(it, applicant.userId) }
-        val photo = file?.let { fitTicketPhoto(storagePort.download(it.objectKey)) }
+        val file = applicant.photoFileId?.let {
+            ticketStage("photo_lookup", applicantId) { findPhoto(it, applicant.userId) }
+        }
+        val photo = file?.let {
+            val bytes = ticketStage("photo_download", applicantId) { storagePort.download(it.objectKey) }
+            ticketStage("photo_resize", applicantId) { fitTicketPhoto(bytes) }
+        }
         if (file != null && photo == null) {
-            log.warn("Unreadable photo left out of admission ticket [applicantId={}, objectKey={}]", applicantId, file.objectKey)
+            log.warn("Unreadable photo left out of admission ticket [applicantId={}]", applicantId)
         }
         return AdmissionTicket.of(admissionYear, applicantId, applicant, examineeNumber, photo)
+    }
+
+    private fun <T> ticketStage(stage: String, applicantId: Long?, action: () -> T): T {
+        val started = System.nanoTime()
+        log.info("Admission ticket stage started [stage={}, applicantId={}]", stage, applicantId)
+        try {
+            return action().also {
+                log.info("Admission ticket stage completed [stage={}, applicantId={}, elapsedMs={}]",
+                    stage, applicantId, (System.nanoTime() - started) / 1_000_000)
+            }
+        } catch (exception: Exception) {
+            log.error("Admission ticket stage failed [stage={}, applicantId={}, elapsedMs={}, exception={}]",
+                stage, applicantId, (System.nanoTime() - started) / 1_000_000, exception.javaClass.name)
+            throw exception
+        }
     }
 
     override fun upload(command: UploadFileCommand, content: InputStream): DownloadableFile {
