@@ -5,6 +5,7 @@ import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
+import hs.kr.entrydsm.admin.domain.exception.safeStackTrace
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
@@ -191,7 +192,7 @@ class ExportJobProcessor(
             val code = failure?.errorCode ?: ErrorCode.INTERNAL_SERVER_ERROR
             logger.error("Export job failed [exportJobId={}, rpc={}, grpcStatus={}, code={}, targetIds={}, failedCount={}, exception={}, stack={}]",
                 job.exportJobId, failure?.rpc, failure?.grpcStatus, code, failure?.targetIds, failure?.failedCount ?: 0,
-                cause.javaClass.name, cause.stackTrace.joinToString("\n"))
+                cause.javaClass.name, cause.safeStackTrace())
             current = failure?.totalCount?.let(current::withTotal) ?: current
             exportJobRepository.save(current.failed(Instant.now(clock), code, failure?.failedCount ?: 0))
         }

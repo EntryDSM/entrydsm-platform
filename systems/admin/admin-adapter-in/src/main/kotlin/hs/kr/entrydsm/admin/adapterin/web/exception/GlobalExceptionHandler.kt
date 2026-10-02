@@ -4,6 +4,7 @@ import hs.kr.entrydsm.admin.adapterin.web.dto.common.ErrorDetail
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.ErrorResponse
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminException
+import hs.kr.entrydsm.admin.domain.exception.safeStackTrace
 import jakarta.validation.ConstraintViolationException
 import org.slf4j.LoggerFactory
 import org.slf4j.MDC
@@ -36,7 +37,7 @@ class GlobalExceptionHandler {
         response(exception.errorCode).also {
             if (exception.errorCode.status >= SERVER_ERROR_STATUS) {
                 logger.error("Admin failure [code={}, exception={}, stack={}]", exception.errorCode.name,
-                    exception.javaClass.name, exception.stackTrace.joinToString("\n"))
+                    exception.javaClass.name, exception.safeStackTrace())
             }
         }
 

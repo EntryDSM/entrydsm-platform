@@ -2,6 +2,8 @@ package hs.kr.entrydsm.admin.adapterout.grpc
 
 import hs.kr.entrydsm.admin.adapterout.persistence.ApplicantProjectionStore
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
+import hs.kr.entrydsm.admin.domain.exception.safeStackTrace
+import hs.kr.entrydsm.application.grpc.BatchGetApplicationFormsResponse
 import org.springframework.scheduling.annotation.Scheduled
 import org.slf4j.LoggerFactory
 import hs.kr.entrydsm.admin.adapterout.entity.ScreeningJpaEntity
@@ -144,21 +146,20 @@ class GrpcApplicantDataAdapter(
             .filter { it.applicantId in firstPassIds }
         if (applicants.isEmpty()) return emptyList()
 
-        val response = call("BatchGetApplicationForms") {
-            listStub().batchGetApplicationForms(
-                BatchGetApplicationFormsRequest.newBuilder()
-                    .addAllAccountId(applicants.map { it.userId })
-                    .build(),
+        val response = requestApplicationForms(applicants)
+        val forms = response.applicationsList.associateBy { it.applicantId }
+        val failures = response.failuresList.associate { it.accountId to applicationFailureCode(it.code) }
+        val mismatched = applicants.filter { forms[it.applicantId]?.userId != it.userId && it.userId !in failures }
+        if (failures.isNotEmpty() || mismatched.isNotEmpty()) {
+            throw applicationSyncFailure(
+                failures.values + if (mismatched.isEmpty()) emptyList() else listOf(ErrorCode.APPLICATION_FORM_NOT_FOUND),
+                applicants.filter { it.userId in failures }.map { it.applicantId } + mismatched.map { it.applicantId },
+                applicants.size,
             )
         }
-        if (response.failuresCount > 0) throw AdminDomainException(ErrorCode.APPLICATION_SYNC_FAILED, failedCount = response.failuresCount)
-        val forms = response.applicationsList.associateBy { it.userId }
-        if (applicants.any { forms[it.userId]?.applicantId != it.applicantId }) {
-            throw AdminDomainException(ErrorCode.APPLICATION_FORM_NOT_FOUND)
-        }
 
-        return applicants.mapNotNull { applicant ->
-            forms[applicant.userId]?.toFirstPassRow()
+        return applicants.map { applicant ->
+            forms.getValue(applicant.applicantId).toFirstPassRow()
         }.sortedBy { it.receiptNumber }
     }
 
@@ -193,27 +194,12 @@ class GrpcApplicantDataAdapter(
         val before = exportProjectionRepository.findAllByDeletedFalse()
         val applicants = call("ListApplicants") { listStub().listApplicants(ListApplicantsRequest.getDefaultInstance()) }.applicantsList
         val ids = applicants.mapTo(hashSetOf()) { it.applicantId }
-        var failedCount = 0
         val failureCodes = mutableSetOf<ErrorCode>()
         val failedIds = mutableListOf<Long>()
         applicants.chunked(100).forEach { batch ->
-            val response = try {
-                call("BatchGetApplicationForms") {
-                    listStub().batchGetApplicationForms(BatchGetApplicationFormsRequest.newBuilder()
-                        .addAllAccountId(batch.map { it.userId }).build())
-                }
-            } catch (exception: AdminDomainException) {
-                throw AdminDomainException(exception.errorCode, exception, totalCount = applicants.size,
-                    rpc = exception.rpc, grpcStatus = exception.grpcStatus, targetIds = batch.map { it.applicantId })
-            }
+            val response = requestApplicationForms(batch, applicants.size)
             response.failuresList.forEach { failure ->
-                val code = when (failure.code) {
-                    "APPLICATION_INVALID_ID" -> ErrorCode.APPLICATION_INVALID_ID
-                    "APPLICATION_FORM_INVALID" -> ErrorCode.APPLICATION_FORM_INVALID
-                    "APPLICATION_SCORE_INVALID" -> ErrorCode.APPLICATION_SCORE_INVALID
-                    "APPLICATION_FORM_NOT_FOUND" -> ErrorCode.APPLICATION_FORM_NOT_FOUND
-                    else -> ErrorCode.APPLICATION_SYNC_FAILED
-                }
+                val code = applicationFailureCode(failure.code)
                 failureCodes.add(code)
                 LoggerFactory.getLogger(javaClass).error("Projection source failed [rpc=BatchGetApplicationForms, accountId={}, code={}]",
                     failure.accountId, code)
@@ -223,28 +209,48 @@ class GrpcApplicantDataAdapter(
             batch.forEach { applicant ->
                 val form = formsById[applicant.applicantId]
                 if (form == null || form.userId != applicant.userId || response.failuresList.any { it.accountId == applicant.userId }) {
-                    failedCount++
                     failedIds.add(applicant.applicantId)
                     if (response.failuresList.none { it.accountId == applicant.userId }) failureCodes.add(ErrorCode.APPLICATION_FORM_NOT_FOUND)
                     LoggerFactory.getLogger(javaClass).error("Projection form missing or mismatched [rpc=BatchGetApplicationForms, applicantId={}, accountId={}]",
                         applicant.applicantId, applicant.userId)
                 } else {
                     try { projectionStore.save(form) } catch (exception: IllegalArgumentException) {
-                        failedCount++
                         failedIds.add(applicant.applicantId)
                         failureCodes.add(ErrorCode.APPLICATION_FORM_INVALID)
-                        LoggerFactory.getLogger(javaClass).error("Projection validation failed [applicantId={}, code=APPLICATION_FORM_INVALID]", applicant.applicantId)
+                        LoggerFactory.getLogger(javaClass).error("Projection validation failed [applicantId={}, code=APPLICATION_FORM_INVALID, stack={}]",
+                            applicant.applicantId, exception.safeStackTrace())
                     }
                 }
             }
         }
-        if (failedCount > 0 || failureCodes.isNotEmpty()) throw AdminDomainException(
-            failureCodes.singleOrNull() ?: ErrorCode.APPLICATION_SYNC_FAILED,
-            failedCount = failedCount, totalCount = applicants.size,
-            rpc = "ApplicationService/BatchGetApplicationForms",
-            grpcStatus = "OK", targetIds = failedIds,
-        )
+        if (failedIds.isNotEmpty() || failureCodes.isNotEmpty()) throw applicationSyncFailure(failureCodes, failedIds, applicants.size)
         before.filter { it.applicantId !in ids }.forEach { projectionStore.removeIfUnchanged(it.applicantId, it.eventVersion) }
+    }
+
+    private fun requestApplicationForms(applicants: List<ApplicantResponse>, totalCount: Int = applicants.size): BatchGetApplicationFormsResponse =
+        try {
+            call("BatchGetApplicationForms") {
+                listStub().batchGetApplicationForms(BatchGetApplicationFormsRequest.newBuilder()
+                    .addAllAccountId(applicants.map { it.userId }).build())
+            }
+        } catch (exception: AdminDomainException) {
+            throw AdminDomainException(exception.errorCode, exception, totalCount = totalCount,
+                rpc = exception.rpc, grpcStatus = exception.grpcStatus, targetIds = applicants.map { it.applicantId })
+        }
+
+    private fun applicationFailureCode(code: String): ErrorCode = when (code) {
+        "APPLICATION_INVALID_ID" -> ErrorCode.APPLICATION_INVALID_ID
+        "APPLICATION_FORM_INVALID" -> ErrorCode.APPLICATION_FORM_INVALID
+        "APPLICATION_SCORE_INVALID" -> ErrorCode.APPLICATION_SCORE_INVALID
+        "APPLICATION_FORM_NOT_FOUND" -> ErrorCode.APPLICATION_FORM_NOT_FOUND
+        else -> ErrorCode.APPLICATION_SYNC_FAILED
+    }
+
+    private fun applicationSyncFailure(codes: Collection<ErrorCode>, targetIds: List<Long>, totalCount: Int): AdminDomainException {
+        val affected = targetIds.distinct()
+        return AdminDomainException(codes.toSet().singleOrNull() ?: ErrorCode.APPLICATION_SYNC_FAILED,
+            failedCount = affected.size, totalCount = totalCount, rpc = "ApplicationService/BatchGetApplicationForms",
+            grpcStatus = "OK", targetIds = affected)
     }
 
     @Scheduled(initialDelayString = "\${admin.projection.initial-delay-ms:1000}",
@@ -252,7 +258,7 @@ class GrpcApplicantDataAdapter(
     fun reconcileProjection() {
         try { syncExportProjection() } catch (exception: Exception) {
             LoggerFactory.getLogger(javaClass).error("Applicant projection reconciliation failed [code={}, exception={}, stack={}]",
-                (exception as? AdminDomainException)?.errorCode, exception.javaClass.name, exception.stackTrace.joinToString("\n"))
+                (exception as? AdminDomainException)?.errorCode, exception.javaClass.name, exception.safeStackTrace())
         }
     }
 
