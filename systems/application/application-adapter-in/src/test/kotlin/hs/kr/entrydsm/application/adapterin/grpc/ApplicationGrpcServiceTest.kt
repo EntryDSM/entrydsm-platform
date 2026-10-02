@@ -358,6 +358,35 @@ class ApplicationGrpcServiceTest {
         assertEquals(APPLICANT_ID, response.applicationsList.single().applicantId)
         assertFalse(response.applicationsList.single().hasAdmissionTypeCode())
         assertFalse(response.applicationsList.single().hasRegionCode())
+
+        port.formFailures[11L] = IllegalArgumentException("원서 본문과 개인정보")
+        val mixed = stub.batchGetApplicationForms(BatchGetApplicationFormsRequest.newBuilder()
+            .addAllAccountId(listOf(11L, 0L, 404L, USER_ID)).build())
+        assertEquals(listOf(USER_ID), mixed.applicationsList.map { it.userId })
+        assertEquals(listOf("APPLICATION_FORM_INVALID", "APPLICATION_INVALID_ID", "APPLICATION_FORM_NOT_FOUND"),
+            mixed.failuresList.map { it.code })
+        val invalid = assertThrows(StatusRuntimeException::class.java) {
+            stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(11L).build())
+        }
+        assertEquals(Status.Code.DATA_LOSS, invalid.status.code)
+        assertEquals("APPLICATION_FORM_INVALID", invalid.status.description)
+        val invalidId = assertThrows(StatusRuntimeException::class.java) {
+            stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(0).build())
+        }
+        assertEquals("APPLICATION_INVALID_ID", invalidId.status.description)
+        port.formFailures[13L] = hs.kr.entrydsm.application.application.exception.EvaluationValidationException("성적 누락")
+        val score = assertThrows(StatusRuntimeException::class.java) {
+            stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(13).build())
+        }
+        assertEquals("APPLICATION_SCORE_INVALID", score.status.description)
+        val scoreBatch = stub.batchGetApplicationForms(BatchGetApplicationFormsRequest.newBuilder().addAccountId(13).build())
+        assertEquals("APPLICATION_SCORE_INVALID", scoreBatch.failuresList.single().code)
+        port.formFailures[12L] = IllegalStateException("저장소 장애")
+        val unavailable = assertThrows(StatusRuntimeException::class.java) {
+            stub.batchGetApplicationForms(BatchGetApplicationFormsRequest.newBuilder().addAccountId(12).build())
+        }
+        assertEquals(Status.Code.INTERNAL, unavailable.status.code)
+        assertEquals("APPLICATION_INTERNAL_ERROR", unavailable.status.description)
     }
 
     private class FakeApplicationPort : ApplicationPort {
@@ -370,6 +399,7 @@ class ApplicationGrpcServiceTest {
         var applicant: ApplicantResult? = null
         var applicants: List<ApplicantResult> = emptyList()
         var form: ApplicationFormResult? = null
+        val formFailures = mutableMapOf<Long, RuntimeException>()
         var cancelReason: String? = null
         var findCount = 0
         var batchAccountIds: List<Long> = emptyList()
@@ -390,8 +420,11 @@ class ApplicationGrpcServiceTest {
         override fun findApplicant(applicantId: Long): ApplicantResult? =
             applicant?.takeIf { it.applicantId == applicantId }
 
-        override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
-            form?.takeIf { it.accountId == accountId }
+        override fun findApplicationForm(accountId: Long): ApplicationFormResult? {
+            batchAccountIds = batchAccountIds + accountId
+            formFailures[accountId]?.let { throw it }
+            return form?.takeIf { it.accountId == accountId }
+        }
 
         override fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> {
             batchAccountIds = accountIds

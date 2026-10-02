@@ -42,6 +42,7 @@ import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberResponse
 import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
 import io.grpc.Status
+import org.slf4j.LoggerFactory
 import io.grpc.stub.StreamObserver
 import java.time.ZoneOffset
 import org.springframework.stereotype.Component
@@ -50,10 +51,12 @@ import org.springframework.stereotype.Component
 class ApplicationGrpcService(
     private val applicationPort: ApplicationPort,
 ) : ApplicationServiceGrpc.ApplicationServiceImplBase() {
+    private val logger = LoggerFactory.getLogger(javaClass)
+    private class InvalidIdException : IllegalArgumentException()
     override fun createApplication(
         request: CreateApplicationRequest,
         responseObserver: StreamObserver<ApplicationResponse>,
-    ) = responseObserver.respond {
+    ) = responseObserver.respond("CreateApplication", request.userId) {
         request.userId.validate()
         applicationPort.findByAccountId(request.userId)
             ?: applicationPort.createApplicant(CreateApplicantCommand(request.userId)).snapshot
@@ -62,7 +65,7 @@ class ApplicationGrpcService(
     override fun getApplication(
         request: GetApplicationRequest,
         responseObserver: StreamObserver<ApplicationResponse>,
-    ) = responseObserver.respond {
+    ) = responseObserver.respond("GetApplication", request.userId) {
         request.userId.validate()
         applicationPort.findByAccountId(request.userId)
             ?: throw ApplicantNotFoundException(request.userId)
@@ -71,7 +74,7 @@ class ApplicationGrpcService(
     override fun cancelApplication(
         request: CancelApplicationRequest,
         responseObserver: StreamObserver<ApplicationResponse>,
-    ) = responseObserver.respond {
+    ) = responseObserver.respond("CancelApplication", request.userId) {
         request.userId.validate()
         applicationPort.cancel(request.userId, request.reason.takeIf { request.hasReason() })
     }
@@ -79,7 +82,7 @@ class ApplicationGrpcService(
     override fun getApplicant(
         request: GetApplicantRequest,
         responseObserver: StreamObserver<ApplicantResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("GetApplicant", request.applicantId) {
         request.applicantId.validate()
         (applicationPort.findApplicant(request.applicantId) ?: throw ApplicantNotFoundException(request.applicantId))
             .toResponse()
@@ -88,7 +91,7 @@ class ApplicationGrpcService(
     override fun listApplicants(
         request: ListApplicantsRequest,
         responseObserver: StreamObserver<ListApplicantsResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("ListApplicants") {
         ListApplicantsResponse.newBuilder()
             .addAllApplicants(applicationPort.listApplicants().map { it.toResponse() })
             .build()
@@ -97,7 +100,7 @@ class ApplicationGrpcService(
     override fun getApplicationForm(
         request: GetApplicationFormRequest,
         responseObserver: StreamObserver<ApplicationFormResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("GetApplicationForm", request.accountId) {
         request.accountId.validate()
         (applicationPort.findApplicationForm(request.accountId) ?: throw ApplicantNotFoundException(request.accountId))
             .toGrpcForm()
@@ -106,17 +109,39 @@ class ApplicationGrpcService(
     override fun batchGetApplicationForms(
         request: BatchGetApplicationFormsRequest,
         responseObserver: StreamObserver<BatchGetApplicationFormsResponse>,
-    ) = responseObserver.respondWith {
-        request.accountIdList.forEach { it.validate() }
-        BatchGetApplicationFormsResponse.newBuilder()
-            .addAllApplications(applicationPort.findApplicationForms(request.accountIdList).map { it.toGrpcForm() })
-            .build()
+    ) = responseObserver.respondWith("BatchGetApplicationForms") {
+        val response = BatchGetApplicationFormsResponse.newBuilder()
+        // ponytail: 계정별 조회로 오류를 격리한다. 회차 규모가 커지면 저장소 배치 조회와 건별 변환으로 변경한다.
+        request.accountIdList.distinct().forEach { accountId ->
+            try {
+                accountId.validate()
+                val form = applicationPort.findApplicationForm(accountId) ?: throw ApplicantNotFoundException(accountId)
+                response.addApplications(form.toGrpcForm())
+            } catch (exception: Exception) {
+                val code = when (exception) {
+                    is InvalidIdException -> "APPLICATION_INVALID_ID"
+                    is ApplicantNotFoundException -> "APPLICATION_FORM_NOT_FOUND"
+                    is hs.kr.entrydsm.application.application.exception.EvaluationValidationException -> "APPLICATION_SCORE_INVALID"
+                    is IllegalArgumentException -> "APPLICATION_FORM_INVALID"
+                    else -> throw exception // 공통 설정·저장소 장애는 배치 전체를 실패시킨다.
+                }
+                logFailure("BatchGetApplicationForms", accountId, code, exception)
+                response.addFailures(hs.kr.entrydsm.application.grpc.ApplicationFormFailure.newBuilder()
+                    .setAccountId(accountId).setCode(code).setMessage(when (code) {
+                        "APPLICATION_INVALID_ID" -> "원서 조회 대상 ID가 올바르지 않습니다."
+                        "APPLICATION_FORM_NOT_FOUND" -> "조회할 원서를 찾을 수 없습니다."
+                        "APPLICATION_SCORE_INVALID" -> "원서 성적 상세 계산에 필요한 데이터를 확인해 주세요."
+                        else -> "원서 데이터 검증 또는 변환에 실패했습니다."
+                    }))
+            }
+        }
+        response.build()
     }
 
     override fun updateApplicantArrival(
         request: UpdateApplicantArrivalRequest,
         responseObserver: StreamObserver<ApplicationResponse>,
-    ) = responseObserver.respond {
+    ) = responseObserver.respond("UpdateApplicantArrival", request.applicantId) {
         request.applicantId.validate()
         applicationPort.updateArrival(UpdateApplicantArrivalCommand(request.applicantId, request.isArrived))
     }
@@ -124,7 +149,7 @@ class ApplicationGrpcService(
     override fun updateExamineeNumber(
         request: UpdateExamineeNumberRequest,
         responseObserver: StreamObserver<UpdateExamineeNumberResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("UpdateExamineeNumber", request.applicantId) {
         request.applicantId.validate()
         applicationPort.updateExamineeNumber(request.applicantId, request.examineeNumber)
         UpdateExamineeNumberResponse.getDefaultInstance()
@@ -133,36 +158,55 @@ class ApplicationGrpcService(
     override fun deleteApplicant(
         request: DeleteApplicantRequest,
         responseObserver: StreamObserver<DeleteApplicantResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("DeleteApplicant", request.applicantId) {
         request.applicantId.validate()
         applicationPort.deleteApplicant(request.applicantId)
         DeleteApplicantResponse.getDefaultInstance()
     }
 
     private fun Long.validate() {
-        require(this > 0) { "id must be positive" }
+        if (this <= 0) throw InvalidIdException()
     }
 
-    private fun StreamObserver<ApplicationResponse>.respond(block: () -> ApplicationSnapshotResult) =
-        respondWith { block().toResponse() }
+    private fun StreamObserver<ApplicationResponse>.respond(rpc: String, targetId: Long, block: () -> ApplicationSnapshotResult) =
+        respondWith(rpc, targetId) { block().toResponse() }
 
-    private fun <T> StreamObserver<T>.respondWith(block: () -> T) {
+    private fun <T> StreamObserver<T>.respondWith(rpc: String, targetId: Long? = null, block: () -> T) {
         try {
             onNext(block())
             onCompleted()
         } catch (exception: Exception) {
+            val code = when (exception) {
+                is InvalidIdException -> "APPLICATION_INVALID_ID"
+                is hs.kr.entrydsm.application.application.exception.EvaluationValidationException -> "APPLICATION_SCORE_INVALID"
+                is IllegalArgumentException -> "APPLICATION_FORM_INVALID"
+                is ApplicantNotFoundException -> "APPLICATION_FORM_NOT_FOUND"
+                is ApplicationCancelNotAllowedException -> "APPLICATION_CANCEL_NOT_ALLOWED"
+                is ApplicationPeriodClosedException -> "APPLICATION_PERIOD_CLOSED"
+                is ApplicationPeriodLookupFailedException -> "APPLICATION_DEPENDENCY_UNAVAILABLE"
+                else -> "APPLICATION_INTERNAL_ERROR"
+            }
+            logFailure(rpc, targetId, code, exception)
             onError(
                 when (exception) {
-                    is IllegalArgumentException -> Status.INVALID_ARGUMENT
+                    is InvalidIdException -> Status.INVALID_ARGUMENT
+                    is IllegalArgumentException -> Status.DATA_LOSS
                     is ApplicantNotFoundException -> Status.NOT_FOUND
                     is ApplicationCancelNotAllowedException -> Status.FAILED_PRECONDITION
                     // CreateApplication 이 새 원서를 만들 때 원서 접수 기간을 본다.
                     is ApplicationPeriodClosedException -> Status.FAILED_PRECONDITION
                     is ApplicationPeriodLookupFailedException -> Status.UNAVAILABLE
                     else -> Status.INTERNAL
-                }.withCause(exception).asRuntimeException(),
+                }.withDescription(code).withCause(exception).asRuntimeException(),
             )
         }
+    }
+
+    private fun logFailure(rpc: String, accountId: Long?, code: String, exception: Exception) {
+        // 예외 메시지에 원서 본문이 포함될 수 있으므로 타입과 발생 위치만 남긴다.
+        logger.error("Application gRPC failed [rpc={}, targetId={}, code={}, exception={}, stack={}]",
+            rpc, accountId, code, exception.javaClass.name,
+            generateSequence(exception as Throwable) { it.cause }.joinToString("\n") { "${it.javaClass.name}\n${it.stackTrace.joinToString("\n")}" })
     }
 
     private fun ApplicationSnapshotResult.toResponse(): ApplicationResponse =
