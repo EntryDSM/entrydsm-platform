@@ -143,6 +143,12 @@ class ExportJobJpaEntity(
 
     @Column(name = "completed_at")
     val completedAt: Instant? = null,
+    @Column(name = "failure_code", length = 80)
+    val failureCode: String? = null,
+    @Column(name = "failure_message", length = 255)
+    val failureMessage: String? = null,
+    @Column(name = "failed_count", nullable = false)
+    val failedCount: Int = 0,
 ) {
     fun toDomain(): ExportJob = ExportJob(
         id = id,
@@ -155,6 +161,9 @@ class ExportJobJpaEntity(
         createdAt = createdAt,
         startedAt = startedAt,
         completedAt = completedAt,
+        failureCode = failureCode,
+        failureMessage = failureMessage,
+        failedCount = failedCount,
     )
 
     companion object {
@@ -169,6 +178,9 @@ class ExportJobJpaEntity(
             createdAt = job.createdAt,
             startedAt = job.startedAt,
             completedAt = job.completedAt,
+            failureCode = job.failureCode,
+            failureMessage = job.failureMessage,
+            failedCount = job.failedCount,
         )
     }
 }

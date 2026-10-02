@@ -35,7 +35,8 @@ class GlobalExceptionHandler {
     fun handleAdminException(exception: AdminException): ResponseEntity<ErrorResponse> =
         response(exception.errorCode).also {
             if (exception.errorCode.status >= SERVER_ERROR_STATUS) {
-                logger.error("Admin failure [code={}]", exception.errorCode.name, exception)
+                logger.error("Admin failure [code={}, exception={}, stack={}]", exception.errorCode.name,
+                    exception.javaClass.name, exception.stackTrace.joinToString("\n"))
             }
         }
 

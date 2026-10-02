@@ -2,6 +2,7 @@ package hs.kr.entrydsm.admin.domain.model
 
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import java.time.Instant
 
 /**
@@ -22,19 +23,24 @@ data class ExportJob(
     val createdAt: Instant,
     val startedAt: Instant? = null,
     val completedAt: Instant? = null,
+    val failureCode: String? = null,
+    val failureMessage: String? = null,
+    val failedCount: Int = 0,
 ) {
     fun started(startedAt: Instant? = this.startedAt): ExportJob =
-        copy(status = ExportStatus.PROCESSING, startedAt = startedAt)
+        copy(status = ExportStatus.PROCESSING, startedAt = startedAt, failureCode = null, failureMessage = null, failedCount = 0)
 
-    fun pending(): ExportJob = copy(status = ExportStatus.PENDING, startedAt = null)
+    fun pending(): ExportJob = copy(status = ExportStatus.PENDING, startedAt = null, failureCode = null, failureMessage = null, failedCount = 0)
 
     fun withTotal(totalCount: Int): ExportJob = copy(totalCount = totalCount)
 
     fun processed(processedCount: Int): ExportJob = copy(processedCount = processedCount)
 
     fun completed(objectKey: String, completedAt: Instant): ExportJob =
-        copy(status = ExportStatus.COMPLETED, objectKey = objectKey, completedAt = completedAt)
+        copy(status = ExportStatus.COMPLETED, objectKey = objectKey, completedAt = completedAt, failureCode = null, failureMessage = null, failedCount = 0)
 
-    fun failed(completedAt: Instant): ExportJob =
-        copy(status = ExportStatus.FAILED, completedAt = completedAt)
+    fun failed(completedAt: Instant, errorCode: ErrorCode = ErrorCode.INTERNAL_SERVER_ERROR,
+        failedCount: Int = 0): ExportJob =
+        copy(status = ExportStatus.FAILED, completedAt = completedAt,
+            failureCode = errorCode.name, failureMessage = errorCode.message, failedCount = failedCount)
 }
