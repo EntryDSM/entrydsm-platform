@@ -45,9 +45,18 @@ configuration:
     # 원서를 쓰는 요청마다 부르므로 짧게 둔다.
     deadline-ms: ${CONFIGURATION_GRPC_DEADLINE_MS:1000}
 
+identity:
+  grpc:
+    host: ${IDENTITY_GRPC_HOST:identity}
+    port: ${IDENTITY_GRPC_PORT:9090}
+    deadline-ms: ${IDENTITY_GRPC_DEADLINE_MS:1000}
+
 security:
   pii:
     encryption-key-base64: ${APPLICATION_PII_ENCRYPTION_KEY_BASE64}
+  snapshot:
+    current-key-id: ${APPLICATION_SNAPSHOT_KEY_ID}
+    current-key-base64: ${APPLICATION_SNAPSHOT_KEY_BASE64}
 
 server:
   port: ${SERVER_PORT}

@@ -10,6 +10,8 @@ import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.enum.SignupType
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import java.time.Clock
 import java.time.Instant
@@ -20,6 +22,12 @@ class AccountService(
     private val applicationDataPort: ApplicationDataPort,
     private val clock: Clock = Clock.systemUTC(),
 ) : AccountPort {
+    override fun validateApplicationPhone(command: ReadAccountCommand, phoneNumber: String): Boolean {
+        val account = resolveAccount(command.userId)
+        if (account.status != AccountStatus.ACTIVE) throw IdentityDomainException(ErrorCode.AUTH_UNAUTHORIZED)
+        return account.profile.signupType != SignupType.SELF || account.profile.phone == phoneNumber.replace("-", "")
+    }
+
     override fun deleteAccount(command: DeleteAccountCommand) {
         val account = resolveAccount(command.userId)
         account.delete(now())

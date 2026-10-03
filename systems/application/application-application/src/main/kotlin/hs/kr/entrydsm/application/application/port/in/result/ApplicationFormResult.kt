@@ -60,4 +60,7 @@ data class ApplicationFormResult(
     /** 검정고시 지원자의 과목별 점수. 학기 성적 대신 서식 1 교과성적 표에 찍는다. 검정고시가 아니면 null 이다. */
     val gedScores: GedScores? = null,
     val examineeNumber: String? = null,
+    val statusVersion: Long = 0,
+    val submittedAt: java.time.LocalDateTime? = null,
+    val addressBase: String? = null,
 )

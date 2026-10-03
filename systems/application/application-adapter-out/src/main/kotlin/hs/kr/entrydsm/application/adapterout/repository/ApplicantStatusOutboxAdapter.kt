@@ -5,6 +5,8 @@ import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
 import hs.kr.entrydsm.application.grpc.ApplicantStatus
 import hs.kr.entrydsm.application.grpc.ApplicantStatusChangedEvent
+import hs.kr.entrydsm.application.grpcmapping.toGrpcForm
+import hs.kr.entrydsm.common.crypto.SnapshotCipher
 import hs.kr.entrydsm.application.grpc.PassStatus
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.ResultType
@@ -25,11 +27,17 @@ interface ApplicantStatusOutboxJpaRepository : JpaRepository<ApplicantStatusOutb
         nativeQuery = true,
     )
     fun findUnpublishedForUpdate(): List<ApplicantStatusOutboxJpaEntity>
+
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "DELETE FROM applicant_status_outbox WHERE published_at < :before LIMIT 100", nativeQuery = true)
+    fun deletePublishedBefore(@org.springframework.data.repository.query.Param("before") before: java.time.LocalDateTime): Int
 }
 
 @Repository
 class ApplicantStatusOutboxAdapter(
     private val repository: ApplicantStatusOutboxJpaRepository,
+    private val cipher: SnapshotCipher,
 ) : ApplicantStatusEventOutbox {
     override fun add(event: ApplicantStatusChanged) {
         val payload = ApplicantStatusChangedEvent.newBuilder()
@@ -56,6 +64,7 @@ class ApplicantStatusOutboxAdapter(
                 },
             )
             .also { builder ->
+                event.applicationForm?.let { builder.setEncryptedApplicationForm(com.google.protobuf.ByteString.copyFrom(cipher.encrypt(it.toGrpcForm().toByteArray()))) }
                 if (event.deleted) builder.applicantStatus = ApplicantStatus.APPLICANT_STATUS_NONE
                 event.submittedAt?.let { builder.submittedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }
                 event.announcedAt?.let { builder.announcedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }

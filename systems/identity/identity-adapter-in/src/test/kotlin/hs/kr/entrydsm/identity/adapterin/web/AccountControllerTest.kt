@@ -86,6 +86,7 @@ class AccountControllerTest {
     }
 
     private class FakeAccountPort : AccountPort {
+        override fun validateApplicationPhone(command: ReadAccountCommand, phoneNumber: String): Boolean = error("not used")
         var readAccountCommand: ReadAccountCommand? = null
         var deleteAccountCommand: DeleteAccountCommand? = null
         var authorityCommand: ReadAccountCommand? = null

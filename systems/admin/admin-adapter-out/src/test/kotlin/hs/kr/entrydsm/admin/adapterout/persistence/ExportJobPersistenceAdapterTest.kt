@@ -18,6 +18,29 @@ import org.springframework.aop.support.AopUtils
 class ExportJobPersistenceAdapterTest {
 
     @Test
+    fun `이전 산출물 잠금 조회는 활성 트랜잭션 안에서 실행한다`() {
+        val repository = Proxy.newProxyInstance(javaClass.classLoader,
+            arrayOf(ExportJobJpaRepository::class.java)) { _, method, _ ->
+            assertEquals("findAllByTypeAndStatusAndObjectKeyIsNotNull", method.name)
+            assertTrue(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+            emptyList<ExportJobJpaEntity>()
+        } as ExportJobJpaRepository
+        val manager = object : org.springframework.transaction.support.AbstractPlatformTransactionManager() {
+            override fun doGetTransaction(): Any = Any()
+            override fun doBegin(transaction: Any, definition: org.springframework.transaction.TransactionDefinition) = Unit
+            override fun doCommit(status: org.springframework.transaction.support.DefaultTransactionStatus) = Unit
+            override fun doRollback(status: org.springframework.transaction.support.DefaultTransactionStatus) = Unit
+        }
+        val proxy = ProxyFactory(ExportJobPersistenceAdapter(repository)).apply {
+            isProxyTargetClass = true
+            addAdvice(org.springframework.transaction.interceptor.TransactionInterceptor(manager,
+                org.springframework.transaction.annotation.AnnotationTransactionAttributeSource()))
+        }.proxy as ExportJobPersistenceAdapter
+        assertTrue(proxy.findDownloadableByType(ExportType.APPLICATION_CHECKLIST).isEmpty())
+        assertTrue(!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive())
+    }
+
+    @Test
     fun `트랜잭션용 클래스 프록시를 생성한다`() {
         val proxy = ProxyFactory(ExportJobPersistenceAdapter(echoingRepository())).apply {
             isProxyTargetClass = true
@@ -70,12 +93,18 @@ class ExportJobPersistenceAdapterTest {
                 totalCount = 10,
                 processedCount = 7,
                 createdAt = Instant.EPOCH,
+                failureCode = "APPLICATION_FORM_INVALID",
+                failureMessage = "원서 데이터 오류",
+                failedCount = 3,
             ),
         )
 
         assertEquals(filter, saved.filter)
         assertEquals(10, saved.totalCount)
         assertEquals(7, saved.processedCount)
+        assertEquals("APPLICATION_FORM_INVALID", saved.failureCode)
+        assertEquals("원서 데이터 오류", saved.failureMessage)
+        assertEquals(3, saved.failedCount)
     }
 
     /** DB 없이 save 만 흉내 낸다. 받은 엔티티를 그대로 돌려준다. */

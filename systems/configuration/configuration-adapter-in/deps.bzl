@@ -16,6 +16,8 @@ KOTLIN_DEPS = [
 ]
 
 TEST_DEPS = [
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
     "@maven//:junit_junit",
     "@maven//:org_springframework_boot_spring_boot_starter_test",
 ]

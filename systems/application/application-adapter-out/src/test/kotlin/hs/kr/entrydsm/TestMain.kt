@@ -4,6 +4,7 @@ import hs.kr.entrydsm.application.adapterout.entity.ApplicantJpaEntityTest
 import hs.kr.entrydsm.application.adapterout.entity.AcademicRecordJpaEntityTest
 import hs.kr.entrydsm.application.adapterout.entity.ApplicantStatusOutboxJpaEntityTest
 import hs.kr.entrydsm.application.adapterout.grpc.GrpcApplicationPeriodAdapterTest
+import hs.kr.entrydsm.application.adapterout.grpc.GrpcAccountPhoneAdapterTest
 import hs.kr.entrydsm.application.adapterout.repository.ApplicantPersistenceAdapterTest
 import hs.kr.entrydsm.application.adapterout.repository.ApplicantSummaryQueryTest
 import hs.kr.entrydsm.application.adapterout.repository.InstitutionCodeJpaRepositoryTest
@@ -14,10 +15,13 @@ import org.junit.runners.Suite
 @Suite.SuiteClasses(
     AcademicRecordJpaEntityTest::class,
     ApplicantJpaEntityTest::class,
+    hs.kr.entrydsm.application.adapterout.entity.PersonalDataConverterTest::class,
     ApplicantStatusOutboxJpaEntityTest::class,
     GrpcApplicationPeriodAdapterTest::class,
+    GrpcAccountPhoneAdapterTest::class,
     ApplicantPersistenceAdapterTest::class,
     ApplicantSummaryQueryTest::class,
     InstitutionCodeJpaRepositoryTest::class,
+    hs.kr.entrydsm.application.adapterout.repository.ApplicantSnapshotRetentionTest::class,
 )
 class ApplicationAdapterOutModuleTest

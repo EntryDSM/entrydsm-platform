@@ -25,6 +25,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.OneToMany
 import jakarta.persistence.OneToOne
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
@@ -113,8 +114,8 @@ open class ApplicantJpaEntity(
     @Column(name = "study_plan", columnDefinition = "TEXT")
     var studyPlan: String? = null,
 
-    @Column(name = "total_score", nullable = false)
-    var totalScore: Double = 0.0,
+    @Column(name = "total_score")
+    var totalScore: Double? = null,
 
     @Column(name = "total_score_updated_at")
     var totalScoreUpdatedAt: LocalDateTime? = null,
@@ -131,6 +132,13 @@ open class ApplicantJpaEntity(
 
     @Column(name = "status_version", nullable = false)
     var statusVersion: Long = 0,
+
+    @Column(name = "screening_result_version", nullable = false)
+    var screeningResultVersion: Long = 0,
+
+    @Version
+    @Column(name = "lock_version", nullable = false)
+    var lockVersion: Long = 0,
 
     @Column(name = "created_at", nullable = false)
     var createdAt: LocalDateTime = nowUtc(),

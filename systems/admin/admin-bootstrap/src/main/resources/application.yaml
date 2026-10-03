@@ -1,6 +1,10 @@
 spring:
   application:
     name: admin
+  task:
+    scheduling:
+      pool:
+        size: 2
   main:
     lazy-initialization: true
   datasource:
@@ -27,6 +31,8 @@ server:
   port: ${SERVER_PORT}
   shutdown: graceful
 admin:
+  export-event:
+    consumer-name: ${ADMIN_EXPORT_EVENT_CONSUMER_NAME:${HOSTNAME:${COMPUTERNAME:admin}}}
   screening:
     # 1차(서류) 선발 인원 = 지역·전형별 모집 정원 × 배수(올림). 최종은 모집 정원 그대로.
     first-pass-multiplier: ${FIRST_PASS_MULTIPLIER:1.5}
@@ -78,3 +84,8 @@ management:
 logging:
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}
+
+security:
+  snapshot:
+    current-key-id: ${APPLICATION_SNAPSHOT_KEY_ID}
+    current-key-base64: ${APPLICATION_SNAPSHOT_KEY_BASE64}

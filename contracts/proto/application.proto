@@ -107,6 +107,17 @@ message BatchGetApplicationFormsRequest {
 
 message BatchGetApplicationFormsResponse {
     repeated ApplicationFormResponse applications = 1;
+    // 정상 원서는 계속 반환한다. 실패가 있으면 호출자는 완전한 출력물로 취급하면 안 된다.
+    repeated ApplicationFormFailure failures = 2;
+}
+
+message ApplicationFormFailure {
+    int64 account_id = 1;
+    // 개인정보 없는 고정 코드: APPLICATION_INVALID_ID, APPLICATION_FORM_NOT_FOUND,
+    // APPLICATION_FORM_INVALID, APPLICATION_SCORE_INVALID. 임의의 예외 메시지를 전달하지 않는다.
+    string code = 2;
+    // 고정 코드에 대응하는 안전한 설명. 호출자는 임의 원격 메시지를 그대로 공개하지 않는다.
+    string message = 3;
 }
 
 // 요강 <서식 1> 입학원서를 찍는 데 쓰는 원서 내용.
@@ -160,6 +171,9 @@ message ApplicationFormResponse {
     // 검정고시 지원자의 과목별 점수. 학기 성적이 없는 검정고시 지원자만 담는다.
     optional GedScores ged_scores = 37;
     optional string examinee_number = 38;
+    int64 status_version = 39;
+    optional int64 submitted_at_epoch_millis = 40;
+    optional string address_base = 41;
 }
 
 message MiddleSchool {
@@ -206,6 +220,14 @@ message AcademicRecord {
     bool programming_certified = 7;
 }
 
+// 관리자 결과의 version은 관리자 outbox의 단조 증가 ID이다.
+message ScreeningResultChangedEvent {
+    int64 applicant_id = 1;
+    int64 version = 2;
+    PassStatus pass_status = 3;
+    int64 occurred_at_epoch_millis = 4;
+}
+
 message ApplicantStatusChangedEvent {
     string event_id = 1;
     int64 account_id = 2;
@@ -217,6 +239,8 @@ message ApplicantStatusChangedEvent {
     optional int64 announced_at_epoch_millis = 8;
     int64 applicant_id = 9;
     bool applicant_deleted = 10;
+    // Versioned AES-GCM envelope; application/admin share dedicated snapshot keys.
+    optional bytes encrypted_application_form = 11;
 }
 
 enum ApplicantStatus {

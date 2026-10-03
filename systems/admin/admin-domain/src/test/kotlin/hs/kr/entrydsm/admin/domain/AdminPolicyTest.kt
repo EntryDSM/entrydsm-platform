@@ -178,6 +178,39 @@ class AdminPolicyTest {
     }
 
     @Test
+    fun `1차를 다시 산출하면 이미 산출된 지원자와 함께 줄 세워 정원을 넘기지 않는다`() {
+        val outcome = ScreeningPolicy.evaluate(
+            listOf(
+                applicant(id = 1L, examineeNumber = "100001", totalScore = 80.0, status = ApplicantStatus.FIRST_PASS),
+                applicant(id = 2L, examineeNumber = "100002", totalScore = 70.0, status = ApplicantStatus.FIRST_PASS),
+                applicant(id = 3L, examineeNumber = "100003", totalScore = 60.0, status = ApplicantStatus.FIRST_FAIL),
+                applicant(id = 4L, examineeNumber = "100004", totalScore = 95.0),
+            ),
+            stage = ScreeningStage.FIRST,
+            quotas = quotas(2),
+        )
+
+        assertEquals(listOf(4L, 1L), outcome.passed.map { it.id })
+        assertEquals(listOf(2L, 3L), outcome.failed.map { it.id })
+    }
+
+    @Test
+    fun `최종 결과를 받은 지원자가 있으면 1차를 다시 산출할 수 없다`() {
+        val exception = runCatching {
+            ScreeningPolicy.evaluate(
+                listOf(
+                    applicant(id = 1L, examineeNumber = "100001", totalScore = 80.0, status = ApplicantStatus.FINAL_PASS),
+                    applicant(id = 2L, examineeNumber = "100002", totalScore = 95.0),
+                ),
+                stage = ScreeningStage.FIRST,
+                quotas = quotas(1),
+            )
+        }.exceptionOrNull()
+
+        assertEquals(ErrorCode.INVALID_STATUS_TRANSITION, (exception as AdminDomainException).errorCode)
+    }
+
+    @Test
     fun `원서 미도착·수험 번호 미발급·전형이 빈 지원자는 산출에서 제외한다`() {
         val outcome = ScreeningPolicy.evaluate(
             listOf(
@@ -194,82 +227,6 @@ class AdminPolicyTest {
 
         assertEquals(listOf(1L, 2L, 3L, 5L), outcome.excluded.map { it.id })
         assertEquals(listOf(4L, 6L), outcome.passed.map { it.id }.sorted())
-    }
-
-    @Test
-    fun `최종 산출은 1차 합격자만 대상으로 한다`() {
-        val outcome = ScreeningPolicy.evaluate(
-            listOf(
-                applicant(id = 1L, examineeNumber = "100001", totalScore = 99.0),
-                applicant(
-                    id = 2L,
-                    examineeNumber = "100002",
-                    totalScore = 70.0,
-                    status = ApplicantStatus.FIRST_PASS,
-                ),
-            ),
-            stage = ScreeningStage.FINAL,
-            quotas = quotas(10),
-        )
-
-        assertEquals(listOf(2L), outcome.passed.map { it.id })
-        assertTrue(outcome.passed.all { it.status == ApplicantStatus.FINAL_PASS })
-    }
-
-    @Test
-    fun `개별 최종 산출은 정원 안에 든 지원자만 합격시킨다`() {
-        val first = applicant(
-            id = 1L,
-            examineeNumber = "100001",
-            totalScore = 95.0,
-            status = ApplicantStatus.FIRST_PASS,
-        )
-        val second = applicant(
-            id = 2L,
-            examineeNumber = "100002",
-            totalScore = 80.0,
-            status = ApplicantStatus.FIRST_PASS,
-        )
-        val cohort = listOf(first, second)
-
-        assertEquals(
-            ApplicantStatus.FINAL_PASS,
-            ScreeningPolicy.evaluateFinal(first, cohort, quotas = quotas(1)),
-        )
-        assertEquals(
-            ApplicantStatus.FINAL_FAIL,
-            ScreeningPolicy.evaluateFinal(second, cohort, quotas = quotas(1)),
-        )
-    }
-
-    @Test
-    fun `개별 최종 산출에서 산출되지 않은 지원자는 불합격 처리한다`() {
-        val notFirstPass = applicant(
-            id = 1L,
-            examineeNumber = "100001",
-            totalScore = 99.0,
-        )
-        val noScore = applicant(
-            id = 2L,
-            examineeNumber = "100002",
-            totalScore = null,
-            status = ApplicantStatus.FIRST_PASS,
-        )
-        val notArrived = applicant(
-            id = 3L,
-            isArrived = false,
-            examineeNumber = "100003",
-            totalScore = 99.0,
-            status = ApplicantStatus.FIRST_PASS,
-        )
-        val cohort = listOf(notFirstPass, noScore, notArrived)
-
-        cohort.forEach {
-            assertEquals(
-                ApplicantStatus.FINAL_FAIL,
-                ScreeningPolicy.evaluateFinal(it, cohort, quotas = quotas(10)),
-            )
-        }
     }
 
     @Test

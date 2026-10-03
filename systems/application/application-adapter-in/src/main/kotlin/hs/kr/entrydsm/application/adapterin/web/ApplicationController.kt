@@ -21,6 +21,9 @@ import hs.kr.entrydsm.application.application.port.`in`.command.UpdatePersonalCo
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateStudyPlanCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateTypeCommand
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
+import hs.kr.entrydsm.application.application.exception.ApplicationErrorCode.*
+import hs.kr.entrydsm.application.application.exception.ApplicationValidationException
+import java.time.format.DateTimeParseException
 import jakarta.validation.Valid
 import java.time.LocalDate
 import java.time.YearMonth
@@ -74,7 +77,7 @@ class ApplicationController(
                 admissionType = request.admissionType,
                 region = request.region,
                 graduationType = request.graduationType,
-                graduationDate = request.graduationDate?.let(YearMonth::parse),
+                graduationDate = request.graduationDate?.let(::parseGraduationDate),
                 isSensitiveAgree = isSensitiveAgree,
             ),
         )
@@ -178,12 +181,20 @@ class ApplicationController(
         return ApiResponse(data = null)
     }
 
-    private fun parseDate(value: String): LocalDate {
-        return if (value.length == 7) {
+    private fun parseGraduationDate(value: String): YearMonth = try {
+        YearMonth.parse(value)
+    } catch (_: DateTimeParseException) {
+        throw ApplicationValidationException(APPLICATION_GRADUATION_DATE_INVALID_FORMAT)
+    }
+
+    private fun parseDate(value: String): LocalDate = try {
+        if (value.length == 7) {
             YearMonth.parse(value).atDay(1)
         } else {
             LocalDate.parse(value)
         }
+    } catch (_: DateTimeParseException) {
+        throw ApplicationValidationException(APPLICATION_BIRTHDATE_INVALID_FORMAT)
     }
 
     private companion object {

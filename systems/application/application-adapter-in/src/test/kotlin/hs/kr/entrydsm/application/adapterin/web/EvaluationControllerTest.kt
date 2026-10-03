@@ -12,9 +12,68 @@ import hs.kr.entrydsm.application.application.port.`in`.result.AcademicRecordRes
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import hs.kr.entrydsm.application.adapterin.web.exception.GlobalExceptionHandler
+import org.springframework.http.MediaType
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
+import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
 class EvaluationControllerTest {
+    @Test
+    fun gedScoresIdentifyEachSubjectAndAcceptBoundaryValues() {
+        val controller = EvaluationController(FakeEvaluationPort())
+        val scores = hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(0, 0, 0, 0, 0, 0, 0)
+        val cases = listOf(
+            "KOREAN" to scores.copy(koreanScore = -1),
+            "MATH" to scores.copy(mathScore = 101),
+            "ENGLISH" to scores.copy(englishScore = -1),
+            "SCIENCE" to scores.copy(scienceScore = 101),
+            "SOCIETY" to scores.copy(societyScore = -1),
+            "TECHNOLOGY" to scores.copy(technologyScore = 101),
+            "HISTORY" to scores.copy(historyScore = -1),
+        )
+        for ((subject, request) in cases) {
+            val error = org.junit.Assert.assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) {
+                controller.saveGedScores(10L, request)
+            }
+            assertEquals("APPLICATION_${subject}_SCORE_OUT_OF_RANGE", error.errorCode.name)
+        }
+        controller.saveGedScores(10L, scores)
+        controller.saveGedScores(10L, hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(100, 100, 100, 100, 100, 100, 100))
+    }
+
+    @Test
+    fun resultReturnsDetailedBadRequestReason() {
+        val port = FakeEvaluationPort()
+        port.calculationFailure = hs.kr.entrydsm.application.application.exception.EvaluationValidationException("검정고시 성적이 누락되었습니다")
+        val mvc = MockMvcBuilders.standaloneSetup(EvaluationController(port))
+            .setControllerAdvice(GlobalExceptionHandler()).build()
+        val response = mvc.perform(post("/api/evaluation/v11/evaluations/result")
+            .header("X-USER-ID", 10L)).andReturn().response
+        assertEquals(400, response.status)
+        assertTrue(response.getContentAsString(Charsets.UTF_8).contains("검정고시 성적이 누락되었습니다"))
+    }
+
+    @Test
+    fun academicRecordsRejectsNonPositiveValuesAndAcceptsPositiveValues() {
+        val mvc = MockMvcBuilders.standaloneSetup(EvaluationController(FakeEvaluationPort()))
+            .setControllerAdvice(GlobalExceptionHandler()).build()
+        val fields = listOf("absentCount", "earlyLeaveCount", "lateCount", "classAbsenceCount", "volunteerTime")
+        fields.forEach { field ->
+            listOf(-1, 0).forEach { value ->
+                val body = fields.joinToString(",", "{", "}") { "\"$it\":${if (it == field) value else 1}" }
+                val response = mvc.perform(post("/api/evaluation/v11/evaluations/academic-records")
+                    .header("X-USER-ID", 10L).contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().response
+                assertEquals(400, response.status)
+            }
+        }
+        val response = mvc.perform(post("/api/evaluation/v11/evaluations/academic-records")
+            .header("X-USER-ID", 10L).contentType(MediaType.APPLICATION_JSON)
+            .content(fields.joinToString(",", "{", "}") { "\"$it\":1" })).andReturn().response
+        assertEquals(200, response.status)
+    }
+
     @Test
     fun subjectGradesRequestConvertsEverySubjectGrade() {
         val request = SubjectGradesRequest(
@@ -83,6 +142,7 @@ class EvaluationControllerTest {
     }
 
     private class FakeEvaluationPort : EvaluationPort {
+        var calculationFailure: IllegalArgumentException? = null
         var saveSubjectGradesCommand: SaveSubjectGradesCommand? = null
         var calculateEvaluationCommand: CalculateEvaluationCommand? = null
 
@@ -104,6 +164,7 @@ class EvaluationControllerTest {
         override fun saveCertificates(command: SaveCertificatesCommand) = Unit
 
         override fun calculateResult(command: CalculateEvaluationCommand) {
+            calculationFailure?.let { throw it }
             calculateEvaluationCommand = command
         }
     }

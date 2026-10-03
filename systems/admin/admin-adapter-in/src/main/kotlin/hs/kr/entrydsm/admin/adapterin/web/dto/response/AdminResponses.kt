@@ -63,6 +63,9 @@ data class ExportJobResponse(
     val expiresAt: Instant?,
     val createdAt: Instant,
     val completedAt: Instant?,
+    val failureCode: String? = null,
+    val failureMessage: String? = null,
+    val failedCount: Int = 0,
 )
 
 data class NoticeResponse(

@@ -136,6 +136,9 @@ fun ExportJobView.toResponse(): ExportJobResponse = ExportJobResponse(
     expiresAt = download?.expiresAt,
     createdAt = job.createdAt,
     completedAt = job.completedAt,
+    failureCode = job.failureCode,
+    failureMessage = job.failureMessage,
+    failedCount = job.failedCount,
 )
 
 fun Notice.toResponse(): NoticeResponse = NoticeResponse(

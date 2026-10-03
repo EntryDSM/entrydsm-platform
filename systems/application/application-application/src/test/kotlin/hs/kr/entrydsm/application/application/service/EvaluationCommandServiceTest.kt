@@ -1,6 +1,13 @@
 package hs.kr.entrydsm.application.application.service
 
 import hs.kr.entrydsm.application.application.exception.ApplicationPeriodClosedException
+import hs.kr.entrydsm.application.application.exception.ApplicationErrorCode.APPLICATION_NOT_EDITABLE
+import hs.kr.entrydsm.application.application.exception.ApplicationValidationException
+import hs.kr.entrydsm.application.application.port.`in`.command.CalculateEvaluationCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.SaveAcademicRecordCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.SaveCertificatesCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.SaveGedScoresCommand
+import hs.kr.entrydsm.application.application.port.`in`.command.SaveSubjectGradesCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
@@ -11,6 +18,7 @@ import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.model.Applicant
+import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import org.junit.Assert.assertEquals
@@ -21,6 +29,106 @@ import java.time.Instant
 import org.junit.Test
 
 class EvaluationCommandServiceTest {
+    @Test
+    fun nonDraftApplicantsRejectEveryEvaluationCommandWithoutMutation() {
+        ApplicantStatus.entries.filter { it != ApplicantStatus.DRAFT }.forEach { status ->
+            val applicant = Applicant(id = 1L, accountId = 10L, status = status)
+            val repository = FakeApplicantRepository(applicant)
+            val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
+            val commands = listOf<() -> Unit>(
+                { service.saveSubjectGrades(SaveSubjectGradesCommand(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.A))) },
+                { service.saveGedScores(SaveGedScoresCommand(10L, GedScores(100, 100, 100, 100, 100, 100, 100))) },
+                { service.saveAcademicRecord(SaveAcademicRecordCommand(10L, 0, 0, 0, 0, 15)) },
+                { service.saveCertificates(SaveCertificatesCommand(10L, true, true)) },
+                { service.calculateResult(CalculateEvaluationCommand(10L)) },
+            )
+            commands.forEach { command ->
+                val exception = assertThrows(ApplicationValidationException::class.java) { command() }
+                assertEquals(APPLICATION_NOT_EDITABLE, exception.errorCode)
+                assertNull(repository.savedApplicant)
+                assertNull(applicant.academicRecord)
+                assertNull(applicant.totalScoreUpdatedAt)
+                assertEquals(status, applicant.status)
+            }
+        }
+    }
+
+    @Test
+    fun draftGedApplicantCanSaveScoresAndCertificates() {
+        val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L, graduationType = GraduationType.GED))
+        val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
+        val scores = GedScores(100, 100, 100, 100, 100, 100, 100)
+
+        service.saveGedScores(SaveGedScoresCommand(10L, scores))
+        service.saveCertificates(SaveCertificatesCommand(10L, true, true))
+
+        val record = requireNotNull(repository.savedApplicant?.academicRecord)
+        assertEquals(scores, record.gedScores)
+        assertEquals(true, record.isDsmAlgorithmAwarded)
+        assertEquals(true, record.isProgrammingCertified)
+    }
+
+    @Test
+    fun academicRecordValidationIdentifiesEachNegativeFieldWithoutSaving() {
+        val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+        val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
+        val fields = listOf("ABSENT_COUNT", "EARLY_LEAVE_COUNT", "LATE_COUNT", "CLASS_ABSENCE_COUNT", "VOLUNTEER_TIME")
+        for ((index, field) in fields.withIndex()) {
+            val values = List(5) { if (it == index) -1 else 0 }
+            val exception = assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) {
+                service.saveAcademicRecord(10L, values[0], values[1], values[2], values[3], values[4])
+            }
+            assertEquals("APPLICATION_${field}_OUT_OF_RANGE", exception.errorCode.name)
+            assertNull(repository.savedApplicant)
+        }
+        service.saveAcademicRecord(10L, 0, 0, 0, 0, 0)
+        assertNotNull(repository.savedApplicant)
+    }
+
+    @Test
+    fun calculateResultReportsMissingDataWithoutSavingScores() {
+        val applicant = Applicant(id = 1L, accountId = 10L, graduationType = GraduationType.PROSPECTIVE)
+        val cases = listOf(
+            applicant.copy(graduationType = null) to "졸업 구분이 누락되었습니다",
+            applicant to "성적 및 출결·봉사활동 기록이 누락되었습니다",
+            applicant.copy(academicRecord = AcademicRecord()) to "전형 구분이 누락되었습니다",
+            applicant.copy(admissionType = AdmissionType.REGULAR, academicRecord = AcademicRecord()) to "3학년 1학기 성적이 누락되었습니다",
+            applicant.copy(admissionType = AdmissionType.REGULAR, graduationType = GraduationType.GED, academicRecord = AcademicRecord()) to "검정고시 성적이 누락되었습니다",
+            applicant.copy(admissionType = AdmissionType.REGULAR, graduationType = GraduationType.GRADUATED, academicRecord = AcademicRecord(
+                subjectGrades = linkedMapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.X)),
+            )) to "반영 가능한 교과 성적이 없습니다. 모든 과목이 X인지 확인해주세요",
+            applicant.copy(admissionType = AdmissionType.REGULAR, academicRecord = AcademicRecord(
+                subjectGrades = linkedMapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.X)),
+            )) to "3학년 1학기 성적 입력은 필수입니다",
+        )
+        cases.forEach { (incomplete, message) ->
+            val repository = FakeApplicantRepository(incomplete)
+            val exception = assertThrows(IllegalArgumentException::class.java) {
+                EvaluationCommandService(repository, ScoreCalculator(), OPEN).calculateResult(10L)
+            }
+            assertEquals(message, exception.message)
+            assertNull(repository.savedApplicant)
+            assertNull(incomplete.totalScore)
+            assertNull(incomplete.totalScoreUpdatedAt)
+        }
+    }
+
+    @Test
+    fun thirdGradeFirstSemesterRequiresAtLeastOneGradeForBothGraduationTypes() {
+        listOf(GraduationType.PROSPECTIVE, GraduationType.GRADUATED).forEach { graduationType ->
+            val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L, graduationType = graduationType))
+            val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
+            val exception = assertThrows(IllegalArgumentException::class.java) {
+                service.saveSubjectGrades(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.X))
+            }
+            assertEquals("3학년 1학기 성적 입력은 필수입니다", exception.message)
+            assertNull(repository.savedApplicant)
+            service.saveSubjectGrades(10L, SchoolSemester.SECOND_GRADE_FIRST_SEMESTER, all(SubjectGrade.X))
+            service.saveSubjectGrades(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.X).copy(historyGrade = SubjectGrade.A))
+            assertEquals(SubjectGrade.A, repository.savedApplicant?.academicRecord?.subjectGrades?.get(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER)?.historyGrade)
+        }
+    }
+
     @Test
     fun calculateResultSavesScoreForApplicantsAdmissionType() {
         val repository = FakeApplicantRepository(
@@ -45,7 +153,7 @@ class EvaluationCommandServiceTest {
         service.calculateResult(accountId = 10L)
 
         val savedApplicant = requireNotNull(repository.savedApplicant)
-        assertEquals(173.0, savedApplicant.totalScore, 0.0)
+        assertEquals(173.0, requireNotNull(savedApplicant.totalScore), 0.0)
         assertNotNull(savedApplicant.totalScoreUpdatedAt)
     }
 

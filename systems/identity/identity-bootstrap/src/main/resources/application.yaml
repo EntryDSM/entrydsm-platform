@@ -74,6 +74,9 @@ springdoc:
 server:
   port: ${SERVER_PORT}
   shutdown: graceful
+
+grpc:
+  port: ${GRPC_PORT:9090}
 management:
   endpoints:
     web:

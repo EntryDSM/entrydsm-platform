@@ -8,7 +8,6 @@ import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
-import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
@@ -17,14 +16,10 @@ import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.ResultType
-import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
-import hs.kr.entrydsm.application.domain.enum.SubjectGrade
-import hs.kr.entrydsm.application.domain.model.GedScores
-import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicantStatus as GrpcApplicantStatus
-import hs.kr.entrydsm.application.grpc.AcademicRecord as GrpcAcademicRecord
+import hs.kr.entrydsm.application.grpcmapping.toGrpcForm
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.application.grpc.ApplicationResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
@@ -35,7 +30,6 @@ import hs.kr.entrydsm.application.grpc.CreateApplicationRequest
 import hs.kr.entrydsm.application.grpc.DeleteApplicantRequest
 import hs.kr.entrydsm.application.grpc.DeleteApplicantResponse
 import hs.kr.entrydsm.application.grpc.Gender as GrpcGender
-import hs.kr.entrydsm.application.grpc.GedScores as GrpcGedScores
 import hs.kr.entrydsm.application.grpc.GetApplicantRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationFormRequest
 import hs.kr.entrydsm.application.grpc.GetApplicationRequest
@@ -45,12 +39,10 @@ import hs.kr.entrydsm.application.grpc.ListApplicantsResponse
 import hs.kr.entrydsm.application.grpc.UpdateApplicantArrivalRequest
 import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberRequest
 import hs.kr.entrydsm.application.grpc.UpdateExamineeNumberResponse
-import hs.kr.entrydsm.application.grpc.MiddleSchool as GrpcMiddleSchool
 import hs.kr.entrydsm.application.grpc.PassStatus as GrpcPassStatus
 import hs.kr.entrydsm.application.grpc.Region as GrpcRegion
-import hs.kr.entrydsm.application.grpc.SemesterGrades as GrpcSemesterGrades
-import hs.kr.entrydsm.application.grpc.SpecialAdmissionType as GrpcSpecialAdmissionType
 import io.grpc.Status
+import org.slf4j.LoggerFactory
 import io.grpc.stub.StreamObserver
 import java.time.ZoneOffset
 import org.springframework.stereotype.Component
@@ -59,10 +51,12 @@ import org.springframework.stereotype.Component
 class ApplicationGrpcService(
     private val applicationPort: ApplicationPort,
 ) : ApplicationServiceGrpc.ApplicationServiceImplBase() {
+    private val logger = LoggerFactory.getLogger(javaClass)
+    private class InvalidIdException : IllegalArgumentException()
     override fun createApplication(
         request: CreateApplicationRequest,
         responseObserver: StreamObserver<ApplicationResponse>,
-    ) = responseObserver.respond {
+    ) = responseObserver.respond("CreateApplication", request.userId) {
         request.userId.validate()
         applicationPort.findByAccountId(request.userId)
             ?: applicationPort.createApplicant(CreateApplicantCommand(request.userId)).snapshot
@@ -71,7 +65,7 @@ class ApplicationGrpcService(
     override fun getApplication(
         request: GetApplicationRequest,
         responseObserver: StreamObserver<ApplicationResponse>,
-    ) = responseObserver.respond {
+    ) = responseObserver.respond("GetApplication", request.userId) {
         request.userId.validate()
         applicationPort.findByAccountId(request.userId)
             ?: throw ApplicantNotFoundException(request.userId)
@@ -80,7 +74,7 @@ class ApplicationGrpcService(
     override fun cancelApplication(
         request: CancelApplicationRequest,
         responseObserver: StreamObserver<ApplicationResponse>,
-    ) = responseObserver.respond {
+    ) = responseObserver.respond("CancelApplication", request.userId) {
         request.userId.validate()
         applicationPort.cancel(request.userId, request.reason.takeIf { request.hasReason() })
     }
@@ -88,7 +82,7 @@ class ApplicationGrpcService(
     override fun getApplicant(
         request: GetApplicantRequest,
         responseObserver: StreamObserver<ApplicantResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("GetApplicant", request.applicantId) {
         request.applicantId.validate()
         (applicationPort.findApplicant(request.applicantId) ?: throw ApplicantNotFoundException(request.applicantId))
             .toResponse()
@@ -97,7 +91,7 @@ class ApplicationGrpcService(
     override fun listApplicants(
         request: ListApplicantsRequest,
         responseObserver: StreamObserver<ListApplicantsResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("ListApplicants") {
         ListApplicantsResponse.newBuilder()
             .addAllApplicants(applicationPort.listApplicants().map { it.toResponse() })
             .build()
@@ -106,26 +100,48 @@ class ApplicationGrpcService(
     override fun getApplicationForm(
         request: GetApplicationFormRequest,
         responseObserver: StreamObserver<ApplicationFormResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("GetApplicationForm", request.accountId) {
         request.accountId.validate()
         (applicationPort.findApplicationForm(request.accountId) ?: throw ApplicantNotFoundException(request.accountId))
-            .toResponse()
+            .toGrpcForm()
     }
 
     override fun batchGetApplicationForms(
         request: BatchGetApplicationFormsRequest,
         responseObserver: StreamObserver<BatchGetApplicationFormsResponse>,
-    ) = responseObserver.respondWith {
-        request.accountIdList.forEach { it.validate() }
-        BatchGetApplicationFormsResponse.newBuilder()
-            .addAllApplications(applicationPort.findApplicationForms(request.accountIdList).map { it.toResponse() })
-            .build()
+    ) = responseObserver.respondWith("BatchGetApplicationForms") {
+        val response = BatchGetApplicationFormsResponse.newBuilder()
+        // ponytail: 계정별 조회로 오류를 격리한다. 회차 규모가 커지면 저장소 배치 조회와 건별 변환으로 변경한다.
+        request.accountIdList.distinct().forEach { accountId ->
+            try {
+                accountId.validate()
+                val form = applicationPort.findApplicationForm(accountId) ?: throw ApplicantNotFoundException(accountId)
+                response.addApplications(form.toGrpcForm())
+            } catch (exception: Exception) {
+                val code = when (exception) {
+                    is InvalidIdException -> "APPLICATION_INVALID_ID"
+                    is ApplicantNotFoundException -> "APPLICATION_FORM_NOT_FOUND"
+                    is hs.kr.entrydsm.application.application.exception.EvaluationValidationException -> "APPLICATION_SCORE_INVALID"
+                    is IllegalArgumentException -> "APPLICATION_FORM_INVALID"
+                    else -> throw exception // 공통 설정·저장소 장애는 배치 전체를 실패시킨다.
+                }
+                logFailure("BatchGetApplicationForms", accountId, code, exception)
+                response.addFailures(hs.kr.entrydsm.application.grpc.ApplicationFormFailure.newBuilder()
+                    .setAccountId(accountId).setCode(code).setMessage(when (code) {
+                        "APPLICATION_INVALID_ID" -> "원서 조회 대상 ID가 올바르지 않습니다."
+                        "APPLICATION_FORM_NOT_FOUND" -> "조회할 원서를 찾을 수 없습니다."
+                        "APPLICATION_SCORE_INVALID" -> "원서 성적 상세 계산에 필요한 데이터를 확인해 주세요."
+                        else -> "원서 데이터 검증 또는 변환에 실패했습니다."
+                    }))
+            }
+        }
+        response.build()
     }
 
     override fun updateApplicantArrival(
         request: UpdateApplicantArrivalRequest,
         responseObserver: StreamObserver<ApplicationResponse>,
-    ) = responseObserver.respond {
+    ) = responseObserver.respond("UpdateApplicantArrival", request.applicantId) {
         request.applicantId.validate()
         applicationPort.updateArrival(UpdateApplicantArrivalCommand(request.applicantId, request.isArrived))
     }
@@ -133,7 +149,7 @@ class ApplicationGrpcService(
     override fun updateExamineeNumber(
         request: UpdateExamineeNumberRequest,
         responseObserver: StreamObserver<UpdateExamineeNumberResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("UpdateExamineeNumber", request.applicantId) {
         request.applicantId.validate()
         applicationPort.updateExamineeNumber(request.applicantId, request.examineeNumber)
         UpdateExamineeNumberResponse.getDefaultInstance()
@@ -142,36 +158,55 @@ class ApplicationGrpcService(
     override fun deleteApplicant(
         request: DeleteApplicantRequest,
         responseObserver: StreamObserver<DeleteApplicantResponse>,
-    ) = responseObserver.respondWith {
+    ) = responseObserver.respondWith("DeleteApplicant", request.applicantId) {
         request.applicantId.validate()
         applicationPort.deleteApplicant(request.applicantId)
         DeleteApplicantResponse.getDefaultInstance()
     }
 
     private fun Long.validate() {
-        require(this > 0) { "id must be positive" }
+        if (this <= 0) throw InvalidIdException()
     }
 
-    private fun StreamObserver<ApplicationResponse>.respond(block: () -> ApplicationSnapshotResult) =
-        respondWith { block().toResponse() }
+    private fun StreamObserver<ApplicationResponse>.respond(rpc: String, targetId: Long, block: () -> ApplicationSnapshotResult) =
+        respondWith(rpc, targetId) { block().toResponse() }
 
-    private fun <T> StreamObserver<T>.respondWith(block: () -> T) {
+    private fun <T> StreamObserver<T>.respondWith(rpc: String, targetId: Long? = null, block: () -> T) {
         try {
             onNext(block())
             onCompleted()
         } catch (exception: Exception) {
+            val code = when (exception) {
+                is InvalidIdException -> "APPLICATION_INVALID_ID"
+                is hs.kr.entrydsm.application.application.exception.EvaluationValidationException -> "APPLICATION_SCORE_INVALID"
+                is IllegalArgumentException -> "APPLICATION_FORM_INVALID"
+                is ApplicantNotFoundException -> "APPLICATION_FORM_NOT_FOUND"
+                is ApplicationCancelNotAllowedException -> "APPLICATION_CANCEL_NOT_ALLOWED"
+                is ApplicationPeriodClosedException -> "APPLICATION_PERIOD_CLOSED"
+                is ApplicationPeriodLookupFailedException -> "APPLICATION_DEPENDENCY_UNAVAILABLE"
+                else -> "APPLICATION_INTERNAL_ERROR"
+            }
+            logFailure(rpc, targetId, code, exception)
             onError(
                 when (exception) {
-                    is IllegalArgumentException -> Status.INVALID_ARGUMENT
+                    is InvalidIdException -> Status.INVALID_ARGUMENT
+                    is IllegalArgumentException -> Status.DATA_LOSS
                     is ApplicantNotFoundException -> Status.NOT_FOUND
                     is ApplicationCancelNotAllowedException -> Status.FAILED_PRECONDITION
                     // CreateApplication 이 새 원서를 만들 때 원서 접수 기간을 본다.
                     is ApplicationPeriodClosedException -> Status.FAILED_PRECONDITION
                     is ApplicationPeriodLookupFailedException -> Status.UNAVAILABLE
                     else -> Status.INTERNAL
-                }.withCause(exception).asRuntimeException(),
+                }.withDescription(code).withCause(exception).asRuntimeException(),
             )
         }
+    }
+
+    private fun logFailure(rpc: String, accountId: Long?, code: String, exception: Exception) {
+        // 예외 메시지에 원서 본문이 포함될 수 있으므로 타입과 발생 위치만 남긴다.
+        logger.error("Application gRPC failed [rpc={}, targetId={}, code={}, exception={}, stack={}]",
+            rpc, accountId, code, exception.javaClass.name,
+            generateSequence(exception as Throwable) { it.cause }.joinToString("\n") { "${it.javaClass.name}\n${it.stackTrace.joinToString("\n")}" })
     }
 
     private fun ApplicationSnapshotResult.toResponse(): ApplicationResponse =
@@ -217,7 +252,6 @@ class ApplicationGrpcService(
             .setAdmissionType(admissionType.toGrpc())
             .setGraduationType(graduationType.toGrpc())
             .setApplicantStatus(status.toGrpc())
-            .setTotalScore(totalScore)
             .setGender(
                 when (gender) {
                     Gender.MALE -> GrpcGender.GENDER_MALE
@@ -227,6 +261,7 @@ class ApplicationGrpcService(
             )
             // apply 안에서는 name 이 빌더의 getName() 으로 잡히므로 also 로 넘긴다.
             .also { builder ->
+                totalScore?.let(builder::setTotalScore)
                 name?.let(builder::setName)
                 schoolName?.let(builder::setSchoolName)
                 photoFileId?.let(builder::setPhotoFileId)
@@ -237,132 +272,6 @@ class ApplicationGrpcService(
                 }
                 address?.let(builder::setAddress)
             }
-            .build()
-
-    private fun ApplicationFormResult.toResponse(): ApplicationFormResponse =
-        ApplicationFormResponse.newBuilder()
-            .setApplicantId(applicantId)
-            .setUserId(accountId)
-            .setApplicantStatus(status.toGrpc())
-            .setGender(
-                when (gender) {
-                    Gender.MALE -> GrpcGender.GENDER_MALE
-                    Gender.FEMALE -> GrpcGender.GENDER_FEMALE
-                    null -> GrpcGender.GENDER_UNSPECIFIED
-                },
-            )
-            .setRegion(region.toGrpc())
-            .setAdmissionType(admissionType.toGrpc())
-            .setSpecialAdmissionType(
-                when (specialAdmissionType) {
-                    SpecialAdmissionType.NONE -> GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NONE
-                    SpecialAdmissionType.NATIONAL_MERIT -> GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_NATIONAL_MERIT
-                    SpecialAdmissionType.SPECIAL_ADMISSION -> GrpcSpecialAdmissionType.SPECIAL_ADMISSION_TYPE_SPECIAL_ADMISSION
-                },
-            )
-            .setGraduationType(graduationType.toGrpc())
-            // apply 안에서는 name 이 빌더의 getName() 으로 잡히므로 also 로 넘긴다.
-            .also { builder ->
-                name?.let(builder::setName)
-                phoneNumber?.let(builder::setPhoneNumber)
-                birthdate?.let { builder.setBirthdate(it.toString()) }
-                address?.let(builder::setAddress)
-                photoFileId?.let(builder::setPhotoFileId)
-                graduationDate?.let { builder.setGraduationDate(it.toString()) }
-                guardianName?.let(builder::setGuardianName)
-                guardianRelation?.let(builder::setGuardianRelation)
-                guardianPhoneNumber?.let(builder::setGuardianPhoneNumber)
-                introduction?.let(builder::setIntroduction)
-                studyPlan?.let(builder::setStudyPlan)
-                middleSchool?.let {
-                    builder.setMiddleSchool(
-                        GrpcMiddleSchool.newBuilder()
-                            .setCode(it.schoolCode)
-                            .setName(it.schoolName)
-                            .setStudentNumber(it.studentNumber)
-                            .setPhone(it.schoolPhone)
-                            .setTeacherName(it.teacherName)
-                            .also { schoolBuilder -> it.schoolAddress?.let(schoolBuilder::setAddress) }
-                            .build(),
-                    )
-                }
-                thirdGradeSecondSemester?.let { builder.setThirdGradeSecondSemester(it.toGrpc()) }
-                thirdGradeFirstSemester?.let { builder.setThirdGradeFirstSemester(it.toGrpc()) }
-                previousSemester?.let { builder.setPreviousSemester(it.toGrpc()) }
-                secondPreviousSemester?.let { builder.setSecondPreviousSemester(it.toGrpc()) }
-                academicRecord?.let {
-                    builder.setAcademicRecord(
-                        GrpcAcademicRecord.newBuilder()
-                            .setAbsentCount(it.absentCount)
-                            .setLateCount(it.lateCount)
-                            .setEarlyLeaveCount(it.earlyLeaveCount)
-                            .setClassAbsenceCount(it.classAbsenceCount)
-                            .setVolunteerTime(it.volunteerTime)
-                            .setDsmAlgorithmAwarded(it.isDsmAlgorithmAwarded)
-                            .setProgrammingCertified(it.isProgrammingCertified)
-                            .build(),
-                    )
-                }
-                score?.let {
-                    builder.setSubjectScore(it.subjectScore)
-                    builder.setAttendanceScore(it.attendanceScore)
-                    builder.setVolunteerScore(it.volunteerScore)
-                    builder.setAdditionalScore(it.additionalScore)
-                    builder.setTotalScore(it.totalScore)
-                }
-                classNumber?.let(builder::setClassNumber)
-                studentNumber?.let(builder::setStudentNumber)
-                gedAverage?.let(builder::setGedAverage)
-                gedScores?.let { builder.setGedScores(it.toGrpc()) }
-                examineeNumber?.let(builder::setExamineeNumber)
-                admissionType.code()?.let(builder::setAdmissionTypeCode)
-                region.code()?.let(builder::setRegionCode)
-                builder.setSpecialAdmissionTypeCode(specialAdmissionType.code())
-            }
-            .build()
-
-    private fun AdmissionType?.code(): String? = when (this) {
-        AdmissionType.MEISTER -> "1"
-        AdmissionType.SOCIAL -> "2"
-        AdmissionType.REGULAR -> "3"
-        null -> null
-    }
-
-    private fun Region?.code(): String? = when (this) {
-        Region.DAEJEON -> "1"
-        Region.NATIONAL -> "2"
-        null -> null
-    }
-
-    private fun SpecialAdmissionType.code(): String = when (this) {
-        SpecialAdmissionType.NONE -> "0"
-        SpecialAdmissionType.NATIONAL_MERIT -> "1"
-        SpecialAdmissionType.SPECIAL_ADMISSION -> "2"
-    }
-
-    /** 성취도 A~E. 미이수(X)는 요강에 없는 값이라 빈 문자열로 준다. */
-    private fun SubjectGrades.toGrpc(): GrpcSemesterGrades =
-        GrpcSemesterGrades.newBuilder()
-            .setKorean(koreanGrade.label())
-            .setSociety(societyGrade.label())
-            .setHistory(historyGrade.label())
-            .setMath(mathGrade.label())
-            .setScience(scienceGrade.label())
-            .setTechnology(technologyGrade.label())
-            .setEnglish(englishGrade.label())
-            .build()
-
-    private fun SubjectGrade.label(): String = if (this == SubjectGrade.X) "" else name
-
-    private fun GedScores.toGrpc(): GrpcGedScores =
-        GrpcGedScores.newBuilder()
-            .setKorean(koreanScore)
-            .setSociety(societyScore)
-            .setHistory(historyScore)
-            .setMath(mathScore)
-            .setScience(scienceScore)
-            .setTechnology(technologyScore)
-            .setEnglish(englishScore)
             .build()
 
     private fun Region?.toGrpc(): GrpcRegion = when (this) {

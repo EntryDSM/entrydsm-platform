@@ -40,6 +40,103 @@ import org.junit.Test
 
 class ApplicationCommandServiceTest {
     @Test
+    fun personalPhoneValidationRunsBeforeChangingOrSavingApplicant() {
+        for (valid in listOf(true, false)) {
+            val applicant = Applicant(id = 1L, accountId = 10L)
+            val repository = FakeApplicantRepository(applicant)
+            val validator = hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator { id, phone ->
+                assertEquals(10L, id)
+                assertEquals("010-1234-5678", phone)
+                valid
+            }
+            val service = ApplicationCommandService(repository, OPEN, validator)
+            val update = {
+                service.updatePersonal(10L, "photo", "이름", "010-1234-5678", hs.kr.entrydsm.application.domain.enum.Gender.MALE,
+                    java.time.LocalDate.of(2010, 1, 1), hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType.NONE)
+            }
+            if (valid) {
+                update()
+                assertEquals("010-1234-5678", repository.savedApplicant?.phoneNumber)
+            } else {
+                val failure = assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) { update() }
+                assertEquals("APPLICATION_PHONE_NUMBER_MISMATCH", failure.errorCode.name)
+                assertEquals("가입한 전화번호와 입력한 전화번호가 일치하지 않습니다.", failure.message)
+                assertNull(repository.savedApplicant)
+                assertNull(applicant.photoFileId)
+                assertNull(applicant.phoneNumber)
+            }
+        }
+    }
+
+    @Test
+    fun studentNumberMustHaveFiveDigitsAndValidGradeClassAndNumber() {
+        val cases = listOf(
+            "10314" to null, "30401" to null, "30101" to null,
+            "10101" to null, "20199" to null, "39901" to null, "39999" to null,
+            "54441" to "OUT_OF_RANGE", "00314" to "OUT_OF_RANGE",
+            "30000" to "OUT_OF_RANGE", "30001" to "OUT_OF_RANGE", "30100" to "OUT_OF_RANGE",
+            "1031" to "INVALID_FORMAT", "103140" to "INVALID_FORMAT",
+            "10가14" to "INVALID_FORMAT", "１０３１４" to "INVALID_FORMAT",
+        )
+        for ((number, reason) in cases) {
+            val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+            val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+            val update = { service.updateMiddleSchool(10L, "code", "학교", number, "042-123-4567", "교사") }
+            if (reason == null) {
+                update()
+                assertEquals(number, repository.savedApplicant?.middleSchoolInfo?.studentNumber)
+            } else {
+                val exception = assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) { update() }
+                assertEquals("APPLICATION_STUDENT_NUMBER_$reason", exception.errorCode.name)
+                if (reason == "OUT_OF_RANGE") assertEquals("중학교 학년은 1~3, 반과 번호는 각각 01~99 사이로 입력해주세요.", exception.message)
+                assertNull(repository.savedApplicant)
+                assertNull(repository.findByAccountId(10L)?.middleSchoolInfo)
+            }
+        }
+    }
+
+    @Test
+    fun graduationYearMustBe2026Or2027() {
+        for (year in listOf(2025, 2026, 2027, 2028)) {
+            val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+            val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+            if (year in 2026..2027) {
+                service.updateType(10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.PROSPECTIVE, YearMonth.of(year, 2))
+                assertEquals(year, repository.savedApplicant?.graduationDate?.year)
+            } else {
+                val exception = assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) {
+                    service.updateType(10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.PROSPECTIVE, YearMonth.of(year, 2))
+                }
+                assertEquals("APPLICATION_GRADUATION_DATE_OUT_OF_RANGE", exception.errorCode.name)
+                assertNull(repository.savedApplicant)
+            }
+        }
+    }
+
+    @Test
+    fun sharedValidationIdentifiesMissingFieldsAndDoesNotSave() {
+        val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+        val cases = listOf<Pair<String, () -> Unit>>(
+            "INTRODUCTION_REQUIRED" to { service.updateIntroduction(10L, "") },
+            "INTRODUCTION_TOO_LONG" to { service.updateIntroduction(10L, "가".repeat(1601)) },
+            "STUDY_PLAN_REQUIRED" to { service.updateStudyPlan(10L, "") },
+            "GRADUATION_DATE_REQUIRED" to { service.updateType(10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.PROSPECTIVE, null) },
+            "GRADUATION_DATE_NOT_ALLOWED" to { service.updateType(10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.GED, YearMonth.of(2027, 2)) },
+            "ADMISSION_TYPE_REQUIRED" to { service.submit(10L) },
+        )
+        for ((code, operation) in cases) {
+            val exception = assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) { operation() }
+            assertEquals("APPLICATION_$code", exception.errorCode.name)
+            assertNull(repository.savedApplicant)
+        }
+        val submitted = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 2L, accountId = 10L, status = ApplicantStatus.SUBMITTED)), OPEN, ACCEPT_PHONE)
+        assertEquals("APPLICATION_NOT_EDITABLE", assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) {
+            submitted.updateIntroduction(10L, "자기소개")
+        }.errorCode.name)
+    }
+
+    @Test
     fun transactionalServiceCanBeProxied() {
         assertFalse(Modifier.isFinal(ApplicationCommandService::class.java.modifiers))
     }
@@ -48,7 +145,7 @@ class ApplicationCommandServiceTest {
     fun createReturnsExistingApplicantWithoutSavingAndAllowsNewAccount() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
         var event: ApplicantStatusChanged? = null
-        val service = ApplicationCommandService(repository, OPEN) { event = it }
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE) { event = it }
 
         val existing = service.createApplicant(CreateApplicantCommand(10L))
         assertEquals(1L, existing.applicantId)
@@ -68,7 +165,7 @@ class ApplicationCommandServiceTest {
         val repository = FakeApplicantRepository(
             Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED),
         )
-        val service = ApplicationCommandService(repository, OPEN)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
 
         assertThrows(ApplicantAlreadyExistsException::class.java) {
             service.createApplicant(CreateApplicantCommand(10L))
@@ -81,7 +178,8 @@ class ApplicationCommandServiceTest {
         val repository = FakeApplicantRepository(
             submittableGedApplicant(),
         )
-        val service = ApplicationCommandService(repository, OPEN)
+        val events = mutableListOf<ApplicantStatusChanged>()
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE) { events.add(it) }
 
         service.submit(accountId = 10L)
         assertEquals(ApplicantStatus.SUBMITTED, repository.savedApplicant?.status)
@@ -89,14 +187,18 @@ class ApplicationCommandServiceTest {
         assertEquals(170.0, repository.savedApplicant?.totalScore ?: 0.0, 0.0)
         assertNotNull(repository.savedApplicant?.totalScoreUpdatedAt)
 
+        assertEquals("홍길동", events.single().applicationForm?.name)
+        assertEquals(repository.savedApplicant?.statusVersion, events.single().applicationForm?.statusVersion)
+
         val canceled = service.cancel(10L, "개인 사유")
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
         assertEquals("개인 사유", repository.savedApplicant?.cancelReason)
+        assertNull(events.last().applicationForm)
     }
 
     @Test
     fun cancelRejectsDraftApplication() {
-        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)), OPEN)
+        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)), OPEN, ACCEPT_PHONE)
 
         assertThrows(ApplicationCancelNotAllowedException::class.java) {
             service.cancel(10L, null)
@@ -109,7 +211,7 @@ class ApplicationCommandServiceTest {
             Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED, statusVersion = 2),
         )
         val events = mutableListOf<ApplicantStatusChanged>()
-        val service = ApplicationCommandService(repository, OPEN, events::add)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE, events::add)
 
         val arrived = service.updateArrival(UpdateApplicantArrivalCommand(1L, true))
         assertEquals(ApplicantStatus.ARRIVAL, arrived.applicantStatus)
@@ -127,7 +229,7 @@ class ApplicationCommandServiceTest {
     @Test
     fun issuedExamineeNumberIsSavedAndReturnedInForm() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
-        val service = ApplicationCommandService(repository, OPEN)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
 
         service.updateExamineeNumber(1L, "11001")
 
@@ -149,7 +251,7 @@ class ApplicationCommandServiceTest {
             ),
         )
         val events = mutableListOf<ApplicantStatusChanged>()
-        val service = ApplicationCommandService(repository, CLOSED, events::add)
+        val service = ApplicationCommandService(repository, CLOSED, ACCEPT_PHONE, events::add)
 
         // applicantId 를 받는 유일한 경로라 기간이 끝나도 이미 있는 원서는 돌려준다.
         assertEquals(1L, service.createApplicant(CreateApplicantCommand(10L)).applicantId)
@@ -170,7 +272,7 @@ class ApplicationCommandServiceTest {
         val repository = FakeApplicantRepository(
             Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED),
         )
-        val service = ApplicationCommandService(repository, OPEN)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
 
         assertThrows(IllegalArgumentException::class.java) {
             service.updateIntroduction(accountId = 10L, introduction = "고친 소개")
@@ -186,8 +288,8 @@ class ApplicationCommandServiceTest {
             Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED, statusVersion = 2),
         )
 
-        val canceled = ApplicationCommandService(submitted(), CLOSED).cancel(10L, null)
-        val arrived = ApplicationCommandService(submitted(), CLOSED).updateArrival(UpdateApplicantArrivalCommand(1L, true))
+        val canceled = ApplicationCommandService(submitted(), CLOSED, ACCEPT_PHONE).cancel(10L, null)
+        val arrived = ApplicationCommandService(submitted(), CLOSED, ACCEPT_PHONE).updateArrival(UpdateApplicantArrivalCommand(1L, true))
 
         assertEquals(ApplicantStatus.CANCELED, canceled.applicantStatus)
         assertEquals(ApplicantStatus.ARRIVAL, arrived.applicantStatus)
@@ -199,7 +301,7 @@ class ApplicationCommandServiceTest {
             Applicant(id = 3L, accountId = 10L, status = ApplicantStatus.COMPLETED, statusVersion = 7),
         )
         val events = mutableListOf<ApplicantStatusChanged>()
-        val service = ApplicationCommandService(repository, OPEN, events::add)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE, events::add)
 
         service.deleteApplicant(3L)
 
@@ -216,6 +318,7 @@ class ApplicationCommandServiceTest {
         val service = ApplicationCommandService(
             FakeApplicantRepository(Applicant(id = 3L, accountId = 10L)),
             CLOSED,
+            ACCEPT_PHONE,
             events::add,
         )
 
@@ -244,7 +347,7 @@ class ApplicationCommandServiceTest {
                 ),
             ),
         )
-        val service = ApplicationCommandService(repository, OPEN)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
 
         service.updateType(
             accountId = 10L,
@@ -261,7 +364,7 @@ class ApplicationCommandServiceTest {
 
     @Test
     fun socialAdmissionRequiresSensitiveConsent() {
-        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)), OPEN)
+        val service = ApplicationCommandService(FakeApplicantRepository(Applicant(id = 1L, accountId = 10L)), OPEN, ACCEPT_PHONE)
         val command = UpdateTypeCommand(
             accountId = 10L,
             admissionType = AdmissionType.SOCIAL,
@@ -277,7 +380,7 @@ class ApplicationCommandServiceTest {
     @Test
     fun updateFindsApplicantByRequesterAccount() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
-        val service = ApplicationCommandService(repository, OPEN)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
 
         service.updateIntroduction(accountId = 10L, introduction = "자기소개")
         assertEquals("자기소개", repository.savedApplicant?.introduction)
@@ -308,7 +411,7 @@ class ApplicationCommandServiceTest {
                 ),
             ),
         )
-        val service = ApplicationCommandService(repository, OPEN)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
 
         val form = requireNotNull(service.findApplicationForm(10L))
 
@@ -340,7 +443,7 @@ class ApplicationCommandServiceTest {
             ),
         )
 
-        val forms = ApplicationCommandService(repository, OPEN).findApplicationForms(listOf(10L, 11L))
+        val forms = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE).findApplicationForms(listOf(10L, 11L))
 
         assertEquals(1, forms.size)
         assertEquals("2", forms.single().classNumber)
@@ -358,7 +461,7 @@ class ApplicationCommandServiceTest {
                 academicRecord = AcademicRecord(gedScores = scores),
             ),
         )
-        val service = ApplicationCommandService(repository, OPEN)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
 
         assertEquals(scores, service.findApplicationForm(10L)?.gedScores)
 
@@ -368,16 +471,85 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
-    fun applicationFormCalculatesMigratedSubmittedScore() {
+    fun applicationFormRecalculatesAndSavesMissingSubmittedScore() {
         val applicant = submittableGedApplicant().apply {
             status = ApplicantStatus.SUBMITTED
-            totalScore = 0.0
+            totalScore = null
             totalScoreUpdatedAt = null
         }
 
-        val form = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN).findApplicationForm(10L)
+        val repository = FakeApplicantRepository(applicant)
+        val form = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE).findApplicationForm(10L)
 
         assertEquals(170.0, form?.score?.totalScore ?: 0.0, 0.0)
+        assertEquals(170.0, repository.savedApplicant?.totalScore ?: 0.0, 0.0)
+        assertNotNull(repository.savedApplicant?.totalScoreUpdatedAt)
+    }
+
+    @Test
+    fun scoreQueriesRecalculateMissingScoresOnlyOnce() {
+        val queries: List<(ApplicationCommandService) -> Double?> = listOf(
+            { it.findApplicant(1L)?.totalScore },
+            { it.findApplicationForms(listOf(10L)).single().score?.totalScore },
+            { it.listApplicants().first().totalScore },
+        )
+        queries.forEach { query ->
+            val summary = ApplicantResult(
+                applicantId = 1L, accountId = 10L, name = null, schoolName = null,
+                region = null, admissionType = AdmissionType.REGULAR, photoFileId = null,
+                birthdate = null, phoneNumber = null, graduationType = GraduationType.GED,
+                totalScore = null, status = ApplicantStatus.SUBMITTED, submittedAt = null,
+            )
+            val repository = FakeApplicantRepository(submittableGedApplicant(), listOf(summary, summary.copy(applicantId = 2L, totalScore = 0.0)))
+            val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+            assertEquals(170.0, query(service) ?: 0.0, 0.0)
+            assertEquals(170.0, query(service) ?: 0.0, 0.0)
+            assertEquals(0.0, service.listApplicants().last().totalScore ?: -1.0, 0.0)
+            assertEquals(1, repository.saveCount)
+        }
+    }
+
+    @Test
+    fun queriesKeepMissingScoreWhenGradesAreIncomplete() {
+        val applicant = submittableGedApplicant()
+        val incomplete = listOf(
+            applicant.copy(admissionType = null),
+            applicant.copy(graduationType = null),
+            applicant.copy(academicRecord = null),
+            applicant.copy(academicRecord = AcademicRecord()),
+            applicant.copy(graduationType = GraduationType.PROSPECTIVE, academicRecord = AcademicRecord()),
+            applicant.copy(graduationType = GraduationType.GRADUATED, academicRecord = AcademicRecord(
+                subjectGrades = linkedMapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.X)),
+            )),
+        )
+        incomplete.forEach {
+            val repository = FakeApplicantRepository(it)
+            val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+            assertNull(service.findApplicant(1L)?.totalScore)
+            assertNull(service.findApplicationForm(10L)?.score)
+            assertNull(it.totalScoreUpdatedAt)
+            assertEquals(0, repository.saveCount)
+        }
+    }
+
+    @Test
+    fun queriesPreserveSavedZeroScoreWithoutRecalculating() {
+        val repository = FakeApplicantRepository(submittableGedApplicant().copy(totalScore = 0.0))
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+        assertEquals(0.0, service.findApplicant(1L)?.totalScore ?: -1.0, 0.0)
+        assertEquals(0.0, service.findApplicationForm(10L)?.score?.totalScore ?: -1.0, 0.0)
+        assertEquals(0, repository.saveCount)
+    }
+
+    @Test
+    fun formQueriesIdentifyInvalidStoredScoreData() {
+        val repository = FakeApplicantRepository(submittableGedApplicant().copy(totalScore = 100.0, academicRecord = AcademicRecord()))
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+        val failure = org.junit.Assert.assertThrows(hs.kr.entrydsm.application.application.exception.EvaluationValidationException::class.java) {
+            service.findApplicationForm(10L)
+        }
+        assertTrue(failure.cause is IllegalArgumentException)
+        assertEquals("원서 성적 상세 계산에 필요한 데이터를 확인해 주세요.", failure.message)
     }
 
     /**
@@ -392,7 +564,7 @@ class ApplicationCommandServiceTest {
                 submittableGedApplicant(),
             )
 
-            ApplicationCommandService(repository, OPEN).submit(accountId = 10L)
+            ApplicationCommandService(repository, OPEN, ACCEPT_PHONE).submit(accountId = 10L)
 
             val saved = repository.savedApplicant!!
             assertRecordedInUtc(saved.submittedAt!!)
@@ -420,11 +592,14 @@ class ApplicationCommandServiceTest {
 
     private class FakeApplicantRepository(
         private var applicant: Applicant?,
+        private val summaries: List<ApplicantResult> = emptyList(),
     ) : ApplicantRepository {
         var savedApplicant: Applicant? = null
+        var saveCount = 0
         var deletedId: Long? = null
 
         override fun save(applicant: Applicant): Applicant {
+            saveCount += 1
             savedApplicant = applicant
             this.applicant = applicant
             return applicant
@@ -432,7 +607,7 @@ class ApplicationCommandServiceTest {
 
         // 목록은 쿼리가 거른다. ApplicantSummaryQueryTest 가 덮는다.
         override fun findSummariesByStatusIn(statuses: Set<ApplicantStatus>): List<ApplicantResult> =
-            emptyList()
+            summaries
 
         override fun findById(id: Long): Applicant? =
             applicant?.takeIf { it.id == id }
@@ -447,6 +622,7 @@ class ApplicationCommandServiceTest {
     }
 
     private companion object {
+        val ACCEPT_PHONE = hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator { _, _ -> true }
         val OPEN = ApplicationPeriodReader { Instant.MIN..Instant.MAX }
         val CLOSED = ApplicationPeriodReader { null }
 

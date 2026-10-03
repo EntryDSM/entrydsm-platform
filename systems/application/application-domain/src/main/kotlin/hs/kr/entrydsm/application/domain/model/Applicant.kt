@@ -40,7 +40,7 @@ data class Applicant(
     var studyPlan: String? = null,
     var middleSchoolInfo: MiddleSchoolInfo? = null,
     var academicRecord: AcademicRecord? = null,
-    var totalScore: Double = 0.0,
+    var totalScore: Double? = null,
     var totalScoreUpdatedAt: LocalDateTime? = null,
     var status: ApplicantStatus = ApplicantStatus.DRAFT,
     var submittedAt: LocalDateTime? = null,
