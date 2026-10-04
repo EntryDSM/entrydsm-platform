@@ -30,6 +30,29 @@ import org.junit.Test
 
 class EvaluationCommandServiceTest {
     @Test
+    fun everyEvaluationChangeClearsStoredScoreWithoutLosingUnchangedGrades() {
+        val scores = GedScores(100, 100, 100, 100, 100, 100, 100)
+        val commands = listOf<Pair<GraduationType, (EvaluationCommandService) -> Unit>>(
+            GraduationType.GED to { it.saveGedScores(10L, scores) },
+            GraduationType.GED to { it.saveAcademicRecord(10L, 0, 0, 0, 0, 15) },
+            GraduationType.GED to { it.saveCertificates(10L, true, true) },
+            GraduationType.PROSPECTIVE to { it.saveSubjectGrades(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.A)) },
+        )
+        commands.forEach { (type, command) ->
+            val applicant = Applicant(id = 1L, accountId = 10L, graduationType = type,
+                totalScore = 158.0, totalScoreUpdatedAt = java.time.LocalDateTime.now(),
+                academicRecord = AcademicRecord(gedScores = if (type == GraduationType.GED) scores else null))
+            val repository = FakeApplicantRepository(applicant)
+            command(EvaluationCommandService(repository, ScoreCalculator(), OPEN))
+            val saved = requireNotNull(repository.savedApplicant)
+            assertNull(saved.totalScore)
+            assertNull(saved.totalScoreUpdatedAt)
+            if (type == GraduationType.GED) assertEquals(scores, saved.academicRecord?.gedScores)
+            else assertEquals(all(SubjectGrade.A), saved.academicRecord?.subjectGrades?.get(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER))
+        }
+    }
+
+    @Test
     fun nonDraftApplicantsRejectEveryEvaluationCommandWithoutMutation() {
         ApplicantStatus.entries.filter { it != ApplicantStatus.DRAFT }.forEach { status ->
             val applicant = Applicant(id = 1L, accountId = 10L, status = status)

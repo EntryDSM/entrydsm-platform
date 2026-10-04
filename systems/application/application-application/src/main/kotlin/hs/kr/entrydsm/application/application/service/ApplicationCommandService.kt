@@ -347,6 +347,8 @@ class ApplicationCommandService(
             applicant.middleSchoolInfo = null
             applicant.academicRecord?.subjectGrades?.clear()
         }
+        applicant.totalScore = null
+        applicant.totalScoreUpdatedAt = null
         saveTouched(applicant)
     }
 
@@ -498,7 +500,13 @@ class ApplicationCommandService(
         accountId ?: throw AuthenticationRequiredException()
 
     private fun markSubmitted(applicant: Applicant) {
-        applicant.totalScore = scoreCalculator.calculate(applicant)
+        applicant.totalScore = try {
+            scoreCalculator.calculate(applicant)
+        } catch (exception: IllegalArgumentException) {
+            throw hs.kr.entrydsm.application.application.exception.EvaluationValidationException(
+                exception.message ?: "평가에 필요한 성적을 확인해주세요", exception,
+            )
+        }
         applicant.totalScoreUpdatedAt = nowUtc()
         applicant.status = ApplicantStatus.SUBMITTED
         applicant.statusVersion += 1
