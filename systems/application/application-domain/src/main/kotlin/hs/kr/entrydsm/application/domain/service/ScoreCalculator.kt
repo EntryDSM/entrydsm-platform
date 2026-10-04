@@ -40,7 +40,8 @@ class ScoreCalculator {
         }
         val isRegular = admissionType == AdmissionType.REGULAR
 
-        val record = applicant.academicRecord ?: return ScoreBreakdown.EMPTY
+        requireNotNull(applicant.graduationType) { "졸업 구분이 누락되었습니다" }
+        val record = requireNotNull(applicant.academicRecord) { "성적 및 출결·봉사활동 기록이 누락되었습니다" }
 
         val isGed = applicant.graduationType == GraduationType.GED
 

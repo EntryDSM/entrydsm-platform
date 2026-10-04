@@ -40,6 +40,40 @@ import org.junit.Test
 
 class ApplicationCommandServiceTest {
     @Test
+    fun submissionRejectsMissingScoresEvenWhenTotalScoreIsStored() {
+        val cases = listOf(
+            submittableGedApplicant().copy(academicRecord = null),
+            submittableGedApplicant().copy(academicRecord = AcademicRecord()),
+            submittableGedApplicant().copy(graduationType = null),
+            submittableGedApplicant().copy(graduationType = GraduationType.GRADUATED, academicRecord = AcademicRecord()),
+            submittableGedApplicant().copy(graduationType = GraduationType.PROSPECTIVE, academicRecord = AcademicRecord()),
+        )
+        cases.forEach { applicant ->
+            applicant.totalScore = 158.0
+            val repository = FakeApplicantRepository(applicant)
+            assertThrows(hs.kr.entrydsm.application.application.exception.EvaluationValidationException::class.java) {
+                ApplicationCommandService(repository, OPEN, ACCEPT_PHONE).submit(10L)
+            }
+            assertEquals(ApplicantStatus.DRAFT, applicant.status)
+            assertEquals(158.0, applicant.totalScore ?: 0.0, 0.0)
+            assertNull(applicant.submittedAt)
+            assertEquals(0, repository.saveCount)
+        }
+    }
+
+    @Test
+    fun changingGraduationTypeClearsStoredScoreAndRequiresMatchingGrades() {
+        val applicant = submittableGedApplicant().copy(totalScore = 158.0, totalScoreUpdatedAt = LocalDateTime.now())
+        val repository = FakeApplicantRepository(applicant)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+        service.updateType(10L, AdmissionType.REGULAR, Region.NATIONAL, GraduationType.GRADUATED, YearMonth.of(2026, 2))
+        assertNull(applicant.totalScore)
+        assertNull(applicant.totalScoreUpdatedAt)
+        assertThrows(hs.kr.entrydsm.application.application.exception.EvaluationValidationException::class.java) { service.submit(10L) }
+        assertEquals(ApplicantStatus.DRAFT, applicant.status)
+    }
+
+    @Test
     fun personalPhoneValidationRunsBeforeChangingOrSavingApplicant() {
         for (valid in listOf(true, false)) {
             val applicant = Applicant(id = 1L, accountId = 10L)

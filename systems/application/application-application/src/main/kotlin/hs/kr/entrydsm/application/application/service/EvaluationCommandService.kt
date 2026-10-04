@@ -88,8 +88,7 @@ class EvaluationCommandService(
         record.gedScores = null
         record.subjectGrades[schoolSemester] = subjectGrades
         applicant.academicRecord = record
-        applicant.touch()
-        applicantRepository.save(applicant)
+        saveEvaluation(applicant)
     }
 
     fun saveGedScores(accountId: Long?, gedScores: GedScores) {
@@ -99,8 +98,7 @@ class EvaluationCommandService(
         record.subjectGrades.clear()
         record.gedScores = gedScores
         applicant.academicRecord = record
-        applicant.touch()
-        applicantRepository.save(applicant)
+        saveEvaluation(applicant)
     }
 
     fun saveAcademicRecord(
@@ -125,8 +123,7 @@ class EvaluationCommandService(
         record.classAbsenceCount = classAbsenceCount
         record.volunteerTime = volunteerTime
         applicant.academicRecord = record
-        applicant.touch()
-        applicantRepository.save(applicant)
+        saveEvaluation(applicant)
         return record
     }
 
@@ -140,8 +137,7 @@ class EvaluationCommandService(
         record.isDsmAlgorithmAwarded = isDsmAlgorithmAwarded
         record.isProgrammingCertified = isProgrammingCertified
         applicant.academicRecord = record
-        applicant.touch()
-        applicantRepository.save(applicant)
+        saveEvaluation(applicant)
     }
 
     fun calculateResult(accountId: Long?) {
@@ -154,6 +150,13 @@ class EvaluationCommandService(
             throw EvaluationValidationException(exception.message ?: "평가에 필요한 성적을 확인해주세요")
         }
         applicant.totalScoreUpdatedAt = nowUtc()
+        applicant.touch()
+        applicantRepository.save(applicant)
+    }
+
+    private fun saveEvaluation(applicant: Applicant) {
+        applicant.totalScore = null
+        applicant.totalScoreUpdatedAt = null
         applicant.touch()
         applicantRepository.save(applicant)
     }
