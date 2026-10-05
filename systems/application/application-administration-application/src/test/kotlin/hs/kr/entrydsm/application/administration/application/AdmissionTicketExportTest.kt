@@ -39,13 +39,12 @@ class AdmissionTicketExportTest {
     )
 
     @Test
-    fun `수험표 작업은 전체 1차 합격자만 대상으로 한다`() {
+    fun `1차 합격자가 있으면 수험표 작업을 접수한다`() {
         applicants.all += applicant(1, ApplicantStatus.FIRST_PASS, "100001")
 
         val job = exportService.create(CreateExportCommand(ExportType.ADMISSION_TICKET))
 
-        val expected = ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS))
-        assertEquals(expected, job.filter)
+        assertEquals(ExportType.ADMISSION_TICKET, job.type)
         assertEquals(ExportStatus.PENDING, job.status)
     }
 
@@ -140,7 +139,6 @@ class AdmissionTicketExportTest {
         exportJobId = "exp_1",
         type = ExportType.ADMISSION_TICKET,
         status = ExportStatus.PENDING,
-        filter = ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)),
         createdAt = Instant.now(clock),
     )
 

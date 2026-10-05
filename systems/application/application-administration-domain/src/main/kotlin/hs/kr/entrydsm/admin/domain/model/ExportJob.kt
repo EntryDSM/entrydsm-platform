@@ -16,7 +16,6 @@ data class ExportJob(
     val exportJobId: String,
     val type: ExportType,
     val status: ExportStatus,
-    val filter: ApplicantFilter = ApplicantFilter(),
     val objectKey: String? = null,
     val totalCount: Int = 0,
     val processedCount: Int = 0,

@@ -4,9 +4,7 @@ import hs.kr.entrydsm.admin.domain.command.CreateExportCommand
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
-import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.DownloadLink
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import hs.kr.entrydsm.admin.domain.model.ExportJobView
@@ -42,17 +40,12 @@ class ExportService(
 
     @Transactional
     override fun create(command: CreateExportCommand): ExportJob {
-        val filter = if (command.type == ExportType.ADMISSION_TICKET) {
-            ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)).also { requireTicketTargets() }
-        } else {
-            ApplicantFilter()
-        }
+        if (command.type == ExportType.ADMISSION_TICKET) requireTicketTargets()
         val job = exportJobRepository.save(
             ExportJob(
                 exportJobId = EXPORT_JOB_ID_PREFIX + UUID.randomUUID().toString().replace("-", ""),
                 type = command.type,
                 status = ExportStatus.PENDING,
-                filter = filter,
                 createdAt = Instant.now(clock),
             ),
         )
