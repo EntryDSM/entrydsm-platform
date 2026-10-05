@@ -20,6 +20,7 @@ import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
 import hs.kr.entrydsm.application.grpc.ApplicantResponse
 import hs.kr.entrydsm.application.grpc.ApplicantStatus as GrpcApplicantStatus
 import hs.kr.entrydsm.application.grpcmapping.toGrpcForm
+import hs.kr.entrydsm.application.grpcmapping.toGrpcApplicant
 import hs.kr.entrydsm.application.grpc.ApplicationFormResponse
 import hs.kr.entrydsm.application.grpc.ApplicationResponse
 import hs.kr.entrydsm.application.grpc.ApplicationServiceGrpc
@@ -85,7 +86,7 @@ class ApplicationGrpcService(
     ) = responseObserver.respondWith("GetApplicant", request.applicantId) {
         request.applicantId.validate()
         (applicationPort.findApplicant(request.applicantId) ?: throw ApplicantNotFoundException(request.applicantId))
-            .toResponse()
+            .toGrpcApplicant()
     }
 
     override fun listApplicants(
@@ -93,7 +94,7 @@ class ApplicationGrpcService(
         responseObserver: StreamObserver<ListApplicantsResponse>,
     ) = responseObserver.respondWith("ListApplicants") {
         ListApplicantsResponse.newBuilder()
-            .addAllApplicants(applicationPort.listApplicants().map { it.toResponse() })
+            .addAllApplicants(applicationPort.listApplicants().map { it.toGrpcApplicant() })
             .build()
     }
 
@@ -243,36 +244,6 @@ class ApplicationGrpcService(
         ApplicantStatus.COMPLETED -> GrpcApplicantStatus.APPLICANT_STATUS_COMPLETED
         ApplicantStatus.CANCELED -> GrpcApplicantStatus.APPLICANT_STATUS_CANCELED
     }
-
-    private fun ApplicantResult.toResponse(): ApplicantResponse =
-        ApplicantResponse.newBuilder()
-            .setApplicantId(applicantId)
-            .setUserId(accountId)
-            .setRegion(region.toGrpc())
-            .setAdmissionType(admissionType.toGrpc())
-            .setGraduationType(graduationType.toGrpc())
-            .setApplicantStatus(status.toGrpc())
-            .setGender(
-                when (gender) {
-                    Gender.MALE -> GrpcGender.GENDER_MALE
-                    Gender.FEMALE -> GrpcGender.GENDER_FEMALE
-                    null -> GrpcGender.GENDER_UNSPECIFIED
-                },
-            )
-            // apply 안에서는 name 이 빌더의 getName() 으로 잡히므로 also 로 넘긴다.
-            .also { builder ->
-                totalScore?.let(builder::setTotalScore)
-                name?.let(builder::setName)
-                schoolName?.let(builder::setSchoolName)
-                photoFileId?.let(builder::setPhotoFileId)
-                birthdate?.let { builder.setBirthdate(it.toString()) }
-                phoneNumber?.let(builder::setPhoneNumber)
-                submittedAt?.let {
-                    builder.setSubmittedAtEpochMillis(it.toInstant(ZoneOffset.UTC).toEpochMilli())
-                }
-                address?.let(builder::setAddress)
-            }
-            .build()
 
     private fun Region?.toGrpc(): GrpcRegion = when (this) {
         Region.DAEJEON -> GrpcRegion.REGION_DAEJEON
