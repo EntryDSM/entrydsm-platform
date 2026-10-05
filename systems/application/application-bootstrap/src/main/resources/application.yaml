@@ -103,6 +103,6 @@ admin:
 
 document:
   storage:
-    bucket: ${AWS_S3_BUCKET:entrydsm-document}
+    bucket: ${STORAGE_BUCKET:entrydsm-admin}
   admission-year: ${ADMISSION_YEAR:2027}
   presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS:900}

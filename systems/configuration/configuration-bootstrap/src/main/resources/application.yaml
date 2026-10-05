@@ -31,8 +31,8 @@ springdoc:
 
 aws:
   s3:
-    bucket: ${AWS_S3_BUCKET}
-    internal-buckets: ${AWS_S3_INTERNAL_BUCKETS:${AWS_S3_BUCKET},${STORAGE_BUCKET:entrydsm-admin}}
+    bucket: ${STORAGE_BUCKET}
+    internal-buckets: ${AWS_S3_INTERNAL_BUCKETS:${STORAGE_BUCKET}}
     region: ${AWS_S3_REGION}
     presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS}
     environment: ${STORAGE_ENV}

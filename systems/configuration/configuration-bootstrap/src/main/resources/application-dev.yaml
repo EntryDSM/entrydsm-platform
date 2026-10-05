@@ -9,7 +9,8 @@ spring:
 
 aws:
   s3:
-    bucket: ${AWS_S3_BUCKET:entrydsm-document-local}
+    bucket: ${STORAGE_BUCKET:entrydsm-admin}
+    internal-buckets: ${AWS_S3_INTERNAL_BUCKETS:${STORAGE_BUCKET:entrydsm-admin}}
     region: ${AWS_S3_REGION:ap-northeast-2}
     presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS:600}
     environment: ${STORAGE_ENV}

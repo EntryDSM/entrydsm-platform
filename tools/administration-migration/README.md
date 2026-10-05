@@ -10,7 +10,7 @@
 4. Application의 V015/V016을 적용한다. 관리자·문서 업무는 `APPLICATION_ADMINISTRATION_ENABLED=false` 상태로 준비한다. 새 Application은 접수 일정을 로컬에서 읽으므로 **일정 이전 전 학생 트래픽을 재개하면 안 된다**. 새 Configuration/Admin/Gateway 이미지도 최종 전환 전에 기존 서비스 대신 배포하지 않는다.
 5. 아래 기본 검증 명령으로 충돌을 확인한다. 누락 ID만 추가하고, 같은 ID의 다른 값·대상에만 있는 행은 중단한다. 이전 대상은 `score_policy`, `admission_quota`, `screening`, `export_job`, `schedule`이다. 원서 사본은 이전 대상이 아니다.
 6. 백업·정지·이벤트 해소를 확인한 후 `--apply --writers-stopped --events-drained --backup-file ... --receipt cutover.local.json`을 추가한다. 적용 후 ID·모든 열·행 수·해시·AUTO_INCREMENT를 대조한다. 실패하면 계속 정지 상태를 유지한다.
-7. 새 Configuration에 기존 문서와 내보내기 버킷을 허용하고 접근 권한을 부여한다. Application에 기존 버킷·STORAGE_ENV·만료 시간·지도 설정을 옮긴다. Configuration의 AWS 자격 증명으로 두 버킷에 접근할 수 있어야 한다. Admin에는 DB/S3/스냅샷 키가 필요 없다.
+7. Application과 Configuration의 `STORAGE_BUCKET`을 기존 문서·내보내기가 사용하는 동일한 버킷으로 설정하고 Configuration에 접근 권한을 부여한다. Application에 기존 STORAGE_ENV·만료 시간·지도 설정을 옮긴다. 내부 RPC 허용 버킷은 기본적으로 `STORAGE_BUCKET`을 사용하며, 별도 허용 목록은 `AWS_S3_INTERNAL_BUCKETS`로 지정한다. 기존 파일의 버킷과 키는 유지한다. Admin에는 DB/S3/스냅샷 키가 필요 없다.
 8. Application의 관리자 기능을 활성화하고 새 Admin·Configuration·Gateway와 함께 전환한다. 기존 HTTP URL은 유지한다. 관리자 상세·전체 목록·기간 경계·권한·통계·내보내기·기존 다운로드 링크를 점검한다. 없는 원서는 404, 성적/원서 오류는 502이며 빈 결과나 성공 파일로 바꾸지 않는다. 이후 쓰기를 재개한다.
 
 일정과 관리자 쓰기는 기존 Gateway 인증·권한 검증을 사용한다. 새 Admin은 Application만 호출하고 공지·문의에는 Notification을 호출한다. 문서 생성 경로(`/api/document/v11/applications`, `/admission-tickets/{id}`, `/registration-documents/latest`)는 Application으로, 일반 업로드·파일 조회·삭제는 Configuration으로 간다. OpenAPI는 업무를 소유한 서비스의 스펙에 포함된다.
