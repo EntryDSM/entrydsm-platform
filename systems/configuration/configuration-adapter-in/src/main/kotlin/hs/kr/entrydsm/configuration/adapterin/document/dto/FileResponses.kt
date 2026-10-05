@@ -9,7 +9,7 @@ import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class FileResponse(
-    /** 증명사진·첨부·요강의 공개 ID. 원서·수험표는 지원자 ID 로 찾으므로 없다. */
+    /** 파일의 공개 ID. */
     val id: String?,
     val fileName: String,
     val size: Long,
@@ -26,14 +26,7 @@ data class FileResponse(
             expiresIn = file.expiresIn,
         )
 
-        /** 원서·수험표: 저장 파일명(application_{접수번호}.pdf) */
-        fun ofApplicant(file: DownloadableFile) = FileResponse(
-            id = null,
-            fileName = file.document.fileName,
-            size = file.document.sizeBytes,
-            downloadUrl = file.downloadUrl,
-            expiresIn = file.expiresIn,
-        )
+
     }
 }
 
