@@ -1,16 +1,11 @@
 package hs.kr.entrydsm.configuration.adapterin.common
 
-import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleAccessDeniedException
-import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleUnauthorizedException
-import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantLookupFailedException
-import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileFormatException
 import hs.kr.entrydsm.configuration.domain.document.exception.InvalidFileNameException
 import hs.kr.entrydsm.configuration.domain.document.exception.StorageUnavailableException
-import hs.kr.entrydsm.configuration.domain.schedule.ScheduleNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
@@ -31,6 +26,12 @@ class DocumentExceptionHandler {
 
     private val log = LoggerFactory.getLogger(javaClass)
 
+    @ExceptionHandler(UnauthorizedException::class)
+    fun handleUnauthorized(e: UnauthorizedException) = respond(ErrorCode.AUTH_UNAUTHORIZED, e)
+
+    @ExceptionHandler(AccessDeniedException::class)
+    fun handleAccessDenied(e: AccessDeniedException) = respond(ErrorCode.ACCESS_DENIED, e)
+
     @ExceptionHandler(InvalidFileFormatException::class)
     fun handleInvalidFileFormat(e: InvalidFileFormatException) =
         respond(ErrorCode.FILE_INVALID_FORMAT, e)
@@ -42,26 +43,6 @@ class DocumentExceptionHandler {
     @ExceptionHandler(FileDocumentNotFoundException::class)
     fun handleFileNotFound(e: FileDocumentNotFoundException) =
         respond(ErrorCode.FILE_NOT_FOUND, e)
-
-    @ExceptionHandler(ApplicantNotFoundException::class)
-    fun handleApplicantNotFound(e: ApplicantNotFoundException) =
-        respond(ErrorCode.APPLICANT_NOT_FOUND, e)
-
-    @ExceptionHandler(ApplicantLookupFailedException::class)
-    fun handleApplicantLookupFailed(e: ApplicantLookupFailedException) =
-        respond(ErrorCode.APPLICATION_SERVICE_UNAVAILABLE, e)
-
-    @ExceptionHandler(ScheduleNotFoundException::class)
-    fun handleScheduleNotFound(e: ScheduleNotFoundException) =
-        respond(ErrorCode.SCHEDULE_NOT_FOUND, e)
-
-    @ExceptionHandler(ScheduleUnauthorizedException::class)
-    fun handleUnauthorized(e: ScheduleUnauthorizedException) =
-        respond(ErrorCode.AUTH_UNAUTHORIZED, e)
-
-    @ExceptionHandler(ScheduleAccessDeniedException::class)
-    fun handleAccessDenied(e: ScheduleAccessDeniedException) =
-        respond(ErrorCode.ACCESS_DENIED, e)
 
     @ExceptionHandler(DocumentAccessDeniedException::class)
     fun handleDocumentAccessDenied(e: DocumentAccessDeniedException) =

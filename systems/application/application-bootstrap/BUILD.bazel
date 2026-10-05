@@ -4,6 +4,22 @@ load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 package(default_visibility = ["//visibility:public"])
 
 kt_jvm_binary(
+    name = "score_recovery",
+    srcs = glob(["src/operator/kotlin/**/*.kt"]) + ["src/main/kotlin/hs/kr/entrydsm/application/config/SnapshotCipherConfiguration.kt"],
+    main_class = "hs.kr.entrydsm.application.operator.ScoreRecoveryCommandKt",
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    plugins = ["//:spring_allopen"],
+    resources = ["src/main/resources/application.yaml"],
+    deps = MODULE_DEPS + [
+        "//systems/application/application-administration-adapter-out:main",
+        "//systems/application/application-adapter-out:main",
+        "//systems/application/application-application:main",
+        "//systems/application/application-domain:main",
+    ],
+)
+
+kt_jvm_binary(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
@@ -12,6 +28,10 @@ kt_jvm_binary(
     plugins = ["//:spring_allopen"],
     resources = glob(["src/main/resources/**"]),
     deps = MODULE_DEPS + [
+        "//systems/application/application-administration-domain:main",
+        "//systems/application/application-administration-application:main",
+        "//systems/application/application-administration-adapter-in:main",
+        "//systems/application/application-administration-adapter-out:main",
         "//systems/application/application-adapter-in:main",
         "//systems/application/application-adapter-out:main",
         "//systems/application/application-application:main",
@@ -25,7 +45,7 @@ kt_jvm_test(
         "src/main/resources/db/migration/V012__make_applicant_total_score_not_null.sql",
         "src/main/resources/db/migration/V013__restore_nullable_applicant_total_score.sql",
     ],
-    srcs = glob(["src/test/kotlin/**/*.kt"]) + [
+    srcs = glob(["src/test/kotlin/**/*.kt"], exclude = ["src/test/kotlin/hs/kr/entrydsm/application/operator/**"]) + [
         "src/main/kotlin/hs/kr/entrydsm/application/config/SnapshotCipherConfiguration.kt",
         "src/main/kotlin/hs/kr/entrydsm/application/config/InstitutionCodeInitializer.kt",
     ],
@@ -34,6 +54,24 @@ kt_jvm_test(
     plugins = ["//:spring_allopen"],
     test_class = "hs.kr.entrydsm.application.ApplicationBootstrapApplicationTest",
     deps = MODULE_DEPS + TEST_DEPS + ["//systems/application/application-adapter-out:main"],
+)
+
+kt_jvm_test(
+    name = "score_recovery_configuration_test",
+    resources = ["src/test/resources/application-test.yml"],
+    srcs = glob(["src/operator/kotlin/**/*.kt", "src/test/kotlin/hs/kr/entrydsm/application/operator/**/*.kt"]) + [
+        "src/main/kotlin/hs/kr/entrydsm/application/config/SnapshotCipherConfiguration.kt",
+    ],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    plugins = ["//:spring_allopen"],
+    test_class = "hs.kr.entrydsm.application.operator.ScoreRecoveryConfigurationTest",
+    deps = MODULE_DEPS + TEST_DEPS + [
+        "//systems/application/application-administration-adapter-out:main",
+        "//systems/application/application-adapter-out:main",
+        "//systems/application/application-application:main",
+        "//systems/application/application-domain:main",
+    ],
 )
 
 kt_jvm_test(

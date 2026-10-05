@@ -23,6 +23,22 @@ class ScreeningResultEventHandler(
     private val outbox: ApplicantStatusEventOutbox,
     private val applicationPort: ApplicationPort,
 ) {
+    /** 같은 DB의 관리자 변경은 현재 버전을 잠근 뒤 원서 결과와 outbox를 함께 반영한다. */
+    @Transactional
+    fun applyLocal(applicantId: Long, status: PassStatus, occurredAt: Instant) {
+        val applicant = repository.findForUpdate(applicantId)
+            ?: throw hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException(applicantId)
+        if (applicant.status in setOf(ApplicantStatus.DRAFT, ApplicantStatus.CANCELED)) {
+            throw hs.kr.entrydsm.application.application.exception.ScreeningResultChangeNotAllowedException()
+        }
+        consume(ScreeningResultChangedEvent.newBuilder()
+            .setApplicantId(applicantId)
+            .setVersion(Math.addExact(applicant.screeningResultVersion, 1L))
+            .setPassStatus(status)
+            .setOccurredAtEpochMillis(occurredAt.toEpochMilli())
+            .build())
+    }
+
     @Transactional
     fun consume(event: ScreeningResultChangedEvent) {
         require(event.applicantId > 0 && event.version > 0)

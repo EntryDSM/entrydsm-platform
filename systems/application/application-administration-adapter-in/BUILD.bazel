@@ -1,0 +1,36 @@
+load("@rules_kotlin//kotlin:jvm.bzl", "kt_jvm_library", "kt_jvm_test")
+load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
+package(default_visibility = ["//visibility:public"])
+kt_jvm_library(
+    name = "main",
+    srcs = glob(["src/main/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    deps = MODULE_DEPS,
+)
+kt_jvm_test(
+    name = "test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.application.administration.adapterin.grpc.AdministrationGrpcServiceTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
+
+kt_jvm_test(
+    name = "schedule_controller_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.application.administration.adapterin.schedule.ScheduleControllerTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
+
+kt_jvm_test(
+    name = "document_controller_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.application.administration.adapterin.document.DocumentControllerTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)

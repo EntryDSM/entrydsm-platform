@@ -23,7 +23,7 @@ enum class GatewayService(
     NOTIFICATION("notification", GatewayDownstream.NOTIFICATION, "/api/notification"),
     OBSERVABILITY("observability", GatewayDownstream.OBSERVABILITY, "/api/monitor"),
     CONFIGURATION("configuration", GatewayDownstream.CONFIGURATION, "/api/document"),
-    SCHEDULE("schedule", GatewayDownstream.CONFIGURATION, "/api/schedule"),
+    SCHEDULE("schedule", GatewayDownstream.APPLICATION, "/api/schedule"),
     ;
 
     companion object {

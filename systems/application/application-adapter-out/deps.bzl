@@ -1,4 +1,5 @@
 KOTLIN_DEPS = [
+    "//systems/application/application-administration-domain:main",
     "//contracts:identity_grpc_java",
     "//contracts:identity_java_proto",
     "//systems/common/common-crypto:main",
@@ -11,8 +12,6 @@ KOTLIN_DEPS = [
     "@maven//:io_grpc_grpc_stub",
     "@maven//:javax_annotation_javax_annotation_api",
     "//contracts:application_java_proto",
-    "//contracts:configuration_grpc_java",
-    "//contracts:configuration_java_proto",
     "//systems/application/application-application:main",
     "//systems/application/application-domain:main",
 ]

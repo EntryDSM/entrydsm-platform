@@ -3,6 +3,15 @@ load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
 package(default_visibility = ["//visibility:public"])
 
+kt_jvm_test(
+    name = "file_storage_grpc_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.configuration.adapterin.grpc.FileStorageGrpcServiceTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
+
 kt_jvm_library(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),
@@ -29,23 +38,9 @@ kt_jvm_test(
     deps = MODULE_DEPS + TEST_DEPS + [":main"],
 )
 
-kt_jvm_test(
-    name = "document_controller_test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
-    javac_opts = "//:javac_options",
-    kotlinc_opts = "//:kotlinc_options",
-    test_class = "hs.kr.entrydsm.configuration.adapterin.document.DocumentControllerTest",
-    deps = MODULE_DEPS + TEST_DEPS + [":main"],
-)
+alias(name = "document_controller_test", actual = "//systems/application/application-administration-adapter-in:document_controller_test")
 
-kt_jvm_test(
-    name = "schedule_controller_test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
-    javac_opts = "//:javac_options",
-    kotlinc_opts = "//:kotlinc_options",
-    test_class = "hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleControllerTest",
-    deps = MODULE_DEPS + TEST_DEPS + [":main"],
-)
+alias(name = "schedule_controller_test", actual = "//systems/application/application-administration-adapter-in:schedule_controller_test")
 
 kt_jvm_test(
     name = "grpc_service_test",

@@ -7,8 +7,6 @@ import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
 import hs.kr.entrydsm.configuration.domain.document.FileCategory
 import hs.kr.entrydsm.configuration.domain.document.FileDocument
 import hs.kr.entrydsm.configuration.domain.document.Requester
-import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantLookupFailedException
-import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
 import hs.kr.entrydsm.configuration.domain.document.exception.FileTooLargeException
@@ -60,7 +58,7 @@ class DocumentApiContractTest {
         val common = setOf(
             "INVALID_REQUEST_PARAM", "AUTH_UNAUTHORIZED", "ACCESS_DENIED", "API_NOT_FOUND", "METHOD_NOT_ALLOWED", "INTERNAL_SERVER_ERROR",
         )
-        val domains = listOf("FILE_", "APPLICANT_", "APPLICATION_", "SCHEDULE_")
+        val domains = listOf("FILE_")
 
         ErrorCode.entries.filterNot { it.name in common }.forEach { code ->
             assertTrue(code.name, domains.any(code.name::startsWith))
@@ -75,7 +73,6 @@ class DocumentApiContractTest {
         assertEquals(HttpStatus.NOT_FOUND, ErrorCode.FILE_NOT_FOUND.status)
         assertEquals(HttpStatus.CONTENT_TOO_LARGE, ErrorCode.FILE_TOO_LARGE.status)
         assertEquals(HttpStatus.BAD_GATEWAY, ErrorCode.FILE_STORAGE_UNAVAILABLE.status)
-        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ErrorCode.APPLICATION_SERVICE_UNAVAILABLE.status)
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ErrorCode.INTERNAL_SERVER_ERROR.status)
     }
 
@@ -87,8 +84,6 @@ class DocumentApiContractTest {
         assertMapped(ErrorCode.FILE_NOT_FOUND, handler.handleFileNotFound(FileDocumentNotFoundException("photo_1")))
         assertMapped(ErrorCode.FILE_ACCESS_DENIED, handler.handleDocumentAccessDenied(DocumentAccessDeniedException()))
         assertMapped(ErrorCode.FILE_STORAGE_UNAVAILABLE, handler.handleStorageUnavailable(StorageUnavailableException("presign", "photo/a.jpg")))
-        assertMapped(ErrorCode.APPLICANT_NOT_FOUND, handler.handleApplicantNotFound(ApplicantNotFoundException(12)))
-        assertMapped(ErrorCode.APPLICATION_SERVICE_UNAVAILABLE, handler.handleApplicantLookupFailed(ApplicantLookupFailedException(12)))
     }
 
     @Test
@@ -131,11 +126,10 @@ class DocumentApiContractTest {
     }
 
     @Test
-    fun `파일 응답은 공개 ID 파일이면 ID와 올린 이름을, 지원자 파일이면 저장 이름을 담고 키는 담지 않는다`() {
+    fun `파일 응답은 공개 ID와 올린 이름을 담고 저장 키는 담지 않는다`() {
         val file = DownloadableFile(document(), downloadUrl = "https://s3/a", expiresIn = 300)
 
         assertEquals(FileResponse("attachment_3f2c", "공지.pdf", 1024, "https://s3/a", 300), FileResponse.of(file))
-        assertEquals(FileResponse(null, "3f2c_notice.pdf", 1024, "https://s3/a", 300), FileResponse.ofApplicant(file))
     }
 
     @Test
