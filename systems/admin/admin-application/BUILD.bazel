@@ -13,29 +13,4 @@ kt_jvm_library(
     deps = MODULE_DEPS,
 )
 
-kt_jvm_test(
-    name = "test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
-    javac_opts = "//:javac_options",
-    kotlinc_opts = "//:kotlinc_options",
-    test_class = "hs.kr.entrydsm.admin.application.AdminApplicationModuleTest",
-    deps = MODULE_DEPS + TEST_DEPS + [":main"],
-)
-
-kt_jvm_test(
-    name = "admission_ticket_export_test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
-    javac_opts = "//:javac_options",
-    kotlinc_opts = "//:kotlinc_options",
-    test_class = "hs.kr.entrydsm.admin.application.AdmissionTicketExportTest",
-    deps = MODULE_DEPS + TEST_DEPS + [":main"],
-)
-
-kt_jvm_test(
-    name = "essay_pdf_service_test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
-    javac_opts = "//:javac_options",
-    kotlinc_opts = "//:kotlinc_options",
-    test_class = "hs.kr.entrydsm.admin.application.EssayPdfServiceTest",
-    deps = MODULE_DEPS + TEST_DEPS + [":main"],
-)
+alias(name = "test", actual = "//systems/application/application-administration-application:test")
