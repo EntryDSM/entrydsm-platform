@@ -19,7 +19,7 @@ class GatewayDomainRulesTest {
                 "notification" to (GatewayDownstream.NOTIFICATION to "/api/notification"),
                 "observability" to (GatewayDownstream.OBSERVABILITY to "/api/monitor"),
                 "configuration" to (GatewayDownstream.CONFIGURATION to "/api/document"),
-                "schedule" to (GatewayDownstream.CONFIGURATION to "/api/schedule"),
+                "schedule" to (GatewayDownstream.APPLICATION to "/api/schedule"),
             ),
             GatewayService.entries.associate { it.routeId to (it.downstreamKey to it.pathPrefix) },
         )
