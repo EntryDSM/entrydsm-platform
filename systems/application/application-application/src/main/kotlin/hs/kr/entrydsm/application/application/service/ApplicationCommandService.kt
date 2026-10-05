@@ -42,6 +42,7 @@ import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+import java.time.ZoneId
 import org.springframework.transaction.annotation.Transactional
 
 @Transactional
@@ -148,8 +149,14 @@ class ApplicationCommandService(
         }
     }
 
+    @Transactional(readOnly = true)
     override fun getLanding(accountId: Long?): LandingResult {
+        val period = applicationPeriod.read()
+        val seoul = ZoneId.of("Asia/Seoul")
         return LandingResult(
+            applicationStartAt = period?.start?.atZone(seoul)?.toLocalDateTime(),
+            applicationEndAt = period?.endInclusive?.atZone(seoul)?.toLocalDateTime(),
+            resultAnnouncedAt = applicationPeriod.readResultAnnouncedAt(),
             applicantName = accountId?.let(applicantRepository::findByAccountId)?.name,
         )
     }
