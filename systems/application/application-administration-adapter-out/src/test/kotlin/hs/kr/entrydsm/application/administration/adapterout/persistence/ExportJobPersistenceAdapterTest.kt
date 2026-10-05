@@ -2,10 +2,8 @@ package hs.kr.entrydsm.application.administration.adapterout.persistence
 
 import hs.kr.entrydsm.application.administration.adapterout.entity.ExportJobJpaEntity
 import hs.kr.entrydsm.application.administration.adapterout.repository.ExportJobJpaRepository
-import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
 import hs.kr.entrydsm.admin.domain.enum.ExportType
-import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.model.ExportJob
 import java.lang.reflect.Proxy
 import java.time.Instant
@@ -79,17 +77,13 @@ class ExportJobPersistenceAdapterTest {
         assertEquals(now, claimed?.startedAt)
     }
 
-    /** 처리기는 저장 결과로 받은 작업의 필터로 지원자를 고른다. 비면 전체가 나간다. */
     @Test
-    fun `저장 결과에 DB 에 남기지 않는 필터를 그대로 담는다`() {
-        val filter = ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS))
-
+    fun `저장 결과에 작업 진행 상태와 실패 정보를 보존한다`() {
         val saved = ExportJobPersistenceAdapter(echoingRepository()).save(
             ExportJob(
                 exportJobId = "exp_1",
                 type = ExportType.FIRST_PASS,
                 status = ExportStatus.PENDING,
-                filter = filter,
                 totalCount = 10,
                 processedCount = 7,
                 createdAt = Instant.EPOCH,
@@ -99,7 +93,6 @@ class ExportJobPersistenceAdapterTest {
             ),
         )
 
-        assertEquals(filter, saved.filter)
         assertEquals(10, saved.totalCount)
         assertEquals(7, saved.processedCount)
         assertEquals("APPLICATION_FORM_INVALID", saved.failureCode)
