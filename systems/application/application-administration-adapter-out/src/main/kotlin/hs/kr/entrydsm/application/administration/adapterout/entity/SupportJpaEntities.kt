@@ -1,0 +1,147 @@
+package hs.kr.entrydsm.application.administration.adapterout.entity
+
+import hs.kr.entrydsm.admin.domain.enum.ExportStatus
+import hs.kr.entrydsm.admin.domain.enum.ExportType
+import hs.kr.entrydsm.admin.domain.model.ExportJob
+import hs.kr.entrydsm.admin.domain.model.ScorePolicy
+import hs.kr.entrydsm.admin.domain.model.ScoreWeights
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.Lob
+import jakarta.persistence.Table
+import java.time.Instant
+
+@Entity
+@Table(name = "score_policy")
+class ScorePolicyJpaEntity(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    val id: Long? = null,
+
+    @Column(name = "policy_version", nullable = false)
+    val policyVersion: Int,
+
+    @Column(name = "subject_weight", nullable = false)
+    val subjectWeight: Double,
+
+    @Column(name = "attendance_weight", nullable = false)
+    val attendanceWeight: Double,
+
+    @Column(name = "volunteer_weight", nullable = false)
+    val volunteerWeight: Double,
+
+    @Column(name = "rounding_scale", nullable = false)
+    val roundingScale: Int,
+
+    @Column(name = "effective_from", nullable = false)
+    val effectiveFrom: Instant,
+
+    @Column(name = "updated_by", nullable = false, length = 50)
+    val updatedBy: String,
+) {
+    fun toDomain(): ScorePolicy = ScorePolicy(
+        id = id,
+        policyVersion = policyVersion,
+        weights = ScoreWeights(subjectWeight, attendanceWeight, volunteerWeight),
+        roundingScale = roundingScale,
+        effectiveFrom = effectiveFrom,
+        updatedBy = updatedBy,
+    )
+
+    companion object {
+        fun from(policy: ScorePolicy): ScorePolicyJpaEntity = ScorePolicyJpaEntity(
+            id = policy.id,
+            policyVersion = policy.policyVersion,
+            subjectWeight = policy.weights.subject,
+            attendanceWeight = policy.weights.attendance,
+            volunteerWeight = policy.weights.volunteer,
+            roundingScale = policy.roundingScale,
+            effectiveFrom = policy.effectiveFrom,
+            updatedBy = policy.updatedBy,
+        )
+    }
+}
+
+@Entity
+@Table(name = "export_job")
+class ExportJobJpaEntity(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    val id: Long? = null,
+
+    @Column(name = "export_job_id", nullable = false, unique = true, length = 40)
+    val exportJobId: String,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false, length = 30)
+    val type: ExportType,
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    val status: ExportStatus,
+
+    @Column(name = "object_key", length = 255)
+    val objectKey: String? = null,
+
+    @Column(name = "total_count", nullable = false)
+    val totalCount: Int = 0,
+
+    @Column(name = "processed_count", nullable = false)
+    val processedCount: Int = 0,
+
+    @Column(name = "created_at", nullable = false)
+    val createdAt: Instant,
+
+    @Column(name = "started_at")
+    val startedAt: Instant? = null,
+
+    @Column(name = "completed_at")
+    val completedAt: Instant? = null,
+    @Column(name = "failure_code", length = 80)
+    val failureCode: String? = null,
+    @Column(name = "failure_message", length = 255)
+    val failureMessage: String? = null,
+    @Column(name = "failed_count", nullable = false)
+    val failedCount: Int = 0,
+) {
+    fun toDomain(): ExportJob = ExportJob(
+        id = id,
+        exportJobId = exportJobId,
+        type = type,
+        status = status,
+        objectKey = objectKey,
+        totalCount = totalCount,
+        processedCount = processedCount,
+        createdAt = createdAt,
+        startedAt = startedAt,
+        completedAt = completedAt,
+        failureCode = failureCode,
+        failureMessage = failureMessage,
+        failedCount = failedCount,
+    )
+
+    companion object {
+        fun from(job: ExportJob): ExportJobJpaEntity = ExportJobJpaEntity(
+            id = job.id,
+            exportJobId = job.exportJobId,
+            type = job.type,
+            status = job.status,
+            objectKey = job.objectKey,
+            totalCount = job.totalCount,
+            processedCount = job.processedCount,
+            createdAt = job.createdAt,
+            startedAt = job.startedAt,
+            completedAt = job.completedAt,
+            failureCode = job.failureCode,
+            failureMessage = job.failureMessage,
+            failedCount = job.failedCount,
+        )
+    }
+}
