@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit
 class ConfigurationGrpcServer(
     @Value("\${grpc.port:9090}") private val port: Int,
     private val configurationGrpcService: ConfigurationGrpcService,
+    private val fileStorageGrpcService: FileStorageGrpcService,
 ) : SmartLifecycle {
 
     private var server: Server? = null
@@ -18,7 +19,9 @@ class ConfigurationGrpcServer(
 
     override fun start() {
         server = ServerBuilder.forPort(port)
+            .maxInboundMessageSize(hs.kr.entrydsm.configuration.domain.document.port.out.MAX_FILE_TRANSFER_BYTES + 65536)
             .addService(configurationGrpcService)
+            .addService(fileStorageGrpcService)
             .build()
             .start()
         running = true
