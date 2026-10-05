@@ -94,3 +94,40 @@ message RenderApplicationEssayResponse {
     optional bytes introduction_pdf = 1;
     optional bytes study_plan_pdf = 2;
 }
+
+// 파일의 내용은 도메인과 무관한 바이트다. 사진 소유자 검증은 호출 서비스에서 수행한다.
+service FileStorageService {
+  rpc UploadObject(FileObjectRequest) returns (FileObjectResponse);
+  rpc DownloadObject(FileObjectRequest) returns (FileObjectResponse);
+  rpc DeleteObject(FileObjectRequest) returns (FileObjectResponse);
+  rpc PresignObject(FileObjectRequest) returns (FileObjectResponse);
+  rpc SaveMetadata(FileMetadataRequest) returns (FileMetadataResponse);
+  rpc FindMetadata(FileMetadataRequest) returns (FileMetadataResponse);
+  rpc ListMetadata(FileMetadataRequest) returns (FileMetadataResponse);
+  rpc DeleteMetadata(FileMetadataRequest) returns (FileMetadataResponse);
+}
+message FileObjectRequest {
+  string bucket = 1;
+  string object_key = 2;
+  string content_type = 3;
+  bytes content = 4;
+  int64 expires_in_seconds = 5;
+}
+message FileObjectResponse {
+  bytes content = 1;
+  string download_url = 2;
+  string checksum = 3;
+}
+message FileMetadataRequest {
+  string metadata_json = 1;
+  string public_id = 2;
+  int64 legacy_id = 3;
+  string object_key = 4;
+  string category = 5;
+  int32 page = 6;
+  int32 size = 7;
+}
+message FileMetadataResponse {
+  optional string metadata_json = 1;
+  int64 total_count = 2;
+}
