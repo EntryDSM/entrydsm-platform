@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.application.adapterin.web.dto.common
 
-import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
 import hs.kr.entrydsm.application.adapterin.web.dto.response.AcademicRecordResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.response.CreateApplicantResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.response.LandingResponse
@@ -16,15 +15,15 @@ import hs.kr.entrydsm.application.application.port.`in`.result.MiddleSchoolSearc
 fun CreateApplicantResult.toResponse(): CreateApplicantResponse =
     CreateApplicantResponse(applicantId = applicantId)
 
-fun LandingResult.toResponse(scheduleProperties: LandingScheduleProperties): LandingResponse =
+fun LandingResult.toResponse(): LandingResponse =
     LandingResponse(
         applicantName = applicantName,
         schedule = ScheduleResponse(
             applicationPeriod = PeriodResponse(
-                startAt = scheduleProperties.applicationStartAt,
-                endAt = scheduleProperties.applicationEndAt,
+                startAt = applicationStartAt,
+                endAt = applicationEndAt,
             ),
-            resultAnnouncedAt = scheduleProperties.resultAnnouncedAt,
+            resultAnnouncedAt = resultAnnouncedAt,
         ),
     )
 
