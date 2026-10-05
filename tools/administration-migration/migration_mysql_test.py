@@ -57,6 +57,10 @@ class MigrationMysqlTest(unittest.TestCase):
         cls.databases["configuration"].execute(schedule_schema)
         cls.databases["application"].execute(admin_schema + schedule_schema +
             "CREATE TABLE applicants(id BIGINT PRIMARY KEY, screening_result_version BIGINT); INSERT INTO applicants VALUES(5,1200);")
+        # 연결/원본과 목적지의 collation이 달라도 문자열을 정확히 대조한다.
+        for table in migrate.TABLES:
+            cls.databases["application"].execute(
+                f"ALTER TABLE {migrate.identifier(table)} CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
 
     @classmethod
     def tearDownClass(cls):
@@ -95,6 +99,10 @@ class MigrationMysqlTest(unittest.TestCase):
             self.assertEqual((config if table == "schedule" else admin).rows(table), app.rows(table))
         # 조회 이후 발생한 충돌도 트랜잭션 안에서 중단한다.
         snapshot = {"screening": app.rows("screening")}
+        app.execute("UPDATE screening SET status='first_pass' WHERE applicant_id=5;")
+        with self.assertRaisesRegex(RuntimeError, "MYSQL_ERROR_1062"):
+            app.execute(migrate.transaction(snapshot, snapshot))
+        self.assertEqual("first_pass", app.rows("screening")[0][3])
         app.execute("UPDATE screening SET status='FINAL_PASS' WHERE applicant_id=5;")
         with self.assertRaisesRegex(RuntimeError, "MYSQL_ERROR_1062"):
             app.execute(migrate.transaction(snapshot, snapshot))
