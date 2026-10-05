@@ -1,0 +1,293 @@
+package hs.kr.entrydsm.application.administration.application
+
+import hs.kr.entrydsm.application.administration.domain.document.AdmissionTicket
+import hs.kr.entrydsm.application.administration.domain.document.AdmissionTicketHtml
+import hs.kr.entrydsm.application.administration.domain.document.Applicant
+import hs.kr.entrydsm.application.administration.domain.document.ApplicationForm
+import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
+import hs.kr.entrydsm.configuration.domain.document.FileCategory
+import hs.kr.entrydsm.configuration.domain.document.FileDocument
+import hs.kr.entrydsm.configuration.domain.document.FileExtension
+import hs.kr.entrydsm.configuration.domain.document.FileNaming
+import hs.kr.entrydsm.configuration.domain.document.Requester
+import hs.kr.entrydsm.application.administration.domain.document.exception.ApplicantNotFoundException
+import hs.kr.entrydsm.configuration.domain.document.exception.DocumentAccessDeniedException
+import hs.kr.entrydsm.configuration.domain.document.exception.FileDocumentNotFoundException
+import hs.kr.entrydsm.application.administration.domain.document.port.`in`.ApplicantFileUseCase
+import hs.kr.entrydsm.application.administration.domain.document.port.`in`.RegistrationFileUseCase
+import hs.kr.entrydsm.application.administration.domain.document.DocumentFileNaming
+import hs.kr.entrydsm.application.administration.domain.document.port.out.AdmissionTicketSheetPort
+import hs.kr.entrydsm.application.administration.domain.document.port.out.ApplicantPort
+import hs.kr.entrydsm.application.administration.domain.document.port.out.ApplicationFormPdfPort
+import hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository
+import hs.kr.entrydsm.application.administration.domain.document.port.out.PdfRenderPort
+import hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort
+import org.slf4j.LoggerFactory
+import java.awt.Color
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import javax.imageio.ImageIO
+
+class FileDocumentService(
+    private val storagePort: StoragePort,
+    private val fileDocumentRepository: FileDocumentRepository,
+    private val presignExpirySeconds: Long,
+    private val applicantPort: ApplicantPort,
+    private val pdfRenderPort: PdfRenderPort,
+    private val applicationFormPdfPort: ApplicationFormPdfPort,
+    private val admissionTicketSheetPort: AdmissionTicketSheetPort,
+    private val admissionYear: Int,
+    private val storageEnvironment: String = "stag",
+) : ApplicantFileUseCase,
+    RegistrationFileUseCase {
+
+    private val log = LoggerFactory.getLogger(javaClass)
+
+    override fun generateApplicationForm(requester: Requester): DownloadableFile =
+        renderApplicationForm(requireApplicationForm(requester))
+
+    override fun generateApplicationForm(applicantId: Long, requester: Requester): DownloadableFile {
+        val applicant = requireApplicant(applicantId, requester, FileCategory.APPLICATION::canDownload)
+        return renderApplicationForm(
+            applicantPort.findApplicationForm(applicant.userId) ?: throw ApplicantNotFoundException(applicantId),
+        )
+    }
+
+    private fun renderApplicationForm(form: ApplicationForm): DownloadableFile {
+        val category = FileCategory.APPLICATION
+        val pdf = applicationFormPdfPort.render(
+            form,
+            photo = form.photoFileId?.let { findPhoto(it, form.userId) }?.let { storagePort.download(it.objectKey) },
+        )
+        val fileName = DocumentFileNaming.applicationFileName(form.applicantId)
+        return store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), form.userId)
+    }
+
+    override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile {
+        val category = FileCategory.ADMISSION_TICKET
+        val applicant = requireApplicant(applicantId, requester, category::canDownload)
+        val pdf = pdfRenderPort.render(AdmissionTicketHtml.render(ticket(applicantId, applicant, examineeNumber = null)))
+        val fileName = DocumentFileNaming.admissionTicketFileName(applicantId)
+        return store(category, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), applicant.userId)
+    }
+
+    /**
+     * ponytail: 지원자마다 application 조회·사진 받기를 차례로 하고 사진을 모두 힙에 둔다. 1차 합격자(백여 명)는
+     * 줄인 사진이 한 장에 수십 KB 라 감당한다. 길어지면 application 을 한 번에 묻고 사진을 병렬로 받는다.
+     */
+    override fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>): ByteArray {
+        val prepared = tickets.map { (applicantId, examineeNumber) ->
+            val applicant = ticketStage("applicant_lookup", applicantId) {
+                applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+            }
+            ticket(applicantId, applicant, examineeNumber)
+        }
+        return ticketStage("sheet_render", null) { admissionTicketSheetPort.render(prepared) }
+    }
+
+    override fun renderApplicationEssay(applicantId: Long): Pair<ByteArray?, ByteArray?> {
+        val applicant = applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+        val form = applicantPort.findApplicationForm(applicant.userId) ?: throw ApplicantNotFoundException(applicantId)
+        return form.introduction?.takeIf(String::isNotBlank)?.let { applicationFormPdfPort.renderEssay(form, true) } to
+            form.studyPlan?.takeIf(String::isNotBlank)?.let { applicationFormPdfPort.renderEssay(form, false) }
+    }
+
+    private fun ticket(applicantId: Long, applicant: Applicant, examineeNumber: String?): AdmissionTicket {
+        val file = applicant.photoFileId?.let {
+            ticketStage("photo_lookup", applicantId) { findPhoto(it, applicant.userId) }
+        }
+        val photo = file?.let {
+            val bytes = ticketStage("photo_download", applicantId) { storagePort.download(it.objectKey) }
+            ticketStage("photo_resize", applicantId) { fitTicketPhoto(bytes) }
+        }
+        if (file != null && photo == null) {
+            log.warn("Unreadable photo left out of admission ticket [applicantId={}]", applicantId)
+        }
+        return AdmissionTicket.of(admissionYear, applicantId, applicant, examineeNumber, photo)
+    }
+
+    private fun <T> ticketStage(stage: String, applicantId: Long?, action: () -> T): T {
+        val started = System.nanoTime()
+        log.info("Admission ticket stage started [stage={}, applicantId={}]", stage, applicantId)
+        try {
+            return action().also {
+                log.info("Admission ticket stage completed [stage={}, applicantId={}, elapsedMs={}]",
+                    stage, applicantId, (System.nanoTime() - started) / 1_000_000)
+            }
+        } catch (exception: Exception) {
+            log.error("Admission ticket stage failed [stage={}, applicantId={}, elapsedMs={}, exception={}]",
+                stage, applicantId, (System.nanoTime() - started) / 1_000_000, exception.javaClass.name)
+            throw exception
+        }
+    }
+
+    override fun findRegistrationDocument(requester: Requester): DownloadableFile {
+        val category = FileCategory.REGISTRATION_DOCUMENT
+        val studentId = requester.studentId
+        val allowed = category.canDownload(requester, ownerUserId = null) || studentId?.let(applicantPort::isFinalPassed) == true
+        if (!allowed) throw DocumentAccessDeniedException()
+        val template = fileDocumentRepository.findPage(category, page = 1, size = 1).firstOrNull()
+            ?: throw FileDocumentNotFoundException(category.prefix)
+        if (studentId == null) return downloadable(template)
+
+        // 원서처럼 요청마다 새로 찍어 지원자별 키에 덮어쓴다. 원본을 바꾸거나 원서가 고쳐져도 다음 요청에 반영된다.
+        val form = applicantPort.findApplicationForm(studentId) ?: throw ApplicantNotFoundException(studentId, "accountId")
+        val pdf = applicationFormPdfPort.renderRegistrationDocument(form, storagePort.download(template.objectKey))
+        val fileName = DocumentFileNaming.registrationFormFileName(form.applicantId)
+        return store(
+            FileCategory.REGISTRATION_FORM, fileName, fileName, FileExtension.PDF, pdf.size.toLong(), pdf.inputStream(), studentId,
+        )
+    }
+
+    /**
+     * application 에 원서 주인을 묻고 권한을 판정한다. 권한을 먼저 보므로 학생에게 남의 지원자는
+     * 없어도 403 이라, applicant id 를 훑어 지원자가 있는지 알 수 없다. 관리자에게 없는 지원자는 404 다.
+     */
+    private fun requireApplicant(
+        applicantId: Long,
+        requester: Requester,
+        allowed: (Requester, Long?) -> Boolean,
+    ): Applicant {
+        val applicant = applicantPort.findById(applicantId)
+        if (!allowed(requester, applicant?.userId)) throw DocumentAccessDeniedException()
+        return applicant ?: throw ApplicantNotFoundException(applicantId)
+    }
+
+    /**
+     * 요청자 계정으로 찾으니 원서 주인이 곧 요청자다. 남의 원서를 훑을 수 없는 조회라 원서가 없으면 404 다.
+     * 관리자도 권한은 통과하지만 관리자 계정에는 원서가 없어 404 다 — 관리자는 applicant id 를 받는 쪽을 쓴다.
+     */
+    private fun requireApplicationForm(requester: Requester): ApplicationForm {
+        if (!FileCategory.APPLICATION.canDownload(requester, requester.userId)) throw DocumentAccessDeniedException()
+        return applicantPort.findApplicationForm(requester.userId) ?: throw ApplicantNotFoundException(requester.userId, "accountId")
+    }
+
+    private fun store(
+        category: FileCategory,
+        fileName: String,
+        originalName: String,
+        extension: FileExtension,
+        sizeBytes: Long,
+        content: InputStream,
+        ownerUserId: Long?,
+    ): DownloadableFile {
+        val objectKey = category.objectKeyOf(fileName, storageEnvironment)
+        val downloadUrl = storagePort.issueDownloadUrl(objectKey, presignExpirySeconds)
+        val stored = storagePort.upload(objectKey, extension.contentType, sizeBytes, content)
+        val document = FileDocument(
+            publicId = FileNaming.publicId(category),
+            originalName = originalName,
+            objectKey = stored.objectKey,
+            bucket = stored.bucket,
+            contentType = extension.contentType,
+            sizeBytes = sizeBytes,
+            checksum = stored.checksum,
+            ownerUserId = ownerUserId,
+        )
+
+        val saved = try {
+            fileDocumentRepository.save(document)
+        } catch (e: RuntimeException) {
+            if (!category.keyedByApplicant) {
+                // 요청마다 새 키라 이 요청만 쓴 객체다.
+                deleteQuietly(objectKey)
+                throw e
+            }
+            // 같은 지원자의 동시 요청이 같은 키에 올리고 행을 먼저 만들었을 수 있다. 객체를 지우면 그 행이 빈 객체를
+            // 가리키므로 지우지 않고, 다시 저장해 그 행을 갱신한다. 다시 실패하면 남은 객체는 다음 적재가 덮어쓴다.
+            fileDocumentRepository.save(document)
+        }
+        return DownloadableFile(saved, downloadUrl, presignExpirySeconds)
+    }
+
+    private fun downloadable(document: FileDocument) = DownloadableFile(
+        document = document,
+        downloadUrl = storagePort.issueDownloadUrl(document.objectKey, presignExpirySeconds),
+        expiresIn = presignExpirySeconds,
+    )
+
+    /**
+     * 원서에 적힌 사진 ID 는 학생이 보낸 값이라, 그 학생이 올린 사진일 때만 원서·수험표에 넣는다.
+     *
+     * ponytail: webp 사진은 openhtmltopdf·PDFBox(ImageIO)가 읽지 못해 빈 칸으로 찍힌다. 필요해지면 webp 디코더를 붙인다.
+     *
+     * ponytail: application V006 전에 숫자(`files.id`)로 저장된 사진 ID 도 찾는다. 본인 확인은 같아서 순번을 훑어도 남의 사진은
+     * 못 넣는다. 운영 `applicants.photo_file_id` 가 모두 `photo_` 로 시작하게 되면 숫자 분기와 `findById` 를 지운다.
+     */
+    private fun findPhoto(photoFileId: String, ownerUserId: Long): FileDocument? {
+        val found = when (val legacyId = photoFileId.toLongOrNull()) {
+            null -> fileDocumentRepository.findByPublicId(photoFileId)
+            else -> fileDocumentRepository.findById(legacyId)
+        }
+        return found?.takeIf { FileCategory.PHOTO.holds(it.objectKey) && it.ownerUserId == ownerUserId }
+    }
+
+    private fun deleteQuietly(objectKey: String) {
+        runCatching { storagePort.delete(objectKey) }
+            .onFailure { log.warn("Failed to delete stored object: {}", objectKey, it) }
+    }
+}
+
+/** 원서·수험표는 지원자마다 저장 키가 하나다. 나머지는 요청마다 새 키(임의값)다. */
+private val FileCategory.keyedByApplicant: Boolean
+    get() = this == FileCategory.APPLICATION || this == FileCategory.ADMISSION_TICKET || this == FileCategory.REGISTRATION_FORM
+
+/** 수험표 사진 칸 크기(증명사진 3:4). PDF 사진 칸(폭 약 66mm)에 약 230dpi, xlsx 사진 칸(폭 약 50mm)에 약 300dpi 로 찍힌다. */
+private const val TICKET_PHOTO_WIDTH = 600
+private const val TICKET_PHOTO_HEIGHT = 800
+
+/**
+ * 원본을 그대로 넣는 사진의 최대 크기. 관리자 일괄 출력은 전원의 사진을 들고 xlsx 하나로 그려 gRPC 응답 하나로
+ * 보낸다(admin 수신 한도 64MB). 600×800 으로 다시 그린 JPEG 는 잡음 사진이어도 약 280KB 라 이 안에 들어, 사진은
+ * 모두 한 장 300KB 안이다. 200명이어도 약 59MB 다.
+ */
+private const val TICKET_PHOTO_MAX_BYTES = 300 * 1024
+
+/**
+ * 증명사진을 수험표 사진 칸(600×800) 안으로 줄여 JPEG 로 바꾼다. 원본(최대 5MB)을 그대로 넣으면 일괄 출력이
+ * 인원수만큼 커진다. PDF 사진 칸은 회색이라 투명한 곳에 비치므로 투명 사진은 칸보다 작아도 흰 바탕에 얹는다.
+ * 칸 안에 들고 300KB 이하인 불투명 JPEG·PNG 만 원본 그대로 둔다. ImageIO 가 못 읽는 사진(webp, CMYK JPEG,
+ * 깨진 파일)은 줄일 수도 확인할 수도 없어 null 이다.
+ *
+ * ponytail: 원본을 통째로 디코딩한다(12MP 면 수십 MB). 동시 출력이 몰려 메모리가 모자라면 ImageReader 서브샘플링으로 읽는다.
+ */
+private fun fitTicketPhoto(bytes: ByteArray): AdmissionTicket.Photo? {
+    val image = runCatching { ImageIO.read(ByteArrayInputStream(bytes)) }.getOrNull() ?: return null
+    // 세로로 긴 사진은 높이 800 에 맞춘 폭까지 줄인다.
+    val targetWidth = minOf(TICKET_PHOTO_WIDTH, maxOf(image.width * TICKET_PHOTO_HEIGHT / image.height, 1))
+    val originalType = sniffedImageType(bytes)
+    if (originalType != null && image.width <= targetWidth && !image.colorModel.hasAlpha() && bytes.size <= TICKET_PHOTO_MAX_BYTES) {
+        return AdmissionTicket.Photo(originalType, bytes)
+    }
+
+    // 한 번에 크게 줄이면 bilinear 가 픽셀을 건너뛰어 거칠어진다. 반씩 줄인다(getScaledInstance 보다 열 배 이상 빠르다).
+    // 칸보다 작은 사진(투명, 무거움, JPEG·PNG 아님)은 크기 그대로 한 번만 다시 그린다.
+    var fitted: BufferedImage = image
+    do {
+        val width = minOf(fitted.width, maxOf(fitted.width / 2, targetWidth))
+        val height = maxOf(fitted.height * width / fitted.width, 1)
+        val source = fitted
+        fitted = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB).also { target ->
+            target.createGraphics().run {
+                setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
+                // JPEG 에는 투명도가 없어 투명 PNG 는 흰 바탕에 얹는다.
+                drawImage(source, 0, 0, width, height, Color.WHITE, null)
+                dispose()
+            }
+        }
+    } while (fitted.width > targetWidth)
+    return AdmissionTicket.Photo("image/jpeg", ByteArrayOutputStream().also { ImageIO.write(fitted, "jpg", it) }.toByteArray())
+}
+
+/** 원본을 그대로 넣을 수 있는 형식. 올린 파일 이름으로 정한 contentType 은 내용과 다를 수 있어 앞 바이트로 본다. */
+private fun sniffedImageType(bytes: ByteArray): String? = when {
+    bytes.startsWith(0xFF, 0xD8, 0xFF) -> "image/jpeg"
+    bytes.startsWith(0x89, 'P'.code, 'N'.code, 'G'.code) -> "image/png"
+    else -> null
+}
+
+private fun ByteArray.startsWith(vararg prefix: Int): Boolean =
+    size >= prefix.size && prefix.indices.all { this[it] == prefix[it].toByte() }
