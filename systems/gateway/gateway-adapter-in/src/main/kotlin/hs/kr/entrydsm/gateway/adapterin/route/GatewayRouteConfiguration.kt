@@ -16,6 +16,12 @@ class GatewayRouteConfiguration {
         properties: GatewayServiceProperties,
     ): RouteLocator {
         val routes = builder.routes()
+        routes.route("application-documents") { route ->
+            route.order(-1).path(
+                "/api/document/v11/applications", "/api/document/v11/applications/**",
+                "/api/document/v11/admission-tickets/**", "/api/document/v11/registration-documents/latest",
+            ).uri(properties.application.toString())
+        }
         properties.serviceUris.forEach { (service, uri) ->
             routes.route(service.routeId) { route ->
                 route.path("${service.pathPrefix}/**")
