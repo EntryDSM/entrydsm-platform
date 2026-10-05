@@ -19,11 +19,11 @@
 
 Python 3.11 이상과 MySQL 8 CLI가 필요하다. DB 이름은 영문·숫자·밑줄만 허용한다. 암호는 명령 인자에 쓰지 않고 권한을 제한한 각 서비스의 MySQL option 파일에 저장한다. 아래 경로는 운영자가 준비하는 예시다. option 파일·백업·receipt·복구 증빙에는 민감 정보가 있으므로 Git에 추가하지 않는다.
 
-```powershell
-python tools/administration-migration/migrate.py `
-  --admin-config D:/secrets/admin.cnf --admin-database admin_db `
-  --configuration-config D:/secrets/configuration.cnf --configuration-database configuration_db `
-  --application-config D:/secrets/application.cnf --application-database application_db
+```bash
+python3 tools/administration-migration/migrate.py \
+  --admin-config /etc/entrydsm/secrets/admin.cnf --admin-database admin_db \
+  --configuration-config /etc/entrydsm/secrets/configuration.cnf --configuration-database configuration_db \
+  --application-config /etc/entrydsm/secrets/application.cnf --application-database application_db
 ```
 
 기본값은 검증 모드이며 데이터·SQL·암호를 출력하지 않는다. 적용 결과 receipt에도 행 수·해시·시퀀스와 백업 해시만 남는다. 이전은 Application의 한 트랜잭션에서 대상 행을 잠그고 조회 당시 내용과 일치하는지 확인한 뒤 적용한다. 시퀀스 변경은 MySQL DDL이므로 데이터 커밋 뒤 수행한다. 마지막 대조가 성공하기 전에는 쓰기를 재개하지 않는다. 재실행은 이미 동일한 행을 변경하지 않는다.
@@ -49,20 +49,20 @@ python tools/administration-migration/migrate.py `
 - `artifactPath`, `artifactSha256`: 검증한 실제 증빙 파일과 SHA-256.
 - `academicRecord`: 증빙으로 확인한 성적·출결·봉사·가산점 전체. `absentCount`, `lateCount`, `earlyLeaveCount`, `classAbsenceCount`, `volunteerTime`, `isDsmAlgorithmAwarded`, `isProgrammingCertified`, `subjectGrades`, `gedScores`를 생략하지 않는다. 해당 없음은 담당자가 확인한 빈 맵/null로 기록한다. GED 과목별 7개 점수 또는 학기별 실제 등급을 모두 입력한다.
 
-```powershell
-bazel run //systems/application/application-bootstrap:score_recovery -- --dry-run D:/secrets/recovery-proof.json
+```bash
+bazel run //systems/application/application-bootstrap:score_recovery -- --dry-run /etc/entrydsm/secrets/recovery-proof.json
 # 쓰기/이벤트 정지와 백업 확인 후 운영자가 적용한다.
-$env:RECOVERY_WRITERS_STOPPED = 'true'
-bazel run //systems/application/application-bootstrap:score_recovery -- --apply D:/secrets/recovery-proof.json
+RECOVERY_WRITERS_STOPPED=true \
+  bazel run //systems/application/application-bootstrap:score_recovery -- --apply /etc/entrydsm/secrets/recovery-proof.json
 ```
 
 검증 모드는 증빙 해시·대상 버전을 검증하고 점수를 계산하되 저장하지 않는다. 적용 모드는 원서를 잠그고 성적 부모 PK·접수 상태·제출 시각·수험번호·전형 결과를 유지한 채 성적·총점·산출 시각·상태 버전과 outbox를 한 트랜잭션에서 저장한다. 성적 산출·원서 변환·outbox 실패 시 전부 롤백한다. 같은 증빙을 재적용하면 변경된 버전 때문에 중단한다. 출력에는 성공/실패·대상 ID·버전만 포함하며 성적·개인정보를 출력하지 않는다.
 
 ## 로컬 검증
 
-```powershell
+```bash
 cd tools/administration-migration
-python -m unittest migrate_test migration_mysql_test -v
+python3 -m unittest migrate_test migration_mysql_test -v
 ```
 
 MySQL 통합 검증은 임시 데이터 디렉터리·임의의 localhost 포트·테스트 전용 DB를 만들고 정상 종료한다. 운영 option 파일은 사용하지 않는다. 이전·재실행·시각/NULL/문자 보존·충돌 중단·역이전·이벤트 시퀀스 연속성을 확인한다. 성적 복구의 증빙 실패 무변경과 outbox 실패 롤백은 `score_recovery_test`의 H2 트랜잭션 테스트로 검증한다.
