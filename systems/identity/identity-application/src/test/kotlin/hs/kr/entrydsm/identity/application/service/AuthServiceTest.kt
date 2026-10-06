@@ -433,7 +433,7 @@ class AuthServiceTest {
     fun attemptLimitRejectsLoginAndResetBeforeAccountOrProofLookup() {
         val limiter = mock(AuthAttemptLimiter::class.java)
         val proofVerifier = mock(PasswordResetOwnershipVerifier::class.java)
-        doThrow(IdentityDomainException(ErrorCode.AUTH_ATTEMPTS_EXCEEDED)).`when`(limiter).checkLogin("entry")
+        doThrow(IdentityDomainException(ErrorCode.AUTH_ATTEMPTS_EXCEEDED)).`when`(limiter).checkLogin("entry", "unknown")
         doThrow(IdentityDomainException(ErrorCode.AUTH_ATTEMPTS_EXCEEDED)).`when`(limiter).checkPasswordReset("entry")
         val auth = service(limiter = limiter, passwordResetOwnershipVerifier = proofVerifier)
         val login = org.junit.Assert.assertThrows(IdentityDomainException::class.java) {

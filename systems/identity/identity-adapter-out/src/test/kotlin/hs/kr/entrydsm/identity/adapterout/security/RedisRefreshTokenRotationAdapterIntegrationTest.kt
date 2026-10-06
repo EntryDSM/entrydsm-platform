@@ -37,18 +37,19 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
         val hasher = HmacLoginIdHasher("attempt-test-key")
         val first = RedisAuthAttemptLimiter(template, hasher, namespace, ISSUER, 2, 1, 1, 30)
         val second = RedisAuthAttemptLimiter(template, hasher, namespace, ISSUER, 2, 1, 1, 30)
-        first.checkLogin("known")
-        second.checkLogin("known")
+        first.checkLogin("known", "192.0.2.1")
+        second.checkLogin("known", "192.0.2.1")
         assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
-            first.checkLogin("known")
+            first.checkLogin("known", "192.0.2.1")
         }.errorCode)
-        second.checkLogin("other")
+        second.checkLogin("other", "192.0.2.1")
+        second.checkLogin("known", "192.0.2.2")
         first.checkPasswordReset("known")
         assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
             second.checkPasswordReset("known")
         }.errorCode)
         Thread.sleep(1100)
-        second.checkLogin("known")
+        second.checkLogin("known", "192.0.2.1")
     }
 
     @Test
@@ -62,7 +63,7 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
                 executor.submit<Boolean> {
                     assertTrue(start.await(5, TimeUnit.SECONDS))
                     try {
-                        limiter.checkLogin("known")
+                        limiter.checkLogin("known", "192.0.2.1")
                         true
                     } catch (exception: IdentityDomainException) {
                         assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, exception.errorCode)
