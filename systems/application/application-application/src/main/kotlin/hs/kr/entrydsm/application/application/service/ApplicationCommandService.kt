@@ -35,13 +35,13 @@ import hs.kr.entrydsm.application.domain.enum.SchoolSemester
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
 import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.Applicant
-import hs.kr.entrydsm.application.domain.model.MiddleSchoolInfo
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.domain.nowUtc
 import hs.kr.entrydsm.application.domain.service.ScoreCalculator
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.YearMonth
+import java.time.ZoneId
 import org.springframework.transaction.annotation.Transactional
 
 @Transactional
@@ -52,6 +52,7 @@ class ApplicationCommandService(
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
     private val scoreCalculator = ScoreCalculator()
+    private val editor = ApplicationFormEditor(accountPhoneValidator)
 
     override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult {
         val accountId = requireAccountId(command.accountId)
@@ -142,14 +143,24 @@ class ApplicationCommandService(
             "invalid examinee number"
         }
         val applicant = applicantRepository.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
+        require(applicant.examineeNumber == null || applicant.examineeNumber == examineeNumber) {
+            "issued examinee number cannot be replaced"
+        }
         if (applicant.examineeNumber != examineeNumber) {
             applicant.examineeNumber = examineeNumber
-            applicantRepository.save(applicant)
+            applicant.statusVersion = Math.addExact(applicant.statusVersion, 1L)
+            publishStatus(saveTouched(applicant))
         }
     }
 
+    @Transactional(readOnly = true)
     override fun getLanding(accountId: Long?): LandingResult {
+        val period = applicationPeriod.read()
+        val seoul = ZoneId.of("Asia/Seoul")
         return LandingResult(
+            applicationStartAt = period?.start?.atZone(seoul)?.toLocalDateTime(),
+            applicationEndAt = period?.endInclusive?.atZone(seoul)?.toLocalDateTime(),
+            resultAnnouncedAt = applicationPeriod.readResultAnnouncedAt(),
             applicantName = accountId?.let(applicantRepository::findByAccountId)?.name,
         )
     }
@@ -188,6 +199,7 @@ class ApplicationCommandService(
     }
 
     private fun Applicant.toApplicantResult(): ApplicantResult = ApplicantResult(
+        statusVersion = statusVersion,
         applicantId = id,
         accountId = accountId,
         name = name,
@@ -335,18 +347,7 @@ class ApplicationCommandService(
         graduationDate: YearMonth?,
     ) {
         val applicant = getWritableApplicant(accountId)
-        APPLICATION_GRADUATION_DATE_REQUIRED.requireValid(graduationType == GraduationType.GED || graduationDate != null)
-        APPLICATION_GRADUATION_DATE_NOT_ALLOWED.requireValid(graduationType != GraduationType.GED || graduationDate == null)
-        APPLICATION_GRADUATION_DATE_OUT_OF_RANGE.requireValid(graduationDate == null || graduationDate.year in 2026..2027)
-
-        applicant.admissionType = admissionType
-        applicant.region = region
-        applicant.graduationType = graduationType
-        applicant.graduationDate = graduationDate
-        if (graduationType == GraduationType.GED) {
-            applicant.middleSchoolInfo = null
-            applicant.academicRecord?.subjectGrades?.clear()
-        }
+        editor.updateType(applicant, admissionType, region, graduationType, graduationDate)
         saveTouched(applicant)
     }
 
@@ -374,19 +375,8 @@ class ApplicationCommandService(
         birthdate: LocalDate,
         specialAdmissionType: SpecialAdmissionType,
     ) {
-        APPLICATION_PHOTO_FILE_ID_REQUIRED.requireValid(photoFileId.isNotBlank())
-        APPLICATION_PHOTO_FILE_ID_TOO_LONG.requireValid(photoFileId.length <= MAX_PHOTO_FILE_ID_LENGTH)
-        APPLICATION_NAME_REQUIRED.requireValid(name.isNotBlank())
-        APPLICATION_PHONE_NUMBER_INVALID_FORMAT.requireValid(phoneNumber.matches(PHONE_NUMBER_REGEX))
-
         val applicant = getWritableApplicant(accountId)
-        APPLICATION_PHONE_NUMBER_MISMATCH.requireValid(accountPhoneValidator.validate(applicant.accountId, phoneNumber))
-        applicant.photoFileId = photoFileId
-        applicant.name = name
-        applicant.phoneNumber = phoneNumber
-        applicant.gender = gender
-        applicant.birthdate = birthdate
-        applicant.specialAdmissionType = specialAdmissionType
+        editor.updatePersonal(applicant, photoFileId, name, phoneNumber, gender, birthdate, specialAdmissionType)
         saveTouched(applicant)
     }
 
@@ -400,20 +390,8 @@ class ApplicationCommandService(
         addressBase: String,
         addressDetail: String,
     ) {
-        APPLICATION_GUARDIAN_NAME_REQUIRED.requireValid(guardianName.isNotBlank())
-        APPLICATION_GUARDIAN_PHONE_NUMBER_INVALID_FORMAT.requireValid(guardianPhoneNumber.matches(PHONE_NUMBER_REGEX))
-        APPLICATION_ADDRESS_ZIP_CODE_REQUIRED.requireValid(zipCode.isNotBlank())
-        APPLICATION_ADDRESS_ADDRESS_BASE_REQUIRED.requireValid(addressBase.isNotBlank())
-        APPLICATION_ADDRESS_ADDRESS_DETAIL_REQUIRED.requireValid(addressDetail.isNotBlank())
-
         val applicant = getWritableApplicant(accountId)
-        applicant.guardianName = guardianName
-        applicant.guardianPhoneNumber = guardianPhoneNumber
-        applicant.guardianGender = guardianGender
-        applicant.guardianRelation = guardianRelation
-        applicant.zipCode = zipCode
-        applicant.addressBase = addressBase
-        applicant.addressDetail = addressDetail
+        editor.updateFamily(applicant, guardianName, guardianPhoneNumber, guardianGender, guardianRelation, zipCode, addressBase, addressDetail)
         saveTouched(applicant)
     }
 
@@ -426,44 +404,19 @@ class ApplicationCommandService(
         teacherName: String,
     ) {
         val applicant = getWritableApplicant(accountId)
-        APPLICATION_MIDDLE_SCHOOL_NOT_ALLOWED.requireValid(applicant.graduationType != GraduationType.GED)
-        APPLICATION_SCHOOL_CODE_REQUIRED.requireValid(schoolCode.isNotBlank())
-        APPLICATION_SCHOOL_NAME_REQUIRED.requireValid(schoolName.isNotBlank())
-        APPLICATION_STUDENT_NUMBER_REQUIRED.requireValid(studentNumber.isNotBlank())
-        APPLICATION_STUDENT_NUMBER_INVALID_FORMAT.requireValid(studentNumber.matches(Regex("[0-9]{5}")))
-        APPLICATION_STUDENT_NUMBER_OUT_OF_RANGE.requireValid(
-            studentNumber.first() in '1'..'3' &&
-                studentNumber.substring(1, 3).toInt() in 1..99 &&
-                studentNumber.substring(3, 5).toInt() in 1..99,
-        )
-        APPLICATION_SCHOOL_PHONE_REQUIRED.requireValid(schoolPhone.isNotBlank())
-        APPLICATION_TEACHER_NAME_REQUIRED.requireValid(teacherName.isNotBlank())
-
-        applicant.middleSchoolInfo = MiddleSchoolInfo(
-            schoolCode = schoolCode,
-            schoolName = schoolName,
-            studentNumber = studentNumber,
-            schoolPhone = schoolPhone,
-            teacherName = teacherName,
-        )
+        editor.updateMiddleSchool(applicant, schoolCode, schoolName, studentNumber, schoolPhone, teacherName)
         saveTouched(applicant)
     }
 
     fun updateIntroduction(accountId: Long?, introduction: String) {
-        APPLICATION_INTRODUCTION_REQUIRED.requireValid(introduction.isNotBlank())
-        APPLICATION_INTRODUCTION_TOO_LONG.requireValid(introduction.length <= MAX_ESSAY_LENGTH)
-
         val applicant = getWritableApplicant(accountId)
-        applicant.introduction = introduction
+        editor.updateIntroduction(applicant, introduction)
         saveTouched(applicant)
     }
 
     fun updateStudyPlan(accountId: Long?, studyPlan: String) {
-        APPLICATION_STUDY_PLAN_REQUIRED.requireValid(studyPlan.isNotBlank())
-        APPLICATION_STUDY_PLAN_TOO_LONG.requireValid(studyPlan.length <= MAX_ESSAY_LENGTH)
-
         val applicant = getWritableApplicant(accountId)
-        applicant.studyPlan = studyPlan
+        editor.updateStudyPlan(applicant, studyPlan)
         saveTouched(applicant)
     }
 
@@ -498,7 +451,13 @@ class ApplicationCommandService(
         accountId ?: throw AuthenticationRequiredException()
 
     private fun markSubmitted(applicant: Applicant) {
-        applicant.totalScore = scoreCalculator.calculate(applicant)
+        applicant.totalScore = try {
+            scoreCalculator.calculate(applicant)
+        } catch (exception: IllegalArgumentException) {
+            throw hs.kr.entrydsm.application.application.exception.EvaluationValidationException(
+                exception.message ?: "평가에 필요한 성적을 확인해주세요", exception,
+            )
+        }
         applicant.totalScoreUpdatedAt = nowUtc()
         applicant.status = ApplicantStatus.SUBMITTED
         applicant.statusVersion += 1
@@ -538,10 +497,6 @@ class ApplicationCommandService(
             SchoolSemester.FIRST_GRADE_FIRST_SEMESTER,
         )
         private val STUDENT_NUMBER = Regex("^\\d(\\d{2})\\d{2}$")
-        private val PHONE_NUMBER_REGEX = Regex("^010-\\d{4}-\\d{4}$")
-        private const val MAX_ESSAY_LENGTH = 1600
-        // applicants.photo_file_id 컬럼 길이. document 증명사진 ID 는 photo_ 와 32자 임의값이다.
-        private const val MAX_PHOTO_FILE_ID_LENGTH = 64
     }
 }
 

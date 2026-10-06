@@ -297,3 +297,36 @@ enum SpecialAdmissionType {
     SPECIAL_ADMISSION_TYPE_NATIONAL_MERIT = 2;
     SPECIAL_ADMISSION_TYPE_SPECIAL_ADMISSION = 3;
 }
+
+// 관리자 업무의 소유자는 Application이다. JSON은 기존 Kotlin 명령/응답 계약을 유지한다.
+// 호출 메서드는 명시적으로 제한하며, HTTP 사용자 문맥은 Gateway를 통과한 BFF만 전달한다.
+service AdministrationService {
+  rpc SearchApplicants(AdministrationRequest) returns (AdministrationResponse);
+  rpc ReadApplicant(AdministrationRequest) returns (AdministrationResponse);
+  rpc UpdateArrival(AdministrationRequest) returns (AdministrationResponse);
+  rpc UpdateApplicantStatus(AdministrationRequest) returns (AdministrationResponse);
+  rpc CorrectApplication(AdministrationRequest) returns (AdministrationResponse);
+  rpc IssueExamineeNumbers(AdministrationRequest) returns (AdministrationResponse);
+  rpc DeleteApplicant(AdministrationRequest) returns (AdministrationResponse);
+  rpc ReadScorePolicy(AdministrationRequest) returns (AdministrationResponse);
+  rpc UpdateScorePolicy(AdministrationRequest) returns (AdministrationResponse);
+  rpc ReadAdmissionQuota(AdministrationRequest) returns (AdministrationResponse);
+  rpc UpdateAdmissionQuota(AdministrationRequest) returns (AdministrationResponse);
+  rpc EvaluateFirstScreening(AdministrationRequest) returns (AdministrationResponse);
+  rpc EvaluateFinalScreening(AdministrationRequest) returns (AdministrationResponse);
+  rpc CollectStatistics(AdministrationRequest) returns (AdministrationResponse);
+  rpc CreateExport(AdministrationRequest) returns (AdministrationResponse);
+  rpc ReadExport(AdministrationRequest) returns (AdministrationResponse);
+}
+message AdministrationRequest {
+  string user_id = 1;
+  string user_role = 2;
+  string command_json = 3;
+}
+message AdministrationResponse {
+  string data_json = 1;
+  optional string error_code = 2;
+  int32 failed_count = 3;
+  optional int32 total_count = 4;
+  repeated int64 target_ids = 5;
+}

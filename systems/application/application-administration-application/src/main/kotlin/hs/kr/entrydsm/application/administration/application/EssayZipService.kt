@@ -1,0 +1,37 @@
+package hs.kr.entrydsm.application.administration.application
+
+import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
+import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
+import hs.kr.entrydsm.admin.domain.port.`in`.DownloadEssaysUseCase
+import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
+import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPort
+import java.io.OutputStream
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.pdmodel.PDDocument
+import org.springframework.stereotype.Service
+
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name = ["application.administration.enabled"], havingValue = "true")
+@Service
+class EssayPdfService(
+    private val applicantRepository: ApplicantRepository,
+    private val applicationEssayPort: ApplicationEssayPort,
+) : DownloadEssaysUseCase {
+    override fun writeTo(output: OutputStream): Int {
+        val targets = applicantRepository.findAll(ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)))
+            .map { applicant ->
+                applicant.id to checkNotNull(applicant.examineeNumber) {
+                    "1차 합격자의 수험 번호가 없습니다: ${applicant.id}"
+                }
+            }
+        val documents = applicationEssayPort.renderBatch(targets)
+        PDDocument().use { merged ->
+            documents.forEach { pdfs ->
+                (pdfs.introduction ?: pdfs.studyPlan)?.let { pdf ->
+                    Loader.loadPDF(pdf).use { source -> source.pages.forEach(merged::importPage) }
+                }
+            }
+            merged.save(output)
+        }
+        return targets.size
+    }
+}

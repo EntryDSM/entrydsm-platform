@@ -63,4 +63,11 @@ data class ApplicationFormResult(
     val statusVersion: Long = 0,
     val submittedAt: java.time.LocalDateTime? = null,
     val addressBase: String? = null,
-)
+) {
+    /** 제출된 원서는 성적 누락을 빈 성적표로 변환하지 않는다. 작성 중 미리보기는 허용한다. */
+    fun requireEvaluatedScore() {
+        if (status !in setOf(ApplicantStatus.DRAFT, ApplicantStatus.CANCELED) && score == null) {
+            throw hs.kr.entrydsm.application.application.exception.EvaluationValidationException("제출 원서의 성적 산출 데이터가 누락되었습니다.")
+        }
+    }
+}

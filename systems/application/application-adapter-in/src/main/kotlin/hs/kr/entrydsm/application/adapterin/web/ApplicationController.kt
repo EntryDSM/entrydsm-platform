@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.application.adapterin.web
 
-import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
 import hs.kr.entrydsm.application.adapterin.web.dto.common.ApiResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.request.UpdateFamilyRequest
@@ -41,14 +40,13 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/application/v11/applicants")
 class ApplicationController(
     private val applicationPort: ApplicationPort,
-    private val landingScheduleProperties: LandingScheduleProperties,
 ) {
     @GetMapping("/landing")
     fun getLanding(
         @RequestHeader(USER_ID_HEADER) accountId: Long,
     ): ApiResponse<LandingResponse> {
         val result = applicationPort.getLanding(accountId)
-        return ApiResponse(data = result.toResponse(landingScheduleProperties))
+        return ApiResponse(data = result.toResponse())
     }
 
     @PostMapping

@@ -1,180 +1,32 @@
 package hs.kr.entrydsm.configuration.adapterin.grpc
 
-import hs.kr.entrydsm.configuration.domain.document.DownloadableFile
-import hs.kr.entrydsm.configuration.domain.document.Requester
-import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantLookupFailedException
-import hs.kr.entrydsm.configuration.domain.document.exception.ApplicantNotFoundException
-import hs.kr.entrydsm.configuration.domain.document.port.`in`.ApplicantFileUseCase
-import hs.kr.entrydsm.configuration.domain.schedule.Schedule
-import hs.kr.entrydsm.configuration.domain.schedule.port.`in`.ScheduleUseCase
-import hs.kr.entrydsm.configuration.grpc.AdmissionTicketTarget
-import hs.kr.entrydsm.configuration.grpc.GetScheduleRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsRequest
-import hs.kr.entrydsm.configuration.grpc.RenderAdmissionTicketsResponse
-import hs.kr.entrydsm.configuration.grpc.ScheduleResponse
+import hs.kr.entrydsm.configuration.grpc.*
 import io.grpc.Status
 import io.grpc.stub.StreamObserver
 import java.lang.reflect.Proxy
-import java.time.Instant
-import java.time.LocalDateTime
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
+import org.junit.Assert.*
 import org.junit.Test
 
-/** admin 수험표 일괄 출력과 application 원서 접수 기간 확인이 부르는 RPC. */
 class ConfigurationGrpcServiceTest {
-
     @Test
-    fun `수험표 RPC는 성공과 실패 소요 시간을 기록하고 예외 메시지를 노출하지 않는다`() {
-        val logger = org.slf4j.LoggerFactory.getLogger(ConfigurationGrpcService::class.java) as ch.qos.logback.classic.Logger
-        val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
-        appender.start()
-        logger.addAppender(appender)
-        try {
-            val success = RecordingObserver<RenderAdmissionTicketsResponse>()
-            service { "xlsx".toByteArray() }.renderAdmissionTickets(request(12L to null), success)
-            assertTrue(success.completed)
-            assertTrue(appender.list.any { it.formattedMessage.contains("Document gRPC started") })
-            assertTrue(appender.list.any { it.formattedMessage.contains("Document gRPC completed") &&
-                it.formattedMessage.contains("elapsedMs=") && it.formattedMessage.contains("bytes=4") })
-            appender.list.clear()
-            val failure = RecordingObserver<RenderAdmissionTicketsResponse>()
-            service { throw IllegalStateException("개인정보와 인증정보") }
-                .renderAdmissionTickets(request(12L to null), failure)
-            assertEquals(Status.Code.INTERNAL, Status.fromThrowable(failure.error).code)
-            assertTrue(appender.list.any { it.formattedMessage.contains("Document gRPC failed timing") &&
-                it.formattedMessage.contains("elapsedMs=") })
-            assertTrue(appender.list.none { it.formattedMessage.contains("Document gRPC completed") ||
-                it.formattedMessage.contains("개인정보와 인증정보") || it.throwableProxy != null })
-        } finally {
-            logger.detachAppender(appender)
-            appender.stop()
-        }
+    fun `파일 서비스는 일정과 문서 생성 RPC를 제공하지 않는다`() {
+        val service = ConfigurationGrpcService(unused(), unused(), unused(), unused())
+        val schedule = RecordingObserver<ScheduleResponse>()
+        service.getSchedule(GetScheduleRequest.getDefaultInstance(), schedule)
+        assertEquals(Status.Code.UNIMPLEMENTED, Status.fromThrowable(schedule.error).code)
+        val tickets = RecordingObserver<RenderAdmissionTicketsResponse>()
+        service.renderAdmissionTickets(RenderAdmissionTicketsRequest.getDefaultInstance(), tickets)
+        assertEquals(Status.Code.UNIMPLEMENTED, Status.fromThrowable(tickets.error).code)
+        val essays = RecordingObserver<RenderApplicationEssayResponse>()
+        service.renderApplicationEssay(RenderApplicationEssayRequest.getDefaultInstance(), essays)
+        assertEquals(Status.Code.UNIMPLEMENTED, Status.fromThrowable(essays.error).code)
     }
-
-    @Test
-    fun `받은 순서 그대로 넘겨 xlsx 바이트를 돌려주고 수험번호가 없으면 비워서 넘긴다`() {
-        val calls = mutableListOf<List<Pair<Long, String?>>>()
-        val service = service { tickets ->
-            calls += tickets
-            "xlsx-${tickets.size}".toByteArray()
-        }
-
-        val observer = RecordingObserver<RenderAdmissionTicketsResponse>()
-        service.renderAdmissionTickets(request(13L to "100002", 12L to null), observer)
-
-        assertEquals("xlsx-2", observer.value?.xlsx?.toStringUtf8())
-        assertTrue(observer.completed)
-        assertEquals(listOf(listOf(13L to "100002", 12L to null)), calls)
-    }
-
-    @Test
-    fun `없는 지원자는 NOT_FOUND, application 장애는 UNAVAILABLE, 나머지는 INTERNAL 이다`() {
-        mapOf(
-            ApplicantNotFoundException(12) to Status.Code.NOT_FOUND,
-            ApplicantLookupFailedException(12) to Status.Code.UNAVAILABLE,
-            IllegalStateException("render failed") to Status.Code.INTERNAL,
-        ).forEach { (failure, code) ->
-            val observer = RecordingObserver<RenderAdmissionTicketsResponse>()
-            service { throw failure }.renderAdmissionTickets(request(12L to null), observer)
-
-            assertEquals(code, Status.fromThrowable(observer.error).code)
-        }
-    }
-
-    @Test
-    fun `일정은 한국 시각으로 읽어 epoch 로 주고 없는 제목은 NOT_FOUND 다`() {
-        val service = service(
-            schedules = schedules(
-                Schedule(1, "원서 접수", LocalDateTime.of(2026, 9, 19, 9, 0), LocalDateTime.of(2026, 10, 22, 17, 0)),
-            ),
-        )
-
-        val found = RecordingObserver<ScheduleResponse>()
-        service.getSchedule(GetScheduleRequest.newBuilder().setTitle("원서 접수").build(), found)
-        val missing = RecordingObserver<ScheduleResponse>()
-        service.getSchedule(GetScheduleRequest.newBuilder().setTitle("면접").build(), missing)
-
-        assertEquals(Instant.parse("2026-09-19T00:00:00Z").toEpochMilli(), found.value?.startAtEpochMillis)
-        assertEquals(Instant.parse("2026-10-22T08:00:00Z").toEpochMilli(), found.value?.endAtEpochMillis)
-        assertTrue(found.completed)
-        assertEquals(Status.Code.NOT_FOUND, Status.fromThrowable(missing.error).code)
-    }
-
-    @Test
-    fun `수험표 원서 오류 코드를 유지하고 임의 예외 메시지는 전달하지 않는다`() {
-        val upstream = Status.DATA_LOSS.withDescription("APPLICATION_FORM_INVALID").asRuntimeException()
-        val observer = RecordingObserver<RenderAdmissionTicketsResponse>()
-        service { throw ApplicantLookupFailedException(12, cause = upstream) }
-            .renderAdmissionTickets(request(12L to null), observer)
-        assertEquals(Status.Code.DATA_LOSS, Status.fromThrowable(observer.error).code)
-        assertEquals("APPLICATION_FORM_INVALID", Status.fromThrowable(observer.error).description)
-        val invalid = RecordingObserver<RenderAdmissionTicketsResponse>()
-        service { throw IllegalArgumentException("원서 본문 개인정보") }
-            .renderAdmissionTickets(request(12L to null), invalid)
-        assertEquals("DOCUMENT_INVALID_DATA", Status.fromThrowable(invalid.error).description)
-    }
-
-    private fun request(vararg tickets: Pair<Long, String?>) =
-        RenderAdmissionTicketsRequest.newBuilder()
-            .addAllTickets(
-                tickets.map { (applicantId, examineeNumber) ->
-                    AdmissionTicketTarget.newBuilder()
-                        .setApplicantId(applicantId)
-                        .also { builder -> examineeNumber?.let(builder::setExamineeNumber) }
-                        .build()
-                },
-            )
-            .build()
-
-    private fun service(
-        schedules: ScheduleUseCase = unused(),
-        render: (List<Pair<Long, String?>>) -> ByteArray = { error("unused") },
-    ) = ConfigurationGrpcService(
-        unused(), unused(), unused(), unused(),
-        object : ApplicantFileUseCase {
-            override fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>) = render(tickets)
-
-            override fun generateApplicationForm(requester: Requester): DownloadableFile = error("unused")
-
-            override fun generateApplicationForm(applicantId: Long, requester: Requester): DownloadableFile = error("unused")
-
-            override fun generateAdmissionTicket(applicantId: Long, requester: Requester): DownloadableFile = error("unused")
-        },
-        schedules,
-    )
-
-    private fun schedules(vararg schedules: Schedule) = object : ScheduleUseCase {
-        override fun findByTitle(title: String) = schedules.find { it.title == title }
-
-        override fun findByYear(year: Int): List<Schedule> = error("unused")
-
-        override fun create(title: String, startAt: LocalDateTime, endAt: LocalDateTime): Schedule = error("unused")
-
-        override fun updateAll(schedules: List<Schedule>): List<Schedule> = error("unused")
-    }
-
-    /** 환경변수 RPC 처럼 이 테스트에서 부르지 않는 유스케이스. */
-    private inline fun <reified T : Any> unused(): T =
-        Proxy.newProxyInstance(javaClass.classLoader, arrayOf(T::class.java)) { _, method, _ ->
-            error("unexpected call: ${method.name}")
-        } as T
-
+    private inline fun <reified T> unused(): T = Proxy.newProxyInstance(javaClass.classLoader,
+        arrayOf(T::class.java)) { _, _, _ -> error("삭제된 업무 RPC가 파일 서비스 업무를 호출하면 안 된다") } as T
     private class RecordingObserver<T> : StreamObserver<T> {
-        var value: T? = null
         var error: Throwable? = null
-        var completed = false
-
-        override fun onNext(value: T) {
-            this.value = value
-        }
-
-        override fun onError(t: Throwable) {
-            error = t
-        }
-
-        override fun onCompleted() {
-            completed = true
-        }
+        override fun onNext(value: T) = Unit
+        override fun onError(value: Throwable) { error = value }
+        override fun onCompleted() = Unit
     }
 }

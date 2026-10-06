@@ -30,20 +30,13 @@ springdoc:
   swagger-ui:
     enabled: ${SWAGGER_ENABLED:true}
 
-entrydsm:
-  application:
-    schedule:
-      application-start-at: ${APPLICATION_START_AT}
-      application-end-at: ${APPLICATION_END_AT}
-      result-announced-at: ${RESULT_ANNOUNCED_AT:}
-
 configuration:
   grpc:
-    # 원서 접수 일정은 관리자가 configuration 에 등록한다. 기본값은 docker compose 서비스 이름과 포트.
+    # 파일 저장 및 다운로드만 configuration에 위임한다.
     host: ${CONFIGURATION_GRPC_HOST:configuration}
     port: ${CONFIGURATION_GRPC_PORT:9090}
-    # 원서를 쓰는 요청마다 부르므로 짧게 둔다.
-    deadline-ms: ${CONFIGURATION_GRPC_DEADLINE_MS:1000}
+    # 파일 처리 RPC의 제한 시간.
+    deadline-ms: ${CONFIGURATION_GRPC_DEADLINE_MS:10000}
 
 identity:
   grpc:
@@ -82,3 +75,27 @@ management:
 logging:
   level:
     root: ${LOGGING_LEVEL_ROOT:INFO}
+
+# 정책·전형 기록 이전 및 검증을 완료한 뒤 최종 전환 배포에서 활성화한다.
+application:
+  administration:
+    enabled: ${APPLICATION_ADMINISTRATION_ENABLED:false}
+admin:
+  screening:
+    first-pass-multiplier: ${FIRST_PASS_MULTIPLIER:1.5}
+  storage:
+    bucket: ${STORAGE_BUCKET:entrydsm-admin}
+    environment: ${STORAGE_ENV:stag}
+    download-url-expires-seconds: ${DOWNLOAD_URL_EXPIRES_SECONDS:900}
+  maps:
+    api-key: ${KAKAO_REST_API_KEY:}
+    geocoding-url: ${KAKAO_GEOCODING_URL:https://dapi.kakao.com/v2/local/search/keyword.json}
+    directions-url: ${KAKAO_DIRECTIONS_URL:https://apis-navi.kakaomobility.com/v1/directions}
+    school-address: ${SCHOOL_ADDRESS:대덕소프트웨어마이스터고등학교}
+    timeout-ms: ${KAKAO_API_TIMEOUT_MS:3000}
+
+document:
+  storage:
+    bucket: ${STORAGE_BUCKET:entrydsm-admin}
+  admission-year: ${ADMISSION_YEAR:2027}
+  presign-expiry-seconds: ${AWS_S3_PRESIGN_EXPIRY_SECONDS:900}

@@ -205,18 +205,21 @@ class ScoreCalculatorTest {
     }
 
     @Test
-    fun returnsZeroWhenAcademicRecordDoesNotExist() {
-        assertEquals(
-            0.0,
-            calculator.calculate(
-                Applicant(
-                    id = 1L,
-                    accountId = 1L,
-                    admissionType = AdmissionType.REGULAR,
-                ),
-            ),
-            0.0,
-        )
+    fun rejectsMissingAcademicRecordInsteadOfReturningZero() {
+        val failure = org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            calculator.calculate(Applicant(id = 1L, accountId = 1L,
+                admissionType = AdmissionType.REGULAR, graduationType = GraduationType.GED))
+        }
+        assertEquals("성적 및 출결·봉사활동 기록이 누락되었습니다", failure.message)
+    }
+
+    @Test
+    fun rejectsMissingGraduationTypeInsteadOfUsingSchoolGrades() {
+        val failure = org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            calculator.calculate(Applicant(id = 1L, accountId = 1L,
+                admissionType = AdmissionType.REGULAR, academicRecord = AcademicRecord()))
+        }
+        assertEquals("졸업 구분이 누락되었습니다", failure.message)
     }
 
     private fun calculate(

@@ -1,7 +1,7 @@
 package hs.kr.entrydsm.configuration.adapterin.document
 
-import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleAccessDeniedException
-import hs.kr.entrydsm.configuration.adapterin.schedule.ScheduleUnauthorizedException
+import hs.kr.entrydsm.configuration.adapterin.common.AccessDeniedException
+import hs.kr.entrydsm.configuration.adapterin.common.UnauthorizedException
 import hs.kr.entrydsm.configuration.domain.document.Requester
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -24,10 +24,10 @@ class ConfigurationAuthorizationInterceptor : HandlerInterceptor {
         val userId = request.getHeader("X-User-Id")?.toLongOrNull()
         val role = request.getHeader("X-User-Role")
         if (userId == null || role.isNullOrBlank()) {
-            throw ScheduleUnauthorizedException()
+            throw UnauthorizedException()
         }
         val requesterRole = Requester.Role.entries.firstOrNull { it.name == role }
-            ?: throw ScheduleAccessDeniedException()
+            ?: throw AccessDeniedException()
         request.setAttribute(REQUESTER_ATTRIBUTE, Requester(userId, requesterRole))
         return true
     }

@@ -15,7 +15,9 @@ class GrpcServerConfig {
     fun grpcServer(
         @Value("\${grpc.port}") port: Int,
         applicationGrpcService: ApplicationGrpcService,
+        administration: org.springframework.beans.factory.ObjectProvider<hs.kr.entrydsm.application.administration.adapterin.grpc.AdministrationGrpcService>,
     ): Server = ServerBuilder.forPort(port)
         .addService(applicationGrpcService)
+        .also { builder -> administration.ifAvailable { builder.addService(it) } }
         .build()
 }

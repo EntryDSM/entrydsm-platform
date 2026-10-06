@@ -76,20 +76,12 @@ class EvaluationCommandService(
     ) {
         val applicant = getWritableApplicant(accountId)
         APPLICATION_SUBJECTS_NOT_ALLOWED.requireValid(applicant.graduationType != GraduationType.GED)
-        if (
-            schoolSemester == SchoolSemester.THIRD_GRADE_FIRST_SEMESTER &&
-                listOf(
-                    subjectGrades.koreanGrade, subjectGrades.mathGrade, subjectGrades.englishGrade,
-                    subjectGrades.scienceGrade, subjectGrades.societyGrade, subjectGrades.technologyGrade,
-                    subjectGrades.historyGrade,
-                ).all { it == SubjectGrade.X }
-        ) { throw EvaluationValidationException("3학년 1학기 성적 입력은 필수입니다") }
+        validateSchoolGrades(schoolSemester, subjectGrades)
         val record = getOrCreateAcademicRecord(applicant)
         record.gedScores = null
         record.subjectGrades[schoolSemester] = subjectGrades
         applicant.academicRecord = record
-        applicant.touch()
-        applicantRepository.save(applicant)
+        saveEvaluation(applicant)
     }
 
     fun saveGedScores(accountId: Long?, gedScores: GedScores) {
@@ -99,8 +91,7 @@ class EvaluationCommandService(
         record.subjectGrades.clear()
         record.gedScores = gedScores
         applicant.academicRecord = record
-        applicant.touch()
-        applicantRepository.save(applicant)
+        saveEvaluation(applicant)
     }
 
     fun saveAcademicRecord(
@@ -125,8 +116,7 @@ class EvaluationCommandService(
         record.classAbsenceCount = classAbsenceCount
         record.volunteerTime = volunteerTime
         applicant.academicRecord = record
-        applicant.touch()
-        applicantRepository.save(applicant)
+        saveEvaluation(applicant)
         return record
     }
 
@@ -140,8 +130,7 @@ class EvaluationCommandService(
         record.isDsmAlgorithmAwarded = isDsmAlgorithmAwarded
         record.isProgrammingCertified = isProgrammingCertified
         applicant.academicRecord = record
-        applicant.touch()
-        applicantRepository.save(applicant)
+        saveEvaluation(applicant)
     }
 
     fun calculateResult(accountId: Long?) {
@@ -154,6 +143,13 @@ class EvaluationCommandService(
             throw EvaluationValidationException(exception.message ?: "평가에 필요한 성적을 확인해주세요")
         }
         applicant.totalScoreUpdatedAt = nowUtc()
+        applicant.touch()
+        applicantRepository.save(applicant)
+    }
+
+    private fun saveEvaluation(applicant: Applicant) {
+        applicant.totalScore = null
+        applicant.totalScoreUpdatedAt = null
         applicant.touch()
         applicantRepository.save(applicant)
     }
@@ -174,4 +170,16 @@ class EvaluationCommandService(
     private fun getOrCreateAcademicRecord(applicant: Applicant): AcademicRecord {
         return applicant.academicRecord ?: AcademicRecord()
     }
+}
+
+/** 지원자와 관리자 모두 3학년 1학기의 전 과목 X 입력을 허용하지 않는다. */
+fun validateSchoolGrades(schoolSemester: SchoolSemester, subjectGrades: SubjectGrades) {
+    if (
+        schoolSemester == SchoolSemester.THIRD_GRADE_FIRST_SEMESTER &&
+            listOf(
+                subjectGrades.koreanGrade, subjectGrades.mathGrade, subjectGrades.englishGrade,
+                subjectGrades.scienceGrade, subjectGrades.societyGrade, subjectGrades.technologyGrade,
+                subjectGrades.historyGrade,
+            ).all { it == SubjectGrade.X }
+    ) { throw EvaluationValidationException("3학년 1학기 성적 입력은 필수입니다") }
 }

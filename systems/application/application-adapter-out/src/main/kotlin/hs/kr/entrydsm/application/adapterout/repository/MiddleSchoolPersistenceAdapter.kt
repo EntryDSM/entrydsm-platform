@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository
 class MiddleSchoolPersistenceAdapter(
     private val institutionCodeJpaRepository: InstitutionCodeJpaRepository,
 ) : MiddleSchoolRepository {
+    override fun existsByCode(code: String): Boolean = institutionCodeJpaRepository.existsById(code)
     override fun findMiddleSchools(command: SearchMiddleSchoolCommand): MiddleSchoolSearchResult {
         val schools = institutionCodeJpaRepository.findByNameContaining(command.name)
         return MiddleSchoolSearchResult(

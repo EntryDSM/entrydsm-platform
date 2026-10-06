@@ -38,7 +38,8 @@ interface ApplicantJpaRepository : JpaRepository<ApplicantJpaEntity, Long> {
                a.region as region, a.admissionType as admissionType, a.photoFileId as photoFileId,
                a.birthdate as birthdate, a.phoneNumber as phoneNumber,
                a.graduationType as graduationType, a.totalScore as totalScore,
-               a.status as status, a.submittedAt as submittedAt, a.gender as gender, a.addressBase as address
+               a.status as status, a.submittedAt as submittedAt, a.gender as gender, a.addressBase as address,
+               a.statusVersion as statusVersion
           from ApplicantJpaEntity a
           left join a.middleSchoolInfo m
          where a.status in :statuses
@@ -50,6 +51,7 @@ interface ApplicantJpaRepository : JpaRepository<ApplicantJpaEntity, Long> {
 
 /** 이름으로 맞춰지는 조회 결과라 열 순서가 어긋나도 값이 바뀌지 않습니다. */
 interface ApplicantSummaryRow {
+    val statusVersion: Long
     val id: Long
     val accountId: Long
     val name: String?
