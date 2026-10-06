@@ -122,9 +122,8 @@ class StatisticsService(
     )
 
     private fun residenceRegion(address: String?): ResidenceRegion {
-        val value = address.orEmpty()
-        return REGION_NAMES.entries.firstOrNull { (name, _) -> value.contains(name) }?.value
-            ?: ResidenceRegion.ETC
+        val province = address.orEmpty().trim().takeWhile { !it.isWhitespace() }
+        return REGION_NAMES[province] ?: ResidenceRegion.ETC
     }
 
     /** 지역·전형이 비어 있는 원서는 분포에 넣을 칸이 없어 뺀다. 총 지원자 수에는 그대로 든다. */
@@ -158,6 +157,23 @@ class StatisticsService(
             "경상남도" to ResidenceRegion.GYEONGNAM,
             "제주특별자치도" to ResidenceRegion.JEJU,
             "제주도" to ResidenceRegion.JEJU,
+            "서울" to ResidenceRegion.SEOUL,
+            "부산" to ResidenceRegion.BUSAN,
+            "대구" to ResidenceRegion.DAEGU,
+            "인천" to ResidenceRegion.INCHEON,
+            "광주" to ResidenceRegion.GWANGJU,
+            "대전" to ResidenceRegion.DAEJEON,
+            "울산" to ResidenceRegion.ULSAN,
+            "세종" to ResidenceRegion.SEJONG,
+            "경기" to ResidenceRegion.GYEONGGI,
+            "강원" to ResidenceRegion.GANGWON,
+            "충북" to ResidenceRegion.CHUNGBUK,
+            "충남" to ResidenceRegion.CHUNGNAM,
+            "전북" to ResidenceRegion.JEONBUK,
+            "전남" to ResidenceRegion.JEONNAM,
+            "경북" to ResidenceRegion.GYEONGBUK,
+            "경남" to ResidenceRegion.GYEONGNAM,
+            "제주" to ResidenceRegion.JEJU,
         )
     }
 }
