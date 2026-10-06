@@ -63,7 +63,7 @@ class ApplicantPersistenceAdapterTest {
     @Autowired
     private lateinit var statusOutboxRepository: ApplicantStatusOutboxJpaRepository
 
-    private fun applicationPort() = ApplicationCommandService(ApplicantPersistenceAdapter(applicantJpaRepository),
+    private fun applicationPort() = ApplicationCommandService(ApplicantPersistenceAdapter(applicantJpaRepository, institutionCodeJpaRepository),
         ApplicationPeriodReader { null }, AccountPhoneValidator { _, _ -> true })
 
     @Test
@@ -233,7 +233,7 @@ class ApplicantPersistenceAdapterTest {
         entityManager.flush()
         entityManager.clear()
 
-        val middleSchool = ApplicantPersistenceAdapter(applicantJpaRepository)
+        val middleSchool = ApplicantPersistenceAdapter(applicantJpaRepository, institutionCodeJpaRepository)
             .findByAccountId(101)?.middleSchoolInfo
 
         assertEquals(SCHOOL_CODE, middleSchool?.schoolCode)
@@ -263,7 +263,7 @@ class ApplicantPersistenceAdapterTest {
             ),
         )
 
-        ApplicantPersistenceAdapter(applicantJpaRepository).deleteById(requireNotNull(saved.id))
+        ApplicantPersistenceAdapter(applicantJpaRepository, institutionCodeJpaRepository).deleteById(requireNotNull(saved.id))
         entityManager.flush()
 
         assertFalse(applicantJpaRepository.existsById(requireNotNull(saved.id)))

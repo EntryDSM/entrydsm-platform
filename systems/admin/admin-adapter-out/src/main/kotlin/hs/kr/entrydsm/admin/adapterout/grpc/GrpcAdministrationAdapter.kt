@@ -26,7 +26,7 @@ class GrpcAdministrationAdapter(private val grpc: ApplicationGrpcChannel) :
     ReadApplicantUseCase, UpdateApplicantUseCase, IssueExamineeNumberUseCase,
     DeleteApplicantUseCase, UpdateScorePolicyUseCase, UpdateAdmissionQuotaUseCase,
     EvaluateFirstScreeningUseCase, EvaluateFinalScreeningUseCase, ReadStatisticsUseCase,
-    CreateExportUseCase, ReadExportUseCase {
+    CreateExportUseCase, ReadExportUseCase, CorrectApplicationUseCase {
     private val mapper = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
     private val stub = AdministrationServiceGrpc.newBlockingStub(grpc.channel)
 
@@ -39,6 +39,9 @@ class GrpcAdministrationAdapter(private val grpc: ApplicationGrpcChannel) :
     override fun updateArrival(command: UpdateArrivalCommand) { call<Unit>(command, "updateArrival", false) { updateArrival(it) } }
 
     override fun updateStatus(command: UpdateApplicantStatusCommand) { call<Unit>(command, "updateApplicantStatus", false) { updateApplicantStatus(it) } }
+
+    override fun correct(command: CorrectApplicationCommand, editorId: String): ApplicationCorrectionResult =
+        call(command, "correctApplication", false) { correctApplication(it) }
 
     override fun issueAll(): ExamineeNumberIssueResult =
         call(Unit, "issueExamineeNumbers", true) { issueExamineeNumbers(it) }

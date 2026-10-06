@@ -5,6 +5,8 @@ import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.model.Applicant
 
 interface ApplicantRepository {
+    /** 관리자 정정은 전형 처리와 같은 원본 행을 잠근 뒤 버전을 검증한다. */
+    fun findForUpdate(id: Long): Applicant? = throw UnsupportedOperationException("행 잠금이 필요합니다")
     fun save(applicant: Applicant): Applicant
     fun findById(id: Long): Applicant?
     fun findByAccountId(accountId: Long): Applicant?

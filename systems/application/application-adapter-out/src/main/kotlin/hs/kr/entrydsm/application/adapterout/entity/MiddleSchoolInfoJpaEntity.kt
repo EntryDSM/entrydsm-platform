@@ -57,8 +57,7 @@ open class MiddleSchoolInfoJpaEntity(
     }
 
     /**
-     * 주소는 institutionCode 를 따라 읽는다. 같은 영속성 컨텍스트에서 학교 코드를 막 바꾼 뒤에는
-     * 연관이 옛 학교(새 행이면 null)를 가리키니, 주소가 필요하면 새로 읽는다.
+     * 주소는 institutionCode 를 따라 읽는다. 저장 어댑터가 학교 변경 시 연관도 갱신한다.
      */
     fun toDomain(): MiddleSchoolInfo =
         MiddleSchoolInfo(

@@ -16,6 +16,15 @@ class GrpcAdministrationAdapterTest {
         val mapper = tools.jackson.databind.json.JsonMapper.builder()
             .addModule(tools.jackson.module.kotlin.KotlinModule.Builder().build()).build()
         val upstream = object : hs.kr.entrydsm.application.grpc.AdministrationServiceGrpc.AdministrationServiceImplBase() {
+            override fun correctApplication(request: hs.kr.entrydsm.application.grpc.AdministrationRequest,
+                observer: StreamObserver<hs.kr.entrydsm.application.grpc.AdministrationResponse>) {
+                assertEquals("10", request.userId)
+                assertEquals("ADMIN", request.userRole)
+                org.junit.Assert.assertFalse(request.commandJson.contains("forged-editor"))
+                observer.onNext(hs.kr.entrydsm.application.grpc.AdministrationResponse.newBuilder()
+                    .setDataJson("""{"applicantId":5,"version":4}""").build())
+                observer.onCompleted()
+            }
             override fun readAdmissionQuota(request: hs.kr.entrydsm.application.grpc.AdministrationRequest,
                 observer: StreamObserver<hs.kr.entrydsm.application.grpc.AdministrationResponse>) {
                 assertEquals("10", request.userId)
@@ -50,6 +59,9 @@ class GrpcAdministrationAdapterTest {
             org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
                 org.springframework.web.context.request.ServletRequestAttributes(request))
             assertEquals(quota, adapter.readQuota())
+            assertEquals(4L, adapter.correct(hs.kr.entrydsm.admin.domain.command.CorrectApplicationCommand(
+                5, "입력 오류 정정", hs.kr.entrydsm.admin.domain.command.ApplicationFormChanges(introduction = "정정 내용")),
+                "forged-editor").version)
             val error = org.junit.Assert.assertThrows(AdminDomainException::class.java) { adapter.findDetail(5) }
             assertEquals(ErrorCode.APPLICATION_SCORE_INVALID, error.errorCode)
             assertEquals(1, error.failedCount)

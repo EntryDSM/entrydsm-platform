@@ -76,14 +76,7 @@ class EvaluationCommandService(
     ) {
         val applicant = getWritableApplicant(accountId)
         APPLICATION_SUBJECTS_NOT_ALLOWED.requireValid(applicant.graduationType != GraduationType.GED)
-        if (
-            schoolSemester == SchoolSemester.THIRD_GRADE_FIRST_SEMESTER &&
-                listOf(
-                    subjectGrades.koreanGrade, subjectGrades.mathGrade, subjectGrades.englishGrade,
-                    subjectGrades.scienceGrade, subjectGrades.societyGrade, subjectGrades.technologyGrade,
-                    subjectGrades.historyGrade,
-                ).all { it == SubjectGrade.X }
-        ) { throw EvaluationValidationException("3학년 1학기 성적 입력은 필수입니다") }
+        validateSchoolGrades(schoolSemester, subjectGrades)
         val record = getOrCreateAcademicRecord(applicant)
         record.gedScores = null
         record.subjectGrades[schoolSemester] = subjectGrades
@@ -177,4 +170,16 @@ class EvaluationCommandService(
     private fun getOrCreateAcademicRecord(applicant: Applicant): AcademicRecord {
         return applicant.academicRecord ?: AcademicRecord()
     }
+}
+
+/** 지원자와 관리자 모두 3학년 1학기의 전 과목 X 입력을 허용하지 않는다. */
+fun validateSchoolGrades(schoolSemester: SchoolSemester, subjectGrades: SubjectGrades) {
+    if (
+        schoolSemester == SchoolSemester.THIRD_GRADE_FIRST_SEMESTER &&
+            listOf(
+                subjectGrades.koreanGrade, subjectGrades.mathGrade, subjectGrades.englishGrade,
+                subjectGrades.scienceGrade, subjectGrades.societyGrade, subjectGrades.technologyGrade,
+                subjectGrades.historyGrade,
+            ).all { it == SubjectGrade.X }
+    ) { throw EvaluationValidationException("3학년 1학기 성적 입력은 필수입니다") }
 }

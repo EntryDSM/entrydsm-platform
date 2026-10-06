@@ -27,6 +27,7 @@ KOTLIN_DEPS = [
 ]
 
 TEST_DEPS = [
+    "//systems/application/application-administration-application:main",
     "@maven//:org_springframework_spring_test",
     "@maven//:org_springframework_boot_spring_boot_data_jpa_test",
     "@maven//:org_springframework_boot_spring_boot_test",

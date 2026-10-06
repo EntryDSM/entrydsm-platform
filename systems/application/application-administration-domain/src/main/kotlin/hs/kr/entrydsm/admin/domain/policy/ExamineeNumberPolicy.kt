@@ -10,8 +10,7 @@ private const val MAX_SEQUENCE = 999
 
 object ExamineeNumberPolicy {
     fun isValidExistingNumber(applicant: Applicant): Boolean =
-        applicant.examineeNumber != null && applicant.admissionType != null && applicant.region != null &&
-            applicant.validSequence() != null
+        applicant.reservedNumber() != null
 
     fun issue(
         applicants: List<Applicant>,
@@ -19,8 +18,10 @@ object ExamineeNumberPolicy {
     ): ExamineeNumberIssuance {
         val targets = applicants.filter { it.isEligible() }
         val (alreadyIssued, pending) = targets.partition { it.examineeNumber != null }
-        val reserved = alreadyIssued
-            .mapNotNull { applicant -> applicant.validSequence()?.let { applicant.group() to it } }
+        // 관리자 정정 후에도 기존 번호는 유지한다. 현재 전형·지역이 아닌 발급 번호의 접두사로 예약한다.
+        // 도착 취소·필수값 누락으로 발급 대상에서 빠진 원서의 번호도 재사용하지 않는다.
+        val reserved = applicants
+            .mapNotNull { applicant -> applicant.reservedNumber() }
             .groupBy({ it.first }, { it.second })
 
         val issued = pending.groupBy { it.group() }.flatMap { (group, groupApplicants) ->
@@ -47,13 +48,11 @@ object ExamineeNumberPolicy {
 
     private fun Applicant.group() = Group(admissionType!!.code, region!!.code)
 
-    private fun Applicant.validSequence(): Int? {
+    private fun Applicant.reservedNumber(): Pair<Group, Int>? {
         val number = examineeNumber ?: return null
-        val group = group()
-        if (!number.matches(Regex("[123][12]\\d{3}")) || number.take(2) != "${group.typeCode}${group.regionCode}") {
-            return null
-        }
-        return number.takeLast(3).toInt().takeIf { it in 1..MAX_SEQUENCE }
+        if (!number.matches(Regex("[123][12]\\d{3}"))) return null
+        val sequence = number.takeLast(3).toInt().takeIf { it in 1..MAX_SEQUENCE } ?: return null
+        return Group(number[0].digitToInt(), number[1].digitToInt()) to sequence
     }
 
     private val AdmissionType.code: Int

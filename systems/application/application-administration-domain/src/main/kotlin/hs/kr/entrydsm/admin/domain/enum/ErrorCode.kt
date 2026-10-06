@@ -11,6 +11,7 @@ enum class ErrorCode(
     val message: String,
 ) {
     INVALID_REQUEST_BODY(400, "요청 본문이 올바르지 않습니다."),
+    INVALID_APPLICATION_CORRECTION(400, "원서 수정 항목 또는 성적이 올바르지 않습니다."),
     INVALID_SCORE_POLICY(400, "성적 정책 가중치의 합은 1이어야 합니다."),
     INVALID_STATISTICS_METRIC(400, "지원하지 않는 통계 지표입니다."),
     INVALID_ADMISSION_QUOTA(400, "모집 지역과 전형별 정원이 모두 0 이상으로 채워져야 합니다."),
@@ -26,6 +27,7 @@ enum class ErrorCode(
     METHOD_NOT_ALLOWED(405, "지원하지 않는 HTTP 메서드입니다."),
     APPLICANT_SYNC_PENDING(409, "지원자 정보 동기화 중입니다. 잠시 후 다시 조회해 주세요."),
     INVALID_STATUS_TRANSITION(409, "현재 상태에서는 변경할 수 없는 상태입니다."),
+    APPLICATION_VERSION_CONFLICT(409, "원서가 변경되었습니다. 다시 조회한 뒤 수정해 주세요."),
     EXAMINEE_NUMBER_NOT_ISSUED(409, "수험 번호가 발급되지 않은 지원자입니다."),
     EXPORT_NOT_COMPLETED(409, "아직 완료되지 않은 Export 작업입니다."),
     ADMISSION_TICKET_NO_TARGET(409, "수험표를 발급할 1차 합격자가 없습니다."),

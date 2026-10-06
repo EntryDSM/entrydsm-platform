@@ -305,6 +305,7 @@ service AdministrationService {
   rpc ReadApplicant(AdministrationRequest) returns (AdministrationResponse);
   rpc UpdateArrival(AdministrationRequest) returns (AdministrationResponse);
   rpc UpdateApplicantStatus(AdministrationRequest) returns (AdministrationResponse);
+  rpc CorrectApplication(AdministrationRequest) returns (AdministrationResponse);
   rpc IssueExamineeNumbers(AdministrationRequest) returns (AdministrationResponse);
   rpc DeleteApplicant(AdministrationRequest) returns (AdministrationResponse);
   rpc ReadScorePolicy(AdministrationRequest) returns (AdministrationResponse);

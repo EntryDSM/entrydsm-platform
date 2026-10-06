@@ -30,4 +30,5 @@ data class ApplicantResult(
     val submittedAt: LocalDateTime?,
     val gender: Gender? = null,
     val address: String? = null,
+    val statusVersion: Long = 0,
 )

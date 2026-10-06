@@ -55,8 +55,10 @@ class ApplicantService(
         if (applicant.isArrived == command.isArrived) return
 
         applicantArrivalPort.update(command.applicantId, command.isArrived)
+        // 원본 도착 변경이 원서 버전을 증가시키므로 같은 트랜잭션에서 갱신된 버전으로 저장한다.
+        val updated = requireApplicant(command.applicantId)
         applicantRepository.save(
-            applicant.copy(
+            updated.copy(
                 isArrived = command.isArrived,
                 arrivedAt = if (command.isArrived) {
                     applicant.arrivedAt ?: Instant.now(clock)

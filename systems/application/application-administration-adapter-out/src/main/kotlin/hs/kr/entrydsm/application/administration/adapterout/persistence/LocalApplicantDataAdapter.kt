@@ -49,6 +49,7 @@ class LocalApplicantDataAdapter(
     private val applicationPort: ApplicationPort,
     private val screeningJpaRepository: ScreeningJpaRepository,
     private val resultHandler: ScreeningResultEventHandler,
+    private val lockedApplicants: hs.kr.entrydsm.application.adapterout.repository.ApplicantJpaRepository,
 ) : ApplicantRepository, ApplicantArrivalPort, ApplicantDeletionPort {
     override fun search(filter: ApplicantFilter, pageRequest: PageRequest): Page<Applicant> {
         val matched = findAll(filter)
@@ -66,14 +67,16 @@ class LocalApplicantDataAdapter(
     override fun findAll(filter: ApplicantFilter): List<Applicant> {
         val screenings = screeningJpaRepository.findAll().associateBy { it.applicantId }
         return source { applicationPort.listApplicants() }
-            .map { it.toGrpcApplicant().toApplicant(screenings[it.applicantId]) }
+            .map { it.toGrpcApplicant().toApplicant(screenings[it.applicantId]).copy(applicationVersion = it.statusVersion) }
             .filter { it.matches(filter) }.sortedBy { it.id }
     }
 
     override fun findById(applicantId: Long): Applicant? =
         applicantId.takeIf { it > 0 }?.let {
-            source(it) { applicationPort.findApplicant(it) }?.toGrpcApplicant()
-                ?.toApplicant(screeningJpaRepository.findById(it).orElse(null))
+            source(it) { applicationPort.findApplicant(it) }?.let { original ->
+                original.toGrpcApplicant().toApplicant(screeningJpaRepository.findById(it).orElse(null))
+                    .copy(applicationVersion = original.statusVersion)
+            }
         }
 
     override fun findDetailById(applicantId: Long): ApplicantDetail? {
@@ -82,7 +85,8 @@ class LocalApplicantDataAdapter(
         val form = readForm(applicantId, applicant.accountId)
         val response = form.toApplicantResponse()
         return ApplicantDetail(
-            applicant = response.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null)),
+            version = form.statusVersion,
+            applicant = response.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null)).copy(applicationVersion = form.statusVersion),
             photoFileId = form.photoFileId.takeIf { form.hasPhotoFileId() },
             introduction = form.introduction.takeIf { form.hasIntroduction() },
             studyPlan = form.studyPlan.takeIf { form.hasStudyPlan() },
@@ -161,6 +165,11 @@ class LocalApplicantDataAdapter(
     @Transactional
     override fun save(applicant: Applicant): Applicant = source(applicant.id) {
         val previous = screeningJpaRepository.findForUpdate(applicant.id)?.status ?: ApplicantStatus.PENDING
+        val original = lockedApplicants.findForUpdate(applicant.id)
+            ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
+        if (original.statusVersion != applicant.applicationVersion) {
+            throw AdminDomainException(ErrorCode.APPLICATION_VERSION_CONFLICT)
+        }
         if (previous != applicant.status) {
             resultHandler.applyLocal(applicant.id, when (applicant.status) {
                 ApplicantStatus.PENDING -> PassStatus.PASS_STATUS_NOT_ANNOUNCED
