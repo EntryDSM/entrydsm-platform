@@ -6,7 +6,6 @@ import hs.kr.entrydsm.identity.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.identity.application.port.`in`.AuthPort
 import hs.kr.entrydsm.identity.application.port.`in`.PassPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
-import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.port.`in`.command.LogoutCommand
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
@@ -61,7 +60,6 @@ class SecurityConfigTest {
     @Autowired private lateinit var webApplicationContext: WebApplicationContext
     @Autowired private lateinit var filterChainProxy: FilterChainProxy
     @MockitoBean private lateinit var accountQueryPort: AccountQueryPort
-    @MockitoBean private lateinit var revocationStore: RefreshTokenRevocationStore
     @MockitoBean private lateinit var accountPort: AccountPort
     @MockitoBean private lateinit var applicationPort: ApplicationPort
     @MockitoBean private lateinit var authPort: AuthPort
@@ -127,9 +125,10 @@ class SecurityConfigTest {
     fun validLogoutKeepsAuthenticatedRevocationAndExpiresCookies() {
         val account = mock(Account::class.java)
         `when`(account.status).thenReturn(AccountStatus.ACTIVE)
+        `when`(account.tokenVersion).thenReturn(3L)
         `when`(accountQueryPort.findByUserId(123L)).thenReturn(account)
         val token = JwtTokenGenerator("01234567890123456789012345678901", "entrydsm-identity")
-            .generateAccessToken("user_123").value
+            .generateAccessToken("user_123", 3L).value
         val response = mockMvc.perform(post("/api/identity/v11/auth/logout")
             .cookie(Cookie("access_token", token))).andReturn().response
         assertEquals(200, response.status)
