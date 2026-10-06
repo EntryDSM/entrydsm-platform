@@ -1,6 +1,8 @@
 package hs.kr.entrydsm.identity.adapterout.security
 
 import hs.kr.entrydsm.identity.application.port.out.PersonalDataEncryptor
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
 import hs.kr.entrydsm.identity.test.IntegrationTestGate
 import org.junit.AfterClass
@@ -8,6 +10,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.BeforeClass
@@ -28,6 +31,52 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class RedisRefreshTokenRotationAdapterIntegrationTest {
+    @Test
+    fun attemptLimitIsSharedAcrossInstancesAndExpiresWithoutBlockingOtherIdsOrOperations() {
+        val namespace = "attempt-${UUID.randomUUID()}"
+        val hasher = HmacLoginIdHasher("attempt-test-key")
+        val first = RedisAuthAttemptLimiter(template, hasher, namespace, ISSUER, 2, 1, 1, 30)
+        val second = RedisAuthAttemptLimiter(template, hasher, namespace, ISSUER, 2, 1, 1, 30)
+        first.checkLogin("known")
+        second.checkLogin("known")
+        assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
+            first.checkLogin("known")
+        }.errorCode)
+        second.checkLogin("other")
+        first.checkPasswordReset("known")
+        assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
+            second.checkPasswordReset("known")
+        }.errorCode)
+        Thread.sleep(1100)
+        second.checkLogin("known")
+    }
+
+    @Test
+    fun concurrentLoginAttemptsDoNotExceedTheLimit() {
+        val limiter = RedisAuthAttemptLimiter(template, HmacLoginIdHasher("attempt-test-key"),
+            "attempt-${UUID.randomUUID()}", ISSUER, 5, 30, 5, 30)
+        val executor = Executors.newFixedThreadPool(16)
+        val start = CountDownLatch(1)
+        try {
+            val results = (1..16).map {
+                executor.submit<Boolean> {
+                    assertTrue(start.await(5, TimeUnit.SECONDS))
+                    try {
+                        limiter.checkLogin("known")
+                        true
+                    } catch (exception: IdentityDomainException) {
+                        assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, exception.errorCode)
+                        false
+                    }
+                }
+            }
+            start.countDown()
+            assertEquals(5, results.count { it.get(10, TimeUnit.SECONDS) })
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
     @Before
     fun clearState() {
         template.keys("$KEY_PREFIX*").forEach(template::delete)

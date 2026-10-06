@@ -24,6 +24,9 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import org.junit.AfterClass
+import org.springframework.transaction.PlatformTransactionManager
+import org.springframework.transaction.support.TransactionTemplate
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotEquals
@@ -66,6 +69,58 @@ class JpaAccountRepositoryAdapterIntegrationTest {
 
     @Autowired
     private lateinit var identityOutboxJpaRepository: IdentityOutboxJpaRepository
+
+    @Autowired
+    private lateinit var transactionManager: PlatformTransactionManager
+
+    @Test
+    fun passwordAndVersionRollbackTogetherAndCommitTogether() {
+        val saved = adapter.save(account())
+        val newHash = PasswordHash.fromEncoded("\$2a\$10\$new-password")
+        assertThrows(IllegalStateException::class.java) {
+            TransactionTemplate(transactionManager).executeWithoutResult {
+                adapter.changePasswordAndRevoke(saved.userId, saved.passwordHash, newHash)
+                error("force rollback")
+            }
+        }
+        val unchanged = requireNotNull(adapter.findByUserId(saved.userId))
+        assertEquals(saved.passwordHash, unchanged.passwordHash)
+        assertEquals(0L, unchanged.tokenVersion)
+        adapter.changePasswordAndRevoke(saved.userId, saved.passwordHash, newHash)
+        val changed = requireNotNull(adapter.findByUserId(saved.userId))
+        assertEquals(newHash, changed.passwordHash)
+        assertEquals(1L, changed.tokenVersion)
+        adapter.revokeAll(saved.userId)
+        assertEquals(2L, requireNotNull(adapter.findByUserId(saved.userId)).tokenVersion)
+        saved.agreeSensitiveInformation(TRANSITION_TIME)
+        val afterProfileSave = adapter.save(saved)
+        assertEquals(newHash, afterProfileSave.passwordHash)
+        assertEquals(2L, afterProfileSave.tokenVersion)
+        assertThrows(IdentityDomainException::class.java) {
+            adapter.changePasswordAndRevoke(saved.userId, saved.passwordHash, newHash)
+        }
+        assertEquals(2L, requireNotNull(adapter.findByUserId(saved.userId)).tokenVersion)
+    }
+
+    @Test
+    fun concurrentLogoutDoesNotLoseTokenVersionIncrements() {
+        val saved = adapter.save(account())
+        val executor = Executors.newFixedThreadPool(8)
+        val start = CountDownLatch(1)
+        try {
+            val futures = (1..8).map {
+                executor.submit {
+                    check(start.await(5, TimeUnit.SECONDS))
+                    adapter.revokeAll(saved.userId)
+                }
+            }
+            start.countDown()
+            futures.forEach { it.get(10, TimeUnit.SECONDS) }
+            assertEquals(8L, requireNotNull(adapter.findByUserId(saved.userId)).tokenVersion)
+        } finally {
+            executor.shutdownNow()
+        }
+    }
 
     @Before
     fun clearDatabase() {
