@@ -57,17 +57,6 @@ class RedisRefreshTokenRotationAdapterTest {
     }
 
     @Test
-    fun versionIsReadAndIncrementedForGlobalRevocation() {
-        `when`(valueOperations.get(VERSION_KEY)).thenReturn("4")
-        `when`(valueOperations.increment(VERSION_KEY)).thenReturn(5L)
-
-        assertEquals(4L, adapter.currentVersion(USER_ID))
-        adapter.revokeAll(USER_ID)
-
-        verify(valueOperations).increment(VERSION_KEY)
-    }
-
-    @Test
     fun redisFailureIsMappedToStoreUnavailable() {
         val failure = DataAccessResourceFailureException("redis unavailable")
         `when`(
@@ -89,36 +78,6 @@ class RedisRefreshTokenRotationAdapterTest {
         assertSame(failure, thrown?.cause)
     }
 
-    @Test
-    fun currentVersionRedisFailureIsMappedToStoreUnavailable() {
-        val failure = DataAccessResourceFailureException("redis unavailable")
-        `when`(valueOperations.get(anyString())).thenThrow(failure)
-
-        val thrown = try {
-            adapter.currentVersion(USER_ID)
-            null
-        } catch (exception: RefreshTokenStoreUnavailableException) {
-            exception
-        }
-
-        assertSame(failure, thrown?.cause)
-    }
-
-    @Test
-    fun revokeAllRedisFailureIsMappedToStoreUnavailable() {
-        val failure = DataAccessResourceFailureException("redis unavailable")
-        `when`(valueOperations.increment(anyString())).thenThrow(failure)
-
-        val thrown = try {
-            adapter.revokeAll(USER_ID)
-            null
-        } catch (exception: RefreshTokenStoreUnavailableException) {
-            exception
-        }
-
-        assertSame(failure, thrown?.cause)
-    }
-
     private companion object {
         const val NAMESPACE = "test"
         const val TOKEN_ID = "token-id"
@@ -128,6 +87,5 @@ class RedisRefreshTokenRotationAdapterTest {
         val TTL = java.time.Duration.ofSeconds(30)
         const val ISSUER = "entrydsm-identity"
         const val CONSUMED_KEY = "$NAMESPACE:$ISSUER:identity:auth:refresh:consumed:$TOKEN_ID"
-        const val VERSION_KEY = "$NAMESPACE:$ISSUER:identity:auth:refresh:version:$USER_ID"
     }
 }

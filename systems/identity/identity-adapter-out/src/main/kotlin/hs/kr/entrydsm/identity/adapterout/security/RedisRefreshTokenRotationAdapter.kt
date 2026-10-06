@@ -1,7 +1,6 @@
 package hs.kr.entrydsm.identity.adapterout.security
 
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRotationStore
-import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
 import java.time.Clock
 import java.time.Duration
@@ -20,7 +19,7 @@ class RedisRefreshTokenRotationAdapter(
     private val namespace: String,
     @Value("\${auth.jwt.issuer}")
     private val issuer: String,
-) : RefreshTokenRotationStore, RefreshTokenRevocationStore {
+) : RefreshTokenRotationStore {
     init {
         require(namespace.isNotBlank()) { "Redis key namespace must not be blank." }
         require(issuer.isNotBlank()) { "JWT issuer must not be blank." }
@@ -39,20 +38,7 @@ class RedisRefreshTokenRotationAdapter(
         }
     }
 
-    override fun currentVersion(userId: Long): Long = redis {
-        redisTemplate.opsForValue().get(versionKey(userId))?.toLongOrNull() ?: INITIAL_VERSION
-    }
-
-    override fun revokeAll(userId: Long) {
-        redis {
-            redisTemplate.opsForValue().increment(versionKey(userId))
-                ?: error("Redis did not return the new refresh token version.")
-        }
-    }
-
     private fun consumedKey(tokenId: String): String = "${keyPrefix}consumed:$tokenId"
-
-    private fun versionKey(userId: Long): String = "${keyPrefix}version:$userId"
 
     private val keyPrefix: String
         get() = "$namespace:$issuer:$SERVICE_NAME:auth:refresh:"
@@ -66,6 +52,5 @@ class RedisRefreshTokenRotationAdapter(
     private companion object {
         const val SERVICE_NAME = "identity"
         const val CONSUMED_VALUE = "1"
-        const val INITIAL_VERSION = 0L
     }
 }

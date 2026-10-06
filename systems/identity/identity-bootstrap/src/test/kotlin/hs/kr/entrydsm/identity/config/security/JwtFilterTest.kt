@@ -3,8 +3,7 @@ package hs.kr.entrydsm.identity.config.security
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
-import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
-import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
+import org.springframework.dao.DataAccessResourceFailureException
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
 import hs.kr.entrydsm.identity.domain.model.Account
 import jakarta.servlet.FilterChain
@@ -67,6 +66,16 @@ class JwtFilterTest {
     }
 
     @Test
+    fun accessTokenWithCurrentDatabaseVersionIsAccepted() {
+        tokenVersions[123L] = 2L
+        val token = JwtTokenGenerator(SECRET, ISSUER, Clock.fixed(FIXED_NOW, UTC))
+            .generateAccessToken("user_123", 2L).value
+        val result = runFilter(token)
+        assertEquals(200, result.status)
+        assertTrue(result.chainInvoked)
+    }
+
+    @Test
     fun inactiveAccountAccessTokenReturnsUnauthorized() {
         val result = runFilter(
             token = accessToken(),
@@ -91,19 +100,14 @@ class JwtFilterTest {
     }
 
     @Test
-    fun redisFailureReturnsServiceUnavailable() {
+    fun databaseFailureReturnsServiceUnavailable() {
         val result = runFilter(
             token = accessToken(),
-            revocationStore = object : RefreshTokenRevocationStore {
-                override fun currentVersion(userId: Long): Long =
-                    throw RefreshTokenStoreUnavailableException(IllegalStateException("redis unavailable"))
-
-                override fun revokeAll(userId: Long) = Unit
-            },
+            accountLookupFailure = DataAccessResourceFailureException("database unavailable"),
         )
 
         assertEquals(503, result.status)
-        assertTrue(result.body.contains("REDIS_UNAVAILABLE"))
+        assertTrue(result.body.contains("AUTH_STATE_UNAVAILABLE"))
         assertTrue(result.contentType.orEmpty().startsWith("application/json"))
         assertFalse(result.chainInvoked)
         assertNull(result.authentication)
@@ -178,11 +182,25 @@ class JwtFilterTest {
         }
     }
 
+    @Test
+    fun rejectsLegacyRedisVersionToken() {
+        val token = io.jsonwebtoken.Jwts.builder()
+            .issuer(ISSUER).subject("user_123").id("legacy-token")
+            .claim(JwtTokenGenerator.TOKEN_TYPE_CLAIM, "access")
+            .claim(JwtTokenGenerator.TOKEN_VERSION_CLAIM, 0L)
+            .expiration(java.util.Date.from(FIXED_NOW.plusSeconds(60)))
+            .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(SECRET.toByteArray()), io.jsonwebtoken.Jwts.SIG.HS256)
+            .compact()
+        val result = runFilter(token)
+        assertEquals(401, result.status)
+        assertFalse(result.chainInvoked)
+    }
+
     private fun runFilter(
         token: String?,
         path: String = "/api/identity/v11/accounts/me",
         useCookie: Boolean = false,
-        revocationStore: RefreshTokenRevocationStore = defaultRevocationStore(),
+        accountLookupFailure: RuntimeException? = null,
         account: Account? = account(AccountStatus.ACTIVE),
     ): FilterResult {
         SecurityContextHolder.clearContext()
@@ -196,7 +214,7 @@ class JwtFilterTest {
         }
         val response = MockHttpServletResponse()
         val chain = RecordingFilterChain()
-        jwtFilter(revocationStore, account).doFilter(request, response, chain)
+        jwtFilter(accountLookupFailure, account).doFilter(request, response, chain)
         return FilterResult(
             status = response.status,
             chainInvoked = chain.invoked,
@@ -207,7 +225,7 @@ class JwtFilterTest {
     }
 
     private fun jwtFilter(
-        revocationStore: RefreshTokenRevocationStore,
+        accountLookupFailure: RuntimeException?,
         account: Account?,
     ): JwtFilter = JwtFilter(
         jwtProperties = JwtProperties(secret = SECRET, issuer = ISSUER),
@@ -216,21 +234,16 @@ class JwtFilterTest {
         accountQueryPort = object : AccountQueryPort {
             override fun findByLoginId(loginId: String): Account? = account
 
-            override fun findByUserId(userId: Long): Account? = account
+            override fun findByUserId(userId: Long): Account? {
+                accountLookupFailure?.let { throw it }
+                return account
+            }
         },
-        refreshTokenRevocationStore = revocationStore,
     )
 
     private fun account(status: AccountStatus): Account = mock(Account::class.java).also {
         `when`(it.status).thenReturn(status)
-    }
-
-    private fun defaultRevocationStore(): RefreshTokenRevocationStore = object : RefreshTokenRevocationStore {
-        override fun currentVersion(userId: Long): Long = tokenVersions[userId] ?: 0L
-
-        override fun revokeAll(userId: Long) {
-            tokenVersions[userId] = currentVersion(userId) + 1
-        }
+        `when`(it.tokenVersion).thenReturn(tokenVersions[123L] ?: 0L)
     }
 
     private fun accessToken(): String = JwtTokenGenerator(

@@ -166,6 +166,9 @@ class AccountServiceTest {
         var savedAccount: Account? = null
         var saveCount: Int = 0
 
+        override fun changePasswordAndRevoke(userId: Long, expectedPasswordHash: hs.kr.entrydsm.identity.domain.model.PasswordHash, newPasswordHash: hs.kr.entrydsm.identity.domain.model.PasswordHash) =
+            error("Not used in AccountServiceTest")
+
         override fun save(account: Account): Account {
             savedAccount = account
             saveCount++

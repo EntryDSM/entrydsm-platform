@@ -4,6 +4,7 @@ import hs.kr.entrydsm.identity.adapterout.grpc.GrpcApplicationDataAdapterTest
 import hs.kr.entrydsm.identity.adapterout.security.BCryptPasswordHasher
 import hs.kr.entrydsm.identity.adapterout.security.AesGcmPersonalDataEncryptor
 import hs.kr.entrydsm.identity.adapterout.security.AccountPasswordResetOwnershipVerifierTest
+import hs.kr.entrydsm.identity.adapterout.security.RedisAuthAttemptLimiterTest
 import hs.kr.entrydsm.identity.adapterout.security.AccountSignupOwnershipVerifierTest
 import hs.kr.entrydsm.identity.adapterout.pass.KcbLicenseFileInitializerTest
 import hs.kr.entrydsm.identity.adapterout.pass.KcbPassProviderAdapterTest
@@ -14,6 +15,7 @@ import hs.kr.entrydsm.identity.adapterout.security.RedisDurabilityGuardTest
 import hs.kr.entrydsm.identity.adapterout.persistence.AccountCommandPersistenceAdapterTest
 import hs.kr.entrydsm.identity.adapterout.persistence.TransactionalAccountRegistrationAdapterTest
 import hs.kr.entrydsm.identity.adapterout.repository.JpaAccountRepositoryAdapterIntegrationTest
+import hs.kr.entrydsm.identity.adapterout.repository.JpaAccountRepositoryAdapterTest
 import hs.kr.entrydsm.identity.adapterout.persistence.PersistenceProfileContractTest
 import hs.kr.entrydsm.identity.adapterout.persistence.ApplicationStatusRedisConsumerTest
 import hs.kr.entrydsm.identity.adapterout.persistence.AccountApplicationDataPersistenceAdapterTest
@@ -34,10 +36,12 @@ import javax.crypto.AEADBadTagException
     AccountCommandPersistenceAdapterTest::class,
     TransactionalAccountRegistrationAdapterTest::class,
     JpaAccountRepositoryAdapterIntegrationTest::class,
+    JpaAccountRepositoryAdapterTest::class,
     RedisRefreshTokenRotationAdapterTest::class,
     RedisDurabilityGuardTest::class,
     RedisRefreshTokenRotationAdapterIntegrationTest::class,
     AccountPasswordResetOwnershipVerifierTest::class,
+    RedisAuthAttemptLimiterTest::class,
     AccountSignupOwnershipVerifierTest::class,
     KcbLicenseFileInitializerTest::class,
     KcbPassProviderAdapterTest::class,

@@ -62,6 +62,7 @@ class JwtTokenGenerator(
             .issuer(issuer)
             .subject(subject)
             .claim(TOKEN_TYPE_CLAIM, type.claimValue)
+            .claim(TOKEN_VERSION_SOURCE_CLAIM, TOKEN_VERSION_SOURCE)
             .id(UUID.randomUUID().toString())
             .issuedAt(Date.from(issuedAt))
             .expiration(Date.from(expiresAt))
@@ -84,6 +85,8 @@ class JwtTokenGenerator(
         val ACCESS_TOKEN_TTL: Duration = Duration.ofHours(2)
         val REFRESH_TOKEN_TTL: Duration = Duration.ofDays(7)
         const val TOKEN_TYPE_CLAIM = "typ"
+        const val TOKEN_VERSION_SOURCE_CLAIM = "token_version_source"
+        const val TOKEN_VERSION_SOURCE = "db"
         const val TOKEN_VERSION_CLAIM = "token_version"
         const val USER_PRINCIPAL_PREFIX = "user_"
         const val INITIAL_TOKEN_VERSION = 0L
