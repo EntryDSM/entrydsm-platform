@@ -102,6 +102,32 @@ class ApplicationCorrectionAdapterTest {
         assertEquals(recordId, applicants.findAllByAccountIdIn(listOf(original.accountId)).single().academicRecord!!.id)
     }
 
+    @Test fun prospectiveGraduatesRejectSecondSemesterGradesAndGraduationOnlyChanges() {
+        val original = fixture()
+        schoolCodes.saveAndFlush(hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity(
+            "SCHOOL1", "테스트학교", "테스트학교", null, "학교 주소", null, null))
+        val grades = SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A")
+        val changes = ApplicationFormChanges(
+            graduationType = "PROSPECTIVE", graduationDate = "2027-02",
+            school = SchoolCorrection("SCHOOL1", "테스트학교", "30101", "042-123-4567", "테스트교사"),
+            academicRecord = AcademicRecordCorrection(0, 0, 0, 0, 15, false, false, mapOf(
+                "THIRD_GRADE_FIRST_SEMESTER" to grades, "THIRD_GRADE_SECOND_SEMESTER" to grades)),
+        )
+        assertError(ErrorCode.INVALID_APPLICATION_CORRECTION) {
+            service.correct(command(original, changes), "operator-10")
+        }
+        assertUnchanged(original)
+        service.correct(command(original, changes.copy(graduationType = "GRADUATED")), "operator-10")
+        val graduated = persistence.findById(original.id)!!
+        assertTrue(graduated.academicRecord!!.subjectGrades.containsKey(SchoolSemester.THIRD_GRADE_SECOND_SEMESTER))
+        assertError(ErrorCode.INVALID_APPLICATION_CORRECTION) {
+            service.correct(command(graduated, ApplicationFormChanges(graduationType = "PROSPECTIVE")), "operator-10")
+        }
+        assertEquals(GraduationType.GRADUATED, persistence.findById(original.id)!!.graduationType)
+        assertEquals(graduated.statusVersion, persistence.findById(original.id)!!.statusVersion)
+        assertEquals(1L, audits.count()); assertEquals(1L, outbox.count())
+    }
+
     @Test fun invalidInputMissingApplicantStatusAndVersionNeverWrite() {
         val original = fixture()
         val valid = command(original, ApplicationFormChanges(introduction = "수정 자기소개서"))

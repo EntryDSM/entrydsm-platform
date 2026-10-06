@@ -138,6 +138,8 @@ class ApplicationCorrectionService(
                 hs.kr.entrydsm.application.application.service.validateSchoolGrades(semester, grades)
             }
         }
+        require(a.graduationType != GraduationType.PROSPECTIVE ||
+            a.academicRecord?.subjectGrades?.containsKey(SchoolSemester.THIRD_GRADE_SECOND_SEMESTER) != true)
         if (a.graduationType != GraduationType.GED && c.graduationType != null) require(a.middleSchoolInfo != null)
     }
 
