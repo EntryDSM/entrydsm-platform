@@ -14,6 +14,10 @@ TABLES = {
     "schedule": "id title start_at end_at".split(),
 }
 
+# 문자열은 DB의 대소문자/악센트 정렬 규칙 대신 원본 바이트로 대조한다.
+TEXT_COLUMNS = {"updated_by", "admission_type", "examinee_number", "status", "export_job_id",
+                "type", "object_key", "failure_code", "failure_message", "title"}
+
 
 def identifier(value):
     if not re.fullmatch(r"[A-Za-z0-9_]+", value):
@@ -81,8 +85,10 @@ def guard(table, rows):
     columns = TABLES[table]
     conditions = [f"(SELECT COUNT(*) FROM {identifier(table)})={len(rows)}"]
     for row in rows:
-        equal = " AND ".join(f"{identifier(c)} <=> " + (str(int(v)) if c == "is_arrived" else literal(v))
-                             for c, v in zip(columns, row))
+        equal = " AND ".join(
+            f"CAST({identifier(c)} AS BINARY) <=> CAST({literal(v)} AS BINARY)" if c in TEXT_COLUMNS
+            else f"{identifier(c)} <=> " + (str(int(v)) if c == "is_arrived" else literal(v))
+            for c, v in zip(columns, row))
         conditions.append(f"EXISTS(SELECT 1 FROM {identifier(table)} WHERE {equal})")
     # 조건 불일치는 중복 키로 트랜잭션을 중단한다. CLI에 --force를 지정하지 않는다.
     return "INSERT INTO migration_guard SELECT 1 WHERE NOT (" + " AND ".join(conditions) + ");"

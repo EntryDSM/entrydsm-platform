@@ -27,7 +27,7 @@ class MigrationTest(unittest.TestCase):
         self.assertLess(sql.index("FOR UPDATE"), sql.index("INSERT INTO `screening`"))
         self.assertIn("(SELECT COUNT(*) FROM `screening`)=0", sql)
         self.assertIn("`is_arrived` <=> 1", sql)
-        self.assertIn("`examinee_number` <=> NULL", sql)
+        self.assertIn("CAST(`examinee_number` AS BINARY) <=> CAST(NULL AS BINARY)", sql)
         self.assertTrue(sql.endswith("COMMIT;"))
         rollback = migrate.transaction({"screening": [row]}, {"screening": []}, replace=True)
         self.assertLess(rollback.index("EXISTS(SELECT"), rollback.index("DELETE FROM `screening`"))
