@@ -1,4 +1,6 @@
 KOTLIN_DEPS = [
+    "//systems/application/application-application:main",
+    "//systems/application/application-domain:main",
     "//systems/configuration/configuration-domain:main",
     "@maven//:org_springframework_boot_spring_boot_starter",
     "@maven//:org_springframework_spring_tx",

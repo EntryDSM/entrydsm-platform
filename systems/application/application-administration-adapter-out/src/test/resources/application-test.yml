@@ -1,3 +1,6 @@
 security:
   pii:
     encryption-key-base64: MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=
+application:
+  administration:
+    enabled: true
