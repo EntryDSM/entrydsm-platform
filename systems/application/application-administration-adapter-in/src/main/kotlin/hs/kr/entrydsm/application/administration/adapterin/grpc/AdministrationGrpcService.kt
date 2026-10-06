@@ -28,8 +28,12 @@ class AdministrationGrpcService(
     private val statistics: ReadStatisticsUseCase,
     private val exports: CreateExportUseCase,
     private val exportQueries: ReadExportUseCase,
+    private val corrections: CorrectApplicationUseCase,
 ) : AdministrationServiceGrpc.AdministrationServiceImplBase() {
     private val mapper = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
+    private val correctionMapper = JsonMapper.builder().addModule(KotlinModule.Builder().build())
+        .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES).build()
 
     override fun searchApplicants(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { val query = request.read<SearchApplicantsQuery>(); applicants.search(query.filter, query.page) }
@@ -42,6 +46,11 @@ class AdministrationGrpcService(
 
     override fun updateApplicantStatus(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { val command = request.read<UpdateApplicantStatusCommand>(); require(command.applicantId > 0); updates.updateStatus(command) }
+
+    override fun correctApplication(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) {
+            corrections.correct(correctionMapper.readValue(request.commandJson, CorrectApplicationCommand::class.java), request.userId)
+        }
 
     override fun issueExamineeNumbers(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { numbers.issueAll() }

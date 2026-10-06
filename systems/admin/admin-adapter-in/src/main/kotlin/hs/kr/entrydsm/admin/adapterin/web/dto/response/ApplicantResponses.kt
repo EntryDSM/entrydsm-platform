@@ -32,6 +32,7 @@ data class ApplicantSummaryResponse(
  * @property studyPlan 학업계획서. 지원자가 쓴 줄바꿈(`\n`)이 그대로 있다
  */
 data class ApplicantDetailResponse(
+    val version: Long = 0,
     val applicantId: Long,
     val name: String?,
     val birthDate: LocalDate?,

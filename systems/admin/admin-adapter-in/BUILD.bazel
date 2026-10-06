@@ -3,6 +3,15 @@ load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
 package(default_visibility = ["//visibility:public"])
 
+kt_jvm_test(
+    name = "application_correction_controller_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.admin.adapterin.web.ApplicationCorrectionControllerTest",
+    deps = [":main"] + MODULE_DEPS + TEST_DEPS,
+)
+
 kt_jvm_library(
     name = "main",
     srcs = glob(["src/main/kotlin/**/*.kt"]),

@@ -23,6 +23,7 @@ fun Applicant.toSummaryResponse(): ApplicantSummaryResponse = ApplicantSummaryRe
 )
 
 fun ApplicantDetail.toDetailResponse(): ApplicantDetailResponse = ApplicantDetailResponse(
+    version = version,
     applicantId = applicant.id,
     name = applicant.name,
     birthDate = applicant.birthDate,
