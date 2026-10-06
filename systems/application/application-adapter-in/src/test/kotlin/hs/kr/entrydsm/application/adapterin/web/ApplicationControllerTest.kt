@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.application.adapterin.web
 
-import hs.kr.entrydsm.application.adapterin.web.config.LandingScheduleProperties
 import hs.kr.entrydsm.application.adapterin.web.exception.GlobalExceptionHandler
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
@@ -25,6 +24,7 @@ import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 import org.junit.Assert.assertThrows
 import org.springframework.mock.web.MockHttpServletRequest
@@ -35,7 +35,7 @@ class ApplicationControllerTest {
     @Test
     fun fieldErrorsReturnSpecificCodesWithoutInputDetails() {
         val mapper = tools.jackson.module.kotlin.jacksonMapperBuilder().build()
-        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(FakeApplicationPort(), scheduleProperties()))
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(FakeApplicationPort()))
             .setMessageConverters(org.springframework.http.converter.json.JacksonJsonHttpMessageConverter(mapper))
             .setControllerAdvice(GlobalExceptionHandler())
             .build()
@@ -82,7 +82,7 @@ class ApplicationControllerTest {
             override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult =
                 throw ApplicantAlreadyExistsException(requireNotNull(command.accountId))
         }
-        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port, scheduleProperties()))
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port))
             .setControllerAdvice(GlobalExceptionHandler())
             .build()
 
@@ -99,7 +99,7 @@ class ApplicationControllerTest {
             override fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult =
                 throw DataIntegrityViolationException("private database details")
         }
-        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port, scheduleProperties()))
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port))
             .setControllerAdvice(GlobalExceptionHandler())
             .build()
 
@@ -114,7 +114,7 @@ class ApplicationControllerTest {
     @Test
     fun createApplicantPassesAuthenticatedUser() {
         val applicationPort = FakeApplicationPort()
-        val controller = ApplicationController(applicationPort, scheduleProperties())
+        val controller = ApplicationController(applicationPort)
 
         val response = controller.createApplicant(
             accountId = 10L,
@@ -132,15 +132,15 @@ class ApplicationControllerTest {
                 FakeApplicationPort().createApplicant(command).copy(created = false)
         }
 
-        val response = ApplicationController(port, scheduleProperties()).createApplicant(accountId = 10L)
+        val response = ApplicationController(port).createApplicant(accountId = 10L)
 
         assertEquals(200, response.statusCode.value())
         assertEquals(1L, response.body?.data?.applicantId)
     }
 
     @Test
-    fun getLandingReturnsConfiguredSchedule() {
-        val controller = ApplicationController(FakeApplicationPort(), scheduleProperties())
+    fun getLandingReturnsDatabaseSchedule() {
+        val controller = ApplicationController(FakeApplicationPort())
 
         val response = controller.getLanding(10L)
 
@@ -152,12 +152,34 @@ class ApplicationControllerTest {
 
     @Test
     fun getLandingAllowsMissingResultAnnouncementSchedule() {
-        val schedule = LandingScheduleProperties(applicationStartAt, applicationEndAt, null)
-        val controller = ApplicationController(FakeApplicationPort(), schedule)
+        val port = object : ApplicationPort by FakeApplicationPort() {
+            override fun getLanding(accountId: Long?) = LandingResult("홍길동", applicationStartAt, applicationEndAt)
+        }
+        val controller = ApplicationController(port)
 
         val response = controller.getLanding(10L)
 
         assertNull(response.data?.schedule?.resultAnnouncedAt)
+    }
+
+    @Test
+    fun landingPreservesJsonStructureAndDateFormatWithoutScheduleProperties() {
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(FakeApplicationPort())).build()
+        val httpResponse = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/application/v11/applicants/landing")
+            .header("X-USER-ID", "10")).andReturn().response
+        assertEquals(200, httpResponse.status)
+        val schedule = tools.jackson.module.kotlin.jacksonMapperBuilder().build()
+            .readTree(httpResponse.contentAsString).get("data").get("schedule")
+        assertEquals("2026-10-19T09:00:00", schedule.get("applicationPeriod").get("startAt").asString())
+        assertEquals("2026-10-23T17:00:00", schedule.get("applicationPeriod").get("endAt").asString())
+        assertEquals("2026-10-30T10:00:00", schedule.get("resultAnnouncedAt").asString())
+        val missing = object : ApplicationPort by FakeApplicationPort() {
+            override fun getLanding(accountId: Long?) = LandingResult(null)
+        }
+        val response = ApplicationController(missing).getLanding(10L)
+        assertNotNull(response.data?.schedule?.applicationPeriod)
+        assertNull(response.data?.schedule?.applicationPeriod?.startAt)
+        assertNull(response.data?.schedule?.applicationPeriod?.endAt)
     }
 
     @Test
@@ -203,7 +225,7 @@ class ApplicationControllerTest {
         override fun updateIntroduction(command: UpdateIntroductionCommand) = Unit
         override fun updateStudyPlan(command: UpdateStudyPlanCommand) = Unit
         override fun submit(command: SubmitApplicationCommand) = Unit
-        override fun getLanding(accountId: Long?): LandingResult = LandingResult(applicantName = "홍길동")
+        override fun getLanding(accountId: Long?): LandingResult = LandingResult("홍길동", applicationStartAt, applicationEndAt, resultAnnouncedAt)
         override fun findByAccountId(accountId: Long): ApplicationSnapshotResult? = null
         override fun findApplicant(applicantId: Long): ApplicantResult? = null
         override fun findApplicationForm(accountId: Long): ApplicationFormResult? = null
@@ -216,11 +238,5 @@ class ApplicationControllerTest {
         val applicationEndAt: LocalDateTime = LocalDateTime.parse("2026-10-23T17:00:00")
         val resultAnnouncedAt: LocalDateTime = LocalDateTime.parse("2026-10-30T10:00:00")
 
-        fun scheduleProperties(): LandingScheduleProperties =
-            LandingScheduleProperties(
-                applicationStartAt = applicationStartAt,
-                applicationEndAt = applicationEndAt,
-                resultAnnouncedAt = resultAnnouncedAt,
-            )
     }
 }

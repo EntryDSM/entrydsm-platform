@@ -30,13 +30,6 @@ springdoc:
   swagger-ui:
     enabled: ${SWAGGER_ENABLED:true}
 
-entrydsm:
-  application:
-    schedule:
-      application-start-at: ${APPLICATION_START_AT}
-      application-end-at: ${APPLICATION_END_AT}
-      result-announced-at: ${RESULT_ANNOUNCED_AT:}
-
 configuration:
   grpc:
     # 파일 저장 및 다운로드만 configuration에 위임한다.

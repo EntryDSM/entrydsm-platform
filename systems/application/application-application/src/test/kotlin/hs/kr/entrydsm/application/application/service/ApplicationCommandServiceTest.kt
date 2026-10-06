@@ -40,6 +40,33 @@ import org.junit.Test
 
 class ApplicationCommandServiceTest {
     @Test
+    fun landingReadsCurrentSchedulesInSeoulAndAllowsMissingSchedules() {
+        var start = Instant.parse("2026-10-19T00:00:00Z")
+        val end = Instant.parse("2026-10-23T08:00:00Z")
+        val announcedAt = LocalDateTime.of(2026, 10, 30, 10, 0)
+        val reader = object : ApplicationPeriodReader {
+            override fun read() = start..end
+            override fun readResultAnnouncedAt() = announcedAt
+        }
+        val service = ApplicationCommandService(FakeApplicantRepository(null), reader, ACCEPT_PHONE)
+        assertEquals(LocalDateTime.of(2026, 10, 19, 9, 0), service.getLanding(null).applicationStartAt)
+        assertEquals(LocalDateTime.of(2026, 10, 23, 17, 0), service.getLanding(null).applicationEndAt)
+        assertEquals(announcedAt, service.getLanding(null).resultAnnouncedAt)
+        start = start.plusSeconds(3600)
+        assertEquals(LocalDateTime.of(2026, 10, 19, 10, 0), service.getLanding(null).applicationStartAt)
+        val missing = ApplicationCommandService(FakeApplicantRepository(null), CLOSED, ACCEPT_PHONE).getLanding(null)
+        assertNull(missing.applicationStartAt)
+        assertNull(missing.applicationEndAt)
+        assertNull(missing.resultAnnouncedAt)
+        val failed = ApplicationPeriodReader {
+            throw hs.kr.entrydsm.application.application.exception.ApplicationPeriodLookupFailedException(IllegalStateException("DB 장애"))
+        }
+        assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationPeriodLookupFailedException::class.java) {
+            ApplicationCommandService(FakeApplicantRepository(null), failed, ACCEPT_PHONE).getLanding(null)
+        }
+    }
+
+    @Test
     fun submissionRejectsMissingScoresEvenWhenTotalScoreIsStored() {
         val cases = listOf(
             submittableGedApplicant().copy(academicRecord = null),
