@@ -79,7 +79,8 @@ class LocalApplicantDataAdapterTest {
             proxy(ApplicantJpaRepository::class.java) { error("조회 중 원서를 변경하면 안 된다") },
             ApplicantStatusEventOutbox { error("조회 중 이벤트를 작성하면 안 된다") }, application,
         )
-        return LocalApplicantDataAdapter(application, screenings, results)
+        return LocalApplicantDataAdapter(application, screenings, results,
+            proxy(ApplicantJpaRepository::class.java) { error("조회 중 잠금을 잡으면 안 된다") })
     }
 
     private fun applicant() = ApplicantResult(

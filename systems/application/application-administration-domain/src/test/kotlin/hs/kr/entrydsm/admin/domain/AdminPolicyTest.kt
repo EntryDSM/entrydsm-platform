@@ -118,6 +118,18 @@ class AdminPolicyTest {
     private fun quotas(quota: Int): Map<AdmissionType, Int> = AdmissionType.entries.associateWith { quota }
 
     @Test
+    fun `전형 지역 정정과 도착 취소 후에도 기존 수험번호를 예약해 중복 발급하지 않는다`() {
+        val corrected = applicant(id = 1, examineeNumber = "31007", admissionType = AdmissionType.MEISTER, region = Region.NATIONWIDE)
+        val notArrived = applicant(id = 2, examineeNumber = "11005", isArrived = false)
+        assertTrue(ExamineeNumberPolicy.isValidExistingNumber(corrected))
+        val result = ExamineeNumberPolicy.issue(listOf(corrected, notArrived,
+            applicant(id = 3, admissionType = AdmissionType.GENERAL), applicant(id = 4)), mapOf(3L to 10L, 4L to 10L))
+        assertEquals(listOf("31008", "11006"), result.issued.map { it.examineeNumber })
+        assertEquals(1, result.skippedCount)
+        assertEquals("31007", corrected.examineeNumber)
+    }
+
+    @Test
     fun `합격자는 전형별로 따로 순위를 매겨 정원까지 뽑는다`() {
         val outcome = ScreeningPolicy.evaluate(
             listOf(
