@@ -18,6 +18,9 @@ class GatewayAccessGlobalFilterTest {
         GatewayServiceProperties(),
         GatewayErrorResponseWriter(JsonMapper.builder().build()),
         JsonMapper.builder().build(),
+        hs.kr.entrydsm.gateway.adapterin.configuration.DownstreamClientPolicy(),
+        hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties(),
+        hs.kr.entrydsm.gateway.adapterin.resilience.InMemoryGatewayCircuitStateStore(),
     )
 
     @Test

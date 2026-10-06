@@ -24,19 +24,6 @@ spring:
           httpclient:
             connect-timeout: ${gateway.downstream.connect-timeout-millis}
             response-timeout: ${gateway.downstream.response-timeout-millis}ms
-          default-filters:
-            - name: Retry
-              args:
-                retries: ${gateway.downstream.retries}
-                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
-                methods: ${gateway.downstream.retry-methods}
-                backoff:
-                  firstBackoff: ${gateway.downstream.retry-first-backoff-millis}ms
-                  maxBackoff: ${gateway.downstream.retry-max-backoff-millis}ms
-                  factor: ${gateway.downstream.retry-backoff-factor}
-                  basedOnPreviousValue: ${gateway.downstream.retry-backoff-based-on-previous-value}
-                jitter:
-                  randomFactor: ${gateway.downstream.retry-jitter-random-factor}
 springdoc:
   api-docs:
     enabled: ${SWAGGER_ENABLED:true}

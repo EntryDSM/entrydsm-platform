@@ -41,6 +41,7 @@ import java.time.Duration
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = [
         "gateway.request.max-body-bytes=10",
+        "gateway.downstream.response-timeout-millis=1000",
         "gateway.resilience.state-store=memory",
         "spring.cloud.gateway.server.webflux.httpclient.response-timeout=2s",
         "spring.autoconfigure.exclude=org.springframework.boot.security.autoconfigure.web.reactive.ReactiveWebSecurityAutoConfiguration,org.springframework.boot.security.autoconfigure.actuate.web.reactive.ReactiveManagementWebSecurityAutoConfiguration",
@@ -61,8 +62,10 @@ class GatewayProxyIntegrationTest {
     @BeforeEach
     fun createClient() {
         stateStore.clear()
+        requestCounts.clear()
         circuitBreakerRegistry.allCircuitBreakers.forEach { it.transitionToClosedState() }
         client = WebTestClient.bindToApplicationContext(applicationContext)
+            .configureClient().responseTimeout(Duration.ofSeconds(15))
             .build()
     }
 
@@ -214,13 +217,13 @@ class GatewayProxyIntegrationTest {
     fun opensCircuitAfterRepeatedDownstreamFailures() {
         repeat(5) {
             client.get()
-                .uri("/api/identity/failure")
+                .uri("/api/document/v11/files/failure")
                 .exchange()
                 .expectStatus().isEqualTo(500)
         }
 
         client.get()
-            .uri("/api/identity/failure")
+            .uri("/api/document/v11/files/failure")
             .exchange()
             .expectStatus().isEqualTo(503)
             .expectBody()
@@ -238,6 +241,69 @@ class GatewayProxyIntegrationTest {
             .expectHeader().valueEquals("X-Trace-Id", "timeout-integration")
             .expectBody()
             .jsonPath("$.error").isEqualTo("GATEWAY_TIMEOUT")
+    }
+
+    @Test
+    fun authenticationTimeoutReturns503WithoutForwardingAndOpensDedicatedCircuit() {
+        // 본문이 계속 도착해 읽기 타임아웃이 갱신되어도 전체 조회 제한은 유지된다.
+        client.get().uri("/api/application/protected").cookie("access_token", "trickled-token")
+            .exchange().expectStatus().isEqualTo(503)
+            .expectBody().jsonPath("$.error").isEqualTo("IDENTITY_UNAVAILABLE")
+        stateStore.clear()
+        requestCounts.clear()
+        repeat(5) {
+            client.get().uri("/api/application/protected").cookie("access_token", "delayed-token")
+                .exchange().expectStatus().isEqualTo(503)
+                .expectBody().jsonPath("$.error").isEqualTo("IDENTITY_UNAVAILABLE")
+        }
+        assertEquals(5, requestCounts[AUTHORITY]?.get())
+        client.get().uri("/api/application/protected").cookie("access_token", "identity-test-token")
+            .exchange().expectStatus().isEqualTo(503)
+        assertEquals(5, requestCounts[AUTHORITY]?.get())
+        assertEquals(null, requestCounts["/api/application/protected"])
+        // 인증 서킷은 실제 Identity 라우트와 별도이다.
+        client.get().uri("/api/identity/users").exchange().expectStatus().isOk
+    }
+
+    @Test
+    fun identity5xxOpensAuthCircuitButAuthenticationRejectionDoesNot() {
+        for (token in listOf("invalid-token", "forbidden-token")) {
+            repeat(6) {
+                client.get().uri("/api/application/protected").cookie("access_token", token)
+                    .exchange().expectStatus().isUnauthorized
+            }
+        }
+        assertEquals(12, requestCounts[AUTHORITY]?.get())
+        stateStore.clear()
+        requestCounts.clear()
+        repeat(5) {
+            client.get().uri("/api/application/protected").cookie("access_token", "failure-token")
+                .exchange().expectStatus().isEqualTo(503)
+        }
+        client.get().uri("/api/application/protected").cookie("access_token", "identity-test-token")
+            .exchange().expectStatus().isEqualTo(503)
+        assertEquals(5, requestCounts[AUTHORITY]?.get())
+    }
+
+    @Test
+    fun authenticationConnectionFailureIsNotRetriedAndOpensCircuit() {
+        repeat(6) {
+            client.get().uri("/api/application/protected").cookie("access_token", "disconnected-token")
+                .exchange().expectStatus().isEqualTo(503)
+                .expectBody().jsonPath("$.error").isEqualTo("IDENTITY_UNAVAILABLE")
+        }
+        assertEquals(5, requestCounts[AUTHORITY]?.get())
+    }
+
+    @Test
+    fun documentFailuresAreNotRetriedWhileOrdinaryGetIsRetried() {
+        for (path in listOf("/api/document/v11/applications/retry-failure", "/api/document/v11/files/retry-failure")) {
+            client.get().uri(path).exchange().expectStatus().isEqualTo(502)
+            assertEquals(1, requestCounts[path]?.get())
+        }
+        val ordinary = "/api/application/retry-failure"
+        client.get().uri(ordinary).exchange().expectStatus().isEqualTo(502)
+        assertEquals(3, requestCounts[ordinary]?.get())
     }
 
     @Configuration(proxyBeanMethods = false)
@@ -259,6 +325,8 @@ class GatewayProxyIntegrationTest {
     class TestApplication
 
     companion object {
+        private const val AUTHORITY = "/api/identity/v11/accounts/me/authority"
+        private val requestCounts = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
         private var downstream: DisposableServer? = null
         private var downstreamLoops: LoopResources? = null
 
@@ -270,20 +338,31 @@ class GatewayProxyIntegrationTest {
                 .port(0)
                 .runOn(LoopResources.create("gateway-review-downstream", 1, true).also { downstreamLoops = it })
                 .handle { request, response ->
-                    val isAuthorityRequest = request.uri() == "/api/identity/v11/accounts/me/authority"
+                    requestCounts.computeIfAbsent(request.uri()) { java.util.concurrent.atomic.AtomicInteger() }.incrementAndGet()
+                    val isAuthorityRequest = request.uri() == AUTHORITY
+                    val cookie = request.requestHeaders().get("Cookie").orEmpty()
+                    if (isAuthorityRequest && cookie.contains("access_token=disconnected-token")) {
+                        response.withConnection { it.dispose() }
+                        return@handle Mono.empty<Void>()
+                    }
+                    val delayedAuth = isAuthorityRequest && cookie.contains("access_token=delayed-token")
+                    val failedAuth = isAuthorityRequest && cookie.contains("access_token=failure-token")
                     val invalidToken = request.requestHeaders().get("Cookie")?.contains("access_token=invalid-token") == true
                     val body = if (isAuthorityRequest && !invalidToken) {
                         """{"success":true,"data":{"userId":"user_123","role":"ADMIN","status":"ACTIVE","isSensitiveAgree":true}}"""
                     } else {
                         "${request.method().name()} ${request.uri()}"
                     }
-                    val bodyPublisher = if (request.uri().contains("/timeout")) {
+                    val bodyPublisher = if (request.uri().contains("/timeout") || delayedAuth) {
                         Mono.just(body).delaySubscription(Duration.ofSeconds(3))
                     } else {
                         Mono.just(body)
                     }
                     val status = when {
                         isAuthorityRequest && invalidToken -> 401
+                        isAuthorityRequest && cookie.contains("access_token=forbidden-token") -> 403
+                        failedAuth -> 503
+                        request.uri().contains("retry-failure") -> 502
                         request.uri().contains("/failure") -> 500
                         else -> 200
                     }
@@ -314,8 +393,12 @@ class GatewayProxyIntegrationTest {
                             "X-Downstream-Sensitive-Agree",
                             request.requestHeaders().get("X-Sensitive-Agree") ?: "missing",
                         )
-                        .sendString(bodyPublisher)
-                        .then()
+                    if (isAuthorityRequest && cookie.contains("access_token=trickled-token")) {
+                        response.sendGroups(reactor.core.publisher.Flux.fromIterable(body.chunked(20))
+                            .delayElements(Duration.ofMillis(250))
+                            .map { chunk -> Mono.just(response.alloc().buffer().writeBytes(chunk.toByteArray())) })
+                            .then()
+                    } else response.sendString(bodyPublisher).then()
                 }
                 .bindNow()
                 .also { downstream = it }

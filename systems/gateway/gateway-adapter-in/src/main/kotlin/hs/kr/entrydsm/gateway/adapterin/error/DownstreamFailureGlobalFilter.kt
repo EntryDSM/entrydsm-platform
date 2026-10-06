@@ -15,5 +15,6 @@ class DownstreamFailureGlobalFilter(
     override fun filter(exchange: ServerWebExchange, chain: GatewayFilterChain): Mono<Void> =
         chain.filter(exchange).onErrorResume { error -> exceptionHandler.handle(exchange, error) }
 
-    override fun getOrder(): Int = Ordered.LOWEST_PRECEDENCE
+    // 재시도가 끝난 뒤에만 오류 응답을 확정한다.
+    override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE + 5
 }
