@@ -41,6 +41,8 @@ data class Applicant(
     val updatedAt: Instant? = null,
     val gender: Gender? = null,
     val address: String? = null,
+    /** 원본을 읽은 버전. 전형 저장 전에 잠근 원본과 비교해 오래된 산출 결과를 거부한다. */
+    val applicationVersion: Long? = null,
 ) {
     /** 서류에 찍는 접수 번호. 접수 순서인 [id] 를 네 자리로 채운다. 9999 번을 넘으면 자릿수가 늘어난다. */
     val receiptNumber: String get() = id.toString().padStart(4, '0')
@@ -60,6 +62,7 @@ data class ApplicantDetail(
     val studyPlan: String?,
     val score: ApplicantScore?,
     val gedScores: GedScores? = null,
+    val version: Long = 0,
 )
 
 data class ApplicantScore(
