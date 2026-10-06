@@ -20,14 +20,19 @@ class RedisAuthAttemptLimiter(
     @Value("\${auth.login.window-seconds:900}") private val loginWindowSeconds: Long,
     @Value("\${auth.password-reset.max-attempts:5}") private val resetMaxAttempts: Int,
     @Value("\${auth.password-reset.window-seconds:900}") private val resetWindowSeconds: Long,
+    @Value("\${auth.login.ip-max-attempts:50}") private val loginIpMaxAttempts: Int = 50,
 ) : AuthAttemptLimiter {
     init {
         require(namespace.isNotBlank() && issuer.isNotBlank())
-        require(loginMaxAttempts > 0 && resetMaxAttempts > 0)
+        require(loginIpMaxAttempts > 0 && loginMaxAttempts > 0 && resetMaxAttempts > 0)
         require(loginWindowSeconds > 0 && resetWindowSeconds > 0)
     }
 
-    override fun checkLogin(loginId: String) = check("login", loginId, loginMaxAttempts, loginWindowSeconds)
+    override fun checkLogin(loginId: String, clientIp: String) {
+        require(clientIp.isNotBlank())
+        check("login-ip", clientIp, loginIpMaxAttempts, loginWindowSeconds)
+        check("login", "$clientIp\u0000$loginId", loginMaxAttempts, loginWindowSeconds)
+    }
 
     override fun checkPasswordReset(loginId: String) = check("password-reset", loginId, resetMaxAttempts, resetWindowSeconds)
 

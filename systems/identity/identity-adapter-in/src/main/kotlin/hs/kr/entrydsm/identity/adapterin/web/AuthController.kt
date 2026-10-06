@@ -15,6 +15,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.result.AuthTokenResult
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import java.net.URI
+import jakarta.servlet.http.HttpServletRequest
 import jakarta.validation.Valid
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpHeaders
@@ -55,10 +56,15 @@ class AuthController(
     @PostMapping("/login")
     fun login(
         @Valid @RequestBody request: LoginRequest,
+        httpRequest: HttpServletRequest,
     ): ResponseEntity<ApiResponse<UserSummaryResponse>> {
         val result = authPort.login(
             LoginCommand(
                 loginId = request.loginId,
+                // Gateway가 외부 X-Real-IP를 제거하고 검증한 IP로 교체한다.
+                // Identity는 Gateway 뒤에서만 노출해야 하며 직접 요청은 remoteAddr을 사용한다.
+                clientIp = httpRequest.getHeader("X-Real-IP")?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: httpRequest.remoteAddr.orEmpty().ifBlank { "unknown" },
                 password = request.password,
             )
         )

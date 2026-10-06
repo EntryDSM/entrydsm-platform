@@ -92,7 +92,7 @@ class AuthService(
     override fun login(command: LoginCommand): AuthTokenResult {
         requireValidPassword(command.password)
         if (command.loginId.isBlank()) throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
-        authAttemptLimiter.checkLogin(command.loginId)
+        authAttemptLimiter.checkLogin(command.loginId, command.clientIp)
         val account = accountQueryPort.findByLoginId(command.loginId)
             ?: throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
         if (!passwordHasher.matches(command.password, account.passwordHash)) {
