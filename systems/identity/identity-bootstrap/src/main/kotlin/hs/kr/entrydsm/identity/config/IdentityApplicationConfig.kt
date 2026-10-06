@@ -5,6 +5,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.identity.application.port.`in`.PassPort
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
+import hs.kr.entrydsm.identity.application.port.out.AuthAttemptLimiter
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.ApplicationDataPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
@@ -59,6 +60,7 @@ class IdentityApplicationConfig {
         refreshTokenRevocationStore: RefreshTokenRevocationStore,
         passwordResetOwnershipVerifier: PasswordResetOwnershipVerifier,
         signupOwnershipVerifier: SignupOwnershipVerifier,
+        authAttemptLimiter: AuthAttemptLimiter,
         clock: Clock,
     ): AuthService =
         AuthService(
@@ -73,6 +75,7 @@ class IdentityApplicationConfig {
             clock,
             passwordResetOwnershipVerifier,
             signupOwnershipVerifier,
+            authAttemptLimiter,
         )
 
     @Bean
