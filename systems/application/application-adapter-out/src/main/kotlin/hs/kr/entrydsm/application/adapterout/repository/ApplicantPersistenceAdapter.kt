@@ -13,7 +13,10 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional
 class ApplicantPersistenceAdapter(
     private val applicantJpaRepository: ApplicantJpaRepository,
+    private val institutionCodes: InstitutionCodeJpaRepository,
 ) : ApplicantRepository {
+    override fun findForUpdate(id: Long): Applicant? = applicantJpaRepository.findForUpdate(id)?.toDomain()
+
     override fun save(applicant: Applicant): Applicant {
         val entity = if (applicant.id > 0) {
             applicantJpaRepository.findById(applicant.id)
@@ -23,6 +26,10 @@ class ApplicantPersistenceAdapter(
             ApplicantJpaEntity.from(applicant)
         }
 
+        // 학교 변경 직후에도 같은 트랜잭션의 문서·이벤트가 새 학교 소재지를 읽도록 연관을 갱신한다.
+        entity.middleSchoolInfo?.let { school ->
+            school.institutionCode = institutionCodes.getReferenceById(school.schoolCode)
+        }
         return applicantJpaRepository.saveAndFlush(entity).toDomain()
     }
 
@@ -48,6 +55,7 @@ class ApplicantPersistenceAdapter(
     override fun findSummariesByStatusIn(statuses: Set<ApplicantStatus>): List<ApplicantResult> =
         applicantJpaRepository.findSummariesByStatusIn(statuses).map {
             ApplicantResult(
+                statusVersion = it.statusVersion,
                 applicantId = it.id,
                 accountId = it.accountId,
                 name = it.name,
