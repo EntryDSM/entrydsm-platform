@@ -27,7 +27,8 @@ class JwtTokenVerifier(
         }
 
         val claims = signedJwt.payload
-        if (claims.issuer != issuer ||
+        if (claims[JwtTokenGenerator.TOKEN_VERSION_SOURCE_CLAIM] != JwtTokenGenerator.TOKEN_VERSION_SOURCE ||
+            claims.issuer != issuer ||
             claims[JwtTokenGenerator.TOKEN_TYPE_CLAIM] as? String != TokenType.REFRESH.claimValue
         ) {
             throw JwtTokenVerificationException(JwtTokenVerificationException.Reason.INVALID)

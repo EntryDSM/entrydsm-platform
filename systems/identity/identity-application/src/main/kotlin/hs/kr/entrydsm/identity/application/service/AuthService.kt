@@ -13,6 +13,7 @@ import hs.kr.entrydsm.identity.application.port.out.AccountAlreadyExistsExceptio
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
+import hs.kr.entrydsm.identity.application.port.out.AuthAttemptLimiter
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
 import hs.kr.entrydsm.identity.application.port.out.PasswordResetOwnershipVerifier
 import hs.kr.entrydsm.identity.application.port.out.PassProofStoreUnavailableException
@@ -44,6 +45,7 @@ class AuthService(
     private val clock: Clock,
     private val passwordResetOwnershipVerifier: PasswordResetOwnershipVerifier,
     private val signupOwnershipVerifier: SignupOwnershipVerifier,
+    private val authAttemptLimiter: AuthAttemptLimiter,
 ) : AuthPort {
     override fun signup(command: SignupCommand): AccountResult {
         requireValidSignup(command)
@@ -90,6 +92,7 @@ class AuthService(
     override fun login(command: LoginCommand): AuthTokenResult {
         requireValidPassword(command.password)
         if (command.loginId.isBlank()) throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
+        authAttemptLimiter.checkLogin(command.loginId)
         val account = accountQueryPort.findByLoginId(command.loginId)
             ?: throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
         if (!passwordHasher.matches(command.password, account.passwordHash)) {
@@ -98,7 +101,7 @@ class AuthService(
         if (account.status != AccountStatus.ACTIVE) {
             throw IdentityDomainException(ErrorCode.ACCOUNT_INACTIVE)
         }
-        return issueTokens(account.userId, account.role, account.status)
+        return issueTokens(account.userId, account.role, account.status, account.tokenVersion)
     }
 
     override fun logout(command: LogoutCommand) {
@@ -124,7 +127,7 @@ class AuthService(
         if (account.status != AccountStatus.ACTIVE) {
             throw IdentityDomainException(ErrorCode.ACCOUNT_INACTIVE)
         }
-        val currentVersion = refreshTokenState { refreshTokenRevocationStore.currentVersion(verifiedToken.userId) }
+        val currentVersion = account.tokenVersion
         if (verifiedToken.tokenVersion != currentVersion) {
             throw IdentityDomainException(ErrorCode.INVALID_REFRESH_TOKEN)
         }
@@ -147,6 +150,7 @@ class AuthService(
             throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
         }
         requireValidPassword(command.newPassword)
+        authAttemptLimiter.checkPasswordReset(command.loginId)
         try {
             if (!passwordResetOwnershipVerifier.verify(command)) {
                 throw IdentityDomainException(ErrorCode.PASS_PROOF_NOT_FOUND)
@@ -159,10 +163,14 @@ class AuthService(
         if (account.profile.name != command.name || account.profile.birthdate != command.birthdate) {
             throw IdentityDomainException(ErrorCode.USER_NOT_FOUND)
         }
+        if (passwordHasher.matches(command.newPassword, account.passwordHash)) {
+            throw IdentityDomainException(ErrorCode.PASSWORD_SAME_AS_OLD)
+        }
         val passwordHash = passwordHasher.hash(command.newPassword)
-        revokeRefreshTokens(account.userId)
-        account.changePassword(passwordHash, now())
-        accountCommandPort.save(account)
+        if (passwordHash == account.passwordHash) {
+            throw IdentityDomainException(ErrorCode.PASSWORD_SAME_AS_OLD)
+        }
+        accountCommandPort.changePasswordAndRevoke(account.userId, account.passwordHash, passwordHash)
     }
 
     private fun now(): Instant = Instant.now(clock)
@@ -171,10 +179,9 @@ class AuthService(
         userId: Long,
         role: Role,
         status: AccountStatus,
-        tokenVersion: Long? = null,
+        tokenVersion: Long,
     ): AuthTokenResult {
         val currentTokenVersion = tokenVersion
-            ?: refreshTokenState { refreshTokenRevocationStore.currentVersion(userId) }
         return AuthTokenResult(
             userId = userId,
             role = role,
