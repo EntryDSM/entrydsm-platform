@@ -5,8 +5,6 @@ import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import hs.kr.entrydsm.identity.application.security.AuthenticatedUser
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
-import hs.kr.entrydsm.identity.application.port.out.RefreshTokenStoreUnavailableException
-import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
 import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
 import hs.kr.entrydsm.identity.application.web.AuthEndpointPaths
 import hs.kr.entrydsm.identity.domain.enum.AccountStatus
@@ -23,6 +21,7 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.security.web.AuthenticationEntryPoint
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
+import org.springframework.dao.DataAccessException
 import org.slf4j.LoggerFactory
 
 @Component
@@ -31,7 +30,6 @@ class JwtFilter(
     private val clock: Clock,
     private val authenticationEntryPoint: AuthenticationEntryPoint,
     private val accountQueryPort: AccountQueryPort,
-    private val refreshTokenRevocationStore: RefreshTokenRevocationStore,
 ) : OncePerRequestFilter() {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val secretBytes = jwtProperties.secret.toByteArray(StandardCharsets.UTF_8)
@@ -69,10 +67,10 @@ class JwtFilter(
                 response,
                 BadCredentialsException("Invalid JWT", exception),
             )
-        } catch (exception: RefreshTokenStoreUnavailableException) {
+        } catch (exception: DataAccessException) {
             SecurityContextHolder.clearContext()
-            logger.warn("Redis unavailable while validating access token", exception)
-            RedisUnavailableResponseWriter.write(response)
+            logger.warn("DB unavailable while validating access token", exception)
+            RedisUnavailableResponseWriter.write(response, "AUTH_STATE_UNAVAILABLE")
         }
     }
 
@@ -97,6 +95,7 @@ class JwtFilter(
         if (signedJwt.header.algorithm != Jwts.SIG.HS256.id) throw JwtValidationException()
 
         val claims = signedJwt.payload
+        if (claims[JwtTokenGenerator.TOKEN_VERSION_SOURCE_CLAIM] != JwtTokenGenerator.TOKEN_VERSION_SOURCE) throw JwtValidationException()
         if (claims.issuer != jwtProperties.issuer) throw JwtValidationException()
         if (claims[JwtTokenGenerator.TOKEN_TYPE_CLAIM] as? String != ACCESS_TOKEN_TYPE) {
             throw JwtValidationException()
@@ -115,10 +114,8 @@ class JwtFilter(
             ?.toLong()
             ?.takeIf { it >= JwtTokenGenerator.INITIAL_TOKEN_VERSION }
             ?: throw JwtValidationException()
-        if (refreshTokenRevocationStore.currentVersion(userId) != tokenVersion) {
-            throw JwtValidationException()
-        }
         val account = accountQueryPort.findByUserId(userId) ?: throw JwtValidationException()
+        if (account.tokenVersion != tokenVersion) throw JwtValidationException()
         if (account.status != AccountStatus.ACTIVE) throw JwtValidationException()
         AuthenticatedUser(userId)
     } catch (exception: JwtValidationException) {

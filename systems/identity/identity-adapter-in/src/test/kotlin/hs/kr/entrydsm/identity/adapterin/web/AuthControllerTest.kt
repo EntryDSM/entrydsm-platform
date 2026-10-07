@@ -65,7 +65,7 @@ class AuthControllerTest {
         val authPort = FakeAuthPort()
         val controller = AuthController(authPort)
 
-        val response = controller.login(LoginRequest(loginId = "entry", password = "password123!"))
+        val response = controller.login(LoginRequest(loginId = "entry", password = "password123!"), httpRequest())
 
         val command = requireNotNull(authPort.loginCommand)
         val cookies = response.headers[HttpHeaders.SET_COOKIE].orEmpty()
@@ -78,14 +78,25 @@ class AuthControllerTest {
     }
 
     @Test
+    fun loginUsesGatewayClientIpAndFallsBackToPeerWithoutForwardedHeader() {
+        val authPort = FakeAuthPort()
+        val controller = AuthController(authPort)
+        val request = httpRequest()
+        controller.login(LoginRequest("entry", "password123!"), request)
+        assertEquals("192.0.2.10", authPort.loginCommand?.clientIp)
+        controller.login(LoginRequest("entry", "password123!"), httpRequest("192.0.2.20"))
+        assertEquals("192.0.2.20", authPort.loginCommand?.clientIp)
+    }
+
+    @Test
     fun cookieSecureAttributeFollowsEnvironmentSetting() {
         val response = AuthController(FakeAuthPort(), false)
-            .login(LoginRequest(loginId = "entry", password = "password123!"))
+            .login(LoginRequest(loginId = "entry", password = "password123!"), httpRequest())
 
         assertTrue(response.headers[HttpHeaders.SET_COOKIE].orEmpty().none { it.contains("Secure") })
 
         val secureResponse = AuthController(FakeAuthPort(), true)
-            .login(LoginRequest(loginId = "entry", password = "password123!"))
+            .login(LoginRequest(loginId = "entry", password = "password123!"), httpRequest())
 
         assertTrue(secureResponse.headers[HttpHeaders.SET_COOKIE].orEmpty().all { it.contains("Secure") })
     }
@@ -188,6 +199,16 @@ class AuthControllerTest {
             ).toString().contains("홍길동")
         )
     }
+
+    private fun httpRequest(realIp: String? = null): jakarta.servlet.http.HttpServletRequest =
+        java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader,
+            arrayOf(jakarta.servlet.http.HttpServletRequest::class.java)) { _, method, args ->
+            when (method.name) {
+                "getRemoteAddr" -> "192.0.2.10"
+                "getHeader" -> if (args?.first() == "X-Real-IP") realIp else "192.0.2.99"
+                else -> error("unexpected request method: ${method.name}")
+            }
+        } as jakarta.servlet.http.HttpServletRequest
 
     private class FakeAuthPort : AuthPort {
         var signupCommand: SignupCommand? = null

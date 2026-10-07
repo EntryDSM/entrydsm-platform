@@ -42,6 +42,56 @@ import org.junit.Test
 
 class AdminApplicationModuleTest {
     @Test
+    fun residenceStatisticsRecognizeOfficialShortAndPreviousProvinceNames() {
+        val names = listOf(
+            Triple(ResidenceRegion.SEOUL, "서울특별시", "서울"),
+            Triple(ResidenceRegion.BUSAN, "부산광역시", "부산"),
+            Triple(ResidenceRegion.DAEGU, "대구광역시", "대구"),
+            Triple(ResidenceRegion.INCHEON, "인천광역시", "인천"),
+            Triple(ResidenceRegion.GWANGJU, "광주광역시", "광주"),
+            Triple(ResidenceRegion.DAEJEON, "대전광역시", "대전"),
+            Triple(ResidenceRegion.ULSAN, "울산광역시", "울산"),
+            Triple(ResidenceRegion.SEJONG, "세종특별자치시", "세종"),
+            Triple(ResidenceRegion.GYEONGGI, "경기도", "경기"),
+            Triple(ResidenceRegion.GANGWON, "강원특별자치도", "강원"),
+            Triple(ResidenceRegion.CHUNGBUK, "충청북도", "충북"),
+            Triple(ResidenceRegion.CHUNGNAM, "충청남도", "충남"),
+            Triple(ResidenceRegion.JEONBUK, "전북특별자치도", "전북"),
+            Triple(ResidenceRegion.JEONNAM, "전라남도", "전남"),
+            Triple(ResidenceRegion.GYEONGBUK, "경상북도", "경북"),
+            Triple(ResidenceRegion.GYEONGNAM, "경상남도", "경남"),
+            Triple(ResidenceRegion.JEJU, "제주특별자치도", "제주"),
+        )
+        val cases = names.flatMap { (region, official, short) ->
+            listOf(official to region, "  $short\t상세주소 서울특별시  " to region)
+        } + listOf(
+            "강원도 춘천시" to ResidenceRegion.GANGWON,
+            "전라북도 전주시" to ResidenceRegion.JEONBUK,
+            "제주도 제주시" to ResidenceRegion.JEJU,
+            null to ResidenceRegion.ETC,
+            "" to ResidenceRegion.ETC,
+            " \t " to ResidenceRegion.ETC,
+            "알수없음 서울특별시" to ResidenceRegion.ETC,
+            "서울로 123" to ResidenceRegion.ETC,
+        )
+        cases.forEach { (address, expected) ->
+            val applicants = listOf(Applicant(id = 1L, region = Region.NATIONWIDE, address = address))
+            val service = StatisticsService(
+                applicantRepository = repository(ApplicantRepository::class.java, "findAll" to applicants),
+                admissionQuotaRepository = repository(AdmissionQuotaRepository::class.java, "find" to AdmissionQuota(
+                    quotas = AdmissionType.entries.associateWith { 0 }, updatedAt = Instant.EPOCH, updatedBy = "test",
+                )),
+                clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+                firstPassMultiplier = 1.5,
+            )
+            val result = requireNotNull(service.collect(setOf(StatisticsMetric.REGION_DISTRIBUTION)).regionDistribution)
+            assertEquals("address=$address", mapOf(expected to 1L), result.byRegion)
+            assertEquals(mapOf("NATIONWIDE" to 1L), result.byScope)
+            assertEquals(result.total, result.byRegion.values.sum())
+        }
+    }
+
+    @Test
     fun moduleLoads() {
         assertTrue(true)
     }

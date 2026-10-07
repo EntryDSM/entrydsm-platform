@@ -6,6 +6,7 @@ import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
 import hs.kr.entrydsm.identity.application.port.out.AccountRepository
 import hs.kr.entrydsm.identity.domain.model.Account
 import java.time.Instant
+import hs.kr.entrydsm.identity.domain.model.PasswordHash
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.context.annotation.Primary
 import org.springframework.context.annotation.Profile
@@ -19,6 +20,9 @@ class AccountCommandPersistenceAdapter(
 ) : AccountCommandPort {
     override fun save(account: Account): Account =
         accountRepository.save(account)
+
+    override fun changePasswordAndRevoke(userId: Long, expectedPasswordHash: PasswordHash, newPasswordHash: PasswordHash) =
+        accountRepository.changePasswordAndRevoke(userId, expectedPasswordHash, newPasswordHash)
 
     override fun register(registration: AccountRegistration, createdAt: Instant): Account = try {
         accountRepository.register(registration, createdAt)

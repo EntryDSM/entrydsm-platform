@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 
+@org.hibernate.annotations.DynamicUpdate
 @Entity
 @Table(name = "accounts")
 open class AccountJpaEntity(
@@ -39,4 +40,6 @@ open class AccountJpaEntity(
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
     var status: AccountStatus = AccountStatus.ACTIVE,
+    @Column(name = "token_version", nullable = false)
+    var tokenVersion: Long = 0L,
 ) : BaseTimeEntity()

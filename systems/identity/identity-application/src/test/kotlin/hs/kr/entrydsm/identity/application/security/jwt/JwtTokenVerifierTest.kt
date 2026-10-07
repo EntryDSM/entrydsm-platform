@@ -51,6 +51,21 @@ class JwtTokenVerifierTest {
         assertEquals(JwtTokenVerificationException.Reason.EXPIRED, thrown?.reason)
     }
 
+    @Test
+    fun rejectsLegacyRedisVersionToken() {
+        val token = io.jsonwebtoken.Jwts.builder()
+            .issuer(ISSUER).subject("user_123").id("legacy-token")
+            .claim(JwtTokenGenerator.TOKEN_TYPE_CLAIM, "refresh")
+            .claim(JwtTokenGenerator.TOKEN_VERSION_CLAIM, 0L)
+            .expiration(java.util.Date.from(NOW.plusSeconds(60)))
+            .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(SECRET.toByteArray()), io.jsonwebtoken.Jwts.SIG.HS256)
+            .compact()
+        val thrown = org.junit.Assert.assertThrows(JwtTokenVerificationException::class.java) {
+            JwtTokenVerifier(SECRET, ISSUER, Clock.fixed(NOW, UTC)).verifyRefreshToken(token)
+        }
+        assertEquals(JwtTokenVerificationException.Reason.INVALID, thrown.reason)
+    }
+
     private fun generator(secret: String = SECRET): JwtTokenGenerator = JwtTokenGenerator(
         secret = secret,
         issuer = ISSUER,

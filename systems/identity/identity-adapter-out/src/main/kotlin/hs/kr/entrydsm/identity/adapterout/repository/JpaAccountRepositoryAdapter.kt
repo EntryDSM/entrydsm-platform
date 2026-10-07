@@ -9,6 +9,10 @@ import hs.kr.entrydsm.identity.application.port.out.PersonalDataEncryptor
 import hs.kr.entrydsm.identity.domain.model.Account
 import hs.kr.entrydsm.identity.domain.model.StudentProfile
 import java.time.Instant
+import hs.kr.entrydsm.identity.application.port.out.RefreshTokenRevocationStore
+import hs.kr.entrydsm.identity.domain.model.PasswordHash
+import hs.kr.entrydsm.identity.domain.enum.ErrorCode
+import hs.kr.entrydsm.identity.domain.exception.IdentityDomainException
 import org.springframework.stereotype.Repository
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.context.annotation.Profile
@@ -21,7 +25,20 @@ class JpaAccountRepositoryAdapter(
     private val studentProfileJpaRepository: StudentProfileJpaRepository,
     private val loginIdHasher: LoginIdHasher,
     private val personalDataEncryptor: PersonalDataEncryptor,
-) : AccountRepository {
+) : AccountRepository, RefreshTokenRevocationStore {
+    override fun revokeAll(userId: Long) {
+        if (accountJpaRepository.revokeTokens(userId, Instant.now()) != 1) {
+            throw IdentityDomainException(ErrorCode.AUTH_UNAUTHORIZED)
+        }
+    }
+
+    override fun changePasswordAndRevoke(userId: Long, expectedPasswordHash: PasswordHash, newPasswordHash: PasswordHash) {
+        if (expectedPasswordHash == newPasswordHash) throw IdentityDomainException(ErrorCode.PASSWORD_SAME_AS_OLD)
+        if (accountJpaRepository.changePasswordAndRevoke(userId, expectedPasswordHash.value, newPasswordHash.value, Instant.now()) != 1) {
+            throw IdentityDomainException(ErrorCode.ACCOUNT_CHANGED)
+        }
+    }
+
     override fun findByLoginId(loginId: String): Account? {
         val hashedLoginId = loginIdHasher.hash(loginId)
         return accountJpaRepository.findByLoginIdHash(hashedLoginId)?.toDomainIfCurrent()
@@ -47,7 +64,6 @@ class JpaAccountRepositoryAdapter(
             existing.apply {
                 loginIdHash = hashedLoginId
                 loginIdEncrypted = personalDataEncryptor.encrypt(account.loginId)
-                passwordHash = account.passwordHash.value
                 isSensitiveAgree = account.isSensitiveAgree
                 status = account.status
             }
@@ -116,6 +132,7 @@ class JpaAccountRepositoryAdapter(
             profile = resolvedProfile.toDomain(updatedAt),
             createdAt = createdAt,
             updatedAt = updatedAt,
+            tokenVersion = tokenVersion,
         )
     }
 

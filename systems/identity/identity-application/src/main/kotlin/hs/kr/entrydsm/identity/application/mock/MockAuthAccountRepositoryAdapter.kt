@@ -18,6 +18,14 @@ class MockAuthAccountRepositoryAdapter : AccountRepository {
 
     override fun findByUserId(userId: Long): Account? = accountsById[userId]
 
+    override fun changePasswordAndRevoke(userId: Long, expectedPasswordHash: hs.kr.entrydsm.identity.domain.model.PasswordHash, newPasswordHash: hs.kr.entrydsm.identity.domain.model.PasswordHash) {
+        synchronized(this) {
+            val account = requireNotNull(findByUserId(userId))
+            check(account.passwordHash == expectedPasswordHash)
+            account.changePassword(newPasswordHash, Instant.now())
+        }
+    }
+
     override fun save(account: Account): Account {
         accountsById[account.userId] = account
         accountsByLoginId[account.loginId] = account

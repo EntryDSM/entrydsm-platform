@@ -1,8 +1,6 @@
 package hs.kr.entrydsm.identity.application.port.out
 
-/** Stores the current refresh-token version for each user. */
+/** 계정의 DB 토큰 버전을 증가시켜 기존 액세스·리프레시 토큰을 폐기한다. */
 interface RefreshTokenRevocationStore {
-    fun currentVersion(userId: Long): Long
-
     fun revokeAll(userId: Long)
 }

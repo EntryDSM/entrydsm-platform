@@ -17,7 +17,11 @@ class Account(
     val profile: StudentProfile,
     val createdAt: Instant,
     updatedAt: Instant,
+    tokenVersion: Long = 0L,
 ) {
+    var tokenVersion: Long = tokenVersion
+        private set
+
     var passwordHash: PasswordHash = passwordHash
         private set
 
@@ -34,6 +38,7 @@ class Account(
         if (passwordHash == newPasswordHash) {
             throw IdentityDomainException(ErrorCode.PASSWORD_SAME_AS_OLD)
         }
+        tokenVersion = Math.addExact(tokenVersion, 1L)
         passwordHash = newPasswordHash
         updatedAt = now
     }
@@ -70,6 +75,7 @@ class Account(
             profile: StudentProfile,
             createdAt: Instant,
             updatedAt: Instant,
+            tokenVersion: Long = 0L,
         ): Account = Account(
             userId = userId,
             loginId = loginId,
@@ -80,6 +86,7 @@ class Account(
             profile = profile,
             createdAt = createdAt,
             updatedAt = updatedAt,
+            tokenVersion = tokenVersion,
         )
     }
 }

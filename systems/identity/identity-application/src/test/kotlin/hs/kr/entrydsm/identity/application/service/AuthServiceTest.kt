@@ -8,6 +8,7 @@ import hs.kr.entrydsm.identity.application.port.`in`.command.SignupCommand
 import hs.kr.entrydsm.identity.application.port.out.AccountCommandPort
 import hs.kr.entrydsm.identity.application.port.out.AccountAlreadyExistsException
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistration
+import hs.kr.entrydsm.identity.application.port.out.AuthAttemptLimiter
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
 import hs.kr.entrydsm.identity.application.port.out.AccountRegistrationPort
 import hs.kr.entrydsm.identity.application.port.out.PasswordHasher
@@ -228,6 +229,16 @@ class AuthServiceTest {
         assertEquals(123L, result.userId)
     }
 
+    @Test
+    fun loginUsesTheVersionLoadedWithTheAccount() {
+        refreshTokenVersions[123L] = 3L
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account())
+        `when`(passwordHasher.matches("password123!", PASSWORD_HASH)).thenReturn(true)
+        val result = service().login(LoginCommand("entry", "password123!"))
+        val verified = JwtTokenVerifier(SECRET, ISSUER, clock).verifyRefreshToken(result.refreshToken.value)
+        assertEquals(3L, verified.tokenVersion)
+    }
+
     @Test(expected = IdentityDomainException::class)
     fun invalidPasswordCannotLogin() {
         `when`(queryPort.findByLoginId("entry")).thenReturn(account())
@@ -347,7 +358,7 @@ class AuthServiceTest {
         `when`(queryPort.findByLoginId("entry")).thenReturn(account)
         `when`(passwordHasher.hash("new-password")).thenReturn(NEW_PASSWORD_HASH)
         val failure = IllegalStateException("save failed")
-        doThrow(failure).`when`(commandPort).save(account)
+        doThrow(failure).`when`(commandPort).changePasswordAndRevoke(123L, PASSWORD_HASH, NEW_PASSWORD_HASH)
 
         try {
             service().resetPassword(
@@ -355,31 +366,11 @@ class AuthServiceTest {
             )
         } catch (exception: IllegalStateException) {
             assertSame(failure, exception)
+            assertEquals(PASSWORD_HASH, account.passwordHash)
+            assertTrue(refreshTokenVersions.isEmpty())
             return
         }
         throw AssertionError("account save failure must be propagated")
-    }
-
-    @Test
-    fun passwordResetDoesNotSaveWhenRefreshTokenRevocationFails() {
-        val account = account()
-        `when`(queryPort.findByLoginId("entry")).thenReturn(account)
-        `when`(passwordHasher.hash("new-password")).thenReturn(NEW_PASSWORD_HASH)
-        val failure = IllegalStateException("redis unavailable")
-        val revocationStore = mock(RefreshTokenRevocationStore::class.java)
-        doThrow(failure).`when`(revocationStore).revokeAll(123L)
-
-        try {
-            service(revocationStore = revocationStore).resetPassword(
-                PasswordResetCommand("entry", "홍길동", BIRTHDATE, "new-password")
-            )
-        } catch (exception: IllegalStateException) {
-            assertSame(failure, exception)
-            assertEquals(PASSWORD_HASH, account.passwordHash)
-            org.mockito.Mockito.verifyNoInteractions(commandPort)
-            return
-        }
-        throw AssertionError("refresh-token revocation failure must prevent account save")
     }
 
     @Test
@@ -399,16 +390,74 @@ class AuthServiceTest {
         assertEquals(ErrorCode.PASS_PROOF_STORE_UNAVAILABLE, thrown?.errorCode)
     }
 
+    @Test
+    fun samePasswordDoesNotHashSaveOrRevokeTokens() {
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account())
+        `when`(passwordHasher.matches("old-password", PASSWORD_HASH)).thenReturn(true)
+        val thrown = org.junit.Assert.assertThrows(IdentityDomainException::class.java) {
+            service().resetPassword(PasswordResetCommand("entry", "홍길동", BIRTHDATE, "old-password"))
+        }
+        assertEquals(ErrorCode.PASSWORD_SAME_AS_OLD, thrown.errorCode)
+        org.mockito.Mockito.verify(passwordHasher, org.mockito.Mockito.never()).hash("old-password")
+        org.mockito.Mockito.verifyNoInteractions(commandPort)
+        assertEquals(emptyMap<Long, Long>(), refreshTokenVersions)
+    }
+
+    @Test
+    fun differentPasswordUsesAtomicDatabaseUpdateWithoutRedisRevocation() {
+        val account = account()
+        val revocationStore = mock(RefreshTokenRevocationStore::class.java)
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account)
+        `when`(passwordHasher.hash("new-password")).thenReturn(NEW_PASSWORD_HASH)
+        service(revocationStore = revocationStore).resetPassword(
+            PasswordResetCommand("entry", "홍길동", BIRTHDATE, "new-password"),
+        )
+        org.mockito.Mockito.verify(commandPort).changePasswordAndRevoke(123L, PASSWORD_HASH, NEW_PASSWORD_HASH)
+        org.mockito.Mockito.verifyNoInteractions(revocationStore)
+        org.mockito.Mockito.verify(commandPort, org.mockito.Mockito.never()).save(account)
+    }
+
+    @Test
+    fun unchangedHashIsRejectedBeforeRefreshTokenRevocation() {
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account())
+        `when`(passwordHasher.hash("new-password")).thenReturn(PASSWORD_HASH)
+        val thrown = assertThrows(IdentityDomainException::class.java) {
+            service().resetPassword(PasswordResetCommand("entry", "홍길동", BIRTHDATE, "new-password"))
+        }
+        assertEquals(ErrorCode.PASSWORD_SAME_AS_OLD, thrown.errorCode)
+        org.mockito.Mockito.verifyNoInteractions(commandPort)
+        assertTrue(refreshTokenVersions.isEmpty())
+    }
+
+    @Test
+    fun attemptLimitRejectsLoginAndResetBeforeAccountOrProofLookup() {
+        val limiter = mock(AuthAttemptLimiter::class.java)
+        val proofVerifier = mock(PasswordResetOwnershipVerifier::class.java)
+        doThrow(IdentityDomainException(ErrorCode.AUTH_ATTEMPTS_EXCEEDED)).`when`(limiter).checkLogin("entry", "unknown")
+        doThrow(IdentityDomainException(ErrorCode.AUTH_ATTEMPTS_EXCEEDED)).`when`(limiter).checkPasswordReset("entry")
+        val auth = service(limiter = limiter, passwordResetOwnershipVerifier = proofVerifier)
+        val login = org.junit.Assert.assertThrows(IdentityDomainException::class.java) {
+            auth.login(LoginCommand("entry", "password123!"))
+        }
+        val reset = org.junit.Assert.assertThrows(IdentityDomainException::class.java) {
+            auth.resetPassword(PasswordResetCommand("entry", "홍길동", BIRTHDATE, "new-password"))
+        }
+        assertEquals(429, login.errorCode.status)
+        assertEquals(429, reset.errorCode.status)
+        org.mockito.Mockito.verifyNoInteractions(queryPort, commandPort, passwordHasher, proofVerifier)
+        assertEquals(emptyMap<Long, Long>(), refreshTokenVersions)
+    }
+
     private fun service(
         registration: AccountRegistrationPort = AccountRegistrationPort { _, _ -> account() },
+        limiter: AuthAttemptLimiter = mock(AuthAttemptLimiter::class.java),
         clock: Clock = this.clock,
         signupOwnershipVerifier: SignupOwnershipVerifier = SignupOwnershipVerifier { true },
         passwordResetOwnershipVerifier: PasswordResetOwnershipVerifier = PasswordResetOwnershipVerifier { true },
         revocationStore: RefreshTokenRevocationStore = object : RefreshTokenRevocationStore {
-            override fun currentVersion(userId: Long): Long = refreshTokenVersions[userId] ?: 0L
-
             override fun revokeAll(userId: Long) {
-                refreshTokenVersions[userId] = currentVersion(userId) + 1
+                refreshTokenVersions[userId] = (refreshTokenVersions[userId] ?: 0L) + 1
+                `when`(queryPort.findByUserId(userId)).thenReturn(account())
             }
         },
     ): AuthService = AuthService(
@@ -425,6 +474,7 @@ class AuthServiceTest {
         clock = clock,
         passwordResetOwnershipVerifier = passwordResetOwnershipVerifier,
         signupOwnershipVerifier = signupOwnershipVerifier,
+        authAttemptLimiter = limiter,
     )
 
     private fun account(status: AccountStatus = AccountStatus.ACTIVE, role: Role = Role.USER): Account {
@@ -444,6 +494,7 @@ class AuthServiceTest {
             ),
             createdAt = NOW,
             updatedAt = NOW,
+            tokenVersion = refreshTokenVersions[123L] ?: 0L,
         )
     }
 
