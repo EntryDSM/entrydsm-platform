@@ -1,10 +1,18 @@
 package hs.kr.entrydsm.gateway.adapterin.filter
 
 import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayServiceProperties
+import hs.kr.entrydsm.gateway.adapterin.configuration.DownstreamClientPolicy
+import hs.kr.entrydsm.gateway.adapterin.configuration.GatewayRuntimeProperties
 import hs.kr.entrydsm.gateway.adapterin.error.GatewayErrorResponseWriter
+import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayCircuitStateStore
+import hs.kr.entrydsm.gateway.adapterin.resilience.GatewayCircuitPermit
 import hs.kr.entrydsm.gateway.domain.GatewayService
 import io.netty.util.NetUtil
 import java.net.InetAddress
+import java.time.Duration
+import io.netty.channel.ChannelOption
+import reactor.netty.http.client.HttpClient
+import org.springframework.http.client.reactive.ReactorClientHttpConnector
 import org.springframework.cloud.gateway.filter.GatewayFilterChain
 import org.springframework.cloud.gateway.filter.GlobalFilter
 import org.springframework.core.Ordered
@@ -23,8 +31,19 @@ class GatewayAccessGlobalFilter(
     properties: GatewayServiceProperties,
     private val responseWriter: GatewayErrorResponseWriter,
     private val objectMapper: ObjectMapper,
+    clientPolicy: DownstreamClientPolicy,
+    runtime: GatewayRuntimeProperties,
+    private val stateStore: GatewayCircuitStateStore,
 ) : GlobalFilter, Ordered {
-    private val identityClient = WebClient.builder().baseUrl(properties.identity.toString()).build()
+    private val circuitPolicy = runtime.resilience
+    private val timeout = Duration.ofMillis(clientPolicy.responseTimeoutMillis)
+    private val identityClient = WebClient.builder()
+        .baseUrl(properties.identity.toString())
+        .clientConnector(ReactorClientHttpConnector(HttpClient.create()
+            .disableRetry(true)
+            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, clientPolicy.connectTimeoutMillis)
+            .responseTimeout(timeout)))
+        .build()
 
     override fun filter(exchange: ServerWebExchange, chain: GatewayFilterChain): Mono<Void> {
         val request = exchange.request
@@ -83,22 +102,43 @@ class GatewayAccessGlobalFilter(
 
     override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE + 10
 
-    private fun authenticate(cookie: String?): Mono<AuthenticationResult> =
-        identityClient.get()
-            .uri(AUTHORITY_PATH)
-            .headers { headers ->
-                cookie?.let { headers.set(HttpHeaders.COOKIE, it) }
-            }
-            .exchangeToMono { response ->
-                when {
-                    response.statusCode().is2xxSuccessful -> response.bodyToMono(String::class.java)
-                        .map(::parseAuthenticationResult)
-
-                    response.statusCode().value() in 400..499 -> Mono.just(AuthenticationResult.Unauthorized)
-                    else -> Mono.just(AuthenticationResult.Unavailable)
+    private fun authenticate(cookie: String?): Mono<AuthenticationResult> = Mono.usingWhen(
+        stateStore.tryAcquire(AUTH_CIRCUIT, circuitPolicy)
+            .timeout(timeout)
+            .onErrorReturn(GatewayCircuitPermit(allowed = true, halfOpen = false)),
+        { permit ->
+            if (!permit.allowed) Mono.just(AuthenticationResult.Unavailable)
+            else identityClient.get()
+                .uri(AUTHORITY_PATH)
+                .headers { headers -> cookie?.let { headers.set(HttpHeaders.COOKIE, it) } }
+                .exchangeToMono { response ->
+                    when {
+                        response.statusCode().is2xxSuccessful -> response.bodyToMono(String::class.java)
+                            .map(::parseAuthenticationResult)
+                        response.statusCode().value() in listOf(401, 403) -> Mono.just(AuthenticationResult.Unauthorized)
+                        else -> Mono.just(AuthenticationResult.Unavailable)
+                    }
                 }
-            }
-            .onErrorReturn(AuthenticationResult.Unavailable)
+                .timeout(timeout)
+                .defaultIfEmpty(AuthenticationResult.Unavailable)
+                .onErrorReturn(AuthenticationResult.Unavailable)
+                .flatMap { result ->
+                    stateStore.record(AUTH_CIRCUIT, result == AuthenticationResult.Unavailable,
+                        permit.halfOpen, circuitPolicy, permit.permitId)
+                        .timeout(timeout)
+                        .onErrorResume { Mono.empty() }
+                        .thenReturn(result)
+                }
+        },
+        { permit -> releaseAuthPermit(permit) },
+        { permit, _ -> releaseAuthPermit(permit) },
+        { permit -> releaseAuthPermit(permit) },
+    )
+
+    private fun releaseAuthPermit(permit: GatewayCircuitPermit): Mono<Void> =
+        if (permit.halfOpen) stateStore.releaseHalfOpen(AUTH_CIRCUIT, permit.permitId)
+            .timeout(timeout).onErrorResume { Mono.empty() }
+        else Mono.empty()
 
     private fun parseAuthenticationResult(body: String): AuthenticationResult = runCatching {
         val data = objectMapper.readTree(body).path("data")
@@ -165,6 +205,7 @@ class GatewayAccessGlobalFilter(
         const val USER_ROLE_HEADER = "X-User-Role"
         const val APPLICATION_USER_ID_HEADER = "user-id"
         const val SENSITIVE_AGREE_HEADER = "X-Sensitive-Agree"
+        const val AUTH_CIRCUIT = "identity-auth"
         const val CLIENT_IP_HEADER = "X-Real-IP"
         const val FORWARDED_FOR_HEADER = "X-Forwarded-For"
         val TRUSTED_HEADERS = setOf(
