@@ -26,6 +26,7 @@ class ScoreCalculator {
      *
      * 1차 전형 점수
      *   = 교과성적(80점) × 전형 비율 + 출석 점수(15점) + 봉사활동 점수(15점) + 가산점
+     * 검정고시는 출석·봉사를 제외하고 과목별 환산점 평균 × 34(일반) 또는 22(특별) + 가산점.
      *
      * 교과성적과 그 이전 단계는 반올림하지 않고, 전형 비율을 곱한 합계만
      * 반올림하여 소수 셋째 자리까지 구한다.
@@ -60,21 +61,21 @@ class ScoreCalculator {
 
         /*
          * 검정고시 합격자는 출결·봉사활동 기록이 없다.
-         * 요강은 "별도의 환산 점수를 반영한다"고만 정하므로,
-         * 두 항목의 30점도 교과 환산 점수에 비례해서 준다.
-         * (만점이면 일반전형 170점, 특별전형 110점)
+         * 2027학년도 검정고시 성적산출 안내에 따라 교과성적만 반영한다.
          */
         val attendanceScore: Double
         val volunteerScore: Double
         if (isGed) {
-            attendanceScore = subjectBaseScore / SUBJECT_MAX_SCORE * ATTENDANCE_MAX_SCORE
-            volunteerScore = subjectBaseScore / SUBJECT_MAX_SCORE * VOLUNTEER_MAX_SCORE
+            attendanceScore = EMPTY_SCORE
+            volunteerScore = EMPTY_SCORE
         } else {
             attendanceScore = calculateAttendanceScore(record)
             volunteerScore = calculateVolunteerScore(record.volunteerTime)
         }
 
-        val subjectScore = subjectBaseScore * if (isRegular) {
+        val subjectScore = subjectBaseScore * if (isGed) {
+            if (isRegular) GED_REGULAR_SUBJECT_SCORE_MULTIPLIER else GED_SPECIAL_SUBJECT_SCORE_MULTIPLIER
+        } else if (isRegular) {
             REGULAR_SUBJECT_SCORE_RATIO
         } else {
             SPECIAL_SUBJECT_SCORE_RATIO
@@ -267,8 +268,7 @@ class ScoreCalculator {
     }
 
     /**
-     * 검정고시 6개 과목의 구간별 환산 평점(1~5) 평균을
-     * 교과 성적 기준점수(80점)로 환산한다.
+     * 검정고시 6개 과목의 구간별 환산 평점(1~5) 평균을 반환한다.
      */
     private fun calculateGedBaseScore(
         scores: GedScores,
@@ -292,9 +292,7 @@ class ScoreCalculator {
 
         return subjectScores
             .map(::gedScoreToPoint)
-            .average() /
-                MAX_GRADE_POINT *
-                SUBJECT_MAX_SCORE
+            .average()
     }
 
     private fun gedScoreToPoint(score: Int): Double = when {
@@ -463,6 +461,8 @@ class ScoreCalculator {
 
         private const val REGULAR_SUBJECT_SCORE_RATIO = 1.75
         private const val SPECIAL_SUBJECT_SCORE_RATIO = 1.0
+        private const val GED_REGULAR_SUBJECT_SCORE_MULTIPLIER = 34.0
+        private const val GED_SPECIAL_SUBJECT_SCORE_MULTIPLIER = 22.0
 
         private const val PROSPECTIVE_CURRENT_SEMESTER_MAX_SCORE =
             40.0

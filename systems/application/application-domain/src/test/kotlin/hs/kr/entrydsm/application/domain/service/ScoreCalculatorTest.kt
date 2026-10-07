@@ -78,10 +78,28 @@ class ScoreCalculatorTest {
             ),
         )
 
-        // 출결·봉사 기록은 무시하고 교과 환산 점수에 비례해서 30점을 준다.
+        // 출결·봉사 기록은 무시하고 교과성적만 반영한다.
         assertEquals(170.0, calculate(AdmissionType.REGULAR, GraduationType.GED, record), 0.0)
         assertEquals(110.0, calculate(AdmissionType.SOCIAL, GraduationType.GED, record), 0.0)
         assertEquals(110.0, calculate(AdmissionType.MEISTER, GraduationType.GED, record), 0.0)
+
+        for ((admissionType, subjectScore) in listOf(
+            AdmissionType.REGULAR to 170.0,
+            AdmissionType.SOCIAL to 110.0,
+            AdmissionType.MEISTER to 110.0,
+        )) {
+            val breakdown = calculator.calculateBreakdown(Applicant(
+                id = 1L, accountId = 1L, admissionType = admissionType,
+                graduationType = GraduationType.GED, academicRecord = record,
+            ))
+            assertEquals(subjectScore, breakdown.subjectScore, 0.0)
+            assertEquals(0.0, breakdown.attendanceScore, 0.0)
+            assertEquals(0.0, breakdown.volunteerScore, 0.0)
+            val additionalScore = if (admissionType == AdmissionType.REGULAR) 3.0 else 9.0
+            assertEquals(subjectScore + additionalScore,
+                calculate(admissionType, GraduationType.GED,
+                    record.copy(isDsmAlgorithmAwarded = true, isProgrammingCertified = true)), 0.0)
+        }
     }
 
     @Test
@@ -98,7 +116,7 @@ class ScoreCalculatorTest {
             ),
         )
 
-        // (4 + 3 + 4 + 2 + 5 + 4) / 6 / 5 × 80 = 58.667점 → 175% 또는 100% + 비례 30점.
+        // (4 + 3 + 4 + 2 + 5 + 4) / 6 × 34(일반) 또는 22(특별), 중간 반올림 없음.
         assertEquals(124.667, calculate(AdmissionType.REGULAR, GraduationType.GED, record), 0.0)
         assertEquals(80.667, calculate(AdmissionType.SOCIAL, GraduationType.GED, record), 0.0)
     }
