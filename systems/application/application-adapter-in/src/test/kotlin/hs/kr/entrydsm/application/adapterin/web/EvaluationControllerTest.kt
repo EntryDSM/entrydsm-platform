@@ -56,16 +56,16 @@ class EvaluationControllerTest {
     }
 
     @Test
-    fun academicRecordsRejectsNonPositiveValuesAndAcceptsPositiveValues() {
+    fun academicRecordsRejectsNegativeValuesAndAcceptsZeroAndPositiveValues() {
         val mvc = MockMvcBuilders.standaloneSetup(EvaluationController(FakeEvaluationPort()))
             .setControllerAdvice(GlobalExceptionHandler()).build()
         val fields = listOf("absentCount", "earlyLeaveCount", "lateCount", "classAbsenceCount", "volunteerTime")
         fields.forEach { field ->
-            listOf(-1, 0).forEach { value ->
+            listOf(-1, 0, 1).forEach { value ->
                 val body = fields.joinToString(",", "{", "}") { "\"$it\":${if (it == field) value else 1}" }
                 val response = mvc.perform(post("/api/evaluation/v11/evaluations/academic-records")
                     .header("X-USER-ID", 10L).contentType(MediaType.APPLICATION_JSON).content(body)).andReturn().response
-                assertEquals(400, response.status)
+                assertEquals(if (value < 0) 400 else 200, response.status)
             }
         }
         val response = mvc.perform(post("/api/evaluation/v11/evaluations/academic-records")
