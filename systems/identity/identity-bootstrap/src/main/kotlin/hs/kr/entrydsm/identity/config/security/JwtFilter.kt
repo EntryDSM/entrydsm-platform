@@ -62,6 +62,12 @@ class JwtFilter(
             filterChain.doFilter(request, response)
         } catch (exception: JwtValidationException) {
             SecurityContextHolder.clearContext()
+            if (request.method == "POST" &&
+                request.requestURI.removePrefix(request.contextPath.orEmpty()) == AuthEndpointPaths.LOGOUT
+            ) {
+                filterChain.doFilter(request, response)
+                return
+            }
             authenticationEntryPoint.commence(
                 request,
                 response,
