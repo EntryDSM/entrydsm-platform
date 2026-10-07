@@ -6,6 +6,18 @@ import hs.kr.entrydsm.identity.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.identity.application.port.`in`.AuthPort
 import hs.kr.entrydsm.identity.application.port.`in`.PassPort
 import hs.kr.entrydsm.identity.application.port.out.AccountQueryPort
+import hs.kr.entrydsm.identity.application.port.`in`.command.LogoutCommand
+import hs.kr.entrydsm.identity.application.security.jwt.JwtTokenGenerator
+import hs.kr.entrydsm.identity.domain.enum.AccountStatus
+import hs.kr.entrydsm.identity.domain.model.Account
+import jakarta.servlet.http.Cookie
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyNoInteractions
+import org.mockito.Mockito.`when`
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -87,6 +99,52 @@ class SecurityConfigTest {
                     .content("{}"),
             ).andReturn().response.status,
         )
+    }
+
+    @Test
+    fun logoutWithExpiredInvalidOrMissingTokenDeletesBothCookiesWithoutRevocation() {
+        val expired = JwtTokenGenerator(
+            "01234567890123456789012345678901", "entrydsm-identity",
+            Clock.fixed(Instant.now().minusSeconds(7201), ZoneOffset.UTC),
+        ).generateAccessToken("user_123").value
+        listOf(expired, "invalid-token", null).forEach { token ->
+            val request = post("/api/identity/v11/auth/logout")
+            if (token != null) request.cookie(Cookie("access_token", token))
+            val response = mockMvc.perform(request).andReturn().response
+            assertEquals(200, response.status)
+            listOf("access_token", "refresh_token").forEach { name ->
+                assertTrue(response.getHeaders("Set-Cookie").any {
+                    it.startsWith("$name=") && it.contains("Max-Age=0") && it.contains("Path=/")
+                })
+            }
+        }
+        verifyNoInteractions(authPort)
+    }
+
+    @Test
+    fun validLogoutKeepsAuthenticatedRevocationAndExpiresCookies() {
+        val account = mock(Account::class.java)
+        `when`(account.status).thenReturn(AccountStatus.ACTIVE)
+        `when`(account.tokenVersion).thenReturn(3L)
+        `when`(accountQueryPort.findByUserId(123L)).thenReturn(account)
+        val token = JwtTokenGenerator("01234567890123456789012345678901", "entrydsm-identity")
+            .generateAccessToken("user_123", 3L).value
+        val response = mockMvc.perform(post("/api/identity/v11/auth/logout")
+            .cookie(Cookie("access_token", token))).andReturn().response
+        assertEquals(200, response.status)
+        verify(authPort).logout(LogoutCommand(123L))
+        assertEquals(2, response.getHeaders("Set-Cookie").count { it.contains("Max-Age=0") })
+    }
+
+    @Test
+    fun invalidTokenRemainsRejectedOutsidePostLogout() {
+        listOf(get("/api/identity/v11/accounts/me"), get("/api/identity/v11/auth/logout"))
+            .forEach { request ->
+                val response = mockMvc.perform(request.cookie(Cookie("access_token", "invalid-token")))
+                    .andReturn().response
+                assertEquals(401, response.status)
+            }
+        verifyNoInteractions(authPort)
     }
 
     @Test
