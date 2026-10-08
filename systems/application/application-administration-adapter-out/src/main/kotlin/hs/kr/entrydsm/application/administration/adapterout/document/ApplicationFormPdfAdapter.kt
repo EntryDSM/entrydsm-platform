@@ -143,7 +143,7 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
  * ponytail: 보훈번호는 원서에 저장하는 값이 없어 비운다. 수집하기로 하면 [ApplicationForm] 에 담아 찍는다.
  */
 private fun Sheet.application(form: ApplicationForm, receipt: String, photo: ByteArray?) {
-    val school = form.school
+    val school = form.printedSchool
     val ged = form.ged
     text(109.32f, 104.88f, 219.36f, 129.00f, receipt)
     text(274.56f, 104.88f, 382.20f, 129.00f, school?.code)
@@ -226,7 +226,7 @@ private fun Sheet.personalInfo(form: ApplicationForm, receipt: String, rows: Flo
     text(182.04f, rows[0], nameRight, rows[1], form.name, PERSONAL_INFO_FONT_SIZE)
     text(400.80f, rows[0], 535.68f, rows[1], receipt, PERSONAL_INFO_FONT_SIZE)
     text(182.04f, rows[1], 316.92f, rows[2], form.phoneNumber, PERSONAL_INFO_FONT_SIZE)
-    text(400.80f, rows[1], 535.68f, rows[2], form.school?.name, PERSONAL_INFO_FONT_SIZE)
+    text(400.80f, rows[1], 535.68f, rows[2], form.printedSchool?.name, PERSONAL_INFO_FONT_SIZE)
     text(182.04f, rows[2], 535.68f, rows[3], form.address, PERSONAL_INFO_FONT_SIZE, Align.LEFT, wrap = true)
 }
 
@@ -286,6 +286,12 @@ private fun Sheet.admissionConsent(form: ApplicationForm) {
 
 /** 검정고시 지원자는 서식이 따로 있다([GED_TEMPLATE_RESOURCE]). */
 private val ApplicationForm.ged get() = graduationType == ApplicationForm.GraduationType.GED
+
+/**
+ * 원서에 찍을 출신 중학교. 검정고시 서식은 학교 칸마다 "-" 가 인쇄돼 있어 찍지 않는다.
+ * #346 전에는 검정고시로 바꾼 뒤에도 학교를 저장할 수 있어서, 그때 남은 값이 있어도 버린다.
+ */
+private val ApplicationForm.printedSchool get() = school.takeUnless { ged }
 
 /** 졸업구분 칸. "졸업예정 (2027-02)" 처럼 구분 뒤에 졸업 연월을 붙인다. */
 private fun graduation(form: ApplicationForm): String? {

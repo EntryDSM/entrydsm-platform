@@ -54,15 +54,8 @@ class ApplicationFormPdfTest {
 
     @Test
     fun `검정고시 원서는 추천서 없는 검정고시 서식 다섯 장에 찍고 점수 표에 검정고시 점수를 찍는다`() {
-        val ged = form().copy(
-            graduationType = ApplicationForm.GraduationType.GED,
-            graduationDate = null,
-            school = null,
-            semesterGrades = listOf(null, null, null, null),
-            gedScores = ApplicationForm.SemesterGrades("95", "88", "100", "76", "90", "85", "99"),
-            // 검정고시 점수를 저장하면 출결이 0 인 성적 기록이 같이 생긴다.
-            academicRecord = ApplicationForm.AcademicRecord(0, 0, 0, 0, 0, dsmAlgorithmAwarded = true, programmingCertified = false),
-        )
+        // #346 전에 검정고시로 바꾼 뒤 저장한 출신 중학교가 남아 있는 원서다.
+        val ged = gedForm()
         val pdf = adapter.render(ged, png())
         val glyphs = stamped(pdf, page = 1)
 
@@ -74,6 +67,10 @@ class ApplicationFormPdfTest {
 
         assertA4Pages(pdf, FORM_COUNT - 1)
         assertTrue(pageText(pdf, 1).contains("검정고시 점수"))
+        assertTrue(pageText(pdf, 1).contains("프로그래밍기능사"))
+        assertFalse(pageText(pdf, 1).contains("정보처리기능사"))
+        // 학교 칸에는 "-" 가 인쇄돼 있어, 남은 출신 중학교 값을 어느 장에도 찍지 않는다.
+        (1..5).forEach { page -> assertFalse("${page}쪽", pageText(pdf, page).contains("서귀포")) }
         assertEquals(1, images(pdf, page = 1))
         // 국어 95 · 사회 88 · 역사 100 · 수학 76 · 과학 90 · 기술·가정 85 · 영어 99
         assertEquals("958810076908599", cell(160.68f, 340.68f, 399.24f, 470.04f))
@@ -256,6 +253,19 @@ class ApplicationFormPdfTest {
         assertTrue(!pageText(studyPlan, 1).contains("저는 어려서부터"))
     }
 
+    @Test
+    fun `검정고시 원서의 자기소개서와 학업계획서는 검정고시 서식 3 에 찍고 출신 중학교는 찍지 않는다`() {
+        val introduction = adapter.renderEssay(gedForm(), introduction = true)
+        val studyPlan = adapter.renderEssay(gedForm(), introduction = false)
+
+        assertA4Pages(introduction, 1)
+        assertTrue(pageText(introduction, 1).contains("저는 어려서부터"))
+        assertFalse(pageText(introduction, 1).contains("서귀포"))
+        assertA4Pages(studyPlan, 1)
+        assertTrue(pageText(studyPlan, 1).contains("입학 후에는"))
+        assertFalse(pageText(studyPlan, 1).contains("서귀포"))
+    }
+
     /** 칸 안에 기준선이 있는 원서 글자가 [count] 개이고, 모두 칸 좌우 안에 있다. 칸 아래로 넘친 글자는 수에서 빠진다. */
     @Test
     fun `등록 서류는 원본 첫 장 입학 동의서 칸에 지원자 정보를 찍고 나머지 장은 그대로 둔다`() {
@@ -428,6 +438,15 @@ class ApplicationFormPdfTest {
         ),
         introduction = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했습니다.\n중학교에서는 정보 동아리 부장을 맡았습니다.",
         studyPlan = "입학 후에는 알고리즘과 웹 개발을 깊게 공부하고 싶습니다.\n3학년에는 팀 프로젝트로 서비스를 배포해 보겠습니다.",
+    )
+
+    private fun gedForm() = form().copy(
+        graduationType = ApplicationForm.GraduationType.GED,
+        graduationDate = null,
+        semesterGrades = listOf(null, null, null, null),
+        gedScores = ApplicationForm.SemesterGrades("95", "88", "100", "76", "90", "85", "99"),
+        // 검정고시 점수를 저장하면 출결이 0 인 성적 기록이 같이 생긴다.
+        academicRecord = ApplicationForm.AcademicRecord(0, 0, 0, 0, 0, dsmAlgorithmAwarded = true, programmingCertified = false),
     )
 
     private fun grades(grade: String) = ApplicationForm.SemesterGrades(
