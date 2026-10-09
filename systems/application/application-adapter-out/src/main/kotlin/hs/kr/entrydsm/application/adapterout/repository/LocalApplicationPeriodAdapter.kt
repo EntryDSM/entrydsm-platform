@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional
 class LocalApplicationPeriodAdapter(private val schedules: ScheduleRepository) : ApplicationPeriodReader {
     @Transactional(readOnly = true)
     override fun readResultAnnouncedAt(): LocalDateTime? = try {
-        schedules.findByTitle("1차 발표")?.startAt
+        schedules.findByTitle("1차 합격 발표")?.startAt
     } catch (error: Exception) {
         throw ApplicationPeriodLookupFailedException(error)
     }
