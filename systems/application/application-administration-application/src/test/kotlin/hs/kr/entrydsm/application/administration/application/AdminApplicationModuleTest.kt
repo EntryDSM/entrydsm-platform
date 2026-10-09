@@ -182,6 +182,7 @@ class AdminApplicationModuleTest {
             receiptNumber = "0001",
             combinedCode = "310",
             name = "홍길동",
+            thirdGradeSecondSemester = SemesterGrades(korean = "A", english = "B"),
             thirdGradeFirstSemester = SemesterGrades(korean = "A"),
             totalScore = 99.5,
         )
@@ -192,6 +193,7 @@ class AdminApplicationModuleTest {
         assertEquals(EXPECTED_ADMISSION_FILE_HEADERS, fixture.header)
         assertEquals("0001", fixture.rows.single()[1])
         assertEquals("홍길동", fixture.rows.single()[5])
+        assertEquals(listOf("A", null, null, null, null, null, "B"), fixture.rows.single().subList(16, 23))
         assertNull(fixture.rows.single()[EXPECTED_ADMISSION_FILE_HEADERS.indexOf("nan")])
         assertEquals("dsm_Entry/backend/stag/admission-file/admission_file_exp_test.xlsx", fixture.objectKey)
         assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fixture.contentType)
@@ -201,6 +203,20 @@ class AdminApplicationModuleTest {
         )
         assertEquals(1, fixture.saved.last().totalCount)
         assertEquals(1, fixture.saved.last().processedCount)
+    }
+
+    @Test
+    fun exportsGedSubjectScoresAsNumbersInThirdGradeSecondSemesterColumns() {
+        val row = FirstPassRow(
+            receiptNumber = "0001",
+            gedScores = hs.kr.entrydsm.admin.domain.model.GedScores(0, 81, 82, 83, 84, 85, 100),
+        )
+        val fixture = exportFixture(type = ExportType.ADMISSION_FILE, admissionRows = listOf(row))
+
+        fixture.processor.processNow(fixture.job)
+
+        assertEquals(listOf(0, 81, 82, 83, 84, 85, 100), fixture.rows.single().subList(16, 23))
+        assertEquals(List<Any?>(21) { null }, fixture.rows.single().subList(23, 44))
     }
 
     @Test
