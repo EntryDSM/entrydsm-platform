@@ -45,7 +45,10 @@ kt_jvm_test(
         "src/main/resources/db/migration/V012__make_applicant_total_score_not_null.sql",
         "src/main/resources/db/migration/V013__restore_nullable_applicant_total_score.sql",
     ],
-    srcs = glob(["src/test/kotlin/**/*.kt"], exclude = ["src/test/kotlin/hs/kr/entrydsm/application/operator/**"]) + [
+    srcs = glob(["src/test/kotlin/**/*.kt"], exclude = [
+        "src/test/kotlin/hs/kr/entrydsm/application/operator/**",
+        "src/test/kotlin/hs/kr/entrydsm/application/config/ScheduleInitializerTest.kt",
+    ]) + [
         "src/main/kotlin/hs/kr/entrydsm/application/config/SnapshotCipherConfiguration.kt",
         "src/main/kotlin/hs/kr/entrydsm/application/config/InstitutionCodeInitializer.kt",
     ],
@@ -83,5 +86,21 @@ kt_jvm_test(
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     test_class = "hs.kr.entrydsm.application.config.SnapshotCipherConfigurationTest",
+    deps = MODULE_DEPS + TEST_DEPS,
+)
+
+kt_jvm_test(
+    name = "schedule_initializer_test",
+    srcs = [
+        "src/main/kotlin/hs/kr/entrydsm/application/config/ScheduleInitializer.kt",
+        "src/test/kotlin/hs/kr/entrydsm/application/config/ScheduleInitializerTest.kt",
+    ],
+    resources = [
+        "src/main/resources/schedule.sql",
+        "src/main/resources/db/migration/V016__create_schedule.sql",
+    ],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.application.config.ScheduleInitializerTest",
     deps = MODULE_DEPS + TEST_DEPS,
 )
