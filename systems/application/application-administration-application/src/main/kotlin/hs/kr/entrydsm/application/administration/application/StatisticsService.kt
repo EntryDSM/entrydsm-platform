@@ -22,6 +22,7 @@ import java.time.ZoneId
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import hs.kr.entrydsm.application.domain.service.DocumentPassCalculator
 
 private const val COMPETITION_RATE_SCALE = 2
 private const val RATIO_SCALE = 3
@@ -57,8 +58,14 @@ class StatisticsService(
                 competitionRate(countByType)
             },
             firstPassQuota = metrics.ifRequested(StatisticsMetric.FIRST_PASS_QUOTA) {
-                // 정원이 없으면 빈 맵이다. 경쟁률과 같다.
-                admissionQuotaRepository.find()?.scaled(firstPassMultiplier).orEmpty()
+                DocumentPassCalculator().firstPassQuotas(firstPassMultiplier)
+                    .mapKeys { (type, _) ->
+                        when (type) {
+                            hs.kr.entrydsm.application.domain.enum.AdmissionType.REGULAR -> AdmissionType.GENERAL
+                            hs.kr.entrydsm.application.domain.enum.AdmissionType.MEISTER -> AdmissionType.MEISTER
+                            hs.kr.entrydsm.application.domain.enum.AdmissionType.SOCIAL -> AdmissionType.SOCIAL
+                        }
+                    }
             },
             genderRatio = metrics.ifRequested(StatisticsMetric.GENDER_RATIO) {
                 genderRatio(applicants)

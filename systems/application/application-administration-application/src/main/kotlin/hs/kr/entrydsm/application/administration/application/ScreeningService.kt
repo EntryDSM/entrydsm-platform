@@ -4,14 +4,15 @@ import hs.kr.entrydsm.admin.domain.command.EvaluateScreeningCommand
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
-import hs.kr.entrydsm.admin.domain.model.AdmissionQuota
 import hs.kr.entrydsm.admin.domain.model.FinalScreeningResult
 import hs.kr.entrydsm.admin.domain.model.ScreeningResult
-import hs.kr.entrydsm.admin.domain.policy.ScreeningPolicy
-import hs.kr.entrydsm.admin.domain.policy.ScreeningStage
+import hs.kr.entrydsm.application.domain.service.DocumentPassCalculator
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
+import hs.kr.entrydsm.application.domain.enum.AdmissionType as ApplicationAdmissionType
+import hs.kr.entrydsm.application.domain.enum.Region as ApplicationRegion
+import hs.kr.entrydsm.application.domain.model.Applicant as ApplicationApplicant
 import hs.kr.entrydsm.admin.domain.port.`in`.EvaluateFinalScreeningUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.EvaluateFirstScreeningUseCase
-import hs.kr.entrydsm.admin.domain.port.out.AdmissionQuotaRepository
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import java.time.Clock
 import java.time.Instant
@@ -24,44 +25,66 @@ import org.springframework.transaction.annotation.Transactional
 @Transactional(readOnly = true)
 class ScreeningService(
     private val applicantRepository: ApplicantRepository,
-    private val admissionQuotaRepository: AdmissionQuotaRepository,
     private val clock: Clock,
     @Value("\${admin.screening.first-pass-multiplier}") private val firstPassMultiplier: Double,
 ) : EvaluateFirstScreeningUseCase,
     EvaluateFinalScreeningUseCase {
 
     init {
-        require(firstPassMultiplier >= 1.0) {
+        require(firstPassMultiplier.isFinite() && firstPassMultiplier >= 1.0) {
             "admin.screening.first-pass-multiplier 는 1 이상이어야 한다: $firstPassMultiplier"
         }
     }
 
     /**
-     * 1차(서류) 합격자를 산출합니다. 묶음별 정원은 모집 정원 × 배수(올림)다.
+     * 1차(서류) 합격자를 대전 우선·전형별 1순위·후순위 공통 정책으로 산출합니다.
      *
      * 다시 실행하면 이미 1차 결과를 받은 지원자까지 다시 줄 세워 정원 안에서만 합격시킨다.
      * 최종 결과를 받은 지원자가 하나라도 있으면 다시 산출하지 않는다.
      */
     @Transactional
     override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult {
-        val outcome = ScreeningPolicy.evaluate(
-            applicantRepository.findAll(),
-            ScreeningStage.FIRST,
-            currentQuota().scaled(firstPassMultiplier),
+        val applicants = applicantRepository.findAll()
+        if (applicants.any { it.status in setOf(ApplicantStatus.FINAL_PASS, ApplicantStatus.FINAL_FAIL) }) {
+            throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        }
+        val (evaluable, excluded) = applicants.partition {
+            it.totalScore != null && it.admissionType != null
+        }
+        val results = DocumentPassCalculator().calculate(
+            evaluable.map {
+                ApplicationApplicant(
+                    id = it.id,
+                    accountId = 0,
+                    admissionType = when (requireNotNull(it.admissionType)) {
+                        hs.kr.entrydsm.admin.domain.enum.AdmissionType.GENERAL -> ApplicationAdmissionType.REGULAR
+                        hs.kr.entrydsm.admin.domain.enum.AdmissionType.MEISTER -> ApplicationAdmissionType.MEISTER
+                        hs.kr.entrydsm.admin.domain.enum.AdmissionType.SOCIAL -> ApplicationAdmissionType.SOCIAL
+                    },
+                    region = if (it.region == hs.kr.entrydsm.admin.domain.enum.Region.DAEJEON) {
+                        ApplicationRegion.DAEJEON
+                    } else ApplicationRegion.NATIONAL,
+                    totalScore = it.totalScore,
+                )
+            },
+            firstPassMultiplier,
         )
+        val evaluated = evaluable.map {
+            it.copy(status = if (results[it.id] == PassResultStatus.PASS) ApplicantStatus.FIRST_PASS else ApplicantStatus.FIRST_FAIL)
+        }
         val now = Instant.now(clock)
 
         if (!command.dryRun) {
             applicantRepository.saveAll(
-                (outcome.passed + outcome.failed).map { it.copy(updatedAt = now) },
+                evaluated.map { it.copy(updatedAt = now) },
             )
         }
 
         return ScreeningResult(
             dryRun = command.dryRun,
-            passCount = outcome.passed.size,
-            failCount = outcome.failed.size,
-            excludedCount = outcome.excluded.size,
+            passCount = evaluated.count { it.status == ApplicantStatus.FIRST_PASS },
+            failCount = evaluated.count { it.status == ApplicantStatus.FIRST_FAIL },
+            excludedCount = excluded.size,
             processedAt = now,
         )
     }
@@ -92,8 +115,4 @@ class ScreeningService(
             processedAt = now,
         )
     }
-
-    private fun currentQuota(): AdmissionQuota =
-        admissionQuotaRepository.find()
-            ?: throw AdminDomainException(ErrorCode.ADMISSION_QUOTA_NOT_FOUND)
 }

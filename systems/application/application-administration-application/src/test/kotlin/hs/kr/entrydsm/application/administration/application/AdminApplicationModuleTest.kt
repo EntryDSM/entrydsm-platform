@@ -166,7 +166,7 @@ class AdminApplicationModuleTest {
         )
 
         assertEquals(1.5, result.competitionRate?.get(AdmissionType.GENERAL))
-        assertEquals(mapOf(AdmissionType.GENERAL to 3, AdmissionType.MEISTER to 0, AdmissionType.SOCIAL to 0), result.firstPassQuota)
+        assertEquals(mapOf(AdmissionType.GENERAL to 48, AdmissionType.MEISTER to 15, AdmissionType.SOCIAL to 3), result.firstPassQuota)
         assertEquals(3L, result.genderRatio?.total)
         assertEquals(0.667, result.genderRatio?.maleRatio)
         assertEquals(mapOf(Gender.MALE to 2L, Gender.FEMALE to 1L), result.genderRatio?.byGender)
@@ -472,10 +472,6 @@ class AdminApplicationModuleTest {
 
     private fun screeningService(applicants: ApplicantRepository) = ScreeningService(
         applicantRepository = applicants,
-        admissionQuotaRepository = repository(
-            AdmissionQuotaRepository::class.java,
-            "find" to AdmissionQuota(AdmissionType.entries.associateWith { 0 }, Instant.EPOCH, "test"),
-        ),
         clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
         firstPassMultiplier = 1.0,
     )
