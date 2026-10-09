@@ -5,7 +5,6 @@ import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.model.Applicant
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DocumentPassCalculatorTest {
@@ -44,7 +43,6 @@ class DocumentPassCalculatorTest {
         // 1순위: 일반 64(대전 32 포함), 마이스터 20, 사회통합 4.
         // 후순위: 남은 사회통합 6, 마이스터 10, 일반 전국 24.
         assertEquals(((1L..56L) + (81L..112L) + (121L..160L)).toSet(), passed(applicants))
-        assertEquals(((1L..32L) + (81L..104L) + (121L..160L)).toSet(), passed(applicants, 1.5))
     }
 
     @Test
@@ -88,30 +86,13 @@ class DocumentPassCalculatorTest {
     }
 
     @Test
-    fun `설정 배수는 전체 합격 기준과 선발 정원에 적용하고 올림한다`() {
-        val applicants = (1L..200L).map { applicant(it) }
-        assertEquals(52, passed(applicants, 1.0).size)
-        assertEquals(78, passed(applicants, 1.5).size)
-        assertEquals(110, passed(applicants, 2.1).size)
-        assertEquals(96, passed(applicants.take(96), 1.5).size)
-        assertEquals(78, passed(applicants.take(97), 1.5).size)
-    }
-
-    @Test
     fun `동점은 지원자 번호순으로 선발하고 입력 순서에 영향받지 않는다`() {
         val applicants = (1L..150L).map { applicant(it, score = 10.0) }
         assertEquals((1L..104L).toSet(), passed(applicants.reversed()))
     }
 
-    @Test
-    fun `잘못된 배수는 거부한다`() {
-        for (multiplier in listOf(0.0, 0.5, Double.NaN, Double.POSITIVE_INFINITY)) {
-            assertTrue(runCatching { calculator.calculate(emptyList(), multiplier) }.exceptionOrNull() is IllegalArgumentException)
-        }
-    }
-
-    private fun passed(applicants: List<Applicant>, multiplier: Double = 2.0): Set<Long> =
-        calculator.calculate(applicants, multiplier).filterValues { it == PassResultStatus.PASS }.keys
+    private fun passed(applicants: List<Applicant>): Set<Long> =
+        calculator.calculate(applicants).filterValues { it == PassResultStatus.PASS }.keys
 
     private fun applicant(
         id: Long,

@@ -19,7 +19,6 @@ import java.math.RoundingMode
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import hs.kr.entrydsm.application.domain.service.DocumentPassCalculator
@@ -36,7 +35,6 @@ class StatisticsService(
     private val applicantRepository: ApplicantRepository,
     private val admissionQuotaRepository: AdmissionQuotaRepository,
     private val clock: Clock,
-    @Value("\${admin.screening.first-pass-multiplier}") private val firstPassMultiplier: Double,
 ) : ReadStatisticsUseCase {
 
     /**
@@ -58,7 +56,7 @@ class StatisticsService(
                 competitionRate(countByType)
             },
             firstPassQuota = metrics.ifRequested(StatisticsMetric.FIRST_PASS_QUOTA) {
-                DocumentPassCalculator().firstPassQuotas(firstPassMultiplier)
+                DocumentPassCalculator().firstPassQuotas()
                     .mapKeys { (type, _) ->
                         when (type) {
                             hs.kr.entrydsm.application.domain.enum.AdmissionType.REGULAR -> AdmissionType.GENERAL

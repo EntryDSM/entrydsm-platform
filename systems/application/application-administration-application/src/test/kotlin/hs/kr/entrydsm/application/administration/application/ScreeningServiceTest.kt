@@ -27,15 +27,6 @@ class ScreeningServiceTest {
     }
 
     @Test
-    fun `설정 배수 변경은 실제 산출의 모든 정원에 전달된다`() {
-        val fixture = Fixture(mixedApplicants())
-        val result = fixture.service(1.5).evaluateFirst(EvaluateScreeningCommand())
-        assertEquals(((1L..32L) + (81L..104L) + (121L..160L)).toSet(), fixture.passedIds())
-        assertEquals(96, result.passCount)
-        assertEquals(64, result.failCount)
-    }
-
-    @Test
     fun `실제 산출은 128명까지 전원 합격하고 129명부터 선발한다`() {
         val within = Fixture((1L..128L).map { applicant(it) })
         val over = Fixture((1L..129L).map { applicant(it) })
@@ -98,8 +89,8 @@ class ScreeningServiceTest {
                 else -> error("unexpected call: ${method.name}")
             }
         } as ApplicantRepository
-        fun service(multiplier: Double = 2.0) = ScreeningService(repository,
-            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC), multiplier)
+        fun service() = ScreeningService(repository,
+            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC))
         fun passedIds() = saved.filter { it.status == ApplicantStatus.FIRST_PASS }.map { it.id }.toSet()
     }
 }

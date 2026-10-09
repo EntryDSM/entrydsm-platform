@@ -82,7 +82,6 @@ class AdminApplicationModuleTest {
                     quotas = AdmissionType.entries.associateWith { 0 }, updatedAt = Instant.EPOCH, updatedBy = "test",
                 )),
                 clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-                firstPassMultiplier = 1.5,
             )
             val result = requireNotNull(service.collect(setOf(StatisticsMetric.REGION_DISTRIBUTION)).regionDistribution)
             assertEquals("address=$address", mapOf(expected to 1L), result.byRegion)
@@ -153,7 +152,6 @@ class AdminApplicationModuleTest {
             applicantRepository = repository(ApplicantRepository::class.java, "findAll" to applicants),
             admissionQuotaRepository = repository(AdmissionQuotaRepository::class.java, "find" to quota),
             clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            firstPassMultiplier = 1.5,
         )
 
         val result = service.collect(
@@ -166,7 +164,7 @@ class AdminApplicationModuleTest {
         )
 
         assertEquals(1.5, result.competitionRate?.get(AdmissionType.GENERAL))
-        assertEquals(mapOf(AdmissionType.GENERAL to 48, AdmissionType.MEISTER to 15, AdmissionType.SOCIAL to 3), result.firstPassQuota)
+        assertEquals(mapOf(AdmissionType.GENERAL to 64, AdmissionType.MEISTER to 20, AdmissionType.SOCIAL to 4), result.firstPassQuota)
         assertEquals(3L, result.genderRatio?.total)
         assertEquals(0.667, result.genderRatio?.maleRatio)
         assertEquals(mapOf(Gender.MALE to 2L, Gender.FEMALE to 1L), result.genderRatio?.byGender)
@@ -473,7 +471,6 @@ class AdminApplicationModuleTest {
     private fun screeningService(applicants: ApplicantRepository) = ScreeningService(
         applicantRepository = applicants,
         clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-        firstPassMultiplier = 1.0,
     )
 
     private fun applicant(

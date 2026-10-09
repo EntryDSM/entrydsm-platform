@@ -16,7 +16,6 @@ import hs.kr.entrydsm.admin.domain.port.`in`.EvaluateFirstScreeningUseCase
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
 import java.time.Clock
 import java.time.Instant
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -26,15 +25,8 @@ import org.springframework.transaction.annotation.Transactional
 class ScreeningService(
     private val applicantRepository: ApplicantRepository,
     private val clock: Clock,
-    @Value("\${admin.screening.first-pass-multiplier}") private val firstPassMultiplier: Double,
 ) : EvaluateFirstScreeningUseCase,
     EvaluateFinalScreeningUseCase {
-
-    init {
-        require(firstPassMultiplier.isFinite() && firstPassMultiplier >= 1.0) {
-            "admin.screening.first-pass-multiplier 는 1 이상이어야 한다: $firstPassMultiplier"
-        }
-    }
 
     /**
      * 1차(서류) 합격자를 대전 우선·전형별 1순위·후순위 공통 정책으로 산출합니다.
@@ -67,7 +59,6 @@ class ScreeningService(
                     totalScore = it.totalScore,
                 )
             },
-            firstPassMultiplier,
         )
         val evaluated = evaluable.map {
             it.copy(status = if (results[it.id] == PassResultStatus.PASS) ApplicantStatus.FIRST_PASS else ApplicantStatus.FIRST_FAIL)

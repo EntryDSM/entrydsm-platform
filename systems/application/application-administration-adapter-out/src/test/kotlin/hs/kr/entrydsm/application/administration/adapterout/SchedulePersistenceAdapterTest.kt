@@ -127,7 +127,7 @@ class SchedulePersistenceAdapterTest {
                 else -> error("unexpected call: ${method.name}")
             }
         } as ApplicantRepository
-        private val service = ScreeningService(repository, clock, 2.0)
+        private val service = ScreeningService(repository, clock)
         override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult {
             assertFalse(command.dryRun)
             val result = service.evaluateFirst(command)
