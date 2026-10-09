@@ -11,6 +11,12 @@ class DocumentPassCalculatorTest {
     private val calculator = DocumentPassCalculator()
 
     @Test
+    fun `선발 정원과 경쟁률 정원은 후순위의 일반전형 포함 여부가 다르다`() {
+        assertEquals(mapOf(AdmissionType.REGULAR to 64, AdmissionType.SOCIAL to 4, AdmissionType.MEISTER to 20), calculator.firstPassQuotas())
+        assertEquals(mapOf(AdmissionType.REGULAR to 104, AdmissionType.SOCIAL to 4, AdmissionType.MEISTER to 20), calculator.competitionQuotas())
+    }
+
+    @Test
     fun `전체 128명까지는 전형 분포와 관계없이 전원 합격한다`() {
         for (count in listOf(0, 64, 128)) {
             assertEquals(count, passed((1L..count.toLong()).map { applicant(it) }).size)
