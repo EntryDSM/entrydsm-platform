@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.application.administration.application
 
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
+import hs.kr.entrydsm.admin.domain.command.UpdateAdmissionQuotaCommand
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
@@ -78,11 +79,7 @@ class AdminApplicationModuleTest {
             val applicants = listOf(Applicant(id = 1L, region = Region.NATIONWIDE, address = address))
             val service = StatisticsService(
                 applicantRepository = repository(ApplicantRepository::class.java, "findAll" to applicants),
-                admissionQuotaRepository = repository(AdmissionQuotaRepository::class.java, "find" to AdmissionQuota(
-                    quotas = AdmissionType.entries.associateWith { 0 }, updatedAt = Instant.EPOCH, updatedBy = "test",
-                )),
                 clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-                firstPassMultiplier = 1.5,
             )
             val result = requireNotNull(service.collect(setOf(StatisticsMetric.REGION_DISTRIBUTION)).regionDistribution)
             assertEquals("address=$address", mapOf(expected to 1L), result.byRegion)
@@ -144,16 +141,9 @@ class AdminApplicationModuleTest {
             applicant(2, AdmissionType.GENERAL, Gender.FEMALE, Region.NATIONWIDE, "충청남도 천안시"),
             applicant(3, AdmissionType.GENERAL, Gender.MALE, Region.DAEJEON, "세종특별자치시 한누리대로"),
         )
-        val quota = AdmissionQuota(
-            quotas = AdmissionType.entries.associateWith { type -> if (type == AdmissionType.GENERAL) 2 else 0 },
-            updatedAt = Instant.EPOCH,
-            updatedBy = "test",
-        )
         val service = StatisticsService(
             applicantRepository = repository(ApplicantRepository::class.java, "findAll" to applicants),
-            admissionQuotaRepository = repository(AdmissionQuotaRepository::class.java, "find" to quota),
             clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            firstPassMultiplier = 1.5,
         )
 
         val result = service.collect(
@@ -165,8 +155,8 @@ class AdminApplicationModuleTest {
             ),
         )
 
-        assertEquals(1.5, result.competitionRate?.get(AdmissionType.GENERAL))
-        assertEquals(mapOf(AdmissionType.GENERAL to 3, AdmissionType.MEISTER to 0, AdmissionType.SOCIAL to 0), result.firstPassQuota)
+        assertEquals(mapOf(AdmissionType.GENERAL to 0.03, AdmissionType.SOCIAL to 0.0, AdmissionType.MEISTER to 0.0), result.competitionRate)
+        assertEquals(mapOf(AdmissionType.GENERAL to 64, AdmissionType.MEISTER to 20, AdmissionType.SOCIAL to 4), result.firstPassQuota)
         assertEquals(3L, result.genderRatio?.total)
         assertEquals(0.667, result.genderRatio?.maleRatio)
         assertEquals(mapOf(Gender.MALE to 2L, Gender.FEMALE to 1L), result.genderRatio?.byGender)
@@ -174,6 +164,57 @@ class AdminApplicationModuleTest {
         assertEquals(1L, result.regionDistribution?.byRegion?.get(ResidenceRegion.DAEJEON))
         assertEquals(1L, result.regionDistribution?.byRegion?.get(ResidenceRegion.CHUNGNAM))
         assertEquals(1L, result.regionDistribution?.byRegion?.get(ResidenceRegion.SEJONG))
+    }
+
+    @Test
+    fun `DB 정원이 없거나 수정되어도 경쟁률은 고정 정원으로 계산한다`() {
+        var storedQuota: AdmissionQuota? = null
+        val quotaRepository = object : AdmissionQuotaRepository {
+            override fun find() = storedQuota
+            override fun save(admissionQuota: AdmissionQuota) = admissionQuota.also { storedQuota = it }
+        }
+        val clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC)
+        val quotaService = AdmissionQuotaService(quotaRepository, clock)
+        val applicants = (1L..104L).map { Applicant(id = it, admissionType = AdmissionType.GENERAL) } +
+            (105L..108L).map { Applicant(id = it, admissionType = AdmissionType.SOCIAL) } +
+            (109L..129L).map { Applicant(id = it, admissionType = AdmissionType.MEISTER) }
+        val service = StatisticsService(
+            applicantRepository = repository(ApplicantRepository::class.java, "findAll" to applicants),
+            clock = clock,
+        )
+        val expected = mapOf(AdmissionType.GENERAL to 1.0, AdmissionType.SOCIAL to 1.0, AdmissionType.MEISTER to 1.05)
+
+        assertNull(storedQuota)
+        assertEquals(expected, service.collect(setOf(StatisticsMetric.COMPETITION_RATE)).competitionRate)
+        for (value in listOf(0, 1, 999)) {
+            val quotas = AdmissionType.entries.associateWith { value }
+            quotaService.update(UpdateAdmissionQuotaCommand(quotas, "admin"))
+            assertEquals(quotas, quotaService.findCurrent().quotas)
+            assertEquals("admin", quotaService.findCurrent().updatedBy)
+            assertEquals(Instant.EPOCH, quotaService.findCurrent().updatedAt)
+            assertEquals(expected, service.collect(setOf(StatisticsMetric.COMPETITION_RATE)).competitionRate)
+        }
+    }
+
+    @Test
+    fun `경쟁률은 소수점 둘째 자리로 반올림하며 지원자가 없으면 세 전형 모두 0이다`() {
+        val applicants = listOf(
+            Applicant(id = 1L, admissionType = AdmissionType.GENERAL),
+            Applicant(id = 2L, admissionType = AdmissionType.SOCIAL),
+            Applicant(id = 3L, admissionType = AdmissionType.MEISTER),
+        )
+        for ((input, expected) in listOf(
+            applicants to mapOf(AdmissionType.GENERAL to 0.01, AdmissionType.SOCIAL to 0.25, AdmissionType.MEISTER to 0.05),
+            (1L..13L).map { Applicant(id = it, admissionType = AdmissionType.GENERAL) } to
+                mapOf(AdmissionType.GENERAL to 0.13, AdmissionType.SOCIAL to 0.0, AdmissionType.MEISTER to 0.0),
+            emptyList<Applicant>() to AdmissionType.entries.associateWith { 0.0 },
+        )) {
+            val service = StatisticsService(
+                applicantRepository = repository(ApplicantRepository::class.java, "findAll" to input),
+                clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+            )
+            assertEquals(expected, service.collect(setOf(StatisticsMetric.COMPETITION_RATE)).competitionRate)
+        }
     }
 
     @Test
@@ -488,12 +529,7 @@ class AdminApplicationModuleTest {
 
     private fun screeningService(applicants: ApplicantRepository) = ScreeningService(
         applicantRepository = applicants,
-        admissionQuotaRepository = repository(
-            AdmissionQuotaRepository::class.java,
-            "find" to AdmissionQuota(AdmissionType.entries.associateWith { 0 }, Instant.EPOCH, "test"),
-        ),
         clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-        firstPassMultiplier = 1.0,
     )
 
     private fun applicant(

@@ -81,8 +81,6 @@ application:
   administration:
     enabled: ${APPLICATION_ADMINISTRATION_ENABLED:false}
 admin:
-  screening:
-    first-pass-multiplier: ${FIRST_PASS_MULTIPLIER:1.5}
   storage:
     bucket: ${STORAGE_BUCKET:entrydsm-admin}
     environment: ${STORAGE_ENV:stag}

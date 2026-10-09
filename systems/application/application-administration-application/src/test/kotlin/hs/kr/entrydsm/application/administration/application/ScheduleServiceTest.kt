@@ -62,6 +62,7 @@ class ScheduleServiceTest {
     }
 
     private class FakeScheduleRepository : ScheduleRepository {
+        override fun claimFirstScreening(title: String, now: LocalDateTime): Boolean = error("unexpected claim")
         private val schedules = listOf("원서 접수", "1차 발표").mapIndexed { index, title ->
             title to Schedule(
                 index + 1L,
