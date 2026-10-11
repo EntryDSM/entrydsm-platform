@@ -6,6 +6,7 @@ import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.Region
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.domain.service.DocumentPassCalculator
 import java.lang.reflect.Proxy
 import java.time.Clock
 import java.time.Instant
@@ -14,6 +15,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ScreeningServiceTest {
+    @Test
+    fun `수동 산출은 설정 배수 1점5로 대전과 후순위를 저장한다`() {
+        val fixture = Fixture(mixedApplicants())
+        val result = fixture.service(DocumentPassCalculator(1.5)).evaluateFirst(EvaluateScreeningCommand())
+        assertEquals(((1L..32L) + (81L..104L) + (121L..160L)).toSet(), fixture.passedIds())
+        assertEquals(96, result.passCount)
+        assertEquals(64, result.failCount)
+    }
     @Test
     fun `실제 수동 산출은 대전 우선과 모든 전형의 후순위를 저장한다`() {
         val fixture = Fixture(mixedApplicants())
@@ -89,8 +98,8 @@ class ScreeningServiceTest {
                 else -> error("unexpected call: ${method.name}")
             }
         } as ApplicantRepository
-        fun service() = ScreeningService(repository,
-            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC))
+        fun service(calculator: DocumentPassCalculator = DocumentPassCalculator()) = ScreeningService(repository,
+            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC), calculator)
         fun passedIds() = saved.filter { it.status == ApplicantStatus.FIRST_PASS }.map { it.id }.toSet()
     }
 }

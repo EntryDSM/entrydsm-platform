@@ -5,10 +5,49 @@ import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.model.Applicant
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class DocumentPassCalculatorTest {
     private val calculator = DocumentPassCalculator()
+
+    @Test
+    fun `유효하지 않은 배수는 계산 전에 거부한다`() {
+        for (multiplier in listOf(0.0, -1.0, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY, Double.MAX_VALUE)) {
+            assertThrows(IllegalArgumentException::class.java) { DocumentPassCalculator(multiplier) }
+        }
+    }
+
+    @Test
+    fun `배수 1점5는 전체 96명 경계와 전형별 선발 정원에 적용된다`() {
+        val scaled = DocumentPassCalculator(multiplier = 1.5)
+        assertEquals(mapOf(AdmissionType.REGULAR to 48, AdmissionType.SOCIAL to 3, AdmissionType.MEISTER to 15), scaled.firstPassQuotas())
+        assertEquals(mapOf(AdmissionType.REGULAR to 78, AdmissionType.SOCIAL to 3, AdmissionType.MEISTER to 15), scaled.competitionQuotas())
+        assertEquals((1L..96L).toSet(), scaled.calculate((1L..96L).map { applicant(it) }).filterValues { it == PassResultStatus.PASS }.keys)
+        assertEquals((1L..78L).toSet(), scaled.calculate((1L..97L).map { applicant(it) }).filterValues { it == PassResultStatus.PASS }.keys)
+    }
+
+    @Test
+    fun `배수 1점5도 대전 우선과 전형 지역 무관 후순위를 유지한다`() {
+        val applicants = (1L..80L).map { applicant(it, score = 300.0 - it) } +
+            (81L..120L).map { applicant(it, region = Region.DAEJEON, score = 0.0) } +
+            (121L..150L).map { applicant(it, AdmissionType.MEISTER, score = 500.0) } +
+            (151L..160L).map { applicant(it, AdmissionType.SOCIAL, score = 1000.0) }
+        val result = DocumentPassCalculator(multiplier = 1.5).calculate(applicants)
+        assertEquals(((1L..32L) + (81L..104L) + (121L..160L)).toSet(), result.filterValues { it == PassResultStatus.PASS }.keys)
+    }
+
+    @Test
+    fun `소수 배수는 전형 전체 경쟁률 기준값에 각각 올림 적용한다`() {
+        val scaled = DocumentPassCalculator(multiplier = 1.01)
+        assertEquals(mapOf(AdmissionType.REGULAR to 33, AdmissionType.SOCIAL to 3, AdmissionType.MEISTER to 11), scaled.firstPassQuotas())
+        assertEquals(mapOf(AdmissionType.REGULAR to 53, AdmissionType.SOCIAL to 3, AdmissionType.MEISTER to 11), scaled.competitionQuotas())
+        assertEquals((1L..65L).toSet(), scaled.calculate((1L..65L).map { applicant(it) }).filterValues { it == PassResultStatus.PASS }.keys)
+        assertEquals((1L..54L).toSet(), scaled.calculate((1L..66L).map { applicant(it) }).filterValues { it == PassResultStatus.PASS }.keys)
+        val applicants = (1L..100L).map { applicant(it) } +
+            (101L..125L).map { applicant(it, region = Region.DAEJEON, score = 0.0) }
+        assertEquals(((1L..37L) + (101L..117L)).toSet(), scaled.calculate(applicants).filterValues { it == PassResultStatus.PASS }.keys)
+    }
 
     @Test
     fun `선발 정원과 경쟁률 정원은 후순위의 일반전형 포함 여부가 다르다`() {

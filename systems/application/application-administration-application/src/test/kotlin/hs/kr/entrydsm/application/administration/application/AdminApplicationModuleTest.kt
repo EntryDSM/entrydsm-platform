@@ -2,6 +2,7 @@ package hs.kr.entrydsm.application.administration.application
 
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.command.UpdateAdmissionQuotaCommand
+import hs.kr.entrydsm.application.domain.service.DocumentPassCalculator
 import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.enum.Gender
 import hs.kr.entrydsm.admin.domain.enum.ExportStatus
@@ -42,6 +43,20 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class AdminApplicationModuleTest {
+    @Test
+    fun `통계는 설정 배수 1점5의 선발과 경쟁률 정원을 함께 사용한다`() {
+        val applicants = (1L..78L).map { Applicant(id = it, admissionType = AdmissionType.GENERAL) } +
+            (79L..81L).map { Applicant(id = it, admissionType = AdmissionType.SOCIAL) } +
+            (82L..96L).map { Applicant(id = it, admissionType = AdmissionType.MEISTER) }
+        val service = StatisticsService(
+            applicantRepository = repository(ApplicantRepository::class.java, "findAll" to applicants),
+            clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+            documentPassCalculator = DocumentPassCalculator(1.5),
+        )
+        val result = service.collect(setOf(StatisticsMetric.COMPETITION_RATE, StatisticsMetric.FIRST_PASS_QUOTA))
+        assertEquals(mapOf(AdmissionType.GENERAL to 1.0, AdmissionType.SOCIAL to 1.0, AdmissionType.MEISTER to 1.0), result.competitionRate)
+        assertEquals(mapOf(AdmissionType.GENERAL to 48, AdmissionType.SOCIAL to 3, AdmissionType.MEISTER to 15), result.firstPassQuota)
+    }
     @Test
     fun residenceStatisticsRecognizeOfficialShortAndPreviousProvinceNames() {
         val names = listOf(
