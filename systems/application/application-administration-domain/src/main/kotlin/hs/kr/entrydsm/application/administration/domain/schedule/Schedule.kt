@@ -7,6 +7,7 @@ data class Schedule(
     val title: String,
     val startAt: LocalDateTime,
     val endAt: LocalDateTime,
+    val firstScreeningProcessedAt: LocalDateTime? = null,
 ) {
     init {
         require(title.isNotBlank()) { "일정 제목은 비어 있을 수 없습니다." }

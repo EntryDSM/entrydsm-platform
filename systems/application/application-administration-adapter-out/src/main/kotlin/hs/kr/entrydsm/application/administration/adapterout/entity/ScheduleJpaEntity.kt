@@ -29,8 +29,12 @@ class ScheduleJpaEntity(
     @JdbcTypeCode(SqlTypes.LOCAL_DATE_TIME)
     @Column(name = "end_at", nullable = false)
     val endAt: LocalDateTime,
+    @JdbcTypeCode(SqlTypes.LOCAL_DATE_TIME)
+    // 일정 수정이 자동 산출 직전에 읽은 미처리 값을 다시 쓰지 못하게 한다.
+    @Column(name = "first_screening_processed_at", updatable = false)
+    val firstScreeningProcessedAt: LocalDateTime? = null,
 ) {
-    fun toDomain() = Schedule(id, title, startAt, endAt)
+    fun toDomain() = Schedule(id, title, startAt, endAt, firstScreeningProcessedAt)
 
     companion object {
         fun from(schedule: Schedule) = ScheduleJpaEntity(
@@ -38,6 +42,7 @@ class ScheduleJpaEntity(
             schedule.title,
             schedule.startAt,
             schedule.endAt,
+            schedule.firstScreeningProcessedAt,
         )
     }
 }

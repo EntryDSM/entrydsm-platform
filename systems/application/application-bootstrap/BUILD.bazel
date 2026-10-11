@@ -3,6 +3,26 @@ load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 
 package(default_visibility = ["//visibility:public"])
 
+kt_jvm_test(
+    name = "first_screening_configuration_test",
+    srcs = [
+        "src/main/kotlin/hs/kr/entrydsm/application/config/AdministrationConfig.kt",
+        "src/test/kotlin/hs/kr/entrydsm/application/config/FirstScreeningConfigurationTest.kt",
+    ],
+    resources = ["src/main/resources/application.yaml"],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    plugins = ["//:spring_allopen"],
+    test_class = "hs.kr.entrydsm.application.config.FirstScreeningConfigurationTest",
+    deps = MODULE_DEPS + TEST_DEPS + [
+        "//systems/admin/admin-domain:main",
+        "//systems/application/application-domain:main",
+        "//systems/application/application-administration-application:main",
+        "//systems/configuration/configuration-domain:main",
+    ],
+)
+
+
 kt_jvm_binary(
     name = "score_recovery",
     srcs = glob(["src/operator/kotlin/**/*.kt"]) + ["src/main/kotlin/hs/kr/entrydsm/application/config/SnapshotCipherConfiguration.kt"],
@@ -47,6 +67,7 @@ kt_jvm_test(
     ],
     srcs = glob(["src/test/kotlin/**/*.kt"], exclude = [
         "src/test/kotlin/hs/kr/entrydsm/application/operator/**",
+        "src/test/kotlin/hs/kr/entrydsm/application/config/FirstScreeningConfigurationTest.kt",
         "src/test/kotlin/hs/kr/entrydsm/application/config/ScheduleInitializerTest.kt",
     ]) + [
         "src/main/kotlin/hs/kr/entrydsm/application/config/SnapshotCipherConfiguration.kt",
