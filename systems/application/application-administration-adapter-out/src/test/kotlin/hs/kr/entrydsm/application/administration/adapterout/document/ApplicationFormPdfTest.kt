@@ -5,6 +5,8 @@ import hs.kr.entrydsm.configuration.domain.document.*
 import hs.kr.entrydsm.application.administration.domain.document.Applicant
 import hs.kr.entrydsm.application.administration.domain.document.ApplicationForm
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.contentstream.operator.Operator
+import org.apache.pdfbox.pdfparser.PDFStreamParser
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -238,6 +240,23 @@ class ApplicationFormPdfTest {
         // 자기소개서만 뽑을 때는 빈 학업계획서 칸 때문에 장을 늘리지 않는다. 학업계획서는 원본 칸 자리에서 다음 장으로 잇는다.
         assertA4Pages(adapter.renderEssay(form().copy(introduction = essay), introduction = true), 1)
         assertA4Pages(adapter.renderEssay(form().copy(studyPlan = essay), introduction = false), 2)
+    }
+
+    @Test
+    fun `서식 3 원본 글자 묶음은 Tm 하나로만 자리를 잡아 띠로 자를 수 있다`() {
+        // 늘어난 칸에 맞춰 서식 3 원본을 띠로 자를 때 글자 묶음(BT~ET)을 그 Tm 한 곳으로 보고 넣거나 뺀다.
+        // 묶음 안에서 줄을 옮기는 서식으로 갈면 안내 문구가 빠지거나 숨은 글자가 남으니 여기서 먼저 막는다.
+        val positioning = setOf("Tm", "Td", "TD", "T*", "'", "\"")
+        listOf("/forms/application-form.pdf", "/forms/application-form-ged.pdf").forEach { path ->
+            val template = checkNotNull(javaClass.getResourceAsStream(path)).use { it.readBytes() }
+            val operators = Loader.loadPDF(template).use { document ->
+                PDFStreamParser(document.getPage(2)).parse().filterIsInstance<Operator>().joinToString(" ") { it.name }
+            }
+            val blocks = Regex("BT (.*?) ET").findAll(operators).map { it.groupValues[1].split(" ") }.toList()
+
+            assertTrue(path, blocks.isNotEmpty())
+            blocks.forEach { assertEquals(path, listOf("Tm"), it.filter(positioning::contains)) }
+        }
     }
 
     @Test

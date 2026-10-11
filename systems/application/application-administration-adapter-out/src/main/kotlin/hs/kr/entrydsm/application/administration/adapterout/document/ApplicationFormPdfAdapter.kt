@@ -310,6 +310,10 @@ private fun PDDocument.essays(page: PDPage, font: PDFont, form: ApplicationForm,
 /**
  * 서식 원본 장의 [top]~[bottom] 띠만 담은 그림. 띠 밖은 그림 테두리(BBox)가 잘라 내고, 띠 밖 글자는 아예 뺀다 —
  * 잘려 보이지 않는 글자도 PDF 검색·복사에는 섞여 나온다. 글자 위치는 글자 행렬(Tm)이 놓는 기준선으로 본다.
+ *
+ * ponytail: 글자 묶음(BT~ET) 하나를 그 묶음의 Tm 한 곳으로 보고 통째로 넣거나 뺀다. 지금 두 서식은 묶음마다 Tm 하나에
+ * 줄 이동(Td·TD·T*·'·")이 없다. 줄 이동이 있는 서식으로 갈면 테스트가 실패하니, 그때 줄 이동을 따라가며 그리는 명령마다
+ * 띠 안팎을 가르도록 바꾼다.
  */
 private fun PDDocument.band(page: PDPage, top: Float, bottom: Float): PDFormXObject {
     val pageHeight = page.mediaBox.height
