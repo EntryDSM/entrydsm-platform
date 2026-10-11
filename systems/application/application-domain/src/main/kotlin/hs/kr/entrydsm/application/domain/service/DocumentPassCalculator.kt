@@ -4,21 +4,31 @@ import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.model.Applicant
+import kotlin.math.ceil
 
-class DocumentPassCalculator {
-    /** 통계도 실제 1순위 선발과 같은 2배수 정원을 적용한다. */
+class DocumentPassCalculator(private val multiplier: Double = 2.0) {
+    init {
+        require(
+            multiplier.isFinite() && multiplier > 0 &&
+                ceil((DOCUMENT_PASS_QUOTAS.values.sum() + SECOND_PASS_QUOTA) * multiplier) <= Int.MAX_VALUE,
+        ) {
+            "1차 합격 배수는 양수이며 전체 정원이 정수 범위 안에 있어야 합니다."
+        }
+    }
+
+    /** 통계도 실제 1순위 선발과 같은 배수 및 올림을 적용한다. */
     fun firstPassQuotas(): Map<AdmissionType, Int> =
-        DOCUMENT_PASS_QUOTAS.mapValues { (_, quota) -> quota * QUOTA_MULTIPLIER }
+        DOCUMENT_PASS_QUOTAS.mapValues { (_, quota) -> scaledQuota(quota) }
 
     /** 경쟁률에만 일반전형의 후순위 정원을 포함한다. */
     fun competitionQuotas(): Map<AdmissionType, Int> =
         DOCUMENT_PASS_QUOTAS.mapValues { (type, quota) ->
-            (quota + if (type == AdmissionType.REGULAR) SECOND_PASS_QUOTA else 0) * QUOTA_MULTIPLIER
+            scaledQuota(quota + if (type == AdmissionType.REGULAR) SECOND_PASS_QUOTA else 0)
         }
 
-    /** 선발 정원은 2배수로 고정한다. 지역은 원서의 region을 기준으로 한다. */
+    /** 기준 정원에 설정 배수를 적용해 올림한다. 지역은 원서의 region을 기준으로 한다. */
     fun calculate(applicants: List<Applicant>): Map<Long, PassResultStatus> {
-        if (applicants.size <= (DOCUMENT_PASS_QUOTAS.values.sum() + SECOND_PASS_QUOTA) * QUOTA_MULTIPLIER) {
+        if (applicants.size <= scaledQuota(DOCUMENT_PASS_QUOTAS.values.sum() + SECOND_PASS_QUOTA)) {
             return applicants.associate { it.id to PassResultStatus.PASS }
         }
 
@@ -28,24 +38,26 @@ class DocumentPassCalculator {
         DOCUMENT_PASS_QUOTAS.forEach { (type, quota) ->
             val candidates = ranked.filter { it.admissionType == type }
             if (type == AdmissionType.REGULAR) {
-                candidates.filter { it.region == Region.DAEJEON }.take(DAEJEON_PRIORITY_QUOTA * QUOTA_MULTIPLIER)
+                candidates.filter { it.region == Region.DAEJEON }.take(scaledQuota(DAEJEON_PRIORITY_QUOTA))
                     .mapTo(passedIds) { it.id }
             }
             val selectedCount = candidates.count { it.id in passedIds }
-            candidates.filter { it.id !in passedIds }.take(quota * QUOTA_MULTIPLIER - selectedCount)
+            candidates.filter { it.id !in passedIds }.take(scaledQuota(quota) - selectedCount)
                 .mapTo(passedIds) { it.id }
         }
         // 전형별 미달 인원을 이월하지 않고 후순위 정원만 추가 선발한다.
-        ranked.filter { it.id !in passedIds }.take(SECOND_PASS_QUOTA * QUOTA_MULTIPLIER).mapTo(passedIds) { it.id }
+        ranked.filter { it.id !in passedIds }.take(scaledQuota(SECOND_PASS_QUOTA)).mapTo(passedIds) { it.id }
 
         return applicants.associate { applicant ->
             applicant.id to if (applicant.id in passedIds) PassResultStatus.PASS else PassResultStatus.FAIL
         }
     }
 
+    /** 소수 배수로 계산한 정원은 사람 수에 맞게 올림한다. */
+    private fun scaledQuota(quota: Int): Int = ceil(quota * multiplier).toInt()
+
     private companion object {
-        // quote.md의 기준 정원은 여기서만 관리하고 선발·통계에 같은 배수를 적용한다.
-        const val QUOTA_MULTIPLIER = 2
+        // 기준 정원은 여기서만 관리하고 선발·통계에 같은 배수를 적용한다.
         const val DAEJEON_PRIORITY_QUOTA = 16
         const val SECOND_PASS_QUOTA = 20
         val DOCUMENT_PASS_QUOTAS = mapOf(

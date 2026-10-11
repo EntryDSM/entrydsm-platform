@@ -33,6 +33,7 @@ private val KOREA_ZONE = ZoneId.of("Asia/Seoul")
 class StatisticsService(
     private val applicantRepository: ApplicantRepository,
     private val clock: Clock,
+    private val documentPassCalculator: DocumentPassCalculator = DocumentPassCalculator(),
 ) : ReadStatisticsUseCase {
 
     /**
@@ -54,7 +55,7 @@ class StatisticsService(
                 competitionRate(countByType)
             },
             firstPassQuota = metrics.ifRequested(StatisticsMetric.FIRST_PASS_QUOTA) {
-                DocumentPassCalculator().firstPassQuotas().toAdminQuotas()
+                documentPassCalculator.firstPassQuotas().toAdminQuotas()
             },
             genderRatio = metrics.ifRequested(StatisticsMetric.GENDER_RATIO) {
                 genderRatio(applicants)
@@ -81,7 +82,7 @@ class StatisticsService(
      * 전형별 지원자 수를 고정 경쟁률 정원으로 나눕니다.
      */
     private fun competitionRate(countByType: Map<AdmissionType, Long>): Map<AdmissionType, Double> =
-        DocumentPassCalculator().competitionQuotas().toAdminQuotas()
+        documentPassCalculator.competitionQuotas().toAdminQuotas()
             .mapValues { (type, quota) ->
                 BigDecimal.valueOf(countByType[type] ?: 0L)
                     .divide(BigDecimal.valueOf(quota.toLong()), COMPETITION_RATE_SCALE, RoundingMode.HALF_UP)

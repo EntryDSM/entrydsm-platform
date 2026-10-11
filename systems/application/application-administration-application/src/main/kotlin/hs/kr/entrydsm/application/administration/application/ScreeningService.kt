@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional
 class ScreeningService(
     private val applicantRepository: ApplicantRepository,
     private val clock: Clock,
+    private val documentPassCalculator: DocumentPassCalculator = DocumentPassCalculator(),
 ) : EvaluateFirstScreeningUseCase,
     EvaluateFinalScreeningUseCase {
 
@@ -43,7 +44,7 @@ class ScreeningService(
         val (evaluable, excluded) = applicants.partition {
             it.totalScore != null && it.admissionType != null
         }
-        val results = DocumentPassCalculator().calculate(
+        val results = documentPassCalculator.calculate(
             evaluable.map {
                 ApplicationApplicant(
                     id = it.id,
