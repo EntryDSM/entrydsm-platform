@@ -157,7 +157,7 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
-    fun graduationYearMustBe2026Or2027() {
+    fun prospectiveGraduationYearMustBe2026Or2027() {
         for (year in listOf(2025, 2026, 2027, 2028)) {
             val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
             val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
@@ -175,6 +175,19 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
+    fun graduatedApplicantsAcceptYearsOutsideProspectiveRange() {
+        for (date in listOf(YearMonth.of(2000, 1), YearMonth.of(2025, 2), YearMonth.of(2028, 12))) {
+            val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
+            ApplicationCommandService(repository, OPEN, ACCEPT_PHONE).updateType(
+                10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.GRADUATED, date,
+            )
+            assertEquals(date, repository.savedApplicant?.graduationDate)
+            assertEquals(GraduationType.GRADUATED, repository.savedApplicant?.graduationType)
+            assertEquals(1, repository.saveCount)
+        }
+    }
+
+    @Test
     fun sharedValidationIdentifiesMissingFieldsAndDoesNotSave() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L))
         val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
@@ -183,6 +196,7 @@ class ApplicationCommandServiceTest {
             "INTRODUCTION_TOO_LONG" to { service.updateIntroduction(10L, "가".repeat(1601)) },
             "STUDY_PLAN_REQUIRED" to { service.updateStudyPlan(10L, "") },
             "GRADUATION_DATE_REQUIRED" to { service.updateType(10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.PROSPECTIVE, null) },
+            "GRADUATION_DATE_REQUIRED" to { service.updateType(10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.GRADUATED, null) },
             "GRADUATION_DATE_NOT_ALLOWED" to { service.updateType(10L, AdmissionType.REGULAR, Region.DAEJEON, GraduationType.GED, YearMonth.of(2027, 2)) },
             "ADMISSION_TYPE_REQUIRED" to { service.submit(10L) },
         )
