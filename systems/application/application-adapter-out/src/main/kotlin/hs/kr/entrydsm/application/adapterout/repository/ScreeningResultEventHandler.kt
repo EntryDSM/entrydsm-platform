@@ -22,6 +22,7 @@ class ScreeningResultEventHandler(
     private val repository: ApplicantJpaRepository,
     private val outbox: ApplicantStatusEventOutbox,
     private val applicationPort: ApplicationPort,
+    private val publication: hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy = hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { false },
 ) {
     /** 같은 DB의 관리자 변경은 현재 버전을 잠근 뒤 원서 결과와 outbox를 함께 반영한다. */
     @Transactional
@@ -70,11 +71,33 @@ class ScreeningResultEventHandler(
         }
         applicant.statusVersion++
         applicant.updatedAt = nowUtc()
+        // 1차 결과는 예비 저장만 하고 발표 트랜잭션에서 일괄 공개한다.
+        if (type == ResultType.DOCUMENT) return
+        publish(applicant)
+    }
+
+    /** 기존 합격 예정자까지 발표 시각으로 확정하고 공개 이벤트를 남긴다. */
+    @Transactional
+    fun publishFirst(applicantId: Long, occurredAt: Instant) {
+        check(publication.isPublished()) { "1차 합격 발표가 완료되지 않았습니다." }
+        val applicant = repository.findForUpdate(applicantId) ?: return
+        if (applicant.status in setOf(ApplicantStatus.DRAFT, ApplicantStatus.CANCELED)) return
+        val result = applicant.passResults.firstOrNull { it.id.resultType == ResultType.DOCUMENT } ?: return
+        result.processedAt = LocalDateTime.ofInstant(occurredAt, ZoneOffset.UTC)
+        applicant.statusVersion = Math.addExact(applicant.statusVersion, 1L)
+        applicant.updatedAt = nowUtc()
+        publish(applicant)
+    }
+
+    private fun publish(applicant: hs.kr.entrydsm.application.adapterout.entity.ApplicantJpaEntity) {
         val snapshot = applicant.toDomain()
+        val published = publication.isPublished()
         outbox.add(ApplicantStatusChanged(
             accountId = snapshot.accountId, applicantId = snapshot.id, status = snapshot.status,
             occurredAt = snapshot.updatedAt, version = snapshot.statusVersion, submittedAt = snapshot.submittedAt,
-            passStatus = snapshot.passStatus, announcedAt = snapshot.announcedAt, passResultType = snapshot.passResultType,
+            passStatus = if (published) snapshot.passStatus else PassResultStatus.PENDING,
+            announcedAt = if (published) snapshot.announcedAt else null,
+            passResultType = if (published) snapshot.passResultType else null,
             applicationForm = requireNotNull(applicationPort.findApplicationForm(snapshot.accountId)),
         ))
     }

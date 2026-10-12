@@ -38,8 +38,11 @@ interface ApplicantStatusOutboxJpaRepository : JpaRepository<ApplicantStatusOutb
 class ApplicantStatusOutboxAdapter(
     private val repository: ApplicantStatusOutboxJpaRepository,
     private val cipher: SnapshotCipher,
+    private val publication: hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy = hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { false },
 ) : ApplicantStatusEventOutbox {
     override fun add(event: ApplicantStatusChanged) {
+        // 공개 전에는 다른 원서 변경 이벤트에도 예비 결과를 포함하지 않는다.
+        val published = publication.isPublished()
         val payload = ApplicantStatusChangedEvent.newBuilder()
             .setEventId(event.eventId.toString())
             .setAccountId(event.accountId)
@@ -49,7 +52,7 @@ class ApplicantStatusOutboxAdapter(
             .setVersion(event.version)
             .setApplicantDeleted(event.deleted)
             .setPassStatus(
-                when (event.passStatus) {
+                when (if (published) event.passStatus else PassResultStatus.PENDING) {
                     PassResultStatus.PENDING -> PassStatus.PASS_STATUS_NOT_ANNOUNCED
                     PassResultStatus.PASS -> when (event.passResultType) {
                         ResultType.DOCUMENT -> PassStatus.PASS_STATUS_FIRST_PASSED
@@ -67,7 +70,7 @@ class ApplicantStatusOutboxAdapter(
                 event.applicationForm?.let { builder.setEncryptedApplicationForm(com.google.protobuf.ByteString.copyFrom(cipher.encrypt(it.toGrpcForm().toByteArray()))) }
                 if (event.deleted) builder.applicantStatus = ApplicantStatus.APPLICANT_STATUS_NONE
                 event.submittedAt?.let { builder.submittedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }
-                event.announcedAt?.let { builder.announcedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }
+                event.announcedAt?.takeIf { published }?.let { builder.announcedAtEpochMillis = it.toInstant(ZoneOffset.UTC).toEpochMilli() }
             }
             .build()
             .toByteArray()
