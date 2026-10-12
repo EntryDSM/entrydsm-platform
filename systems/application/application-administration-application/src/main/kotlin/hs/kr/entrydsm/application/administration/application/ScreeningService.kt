@@ -26,59 +26,95 @@ class ScreeningService(
     private val applicantRepository: ApplicantRepository,
     private val clock: Clock,
     private val documentPassCalculator: DocumentPassCalculator = DocumentPassCalculator(),
+    private val schedules: hs.kr.entrydsm.application.administration.domain.schedule.port.out.ScheduleRepository? = null,
 ) : EvaluateFirstScreeningUseCase,
     EvaluateFinalScreeningUseCase {
 
-    /**
-     * 1차(서류) 합격자를 대전 우선·전형별 1순위·후순위 공통 정책으로 산출합니다.
-     *
-     * 다시 실행하면 이미 1차 결과를 받은 지원자까지 다시 줄 세워 정원 안에서만 합격시킨다.
-     * 최종 결과를 받은 지원자가 하나라도 있으면 다시 산출하지 않는다.
-     */
+    /** 발표 전 부족분만 예비 선발한다. */
     @Transactional
     override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult {
+        requireBeforeAnnouncement()
+        return supplement(command)
+    }
+
+    /** 일정 점유 트랜잭션 안에서 기존 합격자를 보존하고 결과를 공개한다. */
+    @Transactional
+    override fun publishFirst(): ScreeningResult {
+        val result = supplement(EvaluateScreeningCommand(false), publish = true)
+        applicantRepository.publishFirstResults(result.processedAt)
+        return result
+    }
+
+    /** 발표와 수동 변경은 같은 일정 행 잠금으로 직렬화한다. */
+    private fun requireBeforeAnnouncement() {
+        val schedule = schedules?.findByTitleForUpdate("1차 합격 발표")
+            ?: throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        val now = java.time.LocalDateTime.ofInstant(clock.instant(), java.time.ZoneId.of("Asia/Seoul"))
+        if (!now.isBefore(schedule.startAt) || schedule.firstScreeningProcessedAt != null) {
+            throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        }
+    }
+
+    /** 개인 지정은 전체 정원만 제한하고 취소된 지원자도 다시 지정할 수 있다. */
+    @Transactional
+    override fun selectFirst(applicantId: Long) = changeFirst(applicantId, ApplicantStatus.FIRST_PASS)
+
+    /** 취소 결과를 FAIL로 남겨 자동 보충에서 다시 선발하지 않는다. */
+    @Transactional
+    override fun cancelFirst(applicantId: Long) = changeFirst(applicantId, ApplicantStatus.FIRST_FAIL)
+
+    private fun changeFirst(applicantId: Long, target: ApplicantStatus) {
+        require(applicantId > 0)
+        requireBeforeAnnouncement()
         val applicants = applicantRepository.findAll()
         if (applicants.any { it.status in setOf(ApplicantStatus.FINAL_PASS, ApplicantStatus.FINAL_FAIL) }) {
             throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
-        val (evaluable, excluded) = applicants.partition {
-            it.totalScore != null && it.admissionType != null
+        val applicant = applicants.find { it.id == applicantId }
+            ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
+        if (applicant.status == target) return
+        if (target == ApplicantStatus.FIRST_PASS) {
+            if (applicant.totalScore == null || applicant.admissionType == null || applicant.submittedAt == null ||
+                applicants.count { it.status == ApplicantStatus.FIRST_PASS } >= documentPassCalculator.totalFirstPassQuota()) {
+                throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+            }
+        } else if (applicant.status != ApplicantStatus.FIRST_PASS) {
+            throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
-        val results = documentPassCalculator.calculate(
-            evaluable.map {
-                ApplicationApplicant(
-                    id = it.id,
-                    accountId = 0,
-                    admissionType = when (requireNotNull(it.admissionType)) {
+        applicantRepository.save(applicant.copy(status = target, updatedAt = Instant.now(clock)))
+    }
+
+    /** 점수가 부족한 기존 합격자도 그대로 보존하며 FAIL은 자동 재선발하지 않는다. */
+    private fun supplement(command: EvaluateScreeningCommand, publish: Boolean = false): ScreeningResult {
+        val applicants = applicantRepository.findAll()
+        if (applicants.any { it.status in setOf(ApplicantStatus.FINAL_PASS, ApplicantStatus.FINAL_FAIL) }) {
+            throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        }
+        val existing = applicants.filter { it.status == ApplicantStatus.FIRST_PASS }
+        val candidates = applicants.filter { it.status == ApplicantStatus.PENDING && it.totalScore != null &&
+            it.admissionType != null && it.submittedAt != null }
+        val selectable = existing + candidates
+        val results = if (existing.size >= documentPassCalculator.totalFirstPassQuota()) emptyMap() else
+            documentPassCalculator.supplement(selectable.map {
+                ApplicationApplicant(id = it.id, accountId = 0,
+                    admissionType = when (it.admissionType) {
                         hs.kr.entrydsm.admin.domain.enum.AdmissionType.GENERAL -> ApplicationAdmissionType.REGULAR
                         hs.kr.entrydsm.admin.domain.enum.AdmissionType.MEISTER -> ApplicationAdmissionType.MEISTER
                         hs.kr.entrydsm.admin.domain.enum.AdmissionType.SOCIAL -> ApplicationAdmissionType.SOCIAL
+                        null -> null
                     },
-                    region = if (it.region == hs.kr.entrydsm.admin.domain.enum.Region.DAEJEON) {
-                        ApplicationRegion.DAEJEON
-                    } else ApplicationRegion.NATIONAL,
-                    totalScore = it.totalScore,
-                )
-            },
-        )
-        val evaluated = evaluable.map {
-            it.copy(status = if (results[it.id] == PassResultStatus.PASS) ApplicantStatus.FIRST_PASS else ApplicantStatus.FIRST_FAIL)
-        }
+                    region = if (it.region == hs.kr.entrydsm.admin.domain.enum.Region.DAEJEON) ApplicationRegion.DAEJEON else ApplicationRegion.NATIONAL,
+                    totalScore = it.totalScore)
+            }, existing.mapTo(hashSetOf()) { it.id })
         val now = Instant.now(clock)
-
-        if (!command.dryRun) {
-            applicantRepository.saveAll(
-                evaluated.map { it.copy(updatedAt = now) },
-            )
-        }
-
-        return ScreeningResult(
-            dryRun = command.dryRun,
-            passCount = evaluated.count { it.status == ApplicantStatus.FIRST_PASS },
-            failCount = evaluated.count { it.status == ApplicantStatus.FIRST_FAIL },
-            excludedCount = excluded.size,
-            processedAt = now,
-        )
+        val evaluated = candidates.map { it.copy(status = if (results[it.id] == PassResultStatus.PASS)
+            ApplicantStatus.FIRST_PASS else ApplicantStatus.FIRST_FAIL, updatedAt = now) }
+        if (!command.dryRun) applicantRepository.saveAll(if (publish) evaluated else
+            evaluated.filter { it.status == ApplicantStatus.FIRST_PASS })
+        return ScreeningResult(command.dryRun,
+            existing.size + evaluated.count { it.status == ApplicantStatus.FIRST_PASS },
+            applicants.count { it.status == ApplicantStatus.FIRST_FAIL } + evaluated.count { it.status == ApplicantStatus.FIRST_FAIL },
+            applicants.size - existing.size - candidates.size - applicants.count { it.status == ApplicantStatus.FIRST_FAIL }, now)
     }
 
     /**
@@ -90,6 +126,12 @@ class ScreeningService(
      */
     @Transactional
     override fun evaluateFinal(applicantId: Long): FinalScreeningResult {
+        val schedule = schedules?.findByTitleForUpdate("1차 합격 발표")
+            ?: throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        val nowKst = java.time.LocalDateTime.ofInstant(clock.instant(), java.time.ZoneId.of("Asia/Seoul"))
+        if (schedule.firstScreeningProcessedAt == null || nowKst.isBefore(schedule.startAt)) {
+            throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        }
         val applicant = applicantRepository.findById(applicantId)
             ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
         val now = Instant.now(clock)
