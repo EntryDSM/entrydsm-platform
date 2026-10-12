@@ -10,6 +10,7 @@ import java.time.YearMonth
 
 /** 지원자·관리자 수정이 공유하는 필드 검증과 변경 규칙. 상태·권한 정책은 각 유스케이스에서 검증한다. */
 class ApplicationFormEditor(private val accountPhoneValidator: AccountPhoneValidator) {
+    /** 졸업연도 범위는 졸업예정자에게만 적용하고 연월 필수 여부는 학력별로 검증한다. */
     fun updateType(
         applicant: Applicant,
         admissionType: AdmissionType,
@@ -19,7 +20,9 @@ class ApplicationFormEditor(private val accountPhoneValidator: AccountPhoneValid
     ) {
         APPLICATION_GRADUATION_DATE_REQUIRED.requireValid(graduationType == GraduationType.GED || graduationDate != null)
         APPLICATION_GRADUATION_DATE_NOT_ALLOWED.requireValid(graduationType != GraduationType.GED || graduationDate == null)
-        APPLICATION_GRADUATION_DATE_OUT_OF_RANGE.requireValid(graduationDate == null || graduationDate.year in 2026..2027)
+        APPLICATION_GRADUATION_DATE_OUT_OF_RANGE.requireValid(
+            graduationType != GraduationType.PROSPECTIVE || graduationDate == null || graduationDate.year in 2026..2027,
+        )
 
         applicant.admissionType = admissionType
         applicant.region = region

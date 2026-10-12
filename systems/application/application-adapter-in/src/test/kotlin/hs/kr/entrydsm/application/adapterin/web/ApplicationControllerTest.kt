@@ -49,6 +49,9 @@ class ApplicationControllerTest {
             Triple("personal", personal.replace("MALE", "unknown"), "GENDER_INVALID_VALUE"),
             Triple("personal", personal.replace("2010-01-01", "2010-02-30"), "BIRTHDATE_INVALID_FORMAT"),
             Triple("type", """{"admissionType":"REGULAR","region":"DAEJEON","graduationType":"PROSPECTIVE","graduationDate":"2027-13"}""", "GRADUATION_DATE_INVALID_FORMAT"),
+            *listOf("2025-13", "2025-00", "2025", "2025-2", "2025-02-01", "abcd-02").map { date ->
+                Triple("type", """{"admissionType":"REGULAR","region":"DAEJEON","graduationType":"GRADUATED","graduationDate":"$date"}""", "GRADUATION_DATE_INVALID_FORMAT")
+            }.toTypedArray(),
             Triple("family", """{"guardianName":"보호자","guardianPhoneNumber":"010-1234-5678","guardianGender":"MALE","guardianRelation":"부","address":{"zipCode":"","addressBase":"주소","addressDetail":"상세"}}""", "ADDRESS_ZIP_CODE_REQUIRED"),
             Triple("personal", personal.replace("\"홍길동\"", "{}"), "NAME_INVALID_TYPE"),
         )
