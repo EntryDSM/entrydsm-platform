@@ -19,6 +19,12 @@ data class CorrectApplicationRequest(
 /** 제출/도착 원서의 정정. 버전은 서버에서 관리한다. */
 @RestController
 class ApplicationCorrectionController(private val corrections: CorrectApplicationUseCase) {
+    /** 서버가 실제 정정에 적용하는 필드와 상태 정책을 반환한다. */
+    @GetMapping("${AdminEndpointPaths.APPLICANT}/application/editable-fields")
+    fun editableFields(@PathVariable("applicantId") applicantId: Long) = ResponseEntity.ok(ApiResponse(
+        data = corrections.editableFields(applicantId),
+    ))
+
     @PatchMapping("${AdminEndpointPaths.APPLICANT}/application")
     fun correct(
         @PathVariable("applicantId") applicantId: Long,
