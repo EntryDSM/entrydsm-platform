@@ -5,6 +5,8 @@ import hs.kr.entrydsm.configuration.domain.document.*
 import hs.kr.entrydsm.application.administration.domain.document.Applicant
 import hs.kr.entrydsm.application.administration.domain.document.ApplicationForm
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.contentstream.operator.Operator
+import org.apache.pdfbox.pdfparser.PDFStreamParser
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -27,7 +29,7 @@ import kotlin.math.roundToInt
 
 /**
  * 요강이 "인터넷접수 후 출력"이라고 적은 서식 6개를 서식 원본 위에 찍는다. 지원자가 내려받아 그대로 인쇄해 우편으로
- * 보내는 종이라 서식마다 A4 한 장이고, 값은 원본의 칸 안에만 찍혀야 한다.
+ * 보내는 종이라 서식마다 A4 한 장이고(자기소개서·학업계획서가 길면 서식 3 만 장이 는다), 값은 원본의 칸 안에만 찍혀야 한다.
  *
  * 원서 값은 나눔고딕으로 찍고 서식 원본 글자는 다른 글꼴이다. 글꼴로 원서 값만 골라 위치를 잰다.
  */
@@ -212,16 +214,49 @@ class ApplicationFormPdfTest {
     }
 
     @Test
-    fun `빈칸 포함 1,600자 자기소개서도 본문 칸을 넘치지 않고 다 찍는다`() {
+    fun `빈칸 포함 1,600자 자기소개서와 학업계획서는 글자를 줄이지 않고 칸을 늘려 다음 장까지 다 찍는다`() {
         val sentence = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했고 중학교에서는 정보 동아리 부장을 맡았습니다. "
-        val introduction = sentence.repeat(30).take(1596).chunked(320).joinToString("\n")
-        val pdf = adapter.render(form().copy(introduction = introduction), photo = null)
+        val essay = sentence.repeat(30).take(1596).chunked(320).joinToString("\n")
+        val pdf = adapter.render(form().copy(introduction = essay, studyPlan = essay), photo = null)
+        // 서식 3 인적사항 표 아래의 본문 글자
+        val body = stamped(pdf, page = 3).filter { it.yDirAdj > 278.16f } + stamped(pdf, page = 4)
 
-        assertEquals(1600, introduction.length)
-        assertInside(
-            stamped(pdf, page = 3), introduction.count { !it.isWhitespace() },
-            left = 59.52f, top = 278.16f, right = 535.80f, bottom = 491.88f,
-        )
+        assertEquals(1600, essay.length)
+        // 늘어난 자기소개서 칸 아래에 학업계획서가 들어가지 않아 안내 칸째 다음 장으로 넘어가고, 뒤 서식은 한 장씩 밀린다.
+        assertA4Pages(pdf, FORM_COUNT + 1)
+        assertFalse(pageText(pdf, 3).contains("구체적인"))
+        assertTrue(pageText(pdf, 4).contains("구체적인"))
+        assertTrue(pageText(pdf, 5).contains("추천서"))
+        assertEquals(2 * essay.count { !it.isWhitespace() }, body.size)
+        body.forEach {
+            assertEquals(10f, it.fontSizeInPt, 0.01f)
+            assertTrue("${it.unicode} at ${it.xDirAdj}", it.xDirAdj >= 59.52f && it.xDirAdj + it.widthDirAdj <= 535.80f)
+            assertTrue("${it.unicode} at ${it.yDirAdj}", it.yDirAdj <= 749.88f)
+        }
+        // 짧은 학업계획서는 늘어난 자기소개서 칸 아래 남은 자리에 쓴다.
+        val shortStudyPlan = adapter.render(form().copy(introduction = essay.take(1200)), photo = null)
+        assertA4Pages(shortStudyPlan, FORM_COUNT)
+        assertTrue(pageText(shortStudyPlan, 3).contains("입학 후에는"))
+        // 자기소개서만 뽑을 때는 빈 학업계획서 칸 때문에 장을 늘리지 않는다. 학업계획서는 원본 칸 자리에서 다음 장으로 잇는다.
+        assertA4Pages(adapter.renderEssay(form().copy(introduction = essay), introduction = true), 1)
+        assertA4Pages(adapter.renderEssay(form().copy(studyPlan = essay), introduction = false), 2)
+    }
+
+    @Test
+    fun `서식 3 원본 글자 묶음은 Tm 하나로만 자리를 잡아 띠로 자를 수 있다`() {
+        // 늘어난 칸에 맞춰 서식 3 원본을 띠로 자를 때 글자 묶음(BT~ET)을 그 Tm 한 곳으로 보고 넣거나 뺀다.
+        // 묶음 안에서 줄을 옮기는 서식으로 갈면 안내 문구가 빠지거나 숨은 글자가 남으니 여기서 먼저 막는다.
+        val positioning = setOf("Tm", "Td", "TD", "T*", "'", "\"")
+        listOf("/forms/application-form.pdf", "/forms/application-form-ged.pdf").forEach { path ->
+            val template = checkNotNull(javaClass.getResourceAsStream(path)).use { it.readBytes() }
+            val operators = Loader.loadPDF(template).use { document ->
+                PDFStreamParser(document.getPage(2)).parse().filterIsInstance<Operator>().joinToString(" ") { it.name }
+            }
+            val blocks = Regex("BT (.*?) ET").findAll(operators).map { it.groupValues[1].split(" ") }.toList()
+
+            assertTrue(path, blocks.isNotEmpty())
+            blocks.forEach { assertEquals(path, listOf("Tm"), it.filter(positioning::contains)) }
+        }
     }
 
     @Test

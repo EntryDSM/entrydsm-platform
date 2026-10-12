@@ -5,12 +5,22 @@ import hs.kr.entrydsm.application.administration.domain.document.ApplicationForm
 import hs.kr.entrydsm.application.administration.domain.document.ReceiptNumber
 import hs.kr.entrydsm.application.administration.domain.document.port.out.ApplicationFormPdfPort
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.contentstream.operator.Operator
+import org.apache.pdfbox.contentstream.operator.OperatorName
+import org.apache.pdfbox.cos.COSName
+import org.apache.pdfbox.cos.COSNumber
+import org.apache.pdfbox.pdfparser.PDFStreamParser
+import org.apache.pdfbox.pdfwriter.ContentStreamWriter
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.PDPageContentStream.AppendMode
+import org.apache.pdfbox.pdmodel.PDResources
+import org.apache.pdfbox.pdmodel.common.PDRectangle
+import org.apache.pdfbox.pdmodel.common.PDStream
 import org.apache.pdfbox.pdmodel.font.PDFont
 import org.apache.pdfbox.pdmodel.font.PDType0Font
+import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject
 import org.apache.pdfbox.util.Matrix
 import org.slf4j.LoggerFactory
@@ -45,6 +55,25 @@ private const val CM = 72f / 2.54f
 /** 서식 1 의 특기사항·가산점·교과성적 칸에 값이 없을 때 빈칸 대신 찍는 표시. 학교가 요청했다. */
 private const val EMPTY_CELL = "-"
 
+/** 서식 3 본문 칸의 좌우와, 자기소개서·학업계획서 본문 칸의 위아래. 학업계획서 칸 아래가 서식의 아래 여백이다. */
+private const val ESSAY_LEFT = 59.52f
+private const val ESSAY_RIGHT = 535.80f
+private const val INTRODUCTION_TOP = 278.16f
+private const val INTRODUCTION_BOTTOM = 491.88f
+/** 학업계획서 안내 칸 윗선. 자기소개서 칸과의 사이에 틈이 있다. */
+private const val STUDY_PLAN_HEAD_TOP = 499.68f
+private const val STUDY_PLAN_TOP = 536.16f
+private const val STUDY_PLAN_BOTTOM = 749.88f
+
+/** 서식 3 본문 글자 크기. 글이 길어도 줄이지 않고 칸을 늘린다. */
+private const val ESSAY_FONT_SIZE = 10f
+
+/** 본문 칸 테두리 굵기. 서식 원본의 선과 같다. */
+private const val BORDER_WIDTH = 0.36f
+
+/** 서식 3 뒤에 이어 붙이는 장의 위 여백. 서식 3 머리글("<서식 3>")과 같은 높이다. */
+private const val CONTINUED_TOP = 70.68f
+
 private val log = LoggerFactory.getLogger(ApplicationFormPdfAdapter::class.java)
 
 /**
@@ -75,7 +104,7 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
             val (noSmoking, smokingTest) = if (ged) pages[3] to pages[4] else pages[4] to pages[5]
 
             Sheet(document, pages[0], font).use { it.application(form, receipt, photo) }
-            Sheet(document, pages[2], font).use { it.essays(form, receipt) }
+            document.essays(pages[2], font, form, receipt)
             Sheet(document, noSmoking, font).use {
                 it.personalInfo(form, receipt, rows = floatArrayOf(136.44f, 162.60f, 188.76f, 215.04f))
                 // 다짐 문장 "나 (    )은(는)" 의 괄호 사이. 나눔고딕 12pt 가 인쇄된 본문 글자와 크기가 같다.
@@ -100,17 +129,16 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
     override fun renderEssay(form: ApplicationForm, introduction: Boolean): ByteArray =
         Loader.loadPDF(templateOf(form)).use { document ->
             val page = document.pages[2]
-            val font = PDType0Font.load(document, fontFile.inputStream())
-            Sheet(document, page, font).use {
-                it.essays(
-                    form.copy(
-                        introduction = form.introduction.takeIf { introduction },
-                        studyPlan = form.studyPlan.takeUnless { introduction },
-                    ),
-                    ReceiptNumber.of(form.applicantId),
-                )
-            }
-            (document.numberOfPages - 1 downTo 0).filterNot { it == 2 }.forEach(document::removePage)
+            document.pages.filterNot { it == page }.forEach(document::removePage)
+            document.essays(
+                page,
+                PDType0Font.load(document, fontFile.inputStream()),
+                form.copy(
+                    introduction = form.introduction.takeIf { introduction },
+                    studyPlan = form.studyPlan.takeUnless { introduction },
+                ),
+                ReceiptNumber.of(form.applicantId),
+            )
             ByteArrayOutputStream().also { document.save(it) }.toByteArray()
         }
 
@@ -209,12 +237,121 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
     text(399.24f, 751.44f, 536.40f, 775.56f, school?.phone)
 }
 
-/** 서식 3 자기소개서·학업계획서. 본문은 지원자가 쓴 줄바꿈을 살려 칸 위부터 채운다. */
-private fun Sheet.essays(form: ApplicationForm, receipt: String) {
-    // 성명 칸 오른쪽에는 "(서명)" 이 인쇄돼 있어 그 앞까지만 쓴다.
-    personalInfo(form, receipt, rows = floatArrayOf(139.20f, 165.48f, 191.64f, 217.80f), nameRight = 278.00f)
-    text(59.52f, 278.16f, 535.80f, 491.88f, form.introduction, align = Align.LEFT, wrap = true, fromTop = true)
-    text(59.52f, 536.16f, 535.80f, 749.88f, form.studyPlan, align = Align.LEFT, wrap = true, fromTop = true)
+/**
+ * 서식 3 자기소개서·학업계획서. 본문은 지원자가 쓴 줄바꿈을 살려 칸 위부터 채운다.
+ *
+ * 본문이 칸을 넘치면 글자를 줄이지 않고 칸을 아래로 늘린다. 그래서 서식 원본은 자기소개서 본문 칸 위와 학업계획서
+ * 안내 칸만 잘라 깔고, 본문 칸 테두리는 직접 긋는다. 칸이 서식 아래 여백에 닿으면 바로 뒤에 빈 장을 붙여 이어 쓴다.
+ * 학업계획서는 남은 자리에 글이 다 들어가거나 원본 높이의 칸이 들어가면 그 장에서, 아니면 다음 장에서 시작하고
+ * 칸은 아래 여백까지 긋는다.
+ */
+private fun PDDocument.essays(page: PDPage, font: PDFont, form: ApplicationForm, receipt: String) {
+    val head = band(page, 0f, INTRODUCTION_TOP)
+    // 학업계획서 안내 칸은 위 틈 절반까지 자른다. 자기소개서 칸 아랫선이 따라와 다음 장 맨 위에 남지 않게 한다.
+    val studyPlanHead = band(page, (INTRODUCTION_BOTTOM + STUDY_PLAN_HEAD_TOP) / 2, STUDY_PLAN_TOP)
+    // 원본 글꼴은 띠가 가져갔다. 장에는 새로 찍는 것만 담는다.
+    page.resources = PDResources()
+    var sheet = Sheet(this, page, font, AppendMode.OVERWRITE)
+    var y = INTRODUCTION_TOP
+    val leading = ESSAY_FONT_SIZE * LINE_HEIGHT
+
+    fun nextPage() {
+        val next = PDPage(page.mediaBox)
+        pages.insertAfter(next, sheet.page)
+        sheet.close()
+        sheet = Sheet(this, next, font)
+        y = CONTINUED_TOP
+    }
+
+    fun wrapped(text: String?) = sheet.wrapped(text, ESSAY_FONT_SIZE, ESSAY_RIGHT - ESSAY_LEFT - 2 * PADDING_X)
+
+    /** 줄을 다 담는 본문 칸 높이. 빈 칸도 한 줄 높이는 둔다. */
+    fun height(lines: List<String>) = PADDING_X + maxOf(1, lines.size) * leading + PADDING_Y
+
+    /** 본문 칸 하나를 [y] 부터 [minHeight] 이상 긋는다. 더 긴 글은 칸을 늘리고, 장을 넘치면 다음 장에 잇는다. */
+    fun body(text: List<String>, minHeight: Float) {
+        var lines = text
+        var min = minHeight
+        while (true) {
+            val fit = ((STUDY_PLAN_BOTTOM - y - PADDING_X - PADDING_Y) / leading).toInt()
+            val bottom = if (lines.size <= fit) minOf(y + maxOf(min, height(lines)), STUDY_PLAN_BOTTOM) else STUDY_PLAN_BOTTOM
+            sheet.box(ESSAY_LEFT, y, ESSAY_RIGHT, bottom)
+            sheet.lines(ESSAY_LEFT, ESSAY_RIGHT, y + PADDING_X, lines.take(fit), ESSAY_FONT_SIZE, Align.LEFT)
+            y = bottom
+            if (lines.size <= fit) return
+            lines = lines.drop(fit)
+            min = 0f
+            nextPage()
+        }
+    }
+
+    try {
+        sheet.place(head, shift = 0f)
+        // 성명 칸 오른쪽에는 "(서명)" 이 인쇄돼 있어 그 앞까지만 쓴다.
+        sheet.personalInfo(form, receipt, rows = floatArrayOf(139.20f, 165.48f, 191.64f, 217.80f), nameRight = 278.00f)
+        body(wrapped(form.introduction), INTRODUCTION_BOTTOM - INTRODUCTION_TOP)
+        val studyPlan = wrapped(form.studyPlan)
+        val header = STUDY_PLAN_TOP - INTRODUCTION_BOTTOM
+        // 원본 칸 높이만큼 자리가 남으면 여기서 시작해 다음 장에 잇는다.
+        // 0.01pt 는 자기소개서 칸이 원본 그대로일 때 부동소수 오차로 학업계획서가 넘어가지 않게 봐준다.
+        if (STUDY_PLAN_BOTTOM - y - header + 0.01f < minOf(height(studyPlan), STUDY_PLAN_BOTTOM - STUDY_PLAN_TOP)) {
+            // 빈 학업계획서 칸 하나 때문에 장을 늘리지 않는다. 자기소개서만 뽑을 때(renderEssay)와 작성 중인 원서다.
+            if (studyPlan.isEmpty()) return
+            nextPage()
+        }
+        sheet.place(studyPlanHead, shift = y - INTRODUCTION_BOTTOM)
+        y += header
+        body(studyPlan, STUDY_PLAN_BOTTOM - y)
+    } finally {
+        sheet.close()
+    }
+}
+
+/**
+ * 서식 원본 장의 [top]~[bottom] 띠만 담은 그림. 띠 밖은 그림 테두리(BBox)가 잘라 내고, 띠 밖 글자는 아예 뺀다 —
+ * 잘려 보이지 않는 글자도 PDF 검색·복사에는 섞여 나온다. 글자 위치는 글자 행렬(Tm)이 놓는 기준선으로 본다.
+ *
+ * ponytail: 글자 묶음(BT~ET) 하나를 그 묶음의 Tm 한 곳으로 보고 통째로 넣거나 뺀다. 지금 두 서식은 묶음마다 Tm 하나에
+ * 줄 이동(Td·TD·T*·'·")이 없다. 줄 이동이 있는 서식으로 갈면 테스트가 실패하니, 그때 줄 이동을 따라가며 그리는 명령마다
+ * 띠 안팎을 가르도록 바꾼다.
+ */
+private fun PDDocument.band(page: PDPage, top: Float, bottom: Float): PDFormXObject {
+    val pageHeight = page.mediaBox.height
+    val kept = mutableListOf<Any>()
+    var text: MutableList<Any>? = null
+    var inside = true
+    var ctm = Matrix()
+    val saved = ArrayDeque<Matrix>()
+    val operands = mutableListOf<Float>()
+    PDFStreamParser(page).parse().forEach { token ->
+        (text ?: kept).add(token)
+        if (token !is Operator) {
+            (token as? COSNumber)?.let { operands += it.floatValue() }
+            return@forEach
+        }
+        fun matrix() = Matrix(operands[0], operands[1], operands[2], operands[3], operands[4], operands[5])
+        when (token.name) {
+            OperatorName.SAVE -> saved.addLast(ctm.clone())
+            OperatorName.RESTORE -> ctm = saved.removeLast()
+            OperatorName.CONCAT -> ctm = matrix().multiply(ctm)
+            OperatorName.BEGIN_TEXT -> {
+                text = mutableListOf(kept.removeAt(kept.lastIndex))
+                inside = true
+            }
+            OperatorName.SET_MATRIX -> inside = pageHeight - matrix().multiply(ctm).translateY in top..bottom
+            OperatorName.END_TEXT -> {
+                if (inside) kept.addAll(text!!)
+                text = null
+            }
+        }
+        operands.clear()
+    }
+    val stream = PDStream(this)
+    stream.createOutputStream(COSName.FLATE_DECODE).use { ContentStreamWriter(it).writeTokens(kept) }
+    return PDFormXObject(stream).apply {
+        resources = page.resources
+        bBox = PDRectangle(0f, pageHeight - bottom, page.mediaBox.width, bottom - top)
+    }
 }
 
 /**
@@ -301,17 +438,24 @@ private fun graduation(form: ApplicationForm): String? {
 
 private enum class Align { LEFT, CENTER }
 
-/** 서식 한 장에 값을 덧찍는다. */
-private class Sheet(private val document: PDDocument, page: PDPage, private val font: PDFont) : AutoCloseable {
+/**
+ * 서식 한 장에 값을 덧찍는다. [AppendMode.OVERWRITE] 로 열면 원본 내용을 지우고, 필요한 띠만 [original] 로 다시 깐다.
+ */
+private class Sheet(
+    private val document: PDDocument,
+    val page: PDPage,
+    private val font: PDFont,
+    mode: AppendMode = AppendMode.APPEND,
+) : AutoCloseable {
 
     private val pageHeight = page.mediaBox.height
 
     // resetContext: 원본 내용이 좌표계를 바꿔 둔 채 끝나도 기본 좌표계에서 찍는다.
-    private val stream = PDPageContentStream(document, page, AppendMode.APPEND, true, true)
+    private val stream = PDPageContentStream(document, page, mode, true, true)
 
     /**
      * 칸 안에 값을 찍는다. 칸을 넘치면 글자를 [MIN_FONT_SIZE] 까지 줄인다. [wrap] 칸은 칸 폭에서 줄을 바꾸고 줄 수가
-     * 칸 높이를 넘칠 때 줄이며, 그래도 넘치는 줄은 버린다. 줄 묶음은 칸 가운데에 두고, [fromTop] 이면 위부터 채운다.
+     * 칸 높이를 넘칠 때 줄이며, 그래도 넘치는 줄은 버린다. 줄 묶음은 칸 가운데에 둔다.
      */
     fun text(
         left: Float,
@@ -322,13 +466,10 @@ private class Sheet(private val document: PDDocument, page: PDPage, private val 
         size: Float = 10f,
         align: Align = Align.CENTER,
         wrap: Boolean = false,
-        fromTop: Boolean = false,
     ) {
         val text = value?.takeIf { it.isNotBlank() }?.let { printable(it) } ?: return
         val width = right - left - 2 * PADDING_X
-        // 위부터 채우는 본문은 왼쪽과 같은 여백을 둔다.
-        val topPadding = if (fromTop) PADDING_X else PADDING_Y
-        val height = bottom - top - topPadding - PADDING_Y
+        val height = bottom - top - 2 * PADDING_Y
         fun layout(fontSize: Float) = if (wrap) wrap(text, fontSize, width) else listOf(text.replace('\n', ' '))
 
         var fontSize = size
@@ -342,7 +483,13 @@ private class Sheet(private val document: PDDocument, page: PDPage, private val 
 
         val leading = fontSize * LINE_HEIGHT
         lines = lines.take(maxOf(1, (height / leading).toInt()))
-        val blockTop = if (fromTop) top + topPadding else (top + bottom - lines.size * leading) / 2
+        lines(left, right, (top + bottom - lines.size * leading) / 2, lines, fontSize, align)
+    }
+
+    /** 이미 나눈 줄을 [blockTop] 부터 한 줄씩 찍는다. [left]·[right] 는 줄을 맞출 칸의 좌우다. */
+    fun lines(left: Float, right: Float, blockTop: Float, lines: List<String>, fontSize: Float, align: Align) {
+        if (lines.isEmpty()) return
+        val leading = fontSize * LINE_HEIGHT
         stream.beginText()
         stream.setFont(font, fontSize)
         lines.forEachIndexed { index, line ->
@@ -355,6 +502,23 @@ private class Sheet(private val document: PDDocument, page: PDPage, private val 
             stream.showText(line)
         }
         stream.endText()
+    }
+
+    /** 칸 테두리를 서식 원본과 같은 굵기로 긋는다. */
+    fun box(left: Float, top: Float, right: Float, bottom: Float) {
+        stream.saveGraphicsState()
+        stream.setLineWidth(BORDER_WIDTH)
+        stream.addRect(left, pageHeight - bottom, right - left, bottom - top)
+        stream.stroke()
+        stream.restoreGraphicsState()
+    }
+
+    /** 서식 원본에서 잘라 낸 띠([band])를 [shift] 만큼 아래로 옮겨 깐다. */
+    fun place(band: PDFormXObject, shift: Float) {
+        stream.saveGraphicsState()
+        stream.transform(Matrix.getTranslateInstance(0f, -shift))
+        stream.drawForm(band)
+        stream.restoreGraphicsState()
     }
 
     /**
@@ -400,6 +564,10 @@ private class Sheet(private val document: PDDocument, page: PDPage, private val 
             append(if (char == "\n" || runCatching { font.encode(char) }.isSuccess) char else "?")
         }
     }
+
+    /** 빈 값은 줄이 없다. 찍지 못하는 글자는 [printable] 로 바꿔 나눈다. */
+    fun wrapped(value: String?, fontSize: Float, width: Float): List<String> =
+        value?.takeIf { it.isNotBlank() }?.let { wrap(printable(it), fontSize, width) }.orEmpty()
 
     /** 띄어쓰기에서 줄을 바꾸고, 한 줄보다 긴 낱말은 글자 단위로 끊는다. 지원자가 넣은 줄바꿈은 그대로 둔다. */
     private fun wrap(text: String, fontSize: Float, width: Float): List<String> = text.split('\n').flatMap { paragraph ->
