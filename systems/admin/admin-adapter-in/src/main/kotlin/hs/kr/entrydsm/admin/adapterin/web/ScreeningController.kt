@@ -44,6 +44,20 @@ class ScreeningController(
     private val readStatisticsUseCase: ReadStatisticsUseCase,
 ) {
 
+    /** 발표 전 합격 예정자 한 명만 직접 지정한다. */
+    @PostMapping(AdminEndpointPaths.FIRST_SCREENING_CANDIDATE)
+    fun selectFirst(@PathVariable applicantId: Long): ResponseEntity<Unit> {
+        evaluateFirstScreeningUseCase.selectFirst(applicantId)
+        return ResponseEntity.noContent().build()
+    }
+
+    /** 다른 예정자를 유지하고 지정한 지원자만 취소한다. */
+    @org.springframework.web.bind.annotation.DeleteMapping(AdminEndpointPaths.FIRST_SCREENING_CANDIDATE)
+    fun cancelFirst(@PathVariable applicantId: Long): ResponseEntity<Unit> {
+        evaluateFirstScreeningUseCase.cancelFirst(applicantId)
+        return ResponseEntity.noContent().build()
+    }
+
     @GetMapping(AdminEndpointPaths.SCORE_POLICY)
     fun findCurrentPolicy(): ResponseEntity<ApiResponse<ScorePolicyResponse>> =
         ResponseEntity.ok(ApiResponse(data = readScorePolicyUseCase.findCurrent().toResponse()))

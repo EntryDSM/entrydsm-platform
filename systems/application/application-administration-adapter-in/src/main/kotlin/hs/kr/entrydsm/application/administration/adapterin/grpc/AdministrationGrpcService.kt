@@ -52,6 +52,15 @@ class AdministrationGrpcService(
             corrections.correct(correctionMapper.readValue(request.commandJson, CorrectApplicationCommand::class.java), request.userId)
         }
 
+    override fun readEditableApplicationFields(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { corrections.editableFields(request.applicantId()) }
+
+    override fun selectFirstCandidate(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { first.selectFirst(request.applicantId()) }
+
+    override fun cancelFirstCandidate(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { first.cancelFirst(request.applicantId()) }
+
     override fun issueExamineeNumbers(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { numbers.issueAll() }
 

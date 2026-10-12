@@ -43,6 +43,17 @@ class GrpcAdministrationAdapter(private val grpc: ApplicationGrpcChannel) :
     override fun correct(command: CorrectApplicationCommand, editorId: String): ApplicationCorrectionResult =
         call(command, "correctApplication", false) { correctApplication(it) }
 
+    override fun editableFields(applicantId: Long): EditableApplicationFields =
+        call(ApplicantIdQuery(applicantId), "readEditableApplicationFields", false) { readEditableApplicationFields(it) }
+
+    override fun selectFirst(applicantId: Long) {
+        call<Unit>(ApplicantIdQuery(applicantId), "selectFirstCandidate", false) { selectFirstCandidate(it) }
+    }
+
+    override fun cancelFirst(applicantId: Long) {
+        call<Unit>(ApplicantIdQuery(applicantId), "cancelFirstCandidate", false) { cancelFirstCandidate(it) }
+    }
+
     override fun issueAll(): ExamineeNumberIssueResult =
         call(Unit, "issueExamineeNumbers", true) { issueExamineeNumbers(it) }
 
