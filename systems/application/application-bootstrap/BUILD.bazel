@@ -18,6 +18,7 @@ kt_jvm_test(
         "//systems/admin/admin-domain:main",
         "//systems/application/application-domain:main",
         "//systems/application/application-administration-application:main",
+        "//systems/application/application-administration-adapter-out:main",
         "//systems/configuration/configuration-domain:main",
     ],
 )

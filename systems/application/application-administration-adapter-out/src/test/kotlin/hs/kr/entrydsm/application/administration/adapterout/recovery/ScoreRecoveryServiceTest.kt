@@ -126,6 +126,6 @@ class ScoreRecoveryServiceTest {
         @Bean fun outbox(repository: ApplicantStatusOutboxJpaRepository) = FailingOutbox(ApplicantStatusOutboxAdapter(repository,
             SnapshotCipher("test", mapOf("test" to "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="))))
         @Bean fun application(repository: ApplicantRepository, outbox: ApplicantStatusEventOutbox): ApplicationPort =
-            ApplicationCommandService(repository, ApplicationPeriodReader { null }, AccountPhoneValidator { _, _ -> false }, outbox)
+            ApplicationCommandService(repository, ApplicationPeriodReader { null }, AccountPhoneValidator { _, _ -> false }, applicantStatusEventOutbox = outbox)
     }
 }

@@ -545,6 +545,14 @@ class AdminApplicationModuleTest {
     private fun screeningService(applicants: ApplicantRepository) = ScreeningService(
         applicantRepository = applicants,
         clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+        schedules = Proxy.newProxyInstance(javaClass.classLoader,
+            arrayOf(hs.kr.entrydsm.application.administration.domain.schedule.port.out.ScheduleRepository::class.java)) { _, method, _ ->
+            assertEquals("findByTitleForUpdate", method.name)
+                hs.kr.entrydsm.application.administration.domain.schedule.Schedule(title = "1차 합격 발표",
+                    startAt = java.time.LocalDateTime.of(1969, 12, 31, 0, 0),
+                    endAt = java.time.LocalDateTime.of(1970, 1, 1, 9, 0),
+                    firstScreeningProcessedAt = java.time.LocalDateTime.of(1970, 1, 1, 9, 0))
+        } as hs.kr.entrydsm.application.administration.domain.schedule.port.out.ScheduleRepository,
     )
 
     private fun applicant(

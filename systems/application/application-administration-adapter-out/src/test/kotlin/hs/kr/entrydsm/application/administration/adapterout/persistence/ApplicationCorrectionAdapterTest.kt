@@ -292,6 +292,6 @@ class ApplicationCorrectionAdapterTest {
                 SnapshotCipher("test", mapOf("test" to "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="))))
         @Bean fun phoneValidator() = AccountPhoneValidator { _, _ -> true }
         @Bean fun application(repository: ApplicantRepository, writes: FailingWrites): ApplicationPort =
-            ApplicationCommandService(repository, ApplicationPeriodReader { null }, phoneValidator(), writes)
+            ApplicationCommandService(repository, ApplicationPeriodReader { null }, phoneValidator(), applicantStatusEventOutbox = writes)
     }
 }
