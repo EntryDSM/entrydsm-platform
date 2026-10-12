@@ -346,6 +346,11 @@ class LocalApplicantDataAdapter(
             regionCode = codes[1],
             specialAdmissionTypeCode = codes[2],
             gedAverage = gedAverage.takeIf { hasGedAverage() },
+            gedScores = gedScores.takeIf {
+                graduationType == GrpcGraduationType.GRADUATION_TYPE_GED && hasGedScores()
+            }?.let {
+                GedScores(it.korean, it.society, it.history, it.math, it.science, it.technology, it.english)
+            },
         )
     }
 

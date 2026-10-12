@@ -41,6 +41,7 @@ data class FirstPassRow(
     val regionCode: String? = null,
     val specialAdmissionTypeCode: String? = null,
     val gedAverage: Double? = null,
+    val gedScores: GedScores? = null,
 )
 
 data class SemesterGrades(

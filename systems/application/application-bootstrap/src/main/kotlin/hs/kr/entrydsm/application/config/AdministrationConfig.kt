@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.application.config
 
 import hs.kr.entrydsm.admin.domain.document.DocumentNaming
+import hs.kr.entrydsm.application.domain.service.DocumentPassCalculator
 import java.time.Clock
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -17,6 +18,12 @@ class AdministrationConfig(@Value("\${admin.storage.environment}") environment: 
 
     @Bean
     fun administrationClock(): Clock = Clock.systemUTC()
+
+    /** 수동·자동 선발과 통계가 같은 설정 배수의 계산기를 사용한다. */
+    @Bean
+    fun documentPassCalculator(
+        @Value("\${admin.screening.first-pass-multiplier:2}") multiplier: Double,
+    ): DocumentPassCalculator = DocumentPassCalculator(multiplier)
 
     @Bean("exportTaskExecutor")
     fun exportTaskExecutor() = ThreadPoolTaskExecutor().apply {

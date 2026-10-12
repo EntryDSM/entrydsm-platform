@@ -5,6 +5,8 @@ import hs.kr.entrydsm.configuration.domain.document.*
 import hs.kr.entrydsm.application.administration.domain.document.Applicant
 import hs.kr.entrydsm.application.administration.domain.document.ApplicationForm
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.contentstream.operator.Operator
+import org.apache.pdfbox.pdfparser.PDFStreamParser
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -27,7 +29,7 @@ import kotlin.math.roundToInt
 
 /**
  * 요강이 "인터넷접수 후 출력"이라고 적은 서식 6개를 서식 원본 위에 찍는다. 지원자가 내려받아 그대로 인쇄해 우편으로
- * 보내는 종이라 서식마다 A4 한 장이고, 값은 원본의 칸 안에만 찍혀야 한다.
+ * 보내는 종이라 서식마다 A4 한 장이고(자기소개서·학업계획서가 길면 서식 3 만 장이 는다), 값은 원본의 칸 안에만 찍혀야 한다.
  *
  * 원서 값은 나눔고딕으로 찍고 서식 원본 글자는 다른 글꼴이다. 글꼴로 원서 값만 골라 위치를 잰다.
  */
@@ -53,17 +55,11 @@ class ApplicationFormPdfTest {
     }
 
     @Test
-    fun `검정고시 원서는 검정고시 점수를 3학년 1학기 열에 찍고 출결·봉사 칸은 비운다`() {
-        val ged = form().copy(
-            graduationType = ApplicationForm.GraduationType.GED,
-            graduationDate = null,
-            school = null,
-            semesterGrades = listOf(null, null, null, null),
-            gedScores = ApplicationForm.SemesterGrades("95", "88", "100", "76", "90", "85", "99"),
-            // 검정고시 점수를 저장하면 출결이 0 인 성적 기록이 같이 생긴다.
-            academicRecord = ApplicationForm.AcademicRecord(0, 0, 0, 0, 0, dsmAlgorithmAwarded = true, programmingCertified = false),
-        )
-        val glyphs = stamped(adapter.render(ged, photo = null), page = 1)
+    fun `검정고시 원서는 추천서 없는 검정고시 서식 다섯 장에 찍고 점수 표에 검정고시 점수를 찍는다`() {
+        // #346 전에 검정고시로 바꾼 뒤 저장한 출신 중학교가 남아 있는 원서다.
+        val ged = gedForm()
+        val pdf = adapter.render(ged, png())
+        val glyphs = stamped(pdf, page = 1)
 
         // 칸 안에 기준선과 좌우가 다 드는 원서 글자를 위 행부터 읽는다.
         fun cell(left: Float, top: Float, right: Float, bottom: Float) = glyphs
@@ -71,12 +67,29 @@ class ApplicationFormPdfTest {
             .sortedBy { it.yDirAdj }
             .joinToString("") { it.unicode }
 
+        assertA4Pages(pdf, FORM_COUNT - 1)
+        assertTrue(pageText(pdf, 1).contains("검정고시 점수"))
+        assertTrue(pageText(pdf, 1).contains("프로그래밍기능사"))
+        assertFalse(pageText(pdf, 1).contains("정보처리기능사"))
+        // 학교 칸에는 "-" 가 인쇄돼 있어, 남은 출신 중학교 값을 어느 장에도 찍지 않는다.
+        (1..5).forEach { page -> assertFalse("${page}쪽", pageText(pdf, page).contains("서귀포")) }
+        assertEquals(1, images(pdf, page = 1))
         // 국어 95 · 사회 88 · 역사 100 · 수학 76 · 과학 90 · 기술·가정 85 · 영어 99
-        assertEquals("958810076908599", cell(181.80f, 340.68f, 254.28f, 470.04f))
-        // 나머지 세 학기 열은 성적이 없어 하이픈이다.
-        assertEquals("-------", cell(326.76f, 340.68f, 399.24f, 470.04f))
-        assertEquals("", cell(477.72f, 322.20f, 519.00f, 414.60f))
+        assertEquals("958810076908599", cell(160.68f, 340.68f, 399.24f, 470.04f))
+        // 졸업구분 칸에는 "검정고시" 가 인쇄돼 있고, 점수 표 오른쪽 빈 칸에는 출결을 찍지 않는다.
+        assertEquals("", cell(160.68f, 201.48f, 439.80f, 225.60f))
+        assertEquals("", cell(399.24f, 303.72f, 536.40f, 414.60f))
         assertEquals("O", cell(477.72f, 433.08f, 536.40f, 451.56f))
+        assertEquals("-", cell(477.72f, 451.56f, 536.40f, 470.04f))
+        // 추천서가 빠져 서식 5·6 이 4·5쪽이다. 특별전형이어도 같다.
+        listOf(3, 4, 5).forEach { page -> assertTrue("${page}쪽", pageText(pdf, page).contains("0012")) }
+        assertTrue(pageText(pdf, 4).contains("금연 동의서"))
+        assertFalse(stamped(pdf, page = 4).any { it.unicode == "○" })
+        assertInside(stamped(pdf, page = 4), 3, left = 112.24f, top = 330.65f, right = 202.83f, bottom = 352.65f)
+        // 일반전형이어도 추천서를 빼느라 금연 동의서를 지우지 않는다.
+        assertA4Pages(adapter.render(ged.copy(admissionType = Applicant.AdmissionType.REGULAR), photo = null), FORM_COUNT - 1)
+
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "application-form-ged.pdf").writeBytes(pdf) }
     }
 
     @Test
@@ -201,16 +214,49 @@ class ApplicationFormPdfTest {
     }
 
     @Test
-    fun `빈칸 포함 1,600자 자기소개서도 본문 칸을 넘치지 않고 다 찍는다`() {
+    fun `빈칸 포함 1,600자 자기소개서와 학업계획서는 글자를 줄이지 않고 칸을 늘려 다음 장까지 다 찍는다`() {
         val sentence = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했고 중학교에서는 정보 동아리 부장을 맡았습니다. "
-        val introduction = sentence.repeat(30).take(1596).chunked(320).joinToString("\n")
-        val pdf = adapter.render(form().copy(introduction = introduction), photo = null)
+        val essay = sentence.repeat(30).take(1596).chunked(320).joinToString("\n")
+        val pdf = adapter.render(form().copy(introduction = essay, studyPlan = essay), photo = null)
+        // 서식 3 인적사항 표 아래의 본문 글자
+        val body = stamped(pdf, page = 3).filter { it.yDirAdj > 278.16f } + stamped(pdf, page = 4)
 
-        assertEquals(1600, introduction.length)
-        assertInside(
-            stamped(pdf, page = 3), introduction.count { !it.isWhitespace() },
-            left = 59.52f, top = 278.16f, right = 535.80f, bottom = 491.88f,
-        )
+        assertEquals(1600, essay.length)
+        // 늘어난 자기소개서 칸 아래에 학업계획서가 들어가지 않아 안내 칸째 다음 장으로 넘어가고, 뒤 서식은 한 장씩 밀린다.
+        assertA4Pages(pdf, FORM_COUNT + 1)
+        assertFalse(pageText(pdf, 3).contains("구체적인"))
+        assertTrue(pageText(pdf, 4).contains("구체적인"))
+        assertTrue(pageText(pdf, 5).contains("추천서"))
+        assertEquals(2 * essay.count { !it.isWhitespace() }, body.size)
+        body.forEach {
+            assertEquals(10f, it.fontSizeInPt, 0.01f)
+            assertTrue("${it.unicode} at ${it.xDirAdj}", it.xDirAdj >= 59.52f && it.xDirAdj + it.widthDirAdj <= 535.80f)
+            assertTrue("${it.unicode} at ${it.yDirAdj}", it.yDirAdj <= 749.88f)
+        }
+        // 짧은 학업계획서는 늘어난 자기소개서 칸 아래 남은 자리에 쓴다.
+        val shortStudyPlan = adapter.render(form().copy(introduction = essay.take(1200)), photo = null)
+        assertA4Pages(shortStudyPlan, FORM_COUNT)
+        assertTrue(pageText(shortStudyPlan, 3).contains("입학 후에는"))
+        // 자기소개서만 뽑을 때는 빈 학업계획서 칸 때문에 장을 늘리지 않는다. 학업계획서는 원본 칸 자리에서 다음 장으로 잇는다.
+        assertA4Pages(adapter.renderEssay(form().copy(introduction = essay), introduction = true), 1)
+        assertA4Pages(adapter.renderEssay(form().copy(studyPlan = essay), introduction = false), 2)
+    }
+
+    @Test
+    fun `서식 3 원본 글자 묶음은 Tm 하나로만 자리를 잡아 띠로 자를 수 있다`() {
+        // 늘어난 칸에 맞춰 서식 3 원본을 띠로 자를 때 글자 묶음(BT~ET)을 그 Tm 한 곳으로 보고 넣거나 뺀다.
+        // 묶음 안에서 줄을 옮기는 서식으로 갈면 안내 문구가 빠지거나 숨은 글자가 남으니 여기서 먼저 막는다.
+        val positioning = setOf("Tm", "Td", "TD", "T*", "'", "\"")
+        listOf("/forms/application-form.pdf", "/forms/application-form-ged.pdf").forEach { path ->
+            val template = checkNotNull(javaClass.getResourceAsStream(path)).use { it.readBytes() }
+            val operators = Loader.loadPDF(template).use { document ->
+                PDFStreamParser(document.getPage(2)).parse().filterIsInstance<Operator>().joinToString(" ") { it.name }
+            }
+            val blocks = Regex("BT (.*?) ET").findAll(operators).map { it.groupValues[1].split(" ") }.toList()
+
+            assertTrue(path, blocks.isNotEmpty())
+            blocks.forEach { assertEquals(path, listOf("Tm"), it.filter(positioning::contains)) }
+        }
     }
 
     @Test
@@ -240,6 +286,19 @@ class ApplicationFormPdfTest {
         assertA4Pages(studyPlan, 1)
         assertTrue(pageText(studyPlan, 1).contains("입학 후에는"))
         assertTrue(!pageText(studyPlan, 1).contains("저는 어려서부터"))
+    }
+
+    @Test
+    fun `검정고시 원서의 자기소개서와 학업계획서는 검정고시 서식 3 에 찍고 출신 중학교는 찍지 않는다`() {
+        val introduction = adapter.renderEssay(gedForm(), introduction = true)
+        val studyPlan = adapter.renderEssay(gedForm(), introduction = false)
+
+        assertA4Pages(introduction, 1)
+        assertTrue(pageText(introduction, 1).contains("저는 어려서부터"))
+        assertFalse(pageText(introduction, 1).contains("서귀포"))
+        assertA4Pages(studyPlan, 1)
+        assertTrue(pageText(studyPlan, 1).contains("입학 후에는"))
+        assertFalse(pageText(studyPlan, 1).contains("서귀포"))
     }
 
     /** 칸 안에 기준선이 있는 원서 글자가 [count] 개이고, 모두 칸 좌우 안에 있다. 칸 아래로 넘친 글자는 수에서 빠진다. */
@@ -414,6 +473,15 @@ class ApplicationFormPdfTest {
         ),
         introduction = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했습니다.\n중학교에서는 정보 동아리 부장을 맡았습니다.",
         studyPlan = "입학 후에는 알고리즘과 웹 개발을 깊게 공부하고 싶습니다.\n3학년에는 팀 프로젝트로 서비스를 배포해 보겠습니다.",
+    )
+
+    private fun gedForm() = form().copy(
+        graduationType = ApplicationForm.GraduationType.GED,
+        graduationDate = null,
+        semesterGrades = listOf(null, null, null, null),
+        gedScores = ApplicationForm.SemesterGrades("95", "88", "100", "76", "90", "85", "99"),
+        // 검정고시 점수를 저장하면 출결이 0 인 성적 기록이 같이 생긴다.
+        academicRecord = ApplicationForm.AcademicRecord(0, 0, 0, 0, 0, dsmAlgorithmAwarded = true, programmingCertified = false),
     )
 
     private fun grades(grade: String) = ApplicationForm.SemesterGrades(

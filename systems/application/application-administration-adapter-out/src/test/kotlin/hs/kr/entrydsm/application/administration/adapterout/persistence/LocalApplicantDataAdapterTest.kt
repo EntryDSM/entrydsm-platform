@@ -35,6 +35,23 @@ class LocalApplicantDataAdapterTest {
     }
 
     @Test
+    fun gedScoresAreIncludedOnlyForGedApplicants() {
+        val scores = hs.kr.entrydsm.application.domain.model.GedScores(
+            koreanScore = 0, societyScore = 81, historyScore = 82, mathScore = 83,
+            scienceScore = 84, technologyScore = 85, englishScore = 100,
+        )
+        val gedForm = form().copy(
+            graduationType = hs.kr.entrydsm.application.domain.enum.GraduationType.GED,
+            gedScores = scores,
+        )
+        val row = adapter(applicant()) { gedForm }.findAdmissionFileRows().single()
+        assertEquals(hs.kr.entrydsm.admin.domain.model.GedScores(0, 81, 82, 83, 84, 85, 100), row.gedScores)
+        assertNull(adapter(applicant()) {
+            gedForm.copy(graduationType = hs.kr.entrydsm.application.domain.enum.GraduationType.GRADUATED)
+        }.findAdmissionFileRows().single().gedScores)
+    }
+
+    @Test
     fun scoreFailureRemainsFailureAndNeverBecomesMissingApplicant() {
         val adapter = adapter(applicant()) { throw EvaluationValidationException("성적 누락") }
         val error = assertThrows(AdminDomainException::class.java) { adapter.findDetailById(5) }

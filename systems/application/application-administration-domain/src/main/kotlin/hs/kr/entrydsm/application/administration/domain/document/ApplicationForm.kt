@@ -37,7 +37,7 @@ data class ApplicationForm(
      * 반영할 성적이 없는 열은 null 이다.
      */
     val semesterGrades: List<SemesterGrades?>,
-    /** 검정고시 지원자의 과목별 점수(0~100). 학기 성적 대신 교과성적 표에 찍는다. 검정고시가 아니면 null 이다. */
+    /** 검정고시 지원자의 과목별 점수(0~100). 검정고시 서식의 점수 표에 찍는다. 검정고시가 아니면 null 이다. */
     val gedScores: SemesterGrades? = null,
     /** 출결·봉사·가산점. 원서에 성적을 한 번도 넣지 않았으면 null 이다. */
     val academicRecord: AcademicRecord?,
@@ -115,9 +115,4 @@ data class ApplicationForm(
         val dsmAlgorithmAwarded: Boolean,
         val programmingCertified: Boolean,
     )
-
-    companion object {
-        /** 서식의 교과성적 표 열 수 */
-        const val SEMESTER_COLUMN_COUNT = 4
-    }
 }

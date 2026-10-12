@@ -117,8 +117,9 @@ class ApplicationCorrectionAdapterTest {
             service.correct(command(original, changes), "operator-10")
         }
         assertUnchanged(original)
-        service.correct(command(original, changes.copy(graduationType = "GRADUATED")), "operator-10")
+        service.correct(command(original, changes.copy(graduationType = "GRADUATED", graduationDate = "2025-02")), "operator-10")
         val graduated = persistence.findById(original.id)!!
+        assertEquals(java.time.YearMonth.of(2025, 2), graduated.graduationDate)
         assertTrue(graduated.academicRecord!!.subjectGrades.containsKey(SchoolSemester.THIRD_GRADE_SECOND_SEMESTER))
         assertError(ErrorCode.INVALID_APPLICATION_CORRECTION) {
             service.correct(command(graduated, ApplicationFormChanges(graduationType = "PROSPECTIVE")), "operator-10")

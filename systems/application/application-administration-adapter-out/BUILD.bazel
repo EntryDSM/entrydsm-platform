@@ -5,6 +5,16 @@ load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 package(default_visibility = ["//visibility:public"])
 
 kt_jvm_test(
+    name = "first_screening_schedule_test",
+    resources = ["src/test/resources/application-test.yml"],
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.application.administration.adapterout.SchedulePersistenceAdapterTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
+
+kt_jvm_test(
     name = "application_correction_test",
     resources = ["src/test/resources/application-test.yml"],
     srcs = glob(["src/test/kotlin/**/*.kt"]),

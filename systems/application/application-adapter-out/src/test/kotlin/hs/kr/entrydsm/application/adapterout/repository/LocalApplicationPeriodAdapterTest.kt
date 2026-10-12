@@ -29,14 +29,14 @@ class LocalApplicationPeriodAdapterTest {
 
     @Test
     fun resultAnnouncementReflectsUpdatesAndDistinguishesMissingScheduleFromFailure() {
-        var schedule = Schedule(2, "1차 발표", LocalDateTime.of(2026, 10, 30, 10, 0), LocalDateTime.of(2026, 10, 31, 17, 0))
-        val adapter = adapter("1차 발표") { schedule }
+        var schedule = Schedule(2, "1차 합격 발표", LocalDateTime.of(2026, 10, 30, 10, 0), LocalDateTime.of(2026, 10, 31, 17, 0))
+        val adapter = adapter("1차 합격 발표") { schedule }
         assertEquals(schedule.startAt, adapter.readResultAnnouncedAt())
         schedule = schedule.copy(startAt = schedule.startAt.plusDays(1))
         assertEquals(schedule.startAt, adapter.readResultAnnouncedAt())
-        assertNull(adapter("1차 발표") { null }.readResultAnnouncedAt())
+        assertNull(adapter("1차 합격 발표") { null }.readResultAnnouncedAt())
         assertThrows(ApplicationPeriodLookupFailedException::class.java) {
-            adapter("1차 발표") { error("DB 장애") }.readResultAnnouncedAt()
+            adapter("1차 합격 발표") { error("DB 장애") }.readResultAnnouncedAt()
         }
     }
 

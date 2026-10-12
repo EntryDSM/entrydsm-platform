@@ -8,6 +8,6 @@ fun interface ApplicationPeriodReader {
     /** 원서 접수 기간. 일정이 등록되지 않았으면 null. */
     fun read(): ClosedRange<Instant>?
 
-    /** 1차 발표 일정의 시작 시각. 일정이 등록되지 않았으면 null. */
+    /** 1차 합격 발표 일정의 시작 시각. 일정이 등록되지 않았으면 null. */
     fun readResultAnnouncedAt(): LocalDateTime? = null
 }
