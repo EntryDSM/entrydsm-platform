@@ -55,10 +55,12 @@ class AdministrationGrpcService(
     override fun readEditableApplicationFields(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { corrections.editableFields(request.applicantId()) }
 
-    override fun selectFirstCandidate(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+    /** 지원자 한 명을 1차 합격자로 지정한다. */
+    override fun selectFirstApplicant(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { first.selectFirst(request.applicantId()) }
 
-    override fun cancelFirstCandidate(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+    /** 지원자 한 명의 1차 합격 지정을 취소한다. */
+    override fun cancelFirstApplicant(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { first.cancelFirst(request.applicantId()) }
 
     override fun issueExamineeNumbers(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =

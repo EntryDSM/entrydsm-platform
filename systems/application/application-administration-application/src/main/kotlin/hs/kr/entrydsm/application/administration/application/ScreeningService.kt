@@ -91,9 +91,9 @@ class ScreeningService(
             throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
         val existing = applicants.filter { it.status == ApplicantStatus.FIRST_PASS }
-        val candidates = applicants.filter { it.status == ApplicantStatus.PENDING && it.totalScore != null &&
+        val eligibleApplicants = applicants.filter { it.status == ApplicantStatus.PENDING && it.totalScore != null &&
             it.admissionType != null && it.submittedAt != null }
-        val selectable = existing + candidates
+        val selectable = existing + eligibleApplicants
         val results = if (existing.size >= documentPassCalculator.totalFirstPassQuota()) emptyMap() else
             documentPassCalculator.supplement(selectable.map {
                 ApplicationApplicant(id = it.id, accountId = 0,
@@ -107,14 +107,14 @@ class ScreeningService(
                     totalScore = it.totalScore)
             }, existing.mapTo(hashSetOf()) { it.id })
         val now = Instant.now(clock)
-        val evaluated = candidates.map { it.copy(status = if (results[it.id] == PassResultStatus.PASS)
+        val evaluated = eligibleApplicants.map { it.copy(status = if (results[it.id] == PassResultStatus.PASS)
             ApplicantStatus.FIRST_PASS else ApplicantStatus.FIRST_FAIL, updatedAt = now) }
         if (!command.dryRun) applicantRepository.saveAll(if (publish) evaluated else
             evaluated.filter { it.status == ApplicantStatus.FIRST_PASS })
         return ScreeningResult(command.dryRun,
             existing.size + evaluated.count { it.status == ApplicantStatus.FIRST_PASS },
             applicants.count { it.status == ApplicantStatus.FIRST_FAIL } + evaluated.count { it.status == ApplicantStatus.FIRST_FAIL },
-            applicants.size - existing.size - candidates.size - applicants.count { it.status == ApplicantStatus.FIRST_FAIL }, now)
+            applicants.size - existing.size - eligibleApplicants.size - applicants.count { it.status == ApplicantStatus.FIRST_FAIL }, now)
     }
 
     /**
