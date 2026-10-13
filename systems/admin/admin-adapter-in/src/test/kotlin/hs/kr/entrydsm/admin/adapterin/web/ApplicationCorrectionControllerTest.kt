@@ -12,7 +12,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders
 
 class ApplicationCorrectionControllerTest {
     private fun <T> proxy(type: Class<T>, invoke: (String, Array<out Any?>) -> Any? = { name, _ -> error("unexpected call: $name") }): T = type.cast(java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader, arrayOf(type)) { _, method, args -> invoke(method.name, args ?: emptyArray()) })
-    @Test fun individualCandidateChangesRequireAdministratorAndOnlyPassTargetId() {
+    @Test fun individualApplicantChangesRequireAdministratorAndOnlyPassTargetId() {
         val calls = mutableListOf<Pair<String, Long>>()
         val screening = proxy(hs.kr.entrydsm.admin.domain.port.`in`.EvaluateFirstScreeningUseCase::class.java) { name, args -> calls.add(name to (args[0] as Long)); Unit }
         val controller = ScreeningController(
@@ -24,7 +24,7 @@ class ApplicationCorrectionControllerTest {
             proxy(hs.kr.entrydsm.admin.domain.port.`in`.ReadStatisticsUseCase::class.java))
         val mvc = MockMvcBuilders.standaloneSetup(controller).setControllerAdvice(GlobalExceptionHandler())
             .addInterceptors(AdminAuthorizationInterceptor()).build()
-        val path = "/api/v11/admin/screenings/first/candidates/5"
+        val path = "/api/v11/admin/screenings/first/applicants/5"
         for (request in listOf(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post(path),
             org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(path))) {
             assertEquals(401, mvc.perform(request).andReturn().response.status)
@@ -50,13 +50,15 @@ class ApplicationCorrectionControllerTest {
         }
         val mvc = MockMvcBuilders.standaloneSetup(ApplicationCorrectionController(useCase))
             .setControllerAdvice(GlobalExceptionHandler()).addInterceptors(AdminAuthorizationInterceptor()).build()
-        val path = "/api/v11/admin/applicants/5/application/editable-fields"
+        val path = "/api/v11/admin/applicants/5/application"
         assertEquals(401, mvc.perform(get(path)).andReturn().response.status)
         assertEquals(403, mvc.perform(get(path).header("X-User-Id", "10").header("X-User-Role", "USER")).andReturn().response.status)
         val response = mvc.perform(get(path).header("X-User-Id", "10").header("X-User-Role", "ADMIN")).andReturn().response
         assertEquals(200, response.status)
         assertTrue(response.contentAsString.contains("\"editable\":true"))
         assertTrue(response.contentAsString.contains("\"name\""))
+        assertEquals(404, mvc.perform(get("$path/editable-fields").header("X-User-Id", "10")
+            .header("X-User-Role", "ADMIN")).andReturn().response.status)
     }
 
     @Test fun permissionIsRequiredAndRequestDoesNotNeedVersion() {
@@ -78,6 +80,21 @@ class ApplicationCorrectionControllerTest {
         val response = result.response
         assertEquals(result.resolvedException?.toString(), 200, response.status)
         assertTrue(response.contentAsString.contains("\"version\":4"))
+        assertEquals(1, calls)
+    }
+
+    @Test fun correctionReasonValidationIsPreservedAfterRequestMove() {
+        var calls = 0
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationCorrectionController(CorrectApplicationUseCase { command, _ ->
+            calls++
+            ApplicationCorrectionResult(command.applicantId, 4L)
+        })).setControllerAdvice(GlobalExceptionHandler()).addInterceptors(AdminAuthorizationInterceptor()).build()
+        val path = "/api/v11/admin/applicants/5/application"
+        for ((reason, expectedStatus) in listOf("" to 400, "   " to 400, "가".repeat(501) to 400, "가".repeat(500) to 200)) {
+            val json = """{"reason":"$reason","changes":{"admissionType":"MEISTER"}}"""
+            assertEquals(expectedStatus, mvc.perform(patch(path).header("X-User-Id", "10").header("X-User-Role", "ADMIN")
+                .contentType(MediaType.APPLICATION_JSON).content(json)).andReturn().response.status)
+        }
         assertEquals(1, calls)
     }
 }

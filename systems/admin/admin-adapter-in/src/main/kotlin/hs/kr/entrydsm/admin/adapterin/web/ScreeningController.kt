@@ -24,6 +24,7 @@ import hs.kr.entrydsm.admin.domain.port.`in`.UpdateAdmissionQuotaUseCase
 import hs.kr.entrydsm.admin.domain.port.`in`.UpdateScorePolicyUseCase
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -45,14 +46,14 @@ class ScreeningController(
 ) {
 
     /** 발표 전 합격 예정자 한 명만 직접 지정한다. */
-    @PostMapping(AdminEndpointPaths.FIRST_SCREENING_CANDIDATE)
+    @PostMapping(AdminEndpointPaths.FIRST_SCREENING_APPLICANT)
     fun selectFirst(@PathVariable applicantId: Long): ResponseEntity<Unit> {
         evaluateFirstScreeningUseCase.selectFirst(applicantId)
         return ResponseEntity.noContent().build()
     }
 
     /** 다른 예정자를 유지하고 지정한 지원자만 취소한다. */
-    @org.springframework.web.bind.annotation.DeleteMapping(AdminEndpointPaths.FIRST_SCREENING_CANDIDATE)
+    @DeleteMapping(AdminEndpointPaths.FIRST_SCREENING_APPLICANT)
     fun cancelFirst(@PathVariable applicantId: Long): ResponseEntity<Unit> {
         evaluateFirstScreeningUseCase.cancelFirst(applicantId)
         return ResponseEntity.noContent().build()
