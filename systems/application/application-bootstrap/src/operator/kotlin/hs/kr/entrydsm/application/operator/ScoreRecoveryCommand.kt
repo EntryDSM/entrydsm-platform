@@ -33,7 +33,7 @@ class ScoreRecoveryConfiguration {
     @Bean
     fun application(applicants: ApplicantRepository, outbox: ApplicantStatusEventOutbox): ApplicationPort =
         ApplicationCommandService(applicants, ApplicationPeriodReader { error("OFFLINE_READ_ONLY") },
-            AccountPhoneValidator { _, _ -> error("OFFLINE_READ_ONLY") }, outbox)
+            AccountPhoneValidator { _, _ -> error("OFFLINE_READ_ONLY") }, applicantStatusEventOutbox = outbox)
 
     @Bean
     fun recovery(locked: ApplicantJpaRepository, applicants: ApplicantRepository,
