@@ -306,6 +306,7 @@ service AdministrationService {
   rpc UpdateArrival(AdministrationRequest) returns (AdministrationResponse);
   rpc UpdateApplicantStatus(AdministrationRequest) returns (AdministrationResponse);
   rpc CorrectApplication(AdministrationRequest) returns (AdministrationResponse);
+  rpc ReadEditableApplicationFields(AdministrationRequest) returns (AdministrationResponse);
   rpc IssueExamineeNumbers(AdministrationRequest) returns (AdministrationResponse);
   rpc DeleteApplicant(AdministrationRequest) returns (AdministrationResponse);
   rpc ReadScorePolicy(AdministrationRequest) returns (AdministrationResponse);
@@ -313,6 +314,8 @@ service AdministrationService {
   rpc ReadAdmissionQuota(AdministrationRequest) returns (AdministrationResponse);
   rpc UpdateAdmissionQuota(AdministrationRequest) returns (AdministrationResponse);
   rpc EvaluateFirstScreening(AdministrationRequest) returns (AdministrationResponse);
+  rpc SelectFirstApplicant(AdministrationRequest) returns (AdministrationResponse);
+  rpc CancelFirstApplicant(AdministrationRequest) returns (AdministrationResponse);
   rpc EvaluateFinalScreening(AdministrationRequest) returns (AdministrationResponse);
   rpc CollectStatistics(AdministrationRequest) returns (AdministrationResponse);
   rpc CreateExport(AdministrationRequest) returns (AdministrationResponse);

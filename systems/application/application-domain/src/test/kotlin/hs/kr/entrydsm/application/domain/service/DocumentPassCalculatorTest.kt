@@ -136,6 +136,46 @@ class DocumentPassCalculatorTest {
         assertEquals((1L..104L).toSet(), passed(applicants.reversed()))
     }
 
+    @Test
+    fun `보충 총원은 기본 128명이고 설정 배수를 반영한다`() {
+        assertEquals(128, calculator.totalFirstPassQuota())
+        assertEquals(96, DocumentPassCalculator(1.5).totalFirstPassQuota())
+    }
+
+    @Test
+    fun `보충은 낮은 점수 기존 합격자를 유지하고 대전 잔여 정원만 채운다`() {
+        val applicants = (1L..80L).map { applicant(it, score = 300.0 - it) } +
+            (81L..120L).map { applicant(it, region = Region.DAEJEON, score = 0.0) } +
+            (121L..150L).map { applicant(it, AdmissionType.MEISTER, score = 500.0) } +
+            (151L..160L).map { applicant(it, AdmissionType.SOCIAL, score = 1000.0) }
+        val result = calculator.supplement(applicants, setOf(120L))
+        assertEquals(((1L..56L) + (81L..111L) + 120L + (121L..160L)).toSet(),
+            result.filterValues { it == PassResultStatus.PASS }.keys)
+    }
+
+    @Test
+    fun `총원을 이미 채운 기존 합격자는 새로운 고득점자와 교체하지 않는다`() {
+        val existing = (1L..128L).toSet()
+        val applicants = (1L..128L).map { applicant(it, score = 0.0) } + applicant(129L, score = 10000.0)
+        val result = calculator.supplement(applicants, existing)
+        assertEquals(existing, result.filterValues { it == PassResultStatus.PASS }.keys)
+        assertEquals(PassResultStatus.FAIL, result[129L])
+    }
+
+    @Test
+    fun `보충은 전체 지원자 미달이어도 다른 전형의 정원을 이월하지 않는다`() {
+        val result = calculator.supplement((1L..128L).map { applicant(it) }, setOf(128L))
+        assertEquals(((1L..103L) + 128L).toSet(), result.filterValues { it == PassResultStatus.PASS }.keys)
+    }
+
+    @Test
+    fun `특정 전형의 기존 합격자가 정원을 초과해도 유지하며 전체 부족분만 채운다`() {
+        val applicants = (1L..125L).map { applicant(it, AdmissionType.SOCIAL, score = 0.0) } +
+            (126L..150L).map { applicant(it, score = 1000.0 - it) }
+        assertEquals((1L..128L).toSet(), calculator.supplement(applicants, (1L..125L).toSet())
+            .filterValues { it == PassResultStatus.PASS }.keys)
+    }
+
     private fun passed(applicants: List<Applicant>): Set<Long> =
         calculator.calculate(applicants).filterValues { it == PassResultStatus.PASS }.keys
 

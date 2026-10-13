@@ -79,7 +79,7 @@ class ApplicantPersistenceAdapterTest {
     fun `최종 결과와 identity 전달 이벤트를 함께 영속화한다`() {
         val applicant = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 504, status = ApplicantStatus.SUBMITTED))
         val cipher = SnapshotCipher("test", mapOf("test" to Base64.getEncoder().encodeToString(ByteArray(32) { 7 })))
-        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusOutboxAdapter(statusOutboxRepository, cipher), applicationPort())
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusOutboxAdapter(statusOutboxRepository, cipher, hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true }), applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
         handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(requireNotNull(applicant.id)).setVersion(10)
             .setPassStatus(PassStatus.PASS_STATUS_FINAL_PASSED).setOccurredAtEpochMillis(1000).build())
         entityManager.flush()
@@ -116,7 +116,7 @@ class ApplicantPersistenceAdapterTest {
                     }
                 } as StreamOperations<String, HK, HV>
         }
-        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort())
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
         val consumer = ScreeningResultRedisConsumer(redis, handler, "test", "application", "application")
         consumer.poll()
         consumer.poll()
@@ -130,7 +130,7 @@ class ApplicantPersistenceAdapterTest {
         val saved = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 501, status = ApplicantStatus.SUBMITTED))
         val id = requireNotNull(saved.id)
         val events = mutableListOf<ApplicantStatusChanged>()
-        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort())
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
         fun consume(version: Long, status: PassStatus) {
             handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(id).setVersion(version)
                 .setPassStatus(status).setOccurredAtEpochMillis(1000).build())
@@ -138,6 +138,10 @@ class ApplicantPersistenceAdapterTest {
             entityManager.clear()
         }
         consume(1, PassStatus.PASS_STATUS_FIRST_PASSED)
+        assertTrue(events.isEmpty())
+        handler.publishFirst(id, java.time.Instant.ofEpochMilli(1000))
+        entityManager.flush()
+        entityManager.clear()
         assertEquals(ResultType.DOCUMENT, applicantJpaRepository.findById(id).get().toDomain().passResultType)
         consume(2, PassStatus.PASS_STATUS_FINAL_PASSED)
         assertEquals(ResultType.FINAL, applicantJpaRepository.findById(id).get().toDomain().passResultType)
@@ -146,12 +150,16 @@ class ApplicantPersistenceAdapterTest {
         consume(1, PassStatus.PASS_STATUS_FIRST_FAILED)
         assertEquals(2, events.size)
         consume(3, PassStatus.PASS_STATUS_FIRST_FAILED)
+        assertEquals(2, events.size)
+        handler.publishFirst(id, java.time.Instant.ofEpochMilli(1000))
+        entityManager.flush()
+        entityManager.clear()
         assertEquals(ResultType.DOCUMENT, events.last().passResultType)
         assertEquals(PassResultStatus.FAIL, events.last().passStatus)
         consume(4, PassStatus.PASS_STATUS_NOT_ANNOUNCED)
         assertEquals(PassResultStatus.PENDING, events.last().passStatus)
         assertEquals(0, applicantJpaRepository.findById(id).get().passResults.size)
-        assertEquals(listOf(1L, 2L, 3L, 4L), events.map { it.version })
+        assertEquals(listOf(2L, 3L, 5L, 6L), events.map { it.version })
         assertEquals(501L, events.last().accountId)
     }
 
@@ -159,7 +167,7 @@ class ApplicantPersistenceAdapterTest {
     fun `취소되거나 삭제된 지원자에게 지연 결과를 반영하지 않는다`() {
         val saved = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 502, status = ApplicantStatus.CANCELED))
         val events = mutableListOf<ApplicantStatusChanged>()
-        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort())
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
         for (id in listOf(requireNotNull(saved.id), Long.MAX_VALUE)) {
             handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(id).setVersion(1)
                 .setPassStatus(PassStatus.PASS_STATUS_FINAL_PASSED).build())

@@ -1,6 +1,5 @@
 package hs.kr.entrydsm.application.administration.application
 
-import hs.kr.entrydsm.admin.domain.command.EvaluateScreeningCommand
 import hs.kr.entrydsm.admin.domain.port.`in`.EvaluateFirstScreeningUseCase
 import hs.kr.entrydsm.application.administration.domain.schedule.port.out.ScheduleRepository
 import java.time.Clock
@@ -24,7 +23,7 @@ class FirstScreeningScheduler(
     fun evaluateDue() {
         val now = LocalDateTime.ofInstant(clock.instant(), ZoneId.of("Asia/Seoul"))
         if (schedules.claimFirstScreening("1차 합격 발표", now)) {
-            screening.evaluateFirst(EvaluateScreeningCommand(dryRun = false))
+            screening.publishFirst()
         }
     }
 }

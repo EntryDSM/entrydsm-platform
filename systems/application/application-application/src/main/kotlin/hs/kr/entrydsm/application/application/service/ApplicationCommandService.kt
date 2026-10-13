@@ -26,9 +26,11 @@ import hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
 import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
+import hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
@@ -49,6 +51,7 @@ class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
     private val applicationPeriod: ApplicationPeriodReader,
     private val accountPhoneValidator: AccountPhoneValidator,
+    private val firstScreeningPublicationPolicy: FirstScreeningPublicationPolicy = FirstScreeningPublicationPolicy { false },
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
     private val scoreCalculator = ScoreCalculator()
@@ -316,7 +319,7 @@ class ApplicationCommandService(
                 occurredAt = nowUtc(),
                 version = applicant.statusVersion + 1,
                 submittedAt = null,
-                passStatus = applicant.passStatus,
+                passStatus = applicant.toSnapshot().passStatus,
                 announcedAt = null,
                 deleted = true,
             ),
@@ -351,20 +354,23 @@ class ApplicationCommandService(
         saveTouched(applicant)
     }
 
-    private fun publishStatus(applicant: Applicant) = applicantStatusEventOutbox.add(
-        ApplicantStatusChanged(
-            accountId = applicant.accountId,
-            applicantId = applicant.id,
-            status = applicant.status,
-            occurredAt = applicant.updatedAt,
-            version = applicant.statusVersion,
-            submittedAt = applicant.submittedAt,
-            passStatus = applicant.passStatus,
-            announcedAt = applicant.announcedAt,
-            passResultType = applicant.passResultType,
-            applicationForm = applicant.takeIf { it.status in APPLIED_STATUSES }?.toApplicationFormResult(),
-        ),
-    )
+    private fun publishStatus(applicant: Applicant) {
+        val snapshot = applicant.toSnapshot()
+        applicantStatusEventOutbox.add(
+            ApplicantStatusChanged(
+                accountId = applicant.accountId,
+                applicantId = applicant.id,
+                status = applicant.status,
+                occurredAt = applicant.updatedAt,
+                version = applicant.statusVersion,
+                submittedAt = applicant.submittedAt,
+                passStatus = snapshot.passStatus,
+                announcedAt = snapshot.announcedAt,
+                passResultType = snapshot.passResultType,
+                applicationForm = applicant.takeIf { it.status in APPLIED_STATUSES }?.toApplicationFormResult(),
+            ),
+        )
+    }
 
     fun updatePersonal(
         accountId: Long?,
@@ -470,15 +476,18 @@ class ApplicationCommandService(
         return applicantRepository.save(applicant)
     }
 
-    private fun Applicant.toSnapshot(): ApplicationSnapshotResult = ApplicationSnapshotResult(
-        accountId = accountId,
-        applicantStatus = status,
-        submittedAt = submittedAt,
-        updatedAt = updatedAt,
-        passStatus = passStatus,
-        announcedAt = announcedAt,
-        passResultType = passResultType,
-    )
+    private fun Applicant.toSnapshot(): ApplicationSnapshotResult {
+        val published = firstScreeningPublicationPolicy.isPublished()
+        return ApplicationSnapshotResult(
+            accountId = accountId,
+            applicantStatus = status,
+            submittedAt = submittedAt,
+            updatedAt = updatedAt,
+            passStatus = if (published) passStatus else PassResultStatus.PENDING,
+            announcedAt = if (published) announcedAt else null,
+            passResultType = if (published) passResultType else null,
+        )
+    }
 
     companion object {
         private const val NEW_APPLICANT_ID = 0L

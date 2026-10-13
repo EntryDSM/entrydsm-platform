@@ -55,7 +55,9 @@ class SchedulePersistenceAdapterTest {
     @Before fun reset() {
         writer.fail = false
         jdbc.execute("CREATE TABLE IF NOT EXISTS first_screening_test_result (id BIGINT PRIMARY KEY, status VARCHAR(20) NOT NULL)")
+        jdbc.execute("CREATE TABLE IF NOT EXISTS first_screening_test_outbox (id BIGINT PRIMARY KEY)")
         jdbc.update("DELETE FROM first_screening_test_result")
+        jdbc.update("DELETE FROM first_screening_test_outbox")
         repository.deleteAll()
         repository.saveAndFlush(ScheduleJpaEntity(title = "1차 합격 발표", startAt = announcement, endAt = announcement.plusDays(1)))
     }
@@ -69,6 +71,17 @@ class SchedulePersistenceAdapterTest {
         assertFalse(org.springframework.transaction.support.TransactionTemplate(transactions).execute {
             SchedulePersistenceAdapter(repository).claimFirstScreening("1차 합격 발표", announcement.plusDays(1))
         }!!)
+    }
+
+    @Test fun `공개 정책은 발표 정각과 처리 완료 두 조건이 모두 필요하다`() {
+        fun policy(now: Instant) = FirstScreeningPublicationAdapter(repository, Clock.fixed(now, ZoneOffset.UTC))
+        val instant = Instant.parse("2026-10-30T01:00:00Z")
+        assertFalse(policy(instant).isPublished())
+        assertTrue(adapter.claimFirstScreening("1차 합격 발표", announcement))
+        assertFalse(policy(instant.minusNanos(1)).isPublished())
+        assertTrue(policy(instant).isPublished())
+        repository.deleteAll()
+        assertFalse(policy(instant.plusSeconds(1)).isPublished())
     }
 
     @Test fun `선점 이전에 읽은 일정을 수정 저장해도 완료 표시가 지워지지 않는다`() {
@@ -86,10 +99,12 @@ class SchedulePersistenceAdapterTest {
         assertThrows(IllegalStateException::class.java) { scheduler.evaluateDue() }
         assertNull(repository.findByTitle("1차 합격 발표")!!.firstScreeningProcessedAt)
         assertEquals(0L, resultCount())
+        assertEquals(0L, jdbc.queryForObject("SELECT COUNT(*) FROM first_screening_test_outbox", Long::class.java))
         writer.fail = false
         scheduler.evaluateDue()
         assertEquals(announcement, repository.findByTitle("1차 합격 발표")!!.firstScreeningProcessedAt)
         assertEquals(129L, resultCount())
+        assertEquals(129L, jdbc.queryForObject("SELECT COUNT(*) FROM first_screening_test_outbox", Long::class.java))
         assertEquals((1L..104L).toList(), jdbc.queryForList("SELECT id FROM first_screening_test_result WHERE status = 'FIRST_PASS' ORDER BY id", Long::class.java))
         assertEquals((105L..129L).toList(), jdbc.queryForList("SELECT id FROM first_screening_test_result WHERE status = 'FIRST_FAIL' ORDER BY id", Long::class.java))
         scheduler.evaluateDue()
@@ -108,9 +123,45 @@ class SchedulePersistenceAdapterTest {
         } finally { executor.shutdownNow() }
     }
 
+    @Test fun `관리자 변경은 발표 잠금 해제 후 완료 상태를 다시 읽고 거부한다`() {
+        val executor = Executors.newFixedThreadPool(2)
+        val locked = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val attempting = CountDownLatch(1)
+        try {
+            val publication = executor.submit {
+                org.springframework.transaction.support.TransactionTemplate(transactions).execute {
+                    assertTrue(adapter.claimFirstScreening("1차 합격 발표", announcement))
+                    locked.countDown()
+                    assertTrue(release.await(10, TimeUnit.SECONDS))
+                }
+            }
+            assertTrue(locked.await(10, TimeUnit.SECONDS))
+            val applicants = ApplicantRepository::class.java.cast(Proxy.newProxyInstance(javaClass.classLoader,
+                arrayOf(ApplicantRepository::class.java)) { _, method, _ -> error("완료 발표에서 원서를 수정하면 안 된다: ${method.name}") })
+            val service = ScreeningService(applicants,
+                Clock.fixed(Instant.parse("2026-10-30T00:59:59Z"), ZoneOffset.UTC), schedules = adapter)
+            val change = executor.submit {
+                org.springframework.transaction.support.TransactionTemplate(transactions).execute {
+                    attempting.countDown()
+                    assertThrows(hs.kr.entrydsm.admin.domain.exception.AdminDomainException::class.java) { service.selectFirst(1) }
+                }
+            }
+            assertTrue(attempting.await(10, TimeUnit.SECONDS))
+            assertThrows(java.util.concurrent.TimeoutException::class.java) { change.get(100, TimeUnit.MILLISECONDS) }
+            release.countDown()
+            publication.get(10, TimeUnit.SECONDS)
+            change.get(10, TimeUnit.SECONDS)
+            assertNotNull(repository.findByTitle("1차 합격 발표")!!.firstScreeningProcessedAt)
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+        }
+    }
+
     private fun resultCount() = jdbc.queryForObject("SELECT COUNT(*) FROM first_screening_test_result", Long::class.java)
 
-    class ResultWriter(jdbc: JdbcTemplate, clock: Clock) : EvaluateFirstScreeningUseCase {
+    class ResultWriter(private val jdbc: JdbcTemplate, clock: Clock) : EvaluateFirstScreeningUseCase {
         var fail = false
         private val applicants = (1L..129L).map { Applicant(id = it, admissionType = AdmissionType.GENERAL,
             region = Region.NATIONWIDE, totalScore = 1000.0 - it, submittedAt = Instant.EPOCH,
@@ -124,16 +175,22 @@ class SchedulePersistenceAdapterTest {
                         jdbc.update("INSERT INTO first_screening_test_result (id, status) VALUES (?, ?)", it.id, it.status.name)
                     }
                 }
+                "publishFirstResults" -> {
+                    assertEquals(Instant.parse("2026-10-30T01:00:00Z"), args[0])
+                    applicants.forEach { jdbc.update("INSERT INTO first_screening_test_outbox (id) VALUES (?)", it.id) }
+                    if (fail) error("발표 outbox 저장 실패")
+                    Unit
+                }
                 else -> error("unexpected call: ${method.name}")
             }
         } as ApplicantRepository
         private val service = ScreeningService(repository, clock)
-        override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult {
-            assertFalse(command.dryRun)
-            val result = service.evaluateFirst(command)
+        override fun publishFirst(): ScreeningResult {
+            val result = service.publishFirst()
             if (fail) error("결과 저장 실패")
             return result
         }
+        override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult = error("발표는 예비 산출을 호출하면 안 된다")
     }
 
     @SpringBootConfiguration(proxyBeanMethods = false)

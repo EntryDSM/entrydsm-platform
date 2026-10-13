@@ -40,6 +40,35 @@ import org.junit.Test
 
 class ApplicationCommandServiceTest {
     @Test
+    fun `발표 전 내부 합격과 불합격 결과는 지원자 조회에서 대기로 표시한다`() {
+        for (status in listOf(hs.kr.entrydsm.application.domain.enum.PassResultStatus.PASS,
+            hs.kr.entrydsm.application.domain.enum.PassResultStatus.FAIL)) {
+            val applicant = Applicant(id = 1, accountId = 10, status = ApplicantStatus.SUBMITTED,
+                passStatus = status, passResultType = hs.kr.entrydsm.application.domain.enum.ResultType.DOCUMENT,
+                announcedAt = LocalDateTime.of(2026, 10, 30, 1, 0))
+            val service = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN, ACCEPT_PHONE)
+            val snapshot = requireNotNull(service.findByAccountId(10))
+            assertEquals(hs.kr.entrydsm.application.domain.enum.PassResultStatus.PENDING, snapshot.passStatus)
+            assertNull(snapshot.passResultType)
+            assertNull(snapshot.announcedAt)
+            assertEquals(status, applicant.passStatus)
+        }
+    }
+
+    @Test
+    fun `발표 완료 정책일 때만 지원자 조회가 저장된 결과를 공개한다`() {
+        val announced = LocalDateTime.of(2026, 10, 30, 1, 0)
+        val applicant = Applicant(id = 1, accountId = 10, status = ApplicantStatus.SUBMITTED,
+            passStatus = hs.kr.entrydsm.application.domain.enum.PassResultStatus.PASS,
+            passResultType = hs.kr.entrydsm.application.domain.enum.ResultType.DOCUMENT, announcedAt = announced)
+        val service = ApplicationCommandService(FakeApplicantRepository(applicant), OPEN, ACCEPT_PHONE,
+            firstScreeningPublicationPolicy = hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
+        val snapshot = requireNotNull(service.findByAccountId(10))
+        assertEquals(hs.kr.entrydsm.application.domain.enum.PassResultStatus.PASS, snapshot.passStatus)
+        assertEquals(announced, snapshot.announcedAt)
+    }
+
+    @Test
     fun landingReadsCurrentSchedulesInSeoulAndAllowsMissingSchedules() {
         var start = Instant.parse("2026-10-19T00:00:00Z")
         val end = Instant.parse("2026-10-23T08:00:00Z")
@@ -286,7 +315,7 @@ class ApplicationCommandServiceTest {
             Applicant(id = 1L, accountId = 10L, status = ApplicantStatus.SUBMITTED, statusVersion = 2),
         )
         val events = mutableListOf<ApplicantStatusChanged>()
-        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE, events::add)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE, applicantStatusEventOutbox = hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox(events::add))
 
         val arrived = service.updateArrival(UpdateApplicantArrivalCommand(1L, true))
         assertEquals(ApplicantStatus.ARRIVAL, arrived.applicantStatus)
@@ -326,7 +355,7 @@ class ApplicationCommandServiceTest {
             ),
         )
         val events = mutableListOf<ApplicantStatusChanged>()
-        val service = ApplicationCommandService(repository, CLOSED, ACCEPT_PHONE, events::add)
+        val service = ApplicationCommandService(repository, CLOSED, ACCEPT_PHONE, applicantStatusEventOutbox = hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox(events::add))
 
         // applicantId 를 받는 유일한 경로라 기간이 끝나도 이미 있는 원서는 돌려준다.
         assertEquals(1L, service.createApplicant(CreateApplicantCommand(10L)).applicantId)
@@ -376,7 +405,7 @@ class ApplicationCommandServiceTest {
             Applicant(id = 3L, accountId = 10L, status = ApplicantStatus.COMPLETED, statusVersion = 7),
         )
         val events = mutableListOf<ApplicantStatusChanged>()
-        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE, events::add)
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE, applicantStatusEventOutbox = hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox(events::add))
 
         service.deleteApplicant(3L)
 
@@ -394,7 +423,7 @@ class ApplicationCommandServiceTest {
             FakeApplicantRepository(Applicant(id = 3L, accountId = 10L)),
             CLOSED,
             ACCEPT_PHONE,
-            events::add,
+            applicantStatusEventOutbox = hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox(events::add),
         )
 
         assertThrows(ApplicantNotFoundException::class.java) { service.deleteApplicant(404L) }

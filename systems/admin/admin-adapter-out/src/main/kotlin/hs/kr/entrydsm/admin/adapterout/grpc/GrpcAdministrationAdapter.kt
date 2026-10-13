@@ -43,6 +43,19 @@ class GrpcAdministrationAdapter(private val grpc: ApplicationGrpcChannel) :
     override fun correct(command: CorrectApplicationCommand, editorId: String): ApplicationCorrectionResult =
         call(command, "correctApplication", false) { correctApplication(it) }
 
+    override fun editableFields(applicantId: Long): EditableApplicationFields =
+        call(ApplicantIdQuery(applicantId), "readEditableApplicationFields", false) { readEditableApplicationFields(it) }
+
+    /** 지원자의 1차 합격 지정을 전달한다. */
+    override fun selectFirst(applicantId: Long) {
+        call<Unit>(ApplicantIdQuery(applicantId), "selectFirstApplicant", false) { selectFirstApplicant(it) }
+    }
+
+    /** 지원자의 1차 합격 취소를 전달한다. */
+    override fun cancelFirst(applicantId: Long) {
+        call<Unit>(ApplicantIdQuery(applicantId), "cancelFirstApplicant", false) { cancelFirstApplicant(it) }
+    }
+
     override fun issueAll(): ExamineeNumberIssueResult =
         call(Unit, "issueExamineeNumbers", true) { issueExamineeNumbers(it) }
 

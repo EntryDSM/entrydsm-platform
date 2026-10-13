@@ -18,6 +18,8 @@ class SchedulePersistenceAdapter(
 
     override fun findByTitle(title: String): Schedule? = repository.findByTitle(title)?.toDomain()
 
+    override fun findByTitleForUpdate(title: String): Schedule? = repository.findByTitleForUpdate(title)?.toDomain()
+
     override fun save(schedule: Schedule): Schedule = repository.save(ScheduleJpaEntity.from(schedule)).toDomain()
 
     @Transactional

@@ -190,6 +190,14 @@ class LocalApplicantDataAdapter(
         return applicants
     }
 
+    /** 발표 이전에 이미 저장된 예정자까지 모두 공개 이벤트를 생성한다. */
+    @Transactional
+    override fun publishFirstResults(processedAt: Instant) {
+        screeningJpaRepository.findAll().filter {
+            it.status in setOf(ApplicantStatus.FIRST_PASS, ApplicantStatus.FIRST_FAIL)
+        }.sortedBy { it.applicantId }.forEach { resultHandler.publishFirst(it.applicantId, processedAt) }
+    }
+
     override fun deleteById(applicantId: Long) = screeningJpaRepository.deleteById(applicantId)
 
     override fun delete(applicantId: Long) {

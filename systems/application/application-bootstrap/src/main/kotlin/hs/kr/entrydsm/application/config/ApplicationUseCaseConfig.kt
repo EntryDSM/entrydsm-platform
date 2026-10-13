@@ -26,7 +26,8 @@ class ApplicationUseCaseConfig {
         applicationPeriodReader: ApplicationPeriodReader,
         applicantStatusEventOutbox: ApplicantStatusEventOutbox,
         accountPhoneValidator: AccountPhoneValidator,
-    ): ApplicationPort = ApplicationCommandService(applicantRepository, applicationPeriodReader, accountPhoneValidator, applicantStatusEventOutbox)
+        firstScreeningPublicationPolicy: hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy,
+    ): ApplicationPort = ApplicationCommandService(applicantRepository, applicationPeriodReader, accountPhoneValidator, firstScreeningPublicationPolicy, applicantStatusEventOutbox)
 
     @Bean
     fun evaluationService(
