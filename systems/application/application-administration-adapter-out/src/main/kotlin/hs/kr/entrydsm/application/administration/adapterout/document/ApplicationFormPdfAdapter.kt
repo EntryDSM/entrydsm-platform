@@ -242,8 +242,8 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
  *
  * 본문이 칸을 넘치면 글자를 줄이지 않고 칸을 아래로 늘린다. 그래서 서식 원본은 자기소개서 본문 칸 위와 학업계획서
  * 안내 칸만 잘라 깔고, 본문 칸 테두리는 직접 긋는다. 칸이 서식 아래 여백에 닿으면 바로 뒤에 빈 장을 붙여 이어 쓴다.
- * 학업계획서는 남은 자리에 글이 다 들어가거나 원본 높이의 칸이 들어가면 그 장에서, 아니면 다음 장에서 시작하고
- * 칸은 아래 여백까지 긋는다.
+ * 학업계획서는 남은 자리에 글이 다 들어가거나 원본 높이의 칸이 들어가면 그 장에서, 아니면 다음 장에서 시작한다.
+ * 두 칸 모두 원본 높이로 긋고 긴 글만큼 늘리며, 남은 자리가 원본 높이보다 좁으면 아래 여백까지만 긋는다.
  */
 private fun PDDocument.essays(page: PDPage, font: PDFont, form: ApplicationForm, receipt: String) {
     val head = band(page, 0f, INTRODUCTION_TOP)
@@ -301,7 +301,7 @@ private fun PDDocument.essays(page: PDPage, font: PDFont, form: ApplicationForm,
         }
         sheet.place(studyPlanHead, shift = y - INTRODUCTION_BOTTOM)
         y += header
-        body(studyPlan, STUDY_PLAN_BOTTOM - y)
+        body(studyPlan, STUDY_PLAN_BOTTOM - STUDY_PLAN_TOP)
     } finally {
         sheet.close()
     }
