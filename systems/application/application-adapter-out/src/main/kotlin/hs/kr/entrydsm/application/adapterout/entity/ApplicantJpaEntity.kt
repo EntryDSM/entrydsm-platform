@@ -155,9 +155,10 @@ open class ApplicantJpaEntity(
     @OneToMany(mappedBy = "applicant", cascade = [CascadeType.ALL], orphanRemoval = true)
     open var passResults: MutableList<PassResultJpaEntity> = mutableListOf(),
 ) {
-    fun toDomain(includePassResults: Boolean = true): Applicant {
+    /** 최종 발표 전([finalPublished] false)에는 저장된 최종 결과 대신 1차 결과를 보인다. */
+    fun toDomain(includePassResults: Boolean = true, finalPublished: Boolean = true): Applicant {
         val passResult = if (includePassResults) {
-            passResults.firstOrNull { it.id.resultType == ResultType.FINAL && it.result != PassResultStatus.PENDING }
+            passResults.firstOrNull { finalPublished && it.id.resultType == ResultType.FINAL && it.result != PassResultStatus.PENDING }
                 ?: passResults.firstOrNull { it.id.resultType == ResultType.DOCUMENT && it.result != PassResultStatus.PENDING }
         } else null
         return Applicant(

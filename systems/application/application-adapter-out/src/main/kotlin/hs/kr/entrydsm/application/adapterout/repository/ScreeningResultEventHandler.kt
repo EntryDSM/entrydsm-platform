@@ -4,6 +4,7 @@ import hs.kr.entrydsm.application.adapterout.entity.PassResultId
 import hs.kr.entrydsm.application.adapterout.entity.PassResultJpaEntity
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
+import hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.PassResultStatus
@@ -23,6 +24,7 @@ class ScreeningResultEventHandler(
     private val outbox: ApplicantStatusEventOutbox,
     private val applicationPort: ApplicationPort,
     private val publication: hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy = hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { false },
+    private val finalPublication: FinalScreeningPublicationPolicy = FinalScreeningPublicationPolicy { false },
 ) {
     /** 같은 DB의 관리자 변경은 현재 버전을 잠근 뒤 원서 결과와 outbox를 함께 반영한다. */
     @Transactional
@@ -71,8 +73,8 @@ class ScreeningResultEventHandler(
         }
         applicant.statusVersion++
         applicant.updatedAt = nowUtc()
-        // 1차 결과는 예비 저장만 하고 발표 트랜잭션에서 일괄 공개한다.
-        if (type == ResultType.DOCUMENT) return
+        // 1차 결과는 예비 저장만 하고 발표 트랜잭션에서 일괄 공개한다. 최종 결과도 최종 발표 전에는 같다.
+        if (type == ResultType.DOCUMENT || (type == ResultType.FINAL && !finalPublication.isPublished())) return
         publish(applicant)
     }
 
@@ -80,9 +82,20 @@ class ScreeningResultEventHandler(
     @Transactional
     fun publishFirst(applicantId: Long, occurredAt: Instant) {
         check(publication.isPublished()) { "1차 합격 발표가 완료되지 않았습니다." }
+        announce(applicantId, ResultType.DOCUMENT, occurredAt)
+    }
+
+    /** 최종 발표 전에 등록한 2차 결과를 발표 시각으로 확정하고 공개 이벤트를 남긴다. */
+    @Transactional
+    fun publishFinal(applicantId: Long, occurredAt: Instant) {
+        check(finalPublication.isPublished()) { "최종 합격 발표가 완료되지 않았습니다." }
+        announce(applicantId, ResultType.FINAL, occurredAt)
+    }
+
+    private fun announce(applicantId: Long, type: ResultType, occurredAt: Instant) {
         val applicant = repository.findForUpdate(applicantId) ?: return
         if (applicant.status in setOf(ApplicantStatus.DRAFT, ApplicantStatus.CANCELED)) return
-        val result = applicant.passResults.firstOrNull { it.id.resultType == ResultType.DOCUMENT } ?: return
+        val result = applicant.passResults.firstOrNull { it.id.resultType == type } ?: return
         result.processedAt = LocalDateTime.ofInstant(occurredAt, ZoneOffset.UTC)
         applicant.statusVersion = Math.addExact(applicant.statusVersion, 1L)
         applicant.updatedAt = nowUtc()
@@ -90,7 +103,7 @@ class ScreeningResultEventHandler(
     }
 
     private fun publish(applicant: hs.kr.entrydsm.application.adapterout.entity.ApplicantJpaEntity) {
-        val snapshot = applicant.toDomain()
+        val snapshot = applicant.toDomain(finalPublished = finalPublication.isPublished())
         val published = publication.isPublished()
         outbox.add(ApplicantStatusChanged(
             accountId = snapshot.accountId, applicantId = snapshot.id, status = snapshot.status,
