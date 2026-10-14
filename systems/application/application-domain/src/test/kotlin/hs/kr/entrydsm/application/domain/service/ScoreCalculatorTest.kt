@@ -52,11 +52,11 @@ class ScoreCalculatorTest {
             ),
         )
 
-        assertEquals(140.0, breakdown.subjectScore, 0.0)
+        assertEquals(70.0, breakdown.subjectScore, 0.0)
         assertEquals(14.0, breakdown.attendanceScore, 0.0)
         assertEquals(10.0, breakdown.volunteerScore, 0.0)
         assertEquals(3.0, breakdown.additionalScore, 0.0)
-        assertEquals(167.0, breakdown.totalScore, 0.0)
+        assertEquals(97.0, breakdown.totalScore, 0.0)
     }
 
     @Test
@@ -122,15 +122,15 @@ class ScoreCalculatorTest {
     }
 
     @Test
-    fun fillsMissingProspectiveSemestersWithAvailableScore() {
+    fun doesNotExpandMissingProspectiveSemesterWeights() {
         val record = AcademicRecord(
             subjectGrades = linkedMapOf(
                 SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
             ),
         )
 
-        assertEquals(155.0, calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, record), 0.0)
-        assertEquals(95.0, calculate(AdmissionType.SOCIAL, GraduationType.PROSPECTIVE, record), 0.0)
+        assertEquals(85.0, calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, record), 0.0)
+        assertEquals(55.0, calculate(AdmissionType.SOCIAL, GraduationType.PROSPECTIVE, record), 0.0)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -155,7 +155,7 @@ class ScoreCalculatorTest {
     }
 
     @Test
-    fun fillsMissingGraduatedSemesterWithAverageOfReflectedScores() {
+    fun doesNotExpandMissingGraduatedSemesterWeights() {
         val record = AcademicRecord(
             subjectGrades = linkedMapOf(
                 SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
@@ -164,8 +164,8 @@ class ScoreCalculatorTest {
             ),
         )
 
-        assertEquals(155.0, calculate(AdmissionType.REGULAR, GraduationType.GRADUATED, record), 0.0)
-        assertEquals(95.0, calculate(AdmissionType.SOCIAL, GraduationType.GRADUATED, record), 0.0)
+        assertEquals(120.0, calculate(AdmissionType.REGULAR, GraduationType.GRADUATED, record), 0.0)
+        assertEquals(75.0, calculate(AdmissionType.SOCIAL, GraduationType.GRADUATED, record), 0.0)
     }
 
     @Test
@@ -238,6 +238,28 @@ class ScoreCalculatorTest {
                 admissionType = AdmissionType.REGULAR, academicRecord = AcademicRecord()))
         }
         assertEquals("졸업 구분이 누락되었습니다", failure.message)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsProspectiveThirdSemesterWithOnlyX() {
+        calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, AcademicRecord(
+            subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.X),
+                SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+            ),
+        ))
+    }
+
+    @Test
+    fun skipsAllXPreviousSemesterAndReflectsOlderSemester() {
+        val record = AcademicRecord(volunteerTime = 15, subjectGrades = linkedMapOf(
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.X),
+            SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to all(SubjectGrade.B),
+            SchoolSemester.FIRST_GRADE_SECOND_SEMESTER to all(SubjectGrade.C),
+        ))
+        assertEquals(149.0, calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, record), 0.0)
+        assertEquals(98.0, calculate(AdmissionType.SOCIAL, GraduationType.PROSPECTIVE, record), 0.0)
     }
 
     private fun calculate(

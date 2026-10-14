@@ -637,12 +637,41 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
-    fun queriesPreserveSavedZeroScoreWithoutRecalculating() {
+    fun formQueriesUseRecalculatedBreakdownWhileSummaryKeepsSavedZero() {
         val repository = FakeApplicantRepository(submittableGedApplicant().copy(totalScore = 0.0))
         val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
         assertEquals(0.0, service.findApplicant(1L)?.totalScore ?: -1.0, 0.0)
-        assertEquals(0.0, service.findApplicationForm(10L)?.score?.totalScore ?: -1.0, 0.0)
+        assertEquals(170.0, service.findApplicationForm(10L)?.score?.totalScore ?: -1.0, 0.0)
         assertEquals(0, repository.saveCount)
+    }
+
+    @Test
+    fun formQueriesDoNotOverwriteCalculatedTotalWithOldSavedScore() {
+        fun grades(value: String) = SubjectGrades(
+            koreanGrade = SubjectGrade.valueOf(value[0].toString()),
+            societyGrade = SubjectGrade.valueOf(value[1].toString()),
+            historyGrade = SubjectGrade.valueOf(value[2].toString()),
+            mathGrade = SubjectGrade.valueOf(value[3].toString()),
+            scienceGrade = SubjectGrade.valueOf(value[4].toString()),
+            technologyGrade = SubjectGrade.valueOf(value[5].toString()),
+            englishGrade = SubjectGrade.valueOf(value[6].toString()),
+        )
+        val repository = FakeApplicantRepository(Applicant(id = 1, accountId = 10,
+            status = ApplicantStatus.SUBMITTED, totalScore = 170.0,
+            admissionType = AdmissionType.REGULAR, graduationType = GraduationType.PROSPECTIVE,
+            academicRecord = AcademicRecord(volunteerTime = 15, subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to grades("ABAAAXX"),
+                SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to grades("ABBEAXX"),
+                SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to grades("ACCDAXX"),
+            )),
+        ))
+        val service = ApplicationCommandService(repository, OPEN, ACCEPT_PHONE)
+        listOf(service.findApplicationForm(10L), service.findApplicationForms(listOf(10L)).single()).forEach { form ->
+            assertEquals(68.0, form?.score?.subjectBaseScore ?: -1.0, 0.0)
+            assertEquals(119.0, form?.score?.subjectScore ?: -1.0, 0.0)
+            assertEquals(149.0, form?.score?.totalScore ?: -1.0, 0.0)
+            assertEquals(SubjectGrade.X, form?.thirdGradeFirstSemester?.technologyGrade)
+        }
     }
 
     @Test
