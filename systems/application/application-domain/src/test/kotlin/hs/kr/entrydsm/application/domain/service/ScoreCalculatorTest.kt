@@ -8,6 +8,7 @@ import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -52,6 +53,7 @@ class ScoreCalculatorTest {
             ),
         )
 
+        assertEquals(40.0, breakdown.subjectBaseScore ?: -1.0, 0.0)
         assertEquals(70.0, breakdown.subjectScore, 0.0)
         assertEquals(14.0, breakdown.attendanceScore, 0.0)
         assertEquals(10.0, breakdown.volunteerScore, 0.0)
@@ -92,6 +94,7 @@ class ScoreCalculatorTest {
                 id = 1L, accountId = 1L, admissionType = admissionType,
                 graduationType = GraduationType.GED, academicRecord = record,
             ))
+            assertNull(breakdown.subjectBaseScore)
             assertEquals(subjectScore, breakdown.subjectScore, 0.0)
             assertEquals(0.0, breakdown.attendanceScore, 0.0)
             assertEquals(0.0, breakdown.volunteerScore, 0.0)
@@ -260,6 +263,21 @@ class ScoreCalculatorTest {
         ))
         assertEquals(149.0, calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, record), 0.0)
         assertEquals(98.0, calculate(AdmissionType.SOCIAL, GraduationType.PROSPECTIVE, record), 0.0)
+    }
+
+    @Test
+    fun graduatedSchoolBreakdownCarriesExactEightyPointBase() {
+        val breakdown = calculator.calculateBreakdown(Applicant(id = 1L, accountId = 1L,
+            admissionType = AdmissionType.REGULAR, graduationType = GraduationType.GRADUATED,
+            academicRecord = AcademicRecord(subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+                SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+                SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+                SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+            )),
+        ))
+        assertEquals(80.0, breakdown.subjectBaseScore ?: -1.0, 0.0)
+        assertEquals(140.0, breakdown.subjectScore, 0.0)
     }
 
     private fun calculate(
