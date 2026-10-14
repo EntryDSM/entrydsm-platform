@@ -335,10 +335,8 @@ class LocalApplicantDataAdapter(
             thirdGradeFirstSemester = thirdFirst,
             previousSemester = previous,
             secondPreviousSemester = secondPrevious,
-            thirdGradeTotal = listOfNotNull(thirdSecond.total, thirdFirst.total).takeIf { it.isNotEmpty() }?.sum(),
-            previousSemesterTotal = previous.total,
-            secondPreviousSemesterTotal = secondPrevious.total,
             subjectScore = subjectScore.takeIf { hasSubjectScore() },
+            subjectBaseScore = subjectBaseScore.takeIf { hasSubjectBaseScore() },
             volunteerTime = academicRecord.takeIf { hasAcademicRecord() }?.volunteerTime,
             volunteerScore = volunteerScore.takeIf { hasVolunteerScore() },
             absentCount = academicRecord.takeIf { hasAcademicRecord() }?.absentCount,
@@ -359,7 +357,15 @@ class LocalApplicantDataAdapter(
             }?.let {
                 GedScores(it.korean, it.society, it.history, it.math, it.science, it.technology, it.english)
             },
-        )
+        ).let { row ->
+            // 점검표와 전형자료의 학기 점수를 같은 배점으로 환산한다.
+            row.copy(
+                thirdGradeTotal = listOfNotNull(row.thirdGradeSecondSemesterScore, row.thirdGradeFirstSemesterScore)
+                    .takeIf { it.isNotEmpty() }?.sum(),
+                previousSemesterTotal = row.previousSemesterScore,
+                secondPreviousSemesterTotal = row.secondPreviousSemesterScore,
+            )
+        }
     }
 
     private fun hs.kr.entrydsm.application.grpc.SemesterGrades?.toGrades(): SemesterGrades =

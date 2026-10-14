@@ -91,6 +91,7 @@ class ScoreCalculator {
         }
 
         return ScoreBreakdown(
+            subjectBaseScore = subjectBaseScore.takeUnless { isGed },
             subjectScore = roundToThirdDecimal(subjectScore),
             attendanceScore = roundToThirdDecimal(attendanceScore),
             volunteerScore = roundToThirdDecimal(volunteerScore),
@@ -178,11 +179,7 @@ class ScoreCalculator {
                 }
                 .take(PROSPECTIVE_PREVIOUS_SEMESTER_COUNT)
 
-        /*
-         * 정상적인 졸업예정자는 총 3개 학기를 사용하지만,
-         * 해외 귀국자 등 반영 가능한 학기가 부족한 경우를 위해
-         * 실제 반영된 학기의 총 배점을 기준으로 80점 환산한다.
-         */
+        // 누락된 학기의 배점을 다른 학기에 더하지 않는다.
         val weightedScores = buildList {
             add(
                 WeightedSemesterScore(
@@ -194,7 +191,7 @@ class ScoreCalculator {
             addAll(previousSemesters)
         }
 
-        return normalizeSubjectScore(weightedScores)
+        return sumSubjectScore(weightedScores)
     }
 
     /**
@@ -227,12 +224,12 @@ class ScoreCalculator {
                 .take(GRADUATED_REFLECTED_SEMESTER_COUNT)
 
         require(semesters.isNotEmpty()) { "반영 가능한 교과 성적이 없습니다. 모든 과목이 X인지 확인해주세요" }
-        return normalizeSubjectScore(semesters)
+        return sumSubjectScore(semesters)
     }
 
     /**
      * 학기 평균 평점을 해당 학기의 최대 배점으로 환산한 뒤,
-     * 실제 반영된 학기들의 총 배점을 기준으로 80점 환산.
+     * 반영된 학기의 환산점수만 합산한다.
      *
      * 예:
      *
@@ -242,7 +239,7 @@ class ScoreCalculator {
      * 평균평점 4.0, 최대배점 20
      * -> 4 / 5 * 20 = 16
      */
-    private fun normalizeSubjectScore(
+    private fun sumSubjectScore(
         semesters: List<WeightedSemesterScore>,
     ): Double {
         if (semesters.isEmpty()) {
@@ -255,16 +252,7 @@ class ScoreCalculator {
                     semester.maxScore
         }
 
-        val reflectedMaxScore =
-            semesters.sumOf { it.maxScore }
-
-        if (reflectedMaxScore == EMPTY_SCORE) {
-            return EMPTY_SCORE
-        }
-
-        return earnedScore /
-                reflectedMaxScore *
-                SUBJECT_MAX_SCORE
+        return earnedScore
     }
 
     /**
@@ -456,9 +444,6 @@ class ScoreCalculator {
         private const val MIN_GED_SCORE = 0.0
         private const val PERFECT_GED_SCORE = 100.0
 
-        /** 교과 성적 기준점수. */
-        private const val SUBJECT_MAX_SCORE = 80.0
-
         private const val REGULAR_SUBJECT_SCORE_RATIO = 1.75
         private const val SPECIAL_SUBJECT_SCORE_RATIO = 1.0
         private const val GED_REGULAR_SUBJECT_SCORE_MULTIPLIER = 34.0
@@ -532,6 +517,7 @@ data class ScoreBreakdown(
     val volunteerScore: Double,
     val additionalScore: Double,
     val totalScore: Double,
+    val subjectBaseScore: Double? = null,
 ) {
     companion object {
         val EMPTY = ScoreBreakdown(0.0, 0.0, 0.0, 0.0, 0.0)
