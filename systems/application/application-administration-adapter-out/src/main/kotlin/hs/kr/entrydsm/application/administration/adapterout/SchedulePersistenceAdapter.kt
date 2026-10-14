@@ -25,4 +25,8 @@ class SchedulePersistenceAdapter(
     @Transactional
     override fun claimFirstScreening(title: String, now: LocalDateTime): Boolean =
         repository.claimFirstScreening(title, now) == 1
+
+    @Transactional
+    override fun claimFinalScreening(title: String, now: LocalDateTime): Boolean =
+        repository.claimFinalScreening(title, now) == 1
 }
