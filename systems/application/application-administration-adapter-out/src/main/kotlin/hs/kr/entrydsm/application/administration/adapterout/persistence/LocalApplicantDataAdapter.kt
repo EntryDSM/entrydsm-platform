@@ -198,6 +198,13 @@ class LocalApplicantDataAdapter(
         }.sortedBy { it.applicantId }.forEach { resultHandler.publishFirst(it.applicantId, processedAt) }
     }
 
+    @Transactional
+    override fun publishFinalResults(processedAt: Instant) {
+        screeningJpaRepository.findAll().filter {
+            it.status in setOf(ApplicantStatus.FINAL_PASS, ApplicantStatus.FINAL_FAIL)
+        }.sortedBy { it.applicantId }.forEach { resultHandler.publishFinal(it.applicantId, processedAt) }
+    }
+
     override fun deleteById(applicantId: Long) = screeningJpaRepository.deleteById(applicantId)
 
     override fun delete(applicantId: Long) {

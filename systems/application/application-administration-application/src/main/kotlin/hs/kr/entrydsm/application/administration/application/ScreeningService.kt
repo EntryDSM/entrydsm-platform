@@ -132,6 +132,8 @@ class ScreeningService(
         if (schedule.firstScreeningProcessedAt == null || nowKst.isBefore(schedule.startAt)) {
             throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
+        // 최종 발표 처리와 직렬화해 발표 직전 등록이 공개 이벤트에서 빠지지 않게 한다.
+        schedules?.findByTitleForUpdate("최종 합격 발표")
         val applicant = applicantRepository.findById(applicantId)
             ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
         val now = Instant.now(clock)
