@@ -43,9 +43,54 @@ class ApplicationCorrectionService(
         val original = applicants.findForUpdate(applicantId)
             ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
         val editable = canCorrect(original, state)
-        return EditableApplicationFields(editable, if (editable) values(original).keys.toList() else emptyList(),
+        return EditableApplicationFields(original.toFormFields(),
             if (editable) null else "제출 또는 접수된 원서이며 전형 결과가 없어야 수정할 수 있습니다.")
     }
+
+    /** PATCH와 같은 필드 이름으로 원서의 현재 값을 제공하며 내부 상태는 노출하지 않는다. */
+    private fun Applicant.toFormFields(): ApplicationFormChanges = ApplicationFormChanges(
+        admissionType = admissionType?.let { if (it == AdmissionType.REGULAR) "GENERAL" else it.name },
+        region = region?.let { if (it == Region.NATIONAL) "NATIONWIDE" else it.name },
+        graduationType = graduationType?.name,
+        graduationDate = graduationDate?.toString(),
+        photoFileId = photoFileId,
+        name = name,
+        phoneNumber = phoneNumber,
+        gender = gender?.name,
+        birthdate = birthdate?.toString(),
+        specialAdmissionType = specialAdmissionType.name,
+        guardianName = guardianName,
+        guardianPhoneNumber = guardianPhoneNumber,
+        guardianGender = guardianGender?.name,
+        guardianRelation = guardianRelation,
+        zipCode = zipCode,
+        addressBase = addressBase,
+        addressDetail = addressDetail,
+        introduction = introduction,
+        studyPlan = studyPlan,
+        school = middleSchoolInfo?.let {
+            SchoolCorrection(it.schoolCode, it.schoolName, it.studentNumber, it.schoolPhone, it.teacherName)
+        },
+        academicRecord = academicRecord?.let { record ->
+            AcademicRecordCorrection(
+                absentCount = record.absentCount,
+                lateCount = record.lateCount,
+                earlyLeaveCount = record.earlyLeaveCount,
+                classAbsenceCount = record.classAbsenceCount,
+                volunteerTime = record.volunteerTime,
+                dsmAlgorithmAwarded = record.isDsmAlgorithmAwarded,
+                programmingCertified = record.isProgrammingCertified,
+                subjectGrades = record.subjectGrades.mapKeys { it.key.name }.mapValues { (_, grades) ->
+                    SubjectGradesCorrection(grades.koreanGrade.name, grades.mathGrade.name, grades.englishGrade.name,
+                        grades.scienceGrade.name, grades.societyGrade.name, grades.technologyGrade.name, grades.historyGrade.name)
+                },
+                gedScores = record.gedScores?.let {
+                    GedScoresCorrection(it.koreanScore, it.mathScore, it.englishScore, it.scienceScore,
+                        it.societyScore, it.technologyScore, it.historyScore)
+                },
+            )
+        },
+    )
 
     /** 조회 직후 상태가 달라질 수 있으므로 정정에서도 다시 검사한다. */
     private fun canCorrect(original: Applicant, state: ApplicationCorrectionState): Boolean =
