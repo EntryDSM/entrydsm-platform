@@ -69,7 +69,7 @@ kt_jvm_test(
 
 kt_jvm_test(
     name = "correction_service_test",
-    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    srcs = ["src/test/kotlin/hs/kr/entrydsm/application/administration/application/ApplicationCorrectionServiceTest.kt"],
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",
     test_class = "hs.kr.entrydsm.application.administration.application.ApplicationCorrectionServiceTest",

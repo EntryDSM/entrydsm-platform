@@ -9,5 +9,5 @@ import tools.jackson.databind.ValueDeserializer
 class GedTechnologyScoreDeserializer : ValueDeserializer<Int?>() {
     override fun deserialize(parser: JsonParser, context: DeserializationContext): Int? =
         if (parser.currentToken() == JsonToken.VALUE_NUMBER_INT) parser.intValue
-        else context.handleUnexpectedToken(Int::class.javaObjectType, parser) as Int?
+        else context.handleUnexpectedToken(Int::class.javaObjectType, parser) as? Int
 }
