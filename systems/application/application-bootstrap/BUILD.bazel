@@ -126,3 +126,5 @@ kt_jvm_test(
     test_class = "hs.kr.entrydsm.application.config.ScheduleInitializerTest",
     deps = MODULE_DEPS + TEST_DEPS,
 )
+
+exports_files(["src/main/resources/db/migration/V019__make_ged_technology_optional_and_remove_history.sql"])

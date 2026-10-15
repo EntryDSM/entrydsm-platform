@@ -68,6 +68,18 @@ class AdministrationGrpcServiceTest {
         assertEquals("", result.dataJson)
     }
 
+    @Test
+    fun gedCorrectionRejectsEmptyTechnology() {
+        val base = """{"korean":100,"math":100,"english":100,"science":100,"society":100}"""
+        fun request(scores: String) = """{"applicantId":5,"reason":"성적 정정","changes":{"academicRecord":{"absentCount":0,"lateCount":0,"earlyLeaveCount":0,"classAbsenceCount":0,"volunteerTime":0,"dsmAlgorithmAwarded":false,"programmingCertified":false,"gedScores":$scores}}}"""
+        listOf(base, base.dropLast(1) + ",\"technology\":null}", base.dropLast(1) + ",\"technology\":0}").forEach {
+            assertEquals("APPLICATION_SCORE_INVALID", invoke("admin", "ADMIN", request(it), true).errorCode)
+        }
+        listOf(base.dropLast(1) + ",\"technology\":\"\"}").forEach {
+            assertEquals("INVALID_REQUEST_BODY", invoke("admin", "ADMIN", request(it), true).errorCode)
+        }
+    }
+
     private fun invoke(userId: String, role: String, json: String, correction: Boolean = false): AdministrationResponse {
         var result: AdministrationResponse? = null
         var completed = false
