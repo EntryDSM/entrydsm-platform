@@ -20,6 +20,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+import org.springframework.web.servlet.NoHandlerFoundException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 private const val SERVER_ERROR_STATUS = 500
@@ -56,8 +57,8 @@ class GlobalExceptionHandler {
         response(ErrorCode.INVALID_REQUEST_BODY)
 
     // 없는 경로·메서드 요청이 아래 Exception 처리로 빠지면 500과 ERROR 로그가 남고, gateway 서킷 브레이커가 실패로 센다.
-    @ExceptionHandler(NoResourceFoundException::class)
-    fun handleApiNotFound(exception: NoResourceFoundException): ResponseEntity<ErrorResponse> =
+    @ExceptionHandler(NoResourceFoundException::class, NoHandlerFoundException::class)
+    fun handleApiNotFound(exception: Exception): ResponseEntity<ErrorResponse> =
         response(ErrorCode.API_NOT_FOUND)
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
