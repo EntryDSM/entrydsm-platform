@@ -3,6 +3,7 @@ KOTLIN_DEPS = [
     "@maven//:io_github_openhtmltopdf_openhtmltopdf_pdfbox",
     "@maven//:org_apache_pdfbox_pdfbox",
     "//systems/application/application-application:main",
+    "//systems/application/application-domain:main",
     "//systems/application/application-adapter-out:main",
     "//systems/application/application-grpc-mapping:main",
     "//systems/configuration/configuration-domain:main",

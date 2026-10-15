@@ -63,6 +63,7 @@ data class ApplicantDetail(
     val score: ApplicantScore?,
     val gedScores: GedScores? = null,
     val version: Long = 0,
+    val semesterScores: Map<String, Double> = emptyMap(),
 )
 
 data class ApplicantScore(
