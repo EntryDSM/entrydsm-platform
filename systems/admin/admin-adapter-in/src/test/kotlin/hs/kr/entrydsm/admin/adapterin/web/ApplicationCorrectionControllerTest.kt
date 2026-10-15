@@ -59,8 +59,11 @@ class ApplicationCorrectionControllerTest {
         assertFalse(response.contentAsString.contains("\"values\""))
         assertTrue(response.contentAsString.contains("홍길동"))
         assertTrue(response.contentAsString.contains("\"name\""))
-        assertEquals(404, mvc.perform(get("$path/editable-fields").header("X-User-Id", "10")
-            .header("X-User-Role", "ADMIN")).andReturn().response.status)
+        val missingEndpointResponse = mvc.perform(get("$path/editable-fields").header("X-User-Id", "10")
+            .header("X-User-Role", "ADMIN")).andReturn().response
+        assertEquals(404, missingEndpointResponse.status)
+        assertEquals("API_NOT_FOUND", tools.jackson.databind.json.JsonMapper.builder().build()
+            .readTree(missingEndpointResponse.contentAsString).get("error").get("code").stringValue())
     }
 
     @Test fun currentFieldValuesRoundTripFromGrpcThroughRealBffToHttpForEditableAndReadOnlyApplicants() {
