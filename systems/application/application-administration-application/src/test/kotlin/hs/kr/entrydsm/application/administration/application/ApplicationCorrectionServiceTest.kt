@@ -50,16 +50,16 @@ class ApplicationCorrectionServiceTest {
         }
     }
 
-    @Test fun `검정고시는 일곱 과목과 실제 영점을 보존하고 빈 학교는 null로 제공한다`() {
+    @Test fun `검정고시는 선택 과목과 실제 영점을 보존하고 빈 학교는 null로 제공한다`() {
         val applicant = Applicant(id = 5, accountId = 10, status = ApplicantStatus.SUBMITTED,
             graduationType = hs.kr.entrydsm.application.domain.enum.GraduationType.GED,
             academicRecord = hs.kr.entrydsm.application.domain.model.AcademicRecord(gedScores =
-                hs.kr.entrydsm.application.domain.model.GedScores(100, 90, 80, 70, 60, 0, 40)))
+                hs.kr.entrydsm.application.domain.model.GedScores(100, 90, 80, 70, 60, 0)))
         val fields = service(applicant).editableFields(5).fields
         assertNull(fields.school)
         assertEquals("GED", fields.graduationType)
         assertTrue(fields.academicRecord!!.subjectGrades.isEmpty())
-        assertEquals(hs.kr.entrydsm.admin.domain.command.GedScoresCorrection(100, 90, 80, 70, 60, 0, 40), fields.academicRecord!!.gedScores)
+        assertEquals(hs.kr.entrydsm.admin.domain.command.GedScoresCorrection(100, 90, 80, 70, 60, 0), fields.academicRecord!!.gedScores)
     }
 
     @Test fun `작성하지 않은 값은 null이고 존재하지 않거나 잘못된 원서 ID는 거부한다`() {
@@ -103,6 +103,20 @@ class ApplicationCorrectionServiceTest {
         school = hs.kr.entrydsm.admin.domain.command.SchoolCorrection("D100", "중학교", "30101", "042-123-4567", "담임"),
         academicRecord = hs.kr.entrydsm.admin.domain.command.AcademicRecordCorrection(1, 2, 3, 4, 15, true, false,
             mapOf("THIRD_GRADE_FIRST_SEMESTER" to hs.kr.entrydsm.admin.domain.command.SubjectGradesCorrection("A", "B", "C", "D", "E", "X", "A"))))
+
+    @Test fun `검정고시 정정에서 기본 다섯 과목 누락은 저장 전에 거부한다`() {
+        val complete = hs.kr.entrydsm.admin.domain.command.GedScoresCorrection(100, 100, 100, 100, 100)
+        val missing = listOf(complete.copy(korean = null), complete.copy(math = null), complete.copy(english = null),
+            complete.copy(science = null), complete.copy(society = null))
+        missing.forEach { scores ->
+            val applicant = Applicant(id = 5, accountId = 10, status = ApplicantStatus.SUBMITTED,
+                graduationType = hs.kr.entrydsm.application.domain.enum.GraduationType.GED)
+            val command = CorrectApplicationCommand(5, "성적 정정", ApplicationFormChanges(academicRecord =
+                hs.kr.entrydsm.admin.domain.command.AcademicRecordCorrection(0, 0, 0, 0, 0, false, false, gedScores = scores)))
+            val failure = assertThrows(AdminDomainException::class.java) { service(applicant).correct(command, "admin") }
+            assertEquals(hs.kr.entrydsm.admin.domain.enum.ErrorCode.INVALID_APPLICATION_CORRECTION, failure.errorCode)
+        }
+    }
 
     private fun service(applicant: Applicant?, hasResult: Boolean = false): ApplicationCorrectionService {
         val repository = proxy(ApplicantRepository::class.java) { method ->

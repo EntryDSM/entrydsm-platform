@@ -69,13 +69,14 @@ class ApplicationFormPdfTest {
 
         assertA4Pages(pdf, FORM_COUNT - 1)
         assertTrue(pageText(pdf, 1).contains("검정고시 점수"))
+        assertFalse(pageText(pdf, 1).contains("역사"))
         assertTrue(pageText(pdf, 1).contains("프로그래밍기능사"))
         assertFalse(pageText(pdf, 1).contains("정보처리기능사"))
         // 학교 칸에는 "-" 가 인쇄돼 있어, 남은 출신 중학교 값을 어느 장에도 찍지 않는다.
         (1..5).forEach { page -> assertFalse("${page}쪽", pageText(pdf, page).contains("서귀포")) }
         assertEquals(1, images(pdf, page = 1))
-        // 국어 95 · 사회 88 · 역사 100 · 수학 76 · 과학 90 · 기술·가정 85 · 영어 99
-        assertEquals("958810076908599", cell(160.68f, 340.68f, 399.24f, 470.04f))
+        // 검정고시는 역사 행을 제외한 여섯 과목을 출력한다.
+        assertEquals("958876908599", cell(160.68f, 340.68f, 399.24f, 470.04f))
         // 졸업구분 칸에는 "검정고시" 가 인쇄돼 있고, 점수 표 오른쪽 빈 칸에는 출결을 찍지 않는다.
         assertEquals("", cell(160.68f, 201.48f, 439.80f, 225.60f))
         assertEquals("", cell(399.24f, 303.72f, 536.40f, 414.60f))
@@ -90,6 +91,22 @@ class ApplicationFormPdfTest {
         assertA4Pages(adapter.render(ged.copy(admissionType = Applicant.AdmissionType.REGULAR), photo = null), FORM_COUNT - 1)
 
         System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "application-form-ged.pdf").writeBytes(pdf) }
+    }
+
+    @Test
+    fun `검정고시 기술가정 미입력은 빈칸 실제 영점은 숫자로 출력한다`() {
+        val form = gedForm()
+        val missing = adapter.render(form.copy(gedScores = form.gedScores!!.copy(technology = "")), photo = null)
+        val zero = adapter.render(form.copy(gedScores = form.gedScores!!.copy(technology = "0")), photo = null)
+        fun scores(pdf: ByteArray) = stamped(pdf, page = 1)
+            .filter { it.yDirAdj in 340.68f..470.04f && it.xDirAdj >= 160.68f && it.xDirAdj + it.widthDirAdj <= 399.24f }
+            .sortedBy { it.yDirAdj }.joinToString("") { it.unicode }
+        assertEquals("9588769099", scores(missing))
+        assertEquals("95887690099", scores(zero))
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let {
+            File(it, "application-form-ged-technology-blank.pdf").writeBytes(missing)
+            File(it, "application-form-ged-technology-zero.pdf").writeBytes(zero)
+        }
     }
 
     @Test
@@ -479,7 +496,7 @@ class ApplicationFormPdfTest {
         graduationType = ApplicationForm.GraduationType.GED,
         graduationDate = null,
         semesterGrades = listOf(null, null, null, null),
-        gedScores = ApplicationForm.SemesterGrades("95", "88", "100", "76", "90", "85", "99"),
+        gedScores = ApplicationForm.SemesterGrades("95", "88", "", "76", "90", "85", "99"),
         // 검정고시 점수를 저장하면 출결이 0 인 성적 기록이 같이 생긴다.
         academicRecord = ApplicationForm.AcademicRecord(0, 0, 0, 0, 0, dsmAlgorithmAwarded = true, programmingCertified = false),
     )

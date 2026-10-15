@@ -37,7 +37,7 @@ class LocalApplicantDataAdapterTest {
     @Test
     fun gedScoresAreIncludedOnlyForGedApplicants() {
         val scores = hs.kr.entrydsm.application.domain.model.GedScores(
-            koreanScore = 0, societyScore = 81, historyScore = 82, mathScore = 83,
+            koreanScore = 0, societyScore = 81, mathScore = 83,
             scienceScore = 84, technologyScore = 85, englishScore = 100,
         )
         val gedForm = form().copy(
@@ -45,7 +45,7 @@ class LocalApplicantDataAdapterTest {
             gedScores = scores,
         )
         val row = adapter(applicant()) { gedForm }.findAdmissionFileRows().single()
-        assertEquals(hs.kr.entrydsm.admin.domain.model.GedScores(0, 81, 82, 83, 84, 85, 100), row.gedScores)
+        assertEquals(hs.kr.entrydsm.admin.domain.model.GedScores(0, 81, 83, 84, 85, 100), row.gedScores)
         assertNull(adapter(applicant()) {
             gedForm.copy(graduationType = hs.kr.entrydsm.application.domain.enum.GraduationType.GRADUATED)
         }.findAdmissionFileRows().single().gedScores)
@@ -188,6 +188,58 @@ class LocalApplicantDataAdapterTest {
             assertEquals(140.0, sheet.getRow(18).getCell(7).numericCellValue, 0.0)
             assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(18).getCell(2).cellType)
             assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(18).getCell(3).cellType)
+        }
+    }
+
+    @Test
+    fun `검정고시 선택과목은 실제 원서 계산부터 두 XLSX까지 일관되게 출력한다`() {
+        val rows = listOf(null, 0).mapIndexed { index, technology ->
+            val domain = hs.kr.entrydsm.application.domain.model.Applicant(id = 5, accountId = 10,
+                status = ApplicantStatus.SUBMITTED, totalScore = 170.0,
+                admissionType = hs.kr.entrydsm.application.domain.enum.AdmissionType.REGULAR,
+                graduationType = hs.kr.entrydsm.application.domain.enum.GraduationType.GED,
+                academicRecord = hs.kr.entrydsm.application.domain.model.AcademicRecord(
+                    gedScores = hs.kr.entrydsm.application.domain.model.GedScores(100, 100, 100, 100, 100, technology),
+                    subjectGrades = linkedMapOf(hs.kr.entrydsm.application.domain.enum.SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to subjectGrades("AAAAAAA")),
+                ))
+            val repository = proxy(hs.kr.entrydsm.application.application.port.out.ApplicantRepository::class.java) { method ->
+                check(method == "findByAccountId") { "조회 중 저장하거나 다른 조회를 하면 안 된다: $method" }; domain
+            }
+            val service = hs.kr.entrydsm.application.application.service.ApplicationCommandService(repository,
+                hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader { java.time.Instant.MIN..java.time.Instant.MAX },
+                hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator { _, _ -> true })
+            val actualForm = requireNotNull(service.findApplicationForm(10L))
+            assertEquals(if (technology == null) 100.0 else 500.0 / 6.0, actualForm.gedAverage!!, 0.000001)
+            adapter(applicant()) { actualForm }.findAdmissionFileRows().single().copy(receiptNumber = "000${index + 1}",
+                name = if (technology == null) "기술가정 미입력" else "기술가정 영점")
+        }
+        val admission = export(rows, hs.kr.entrydsm.admin.domain.enum.ExportType.ADMISSION_FILE)
+        val checklist = export(rows, hs.kr.entrydsm.admin.domain.enum.ExportType.APPLICATION_CHECKLIST)
+        org.apache.poi.xssf.usermodel.XSSFWorkbook(java.io.ByteArrayInputStream(admission)).use { book ->
+            val sheet = book.getSheet("전형 자료")
+            listOf(170.0, 147.333).forEachIndexed { index, expected ->
+                val row = sheet.getRow(index + 1)
+                assertEquals(expected, row.getCell(47).numericCellValue, 0.0)
+                assertEquals(expected, row.getCell(58).numericCellValue, 0.0)
+                assertNull(row.getCell(18))
+                if (index == 0) assertNull(row.getCell(21)) else assertEquals(0.0, row.getCell(21).numericCellValue, 0.0)
+                (23..43).forEach { assertNull(row.getCell(it)) }
+            }
+        }
+        org.apache.poi.xssf.usermodel.XSSFWorkbook(java.io.ByteArrayInputStream(checklist)).use { book ->
+            val sheet = book.getSheet("지원자 점검표")
+            listOf(170.0, 147.333).forEachIndexed { index, expected ->
+                val base = index * 20
+                assertEquals(expected, sheet.getRow(base + 18).getCell(7).numericCellValue, 0.0)
+                assertEquals(expected, sheet.getRow(base + 19).getCell(7).numericCellValue, 0.0)
+                assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(base + 13).getCell(2).cellType)
+                if (index == 0) assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(base + 16).getCell(2).cellType)
+                else assertEquals(0.0, sheet.getRow(base + 16).getCell(2).numericCellValue, 0.0)
+            }
+        }
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let {
+            java.io.File(it, "검정고시-전형자료-실계산-예시.xlsx").writeBytes(admission)
+            java.io.File(it, "검정고시-점검표-실계산-예시.xlsx").writeBytes(checklist)
         }
     }
 

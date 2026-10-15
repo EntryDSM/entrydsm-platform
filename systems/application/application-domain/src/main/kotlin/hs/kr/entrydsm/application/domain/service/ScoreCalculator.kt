@@ -256,12 +256,12 @@ class ScoreCalculator {
     }
 
     /**
-     * 검정고시 6개 과목의 구간별 환산 평점(1~5) 평균을 반환한다.
+     * 검정고시 필수 5과목과 입력된 기술가정의 구간별 환산 평점(1~5) 평균을 반환한다.
      */
     private fun calculateGedBaseScore(
         scores: GedScores,
     ): Double {
-        val subjectScores = listOf(
+        val subjectScores = listOfNotNull(
             scores.koreanScore,
             scores.mathScore,
             scores.englishScore,

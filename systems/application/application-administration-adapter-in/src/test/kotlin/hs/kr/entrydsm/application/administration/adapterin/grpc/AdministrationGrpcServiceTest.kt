@@ -14,6 +14,7 @@ class AdministrationGrpcServiceTest {
     private var calls = 0
     private var editorId: String? = null
     private var editableResult: EditableApplicationFields? = null
+    private var correctionCommand: hs.kr.entrydsm.admin.domain.command.CorrectApplicationCommand? = null
     private val service = AdministrationGrpcService(
         port(ReadApplicantUseCase::class.java), port(UpdateApplicantUseCase::class.java),
         port(IssueExamineeNumberUseCase::class.java), port(DeleteApplicantUseCase::class.java),
@@ -97,6 +98,38 @@ class AdministrationGrpcServiceTest {
         assertEquals(0, calls)
     }
 
+    @Test
+    fun gedCorrectionPreservesOmittedNullAndActualZeroTechnologyOnSuccess() {
+        val base = """{"korean":100,"math":100,"english":100,"science":100,"society":100}"""
+        val inputs = listOf(base to null, (base.dropLast(1) + ",\"technology\":null}") to null,
+            (base.dropLast(1) + ",\"technology\":0}") to 0)
+        inputs.forEach { (scores, expectedTechnology) ->
+            val response = invoke("admin", "ADMIN", gedCorrectionRequest(scores), true)
+            assertEquals("", response.errorCode)
+            val data = tools.jackson.databind.json.JsonMapper.builder().build().readTree(response.dataJson)
+            assertEquals(5L, data.get("applicantId").longValue())
+            assertEquals(7L, data.get("version").longValue())
+            val command = requireNotNull(correctionCommand)
+            assertEquals(5L, command.applicantId)
+            val actualScores = requireNotNull(command.changes.academicRecord?.gedScores)
+            assertEquals(expectedTechnology, actualScores.technology)
+            assertEquals(100, actualScores.korean)
+            assertEquals("admin", editorId)
+        }
+        assertEquals(3, calls)
+    }
+
+    @Test
+    fun gedCorrectionRejectsEmptyTechnologyBeforeCallingUseCase() {
+        val scores = """{"korean":100,"math":100,"english":100,"science":100,"society":100,"technology":""}"""
+        val response = invoke("admin", "ADMIN", gedCorrectionRequest(scores), true)
+        assertEquals("INVALID_REQUEST_BODY", response.errorCode)
+        assertEquals(0, calls)
+        assertNull(correctionCommand)
+    }
+
+    private fun gedCorrectionRequest(scores: String) = """{"applicantId":5,"reason":"성적 정정","changes":{"academicRecord":{"absentCount":0,"lateCount":0,"earlyLeaveCount":0,"classAbsenceCount":0,"volunteerTime":0,"dsmAlgorithmAwarded":false,"programmingCertified":false,"gedScores":$scores}}}"""
+
     private fun invoke(userId: String, role: String, json: String, correction: Boolean = false, editable: Boolean = false): AdministrationResponse {
         var result: AdministrationResponse? = null
         var completed = false
@@ -114,11 +147,14 @@ class AdministrationGrpcServiceTest {
 
     private fun <T> port(type: Class<T>): T = type.cast(
         Proxy.newProxyInstance(javaClass.classLoader, arrayOf(type)) { _, method, args ->
-            if (method.name == "correct") editorId = args[1] as String
             calls++
             if (method.name == "editableFields") {
                 assertEquals(5L, args[0])
                 requireNotNull(editableResult)
+            } else if (method.name == "correct") {
+                correctionCommand = args[0] as hs.kr.entrydsm.admin.domain.command.CorrectApplicationCommand
+                editorId = args[1] as String
+                hs.kr.entrydsm.admin.domain.port.`in`.ApplicationCorrectionResult(5, 7)
             } else throw AdminDomainException(ErrorCode.APPLICATION_SCORE_INVALID,
                 IllegalArgumentException("원서 본문"), failedCount = 1, totalCount = 85, targetIds = listOf(5))
         },

@@ -542,7 +542,7 @@ class ApplicationCommandServiceTest {
                 accountId = 10L,
                 middleSchoolInfo = MiddleSchoolInfo("code", "중학교", "30215", "phone", "teacher"),
                 academicRecord = AcademicRecord(
-                    gedScores = GedScores(100, 90, 80, 70, 60, 50, 40),
+                    gedScores = GedScores(100, 90, 80, 70, 60, 50),
                 ),
             ),
         )
@@ -551,12 +551,41 @@ class ApplicationCommandServiceTest {
 
         assertEquals(1, forms.size)
         assertEquals("2", forms.single().classNumber)
-        assertEquals(70.0, forms.single().gedAverage)
+        assertEquals(75.0, forms.single().gedAverage)
+    }
+
+    @Test
+    fun gedAverageAndFormPreserveMissingTechnologyVersusActualZero() {
+        listOf(null to 100.0, 0 to (500.0 / 6.0)).forEach { (technology, average) ->
+            val scores = GedScores(100, 100, 100, 100, 100, technology)
+            val service = ApplicationCommandService(FakeApplicantRepository(
+                submittableGedApplicant().copy(academicRecord = AcademicRecord(gedScores = scores))), OPEN, ACCEPT_PHONE)
+            val form = requireNotNull(service.findApplicationForm(10L))
+            assertEquals(average, form.gedAverage ?: -1.0, 0.000001)
+            assertEquals(technology, form.gedScores?.technologyScore)
+            assertEquals(if (technology == null) 170.0 else 147.333, form.score!!.subjectScore, 0.0)
+        }
+    }
+
+    @Test
+    fun gedFormDoesNotExposeOldSchoolGradesIncludingHistory() {
+        val record = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100), subjectGrades = linkedMapOf(
+            SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.B),
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.C),
+            SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to all(SubjectGrade.D),
+        ))
+        val service = ApplicationCommandService(FakeApplicantRepository(submittableGedApplicant().copy(academicRecord = record)), OPEN, ACCEPT_PHONE)
+        val form = requireNotNull(service.findApplicationForm(10L))
+        assertNull(form.thirdGradeSecondSemester)
+        assertNull(form.thirdGradeFirstSemester)
+        assertNull(form.previousSemester)
+        assertNull(form.secondPreviousSemester)
     }
 
     @Test
     fun applicationFormCarriesGedScoresOnlyWhileGraduationTypeIsGed() {
-        val scores = GedScores(100, 90, 80, 70, 60, 50, 40)
+        val scores = GedScores(100, 90, 80, 70, 60, 50)
         val repository = FakeApplicantRepository(
             Applicant(
                 id = 1L,
@@ -825,7 +854,7 @@ class ApplicationCommandServiceTest {
             guardianName = "보호자",
             introduction = "소개",
             studyPlan = "학업 계획",
-            academicRecord = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 100, 100)),
+            academicRecord = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 100)),
         )
     }
 }

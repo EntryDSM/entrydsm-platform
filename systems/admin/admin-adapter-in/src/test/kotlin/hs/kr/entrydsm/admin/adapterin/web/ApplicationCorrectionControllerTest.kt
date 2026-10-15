@@ -72,7 +72,7 @@ class ApplicationCorrectionControllerTest {
         val schoolNode = mapper.readTree(schoolFields)
         val gedNode = (schoolNode as tools.jackson.databind.node.ObjectNode).deepCopy().apply {
             put("graduationType", "GED"); putNull("graduationDate"); putNull("school")
-            set("academicRecord", mapper.readTree("""{"absentCount":0,"lateCount":0,"earlyLeaveCount":0,"classAbsenceCount":0,"volunteerTime":0,"dsmAlgorithmAwarded":false,"programmingCertified":false,"subjectGrades":{},"gedScores":{"korean":100,"math":90,"english":80,"science":70,"society":60,"technology":0,"history":40}}"""))
+            set("academicRecord", mapper.readTree("""{"absentCount":0,"lateCount":0,"earlyLeaveCount":0,"classAbsenceCount":0,"volunteerTime":0,"dsmAlgorithmAwarded":false,"programmingCertified":false,"subjectGrades":{},"gedScores":{"korean":100,"math":90,"english":80,"science":70,"society":60,"technology":0}}"""))
         }
         var payload = ""
         val requests = mutableListOf<Long>()

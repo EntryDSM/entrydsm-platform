@@ -27,7 +27,7 @@ import org.junit.Test
 class PoiXlsxAdapterTest {
 
     @Test
-    fun `전형 자료 예시를 생성하고 검정고시 7과목을 숫자 셀로 출력한다`() {
+    fun `전형 자료 예시를 생성하고 검정고시 선택과목을 숫자 셀로 출력한다`() {
         val grades = SemesterGrades("A", "B", "C", "D", "E", "A", "B")
         val applicants = listOf(
             FirstPassRow(
@@ -41,14 +41,20 @@ class PoiXlsxAdapterTest {
             FirstPassRow(
                 receiptNumber = "0002", name = "검정고시지원자 예시", graduationStatus = "검정고시",
                 admissionType = "일반전형", region = "전국", specialAdmissionType = "해당없음",
-                gedScores = GedScores(90, 91, 92, 93, 94, 95, 96), gedAverage = 93.0,
+                gedScores = GedScores(90, 91, 93, 94, 95, 96), gedAverage = 93.0,
                 subjectScore = 150.0, totalScore = 180.0,
             ),
             FirstPassRow(
                 receiptNumber = "0003", name = "검정고시 경계값 예시", graduationStatus = "검정고시",
-                gedScores = GedScores(0, 100, 80, 81, 82, 83, 85), gedAverage = 73.0,
+                gedScores = GedScores(0, 100, 81, 82, 0, 85), gedAverage = 73.0,
             ),
         )
+        val optionalApplicant = FirstPassRow(
+            receiptNumber = "0004", name = "기술가정 미입력 예시", graduationStatus = "검정고시",
+            gedScores = GedScores(100, 100, 100, 100, null, 100), gedAverage = 100.0,
+            subjectScore = 170.0, totalScore = 170.0,
+        )
+        val outputApplicants = applicants + optionalApplicant
         var savedJob: ExportJob? = null
         var xlsx = byteArrayOf()
         val job = ExportJob(
@@ -64,7 +70,7 @@ class PoiXlsxAdapterTest {
                 javaClass.classLoader, arrayOf(ApplicantRepository::class.java),
             ) { _, method, _ ->
                 check(method.name == "findAdmissionFileRows") { "예상하지 않은 호출: ${method.name}" }
-                applicants
+                outputApplicants
             } as ApplicantRepository,
             admissionTicketPort = object : AdmissionTicketPort {
                 override fun render(tickets: List<Pair<Long, String?>>): ByteArray =
@@ -87,19 +93,26 @@ class PoiXlsxAdapterTest {
         processor.processNow(job)
 
         assertEquals(ExportStatus.COMPLETED, savedJob?.status)
-        assertEquals(3, savedJob?.processedCount)
+        assertEquals(4, savedJob?.processedCount)
         XSSFWorkbook(ByteArrayInputStream(xlsx)).use { workbook ->
             val sheet = workbook.getSheet("전형 자료")
-            assertEquals(3, sheet.lastRowNum)
+            assertEquals(4, sheet.lastRowNum)
             val subjects = listOf("국어", "사회", "역사", "수학", "과학", "기술가정", "영어")
             subjects.forEachIndexed { index, subject ->
                 val column = 16 + index
                 assertEquals("$subject 3학년 2학기", sheet.getRow(0).getCell(column).stringCellValue)
                 assertEquals(CellType.STRING, sheet.getRow(1).getCell(column).cellType)
                 assertEquals(listOf("A", "B", "C", "D", "E", "A", "B")[index], sheet.getRow(1).getCell(column).stringCellValue)
-                assertEquals(CellType.NUMERIC, sheet.getRow(2).getCell(column).cellType)
-                assertEquals(90.0 + index, sheet.getRow(2).getCell(column).numericCellValue, 0.0)
+                if (subject == "역사") {
+                    assertNull(sheet.getRow(2).getCell(column))
+                } else {
+                    assertEquals(CellType.NUMERIC, sheet.getRow(2).getCell(column).cellType)
+                    assertEquals(90.0 + index, sheet.getRow(2).getCell(column).numericCellValue, 0.0)
+                }
             }
+            assertNull(sheet.getRow(4).getCell(18))
+            assertNull(sheet.getRow(4).getCell(21))
+            assertEquals(0.0, sheet.getRow(3).getCell(21).numericCellValue, 0.0)
             assertEquals(0.0, sheet.getRow(3).getCell(16).numericCellValue, 0.0)
             assertEquals(100.0, sheet.getRow(3).getCell(17).numericCellValue, 0.0)
             (23..43).forEach { assertNull(sheet.getRow(2).getCell(it)) }
@@ -161,6 +174,35 @@ class PoiXlsxAdapterTest {
             assertEquals(75.428, sheet.getRow(18).getCell(7).numericCellValue, 0.0)
             assertEquals(165.0, sheet.getRow(19).getCell(7).numericCellValue, 0.0)
         }
+    }
+
+    @Test
+    fun `검정고시 점검표는 역사와 미입력 기술가정을 비우고 실제 영점은 유지한다`() {
+        val stale = SemesterGrades("A", "A", "A", "A", "A", "A", "A")
+        val rows = listOf(null, 0).mapIndexed { index, technology -> FirstPassRow(
+            receiptNumber = "000${index + 1}", name = if (technology == null) "기술가정 미입력" else "기술가정 영점",
+            graduationStatus = "검정고시", admissionType = "일반전형",
+            gedScores = GedScores(100, 100, 100, 100, technology, 100),
+            thirdGradeSecondSemester = stale, thirdGradeFirstSemester = stale,
+            previousSemester = stale, secondPreviousSemester = stale,
+            subjectScore = if (technology == null) 170.0 else 147.333,
+            totalScore = if (technology == null) 170.0 else 147.333,
+        ) }
+        val xlsx = PoiXlsxAdapter().renderApplicationChecklist(rows)
+        XSSFWorkbook(ByteArrayInputStream(xlsx)).use { workbook ->
+            val sheet = workbook.getSheet("지원자 점검표")
+            repeat(2) { index ->
+                val base = index * 20
+                assertEquals(100.0, sheet.getRow(base + 11).getCell(2).numericCellValue, 0.0)
+                assertEquals(CellType.BLANK, sheet.getRow(base + 13).getCell(2).cellType)
+                if (index == 0) assertEquals(CellType.BLANK, sheet.getRow(base + 16).getCell(2).cellType)
+                else assertEquals(0.0, sheet.getRow(base + 16).getCell(2).numericCellValue, 0.0)
+                (3..5).forEach { column -> (11..17).forEach { row ->
+                    assertEquals(CellType.BLANK, sheet.getRow(base + row).getCell(column).cellType)
+                } }
+            }
+        }
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "검정고시-점검표-선택과목-예시.xlsx").writeBytes(xlsx) }
     }
 
     @Test

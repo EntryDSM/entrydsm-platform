@@ -259,7 +259,7 @@ class ApplicationCorrectionAdapterTest {
 
     private fun fixture(): Applicant = applicants.saveAndFlush(ApplicantJpaEntity.from(Applicant(
         id = 0, accountId = 10, admissionType = AdmissionType.REGULAR, region = Region.DAEJEON,
-        graduationType = GraduationType.GED, academicRecord = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 100, 100)),
+        graduationType = GraduationType.GED, academicRecord = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 100)),
         photoFileId = "photo_test", name = "테스트지원자", phoneNumber = "010-1234-5678", gender = Gender.MALE,
         birthdate = LocalDate.of(2010, 1, 1), guardianName = "테스트보호자", guardianPhoneNumber = "010-9876-5432",
         guardianGender = Gender.FEMALE, guardianRelation = "모", zipCode = "12345", addressBase = "기존 주소", addressDetail = "상세 주소",
