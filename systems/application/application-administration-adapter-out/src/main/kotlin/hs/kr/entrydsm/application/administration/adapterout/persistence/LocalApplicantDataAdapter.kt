@@ -34,6 +34,7 @@ import java.time.LocalDate
 import org.springframework.stereotype.Component
 
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
+import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormResult
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateApplicantArrivalCommand
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.exception.EvaluationValidationException
@@ -82,9 +83,11 @@ class LocalApplicantDataAdapter(
     override fun findDetailById(applicantId: Long): ApplicantDetail? {
         if (applicantId <= 0) return null
         val applicant = source(applicantId) { applicationPort.findApplicant(applicantId) } ?: return null
-        val form = readForm(applicantId, applicant.accountId)
+        val sourceForm = readForm(applicantId, applicant.accountId)
+        val form = source(applicantId) { sourceForm.toGrpcForm() }
         val response = form.toApplicantResponse()
         return ApplicantDetail(
+            semesterScores = sourceForm.score?.semesterScores?.mapKeys { it.key.name } ?: emptyMap(),
             version = form.statusVersion,
             applicant = response.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null)).copy(applicationVersion = form.statusVersion),
             photoFileId = form.photoFileId.takeIf { form.hasPhotoFileId() },
@@ -103,10 +106,9 @@ class LocalApplicantDataAdapter(
                 GedScores(
                     korean = it.korean,
                     society = it.society,
-                    history = it.history,
                     math = it.math,
                     science = it.science,
-                    technology = it.technology,
+                    technology = it.technology.takeIf { _ -> it.hasTechnology() },
                     english = it.english,
                 )
             },
@@ -134,7 +136,9 @@ class LocalApplicantDataAdapter(
         val codes = mutableSetOf<ErrorCode>()
         val rows = applicants.mapNotNull { applicant ->
             try {
-                readForm(applicant.applicantId, applicant.accountId).toFirstPassRow()
+                source(applicant.applicantId) {
+                    readForm(applicant.applicantId, applicant.accountId).toGrpcForm()
+                }.toFirstPassRow()
             } catch (exception: AdminDomainException) {
                 failedIds += applicant.applicantId
                 codes += exception.errorCode
@@ -148,14 +152,15 @@ class LocalApplicantDataAdapter(
         return rows.sortedBy { it.receiptNumber }
     }
 
-    private fun readForm(applicantId: Long, accountId: Long): ApplicationFormResponse = try {
+    /** 공통 계산 결과를 유지하고 원서 누락과 잘못된 성적의 기존 오류를 보존한다. */
+    private fun readForm(applicantId: Long, accountId: Long): ApplicationFormResult = try {
         val form = applicationPort.findApplicationForm(accountId)
             ?: throw AdminDomainException(ErrorCode.APPLICATION_FORM_NOT_FOUND, targetIds = listOf(applicantId))
         if (form.applicantId != applicantId || form.accountId != accountId) {
             throw AdminDomainException(ErrorCode.APPLICATION_FORM_INVALID, targetIds = listOf(applicantId))
         }
         form.requireEvaluatedScore()
-        form.toGrpcForm()
+        form
     } catch (exception: EvaluationValidationException) {
         throw AdminDomainException(ErrorCode.APPLICATION_SCORE_INVALID, exception, targetIds = listOf(applicantId))
     } catch (exception: IllegalArgumentException) {
@@ -362,7 +367,7 @@ class LocalApplicantDataAdapter(
             gedScores = gedScores.takeIf {
                 graduationType == GrpcGraduationType.GRADUATION_TYPE_GED && hasGedScores()
             }?.let {
-                GedScores(it.korean, it.society, it.history, it.math, it.science, it.technology, it.english)
+                GedScores(it.korean, it.society, it.math, it.science, it.technology.takeIf { _ -> it.hasTechnology() }, it.english)
             },
         ).let { row ->
             // 점검표와 전형자료의 학기 점수를 같은 배점으로 환산한다.

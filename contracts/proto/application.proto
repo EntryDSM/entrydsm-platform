@@ -200,14 +200,15 @@ message SemesterGrades {
     string english = 7;
 }
 
-// 검정고시 과목별 점수(0~100). 과목은 SemesterGrades 와 같은 일곱 과목이다.
+// 검정고시 필수 5과목과 선택 기술가정 점수(0~100). 역사는 제공하지 않는다.
 message GedScores {
     int32 korean = 1;
     int32 society = 2;
-    int32 history = 3;
+    reserved 3;
+    reserved "history";
     int32 math = 4;
     int32 science = 5;
-    int32 technology = 6;
+    optional int32 technology = 6;
     int32 english = 7;
 }
 
@@ -319,6 +320,7 @@ service AdministrationService {
   rpc SelectFirstApplicant(AdministrationRequest) returns (AdministrationResponse);
   rpc CancelFirstApplicant(AdministrationRequest) returns (AdministrationResponse);
   rpc EvaluateFinalScreening(AdministrationRequest) returns (AdministrationResponse);
+  rpc FailFinalScreening(AdministrationRequest) returns (AdministrationResponse);
   rpc CollectStatistics(AdministrationRequest) returns (AdministrationResponse);
   rpc CreateExport(AdministrationRequest) returns (AdministrationResponse);
   rpc ReadExport(AdministrationRequest) returns (AdministrationResponse);

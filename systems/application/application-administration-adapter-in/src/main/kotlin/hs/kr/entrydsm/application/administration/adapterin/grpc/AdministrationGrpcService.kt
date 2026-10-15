@@ -32,6 +32,10 @@ class AdministrationGrpcService(
 ) : AdministrationServiceGrpc.AdministrationServiceImplBase() {
     private val mapper = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
     private val correctionMapper = JsonMapper.builder().addModule(KotlinModule.Builder().build())
+        // 관리자 수정에서도 빈 문자열을 선택 점수의 null로 바꾸지 않는다.
+        .withCoercionConfig(tools.jackson.databind.type.LogicalType.Integer) {
+            it.setCoercion(tools.jackson.databind.cfg.CoercionInputShape.EmptyString, tools.jackson.databind.cfg.CoercionAction.Fail)
+        }
         .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
         .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES).build()
 
@@ -86,6 +90,9 @@ class AdministrationGrpcService(
 
     override fun evaluateFinalScreening(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { final.evaluateFinal(request.applicantId()) }
+
+    override fun failFinalScreening(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { final.failFinal(request.applicantId()) }
 
     override fun collectStatistics(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { statistics.collect(request.read<StatisticsQuery>().metrics) }

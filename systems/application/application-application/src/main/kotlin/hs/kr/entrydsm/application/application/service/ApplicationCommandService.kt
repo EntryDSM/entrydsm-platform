@@ -230,7 +230,9 @@ class ApplicationCommandService(
     )
 
     private fun Applicant.toApplicationFormResult(): ApplicationFormResult {
-        val grades = academicRecord?.subjectGrades.orEmpty()
+        // 검정고시 전환 전에 남아 있던 학교 성적은 조회·출력에 전달하지 않는다.
+        val grades = if (graduationType == GraduationType.GED) emptyMap()
+            else academicRecord?.subjectGrades.orEmpty()
         /*
          * 서식 1 의 "직전학기"·"직전전학기" 는 절대 학기가 아니라 자유학기를 건너뛴 상대 순서다.
          * ScoreCalculator 가 반영 학기를 고르는 순서(2-2 → 2-1 → 1-2 → 1-1)와 같아야
@@ -285,10 +287,9 @@ class ApplicationCommandService(
                 ?.ifEmpty { "0" },
             studentNumber = middleSchoolInfo?.studentNumber,
             gedAverage = academicRecord?.gedScores?.let {
-                listOf(
+                listOfNotNull(
                     it.koreanScore,
                     it.societyScore,
-                    it.historyScore,
                     it.mathScore,
                     it.scienceScore,
                     it.technologyScore,

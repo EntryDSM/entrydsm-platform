@@ -264,14 +264,14 @@ class AdminApplicationModuleTest {
     @Test
     fun exportsGedSubjectScoresAsNumbersInThirdGradeSecondSemesterColumns() {
         val row = FirstPassRow(
-            receiptNumber = "0001",
-            gedScores = hs.kr.entrydsm.admin.domain.model.GedScores(0, 81, 82, 83, 84, 85, 100),
+            receiptNumber = "0001", graduationStatus = "검정고시",
+            gedScores = hs.kr.entrydsm.admin.domain.model.GedScores(0, 81, 83, 84, 85, 100),
         )
         val fixture = exportFixture(type = ExportType.ADMISSION_FILE, admissionRows = listOf(row))
 
         fixture.processor.processNow(fixture.job)
 
-        assertEquals(listOf(0, 81, 82, 83, 84, 85, 100), fixture.rows.single().subList(16, 23))
+        assertEquals(listOf(0, 81, null, 83, 84, 85, 100), fixture.rows.single().subList(16, 23))
         assertEquals(List<Any?>(21) { null }, fixture.rows.single().subList(23, 44))
     }
 
@@ -530,6 +530,7 @@ class AdminApplicationModuleTest {
                 Applicant(1L, status = ApplicantStatus.FIRST_PASS, totalScore = 10.0),
                 Applicant(2L, status = ApplicantStatus.FINAL_PASS, totalScore = 99.0),
                 Applicant(3L, status = ApplicantStatus.FIRST_FAIL),
+                Applicant(4L, status = ApplicantStatus.FINAL_FAIL),
             ),
         )
         val service = screeningService(repository)
@@ -537,21 +538,71 @@ class AdminApplicationModuleTest {
         assertEquals(ApplicantStatus.FINAL_PASS, service.evaluateFinal(1L).status)
         assertEquals(ApplicantStatus.FINAL_PASS, service.evaluateFinal(2L).status)
         val rejected = assertThrows(AdminDomainException::class.java) { service.evaluateFinal(3L) }
+        // 2차 불합격으로 잘못 남긴 지원자도 다시 등록할 수 있다.
+        assertEquals(ApplicantStatus.FINAL_PASS, service.evaluateFinal(4L).status)
 
         assertEquals(ErrorCode.INVALID_STATUS_TRANSITION, rejected.errorCode)
-        assertEquals(listOf(1L to ApplicantStatus.FINAL_PASS), repository.saved.map { it.id to it.status })
+        assertEquals(
+            listOf(1L to ApplicantStatus.FINAL_PASS, 4L to ApplicantStatus.FINAL_PASS),
+            repository.saved.map { it.id to it.status },
+        )
     }
 
-    private fun screeningService(applicants: ApplicantRepository) = ScreeningService(
+    @Test
+    fun failsFinalScreeningForFirstPassAndRegisteredFinalPass() {
+        // 2차 대상자도, 최종 합격으로 잘못 등록한 지원자도 불합격으로 남긴다. 이미 불합격이면 그대로 둔다.
+        val repository = FakeApplicantRepository(
+            listOf(
+                Applicant(1L, status = ApplicantStatus.FIRST_PASS),
+                Applicant(2L, status = ApplicantStatus.FINAL_PASS),
+                Applicant(3L, status = ApplicantStatus.FINAL_FAIL),
+                Applicant(4L, status = ApplicantStatus.FIRST_FAIL),
+            ),
+        )
+        val service = screeningService(repository)
+
+        assertEquals(ApplicantStatus.FINAL_FAIL, service.failFinal(1L).status)
+        assertEquals(ApplicantStatus.FINAL_FAIL, service.failFinal(2L).status)
+        assertEquals(ApplicantStatus.FINAL_FAIL, service.failFinal(3L).status)
+        val rejected = assertThrows(AdminDomainException::class.java) { service.failFinal(4L) }
+
+        assertEquals(ErrorCode.INVALID_STATUS_TRANSITION, rejected.errorCode)
+        assertEquals(
+            listOf(1L to ApplicantStatus.FINAL_FAIL, 2L to ApplicantStatus.FINAL_FAIL),
+            repository.saved.map { it.id to it.status },
+        )
+    }
+
+    @Test
+    fun rejectsFinalFailFromAnnouncementTime() {
+        // 발표 시각(KST 1970-01-01 09:00)부터는 알린 합격을 불합격으로 뒤집지 않는다.
+        val repository = FakeApplicantRepository(listOf(Applicant(1L, status = ApplicantStatus.FINAL_PASS)))
+        val service = screeningService(repository, finalAnnouncementAt = java.time.LocalDateTime.of(1970, 1, 1, 9, 0))
+
+        val rejected = assertThrows(AdminDomainException::class.java) { service.failFinal(1L) }
+
+        assertEquals(ErrorCode.INVALID_STATUS_TRANSITION, rejected.errorCode)
+        assertTrue(repository.saved.isEmpty())
+    }
+
+    private fun screeningService(
+        applicants: ApplicantRepository,
+        finalAnnouncementAt: java.time.LocalDateTime = java.time.LocalDateTime.of(1970, 1, 2, 10, 0),
+    ) = ScreeningService(
         applicantRepository = applicants,
         clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
         schedules = Proxy.newProxyInstance(javaClass.classLoader,
-            arrayOf(hs.kr.entrydsm.application.administration.domain.schedule.port.out.ScheduleRepository::class.java)) { _, method, _ ->
+            arrayOf(hs.kr.entrydsm.application.administration.domain.schedule.port.out.ScheduleRepository::class.java)) { _, method, args ->
             assertEquals("findByTitleForUpdate", method.name)
+            if (args[0] == "최종 합격 발표") {
+                hs.kr.entrydsm.application.administration.domain.schedule.Schedule(title = "최종 합격 발표",
+                    startAt = finalAnnouncementAt, endAt = finalAnnouncementAt)
+            } else {
                 hs.kr.entrydsm.application.administration.domain.schedule.Schedule(title = "1차 합격 발표",
                     startAt = java.time.LocalDateTime.of(1969, 12, 31, 0, 0),
                     endAt = java.time.LocalDateTime.of(1970, 1, 1, 9, 0),
                     firstScreeningProcessedAt = java.time.LocalDateTime.of(1970, 1, 1, 9, 0))
+            }
         } as hs.kr.entrydsm.application.administration.domain.schedule.port.out.ScheduleRepository,
     )
 

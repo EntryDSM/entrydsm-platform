@@ -51,6 +51,7 @@ fun ApplicantDetail.toDetailResponse(): ApplicantDetailResponse = ApplicantDetai
     photoFileId = photoFileId,
     introduction = introduction,
     studyPlan = studyPlan,
+    semesterScores = semesterScores,
 )
 
 fun <T, R> Page<T>.toResponse(transform: (T) -> R): PageResponse<R> = PageResponse(

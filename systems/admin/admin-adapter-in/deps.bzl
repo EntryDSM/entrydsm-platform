@@ -6,6 +6,12 @@ KOTLIN_DEPS = [
 ]
 
 TEST_DEPS = [
+    "//systems/admin/admin-adapter-out:main",
+    "//contracts:application_grpc_java",
+    "//contracts:application_java_proto",
+    "@maven//:io_grpc_grpc_netty_shaded",
+    "@maven//:io_grpc_grpc_stub",
+
     "@maven//:org_jetbrains_kotlin_kotlin_reflect",
     "@maven//:tools_jackson_module_jackson_module_kotlin",
     "@maven//:junit_junit",

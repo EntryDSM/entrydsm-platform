@@ -198,18 +198,20 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
     text(213.72f, 279.48f, 346.44f, 303.72f, form.admissionType?.label)
     text(399.24f, 279.48f, 536.40f, 303.72f, form.specialNote ?: EMPTY_CELL)
 
-    // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 검정고시 점수 표는 행이 같고
-    // 점수 열 하나다. 반영할 성적이 없는 열과 미이수 과목은 [EMPTY_CELL] 을 찍는다.
-    val rows = floatArrayOf(340.68f, 359.16f, 377.64f, 396.12f, 414.60f, 433.08f, 451.56f, 470.04f)
+    // 학교는 7과목, 검정고시는 역사를 제외한 6과목을 출력한다. 검정고시 미입력은 빈칸으로 둔다.
+    val rows = if (ged) floatArrayOf(340.68f, 362.24f, 383.80f, 405.36f, 426.92f, 448.48f, 470.04f)
+        else floatArrayOf(340.68f, 359.16f, 377.64f, 396.12f, 414.60f, 433.08f, 451.56f, 470.04f)
     val (columns, grades) = if (ged) {
         floatArrayOf(160.68f, 399.24f) to listOf(form.gedScores)
     } else {
         floatArrayOf(109.32f, 181.80f, 254.28f, 326.76f, 399.24f) to form.semesterGrades
     }
     repeat(columns.size - 1) { column ->
-        val subjects = grades.getOrNull(column)?.inFormOrder()
+        val subjects = grades.getOrNull(column)?.inFormOrder()?.let { values ->
+            if (ged) values.filterIndexed { index, _ -> index != 2 } else values
+        }
         repeat(rows.size - 1) { row ->
-            val grade = subjects?.get(row)?.takeIf { it.isNotBlank() } ?: EMPTY_CELL
+            val grade = subjects?.get(row)?.takeIf { it.isNotBlank() } ?: if (ged) "" else EMPTY_CELL
             text(columns[column], rows[row], columns[column + 1], rows[row + 1], grade)
         }
     }
@@ -242,8 +244,8 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
  *
  * 본문이 칸을 넘치면 글자를 줄이지 않고 칸을 아래로 늘린다. 그래서 서식 원본은 자기소개서 본문 칸 위와 학업계획서
  * 안내 칸만 잘라 깔고, 본문 칸 테두리는 직접 긋는다. 칸이 서식 아래 여백에 닿으면 바로 뒤에 빈 장을 붙여 이어 쓴다.
- * 학업계획서는 남은 자리에 글이 다 들어가거나 원본 높이의 칸이 들어가면 그 장에서, 아니면 다음 장에서 시작하고
- * 칸은 아래 여백까지 긋는다.
+ * 학업계획서는 남은 자리에 글이 다 들어가거나 원본 높이의 칸이 들어가면 그 장에서, 아니면 다음 장에서 시작한다.
+ * 두 칸 모두 원본 높이로 긋고 긴 글만큼 늘리며, 남은 자리가 원본 높이보다 좁으면 아래 여백까지만 긋는다.
  */
 private fun PDDocument.essays(page: PDPage, font: PDFont, form: ApplicationForm, receipt: String) {
     val head = band(page, 0f, INTRODUCTION_TOP)
@@ -301,7 +303,7 @@ private fun PDDocument.essays(page: PDPage, font: PDFont, form: ApplicationForm,
         }
         sheet.place(studyPlanHead, shift = y - INTRODUCTION_BOTTOM)
         y += header
-        body(studyPlan, STUDY_PLAN_BOTTOM - y)
+        body(studyPlan, STUDY_PLAN_BOTTOM - STUDY_PLAN_TOP)
     } finally {
         sheet.close()
     }

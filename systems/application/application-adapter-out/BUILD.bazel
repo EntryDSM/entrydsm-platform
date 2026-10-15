@@ -15,6 +15,7 @@ kt_jvm_library(
 
 kt_jvm_test(
     name = "test",
+    resources = ["//systems/application/application-bootstrap:src/main/resources/db/migration/V019__make_ged_technology_optional_and_remove_history.sql"],
     srcs = glob(["src/test/kotlin/**/*.kt"]),
     javac_opts = "//:javac_options",
     kotlinc_opts = "//:kotlinc_options",

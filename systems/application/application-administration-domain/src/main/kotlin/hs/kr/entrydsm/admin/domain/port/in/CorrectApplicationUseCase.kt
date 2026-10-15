@@ -1,6 +1,7 @@
 package hs.kr.entrydsm.admin.domain.port.`in`
 
 import hs.kr.entrydsm.admin.domain.command.CorrectApplicationCommand
+import hs.kr.entrydsm.admin.domain.command.ApplicationFormChanges
 
 fun interface CorrectApplicationUseCase {
     /** 수정자는 인증된 RPC 메타데이터에서 전달하며 요청 본문에서 받지 않는다. */
@@ -11,4 +12,4 @@ fun interface CorrectApplicationUseCase {
 }
 
 data class ApplicationCorrectionResult(val applicantId: Long, val version: Long)
-data class EditableApplicationFields(val editable: Boolean, val fields: List<String>, val reason: String?)
+data class EditableApplicationFields(val fields: ApplicationFormChanges, val reason: String?)

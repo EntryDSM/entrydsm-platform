@@ -39,6 +39,9 @@ interface EvaluateFirstScreeningUseCase {
 
 interface EvaluateFinalScreeningUseCase {
     fun evaluateFinal(applicantId: Long): FinalScreeningResult
+
+    /** 최종 합격 발표 전에 1차 합격자나 최종 합격자 한 명을 최종 불합격으로 바꾼다. */
+    fun failFinal(applicantId: Long): FinalScreeningResult
 }
 
 interface ReadStatisticsUseCase {

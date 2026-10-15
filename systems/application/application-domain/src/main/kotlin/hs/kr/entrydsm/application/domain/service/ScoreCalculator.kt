@@ -46,6 +46,7 @@ class ScoreCalculator {
 
         val isGed = applicant.graduationType == GraduationType.GED
 
+        val semesterScores = if (isGed) emptyMap() else calculateSchoolSemesterScores(record, applicant.graduationType)
         val subjectBaseScore = if (isGed) {
             calculateGedBaseScore(
                 requireNotNull(record.gedScores) {
@@ -53,10 +54,7 @@ class ScoreCalculator {
                 },
             )
         } else {
-            calculateSchoolBaseScore(
-                record = record,
-                graduationType = applicant.graduationType,
-            )
+            semesterScores.values.sum()
         }
 
         /*
@@ -92,6 +90,7 @@ class ScoreCalculator {
 
         return ScoreBreakdown(
             subjectBaseScore = subjectBaseScore.takeUnless { isGed },
+            semesterScores = semesterScores,
             subjectScore = roundToThirdDecimal(subjectScore),
             attendanceScore = roundToThirdDecimal(attendanceScore),
             volunteerScore = roundToThirdDecimal(volunteerScore),
@@ -113,16 +112,16 @@ class ScoreCalculator {
      * 졸업자:
      * - 3학년 2학기까지 자유학기가 아닌 최근 4개 학기: 각 20점
      */
-    private fun calculateSchoolBaseScore(
+    private fun calculateSchoolSemesterScores(
         record: AcademicRecord,
         graduationType: GraduationType?,
-    ): Double {
+    ): Map<SchoolSemester, Double> {
         return when (graduationType) {
             GraduationType.GRADUATED ->
-                calculateGraduatedBaseScore(record)
+                calculateGraduatedSemesterScores(record)
 
             else ->
-                calculateProspectiveGraduateBaseScore(record)
+                calculateProspectiveGraduateSemesterScores(record)
         }
     }
 
@@ -140,9 +139,9 @@ class ScoreCalculator {
      * 2-2 = 20점
      * 1-2 = 20점
      */
-    private fun calculateProspectiveGraduateBaseScore(
+    private fun calculateProspectiveGraduateSemesterScores(
         record: AcademicRecord,
-    ): Double {
+    ): Map<SchoolSemester, Double> {
         val thirdGradeFirstSemester =
             requireNotNull(
                 record.subjectGrades[
@@ -173,6 +172,7 @@ class ScoreCalculator {
                             ?: return@mapNotNull null
 
                     WeightedSemesterScore(
+                        semester = semester,
                         averagePoint = average,
                         maxScore = OTHER_SEMESTER_MAX_SCORE,
                     )
@@ -183,6 +183,7 @@ class ScoreCalculator {
         val weightedScores = buildList {
             add(
                 WeightedSemesterScore(
+                    semester = SchoolSemester.THIRD_GRADE_FIRST_SEMESTER,
                     averagePoint = thirdGradeAverage,
                     maxScore = PROSPECTIVE_CURRENT_SEMESTER_MAX_SCORE,
                 ),
@@ -191,7 +192,7 @@ class ScoreCalculator {
             addAll(previousSemesters)
         }
 
-        return sumSubjectScore(weightedScores)
+        return semesterScores(weightedScores)
     }
 
     /**
@@ -202,9 +203,9 @@ class ScoreCalculator {
      * 순으로 확인하면서 자유학기 등을 제외한
      * 최근 4개 학기를 반영한다.
      */
-    private fun calculateGraduatedBaseScore(
+    private fun calculateGraduatedSemesterScores(
         record: AcademicRecord,
-    ): Double {
+    ): Map<SchoolSemester, Double> {
         val semesters =
             GRADUATED_CANDIDATE_SEMESTERS
                 .mapNotNull { semester ->
@@ -217,6 +218,7 @@ class ScoreCalculator {
                             ?: return@mapNotNull null
 
                     WeightedSemesterScore(
+                        semester = semester,
                         averagePoint = average,
                         maxScore = OTHER_SEMESTER_MAX_SCORE,
                     )
@@ -224,12 +226,12 @@ class ScoreCalculator {
                 .take(GRADUATED_REFLECTED_SEMESTER_COUNT)
 
         require(semesters.isNotEmpty()) { "반영 가능한 교과 성적이 없습니다. 모든 과목이 X인지 확인해주세요" }
-        return sumSubjectScore(semesters)
+        return semesterScores(semesters)
     }
 
     /**
      * 학기 평균 평점을 해당 학기의 최대 배점으로 환산한 뒤,
-     * 반영된 학기의 환산점수만 합산한다.
+     * 실제 반영된 학기 키에 환산점수를 연결한다.
      *
      * 예:
      *
@@ -239,29 +241,19 @@ class ScoreCalculator {
      * 평균평점 4.0, 최대배점 20
      * -> 4 / 5 * 20 = 16
      */
-    private fun sumSubjectScore(
+    private fun semesterScores(
         semesters: List<WeightedSemesterScore>,
-    ): Double {
-        if (semesters.isEmpty()) {
-            return EMPTY_SCORE
-        }
-
-        val earnedScore = semesters.sumOf { semester ->
-            semester.averagePoint /
-                    MAX_GRADE_POINT *
-                    semester.maxScore
-        }
-
-        return earnedScore
+    ): Map<SchoolSemester, Double> = semesters.associate { semester ->
+        semester.semester to semester.averagePoint / MAX_GRADE_POINT * semester.maxScore
     }
 
     /**
-     * 검정고시 6개 과목의 구간별 환산 평점(1~5) 평균을 반환한다.
+     * 검정고시 필수 5과목과 입력된 기술가정의 구간별 환산 평점(1~5) 평균을 반환한다.
      */
     private fun calculateGedBaseScore(
         scores: GedScores,
     ): Double {
-        val subjectScores = listOf(
+        val subjectScores = listOfNotNull(
             scores.koreanScore,
             scores.mathScore,
             scores.englishScore,
@@ -432,6 +424,7 @@ class ScoreCalculator {
     }
 
     private data class WeightedSemesterScore(
+        val semester: SchoolSemester,
         val averagePoint: Double,
         val maxScore: Double,
     )
@@ -518,6 +511,7 @@ data class ScoreBreakdown(
     val additionalScore: Double,
     val totalScore: Double,
     val subjectBaseScore: Double? = null,
+    val semesterScores: Map<SchoolSemester, Double> = emptyMap(),
 ) {
     companion object {
         val EMPTY = ScoreBreakdown(0.0, 0.0, 0.0, 0.0, 0.0)
