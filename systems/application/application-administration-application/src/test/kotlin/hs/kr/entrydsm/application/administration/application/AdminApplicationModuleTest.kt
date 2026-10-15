@@ -264,14 +264,14 @@ class AdminApplicationModuleTest {
     @Test
     fun exportsGedSubjectScoresAsNumbersInThirdGradeSecondSemesterColumns() {
         val row = FirstPassRow(
-            receiptNumber = "0001",
-            gedScores = hs.kr.entrydsm.admin.domain.model.GedScores(0, 81, 82, 83, 84, 85, 100),
+            receiptNumber = "0001", graduationStatus = "검정고시",
+            gedScores = hs.kr.entrydsm.admin.domain.model.GedScores(0, 81, 83, 84, 85, 100),
         )
         val fixture = exportFixture(type = ExportType.ADMISSION_FILE, admissionRows = listOf(row))
 
         fixture.processor.processNow(fixture.job)
 
-        assertEquals(listOf(0, 81, 82, 83, 84, 85, 100), fixture.rows.single().subList(16, 23))
+        assertEquals(listOf(0, 81, null, 83, 84, 85, 100), fixture.rows.single().subList(16, 23))
         assertEquals(List<Any?>(21) { null }, fixture.rows.single().subList(23, 44))
     }
 

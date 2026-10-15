@@ -143,10 +143,9 @@ private fun GedScores.toGrpc(): GrpcGedScores =
     GrpcGedScores.newBuilder()
         .setKorean(koreanScore)
         .setSociety(societyScore)
-        .setHistory(historyScore)
         .setMath(mathScore)
         .setScience(scienceScore)
-        .setTechnology(technologyScore)
+        .apply { technologyScore?.let(::setTechnology) }
         .setEnglish(englishScore)
         .build()
 

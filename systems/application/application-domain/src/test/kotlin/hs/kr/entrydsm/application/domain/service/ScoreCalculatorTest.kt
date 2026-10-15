@@ -76,7 +76,7 @@ class ScoreCalculatorTest {
                 scienceScore = 100,
                 societyScore = 100,
                 technologyScore = 100,
-                historyScore = 100,
+
             ),
         )
 
@@ -115,7 +115,7 @@ class ScoreCalculatorTest {
                 scienceScore = 86,
                 societyScore = 100,
                 technologyScore = 96,
-                historyScore = 0,
+
             ),
         )
 
@@ -278,6 +278,18 @@ class ScoreCalculatorTest {
         ))
         assertEquals(80.0, breakdown.subjectBaseScore ?: -1.0, 0.0)
         assertEquals(140.0, breakdown.subjectScore, 0.0)
+    }
+
+    @Test
+    fun optionalGedTechnologyIsExcludedButActualZeroIsIncluded() {
+        val five = GedScores(100, 100, 100, 100, 100)
+        val record = AcademicRecord(gedScores = five)
+        assertNull(five.technologyScore)
+        assertEquals(170.0, calculate(AdmissionType.REGULAR, GraduationType.GED, record), 0.0)
+        assertEquals(110.0, calculate(AdmissionType.SOCIAL, GraduationType.GED, record), 0.0)
+        val actualZero = record.copy(gedScores = five.copy(technologyScore = 0))
+        assertEquals(147.333, calculate(AdmissionType.REGULAR, GraduationType.GED, actualZero), 0.0)
+        assertEquals(95.333, calculate(AdmissionType.SOCIAL, GraduationType.GED, actualZero), 0.0)
     }
 
     private fun calculate(

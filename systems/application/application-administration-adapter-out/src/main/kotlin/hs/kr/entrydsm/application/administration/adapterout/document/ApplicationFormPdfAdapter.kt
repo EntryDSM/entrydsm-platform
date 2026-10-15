@@ -198,18 +198,20 @@ private fun Sheet.application(form: ApplicationForm, receipt: String, photo: Byt
     text(213.72f, 279.48f, 346.44f, 303.72f, form.admissionType?.label)
     text(399.24f, 279.48f, 536.40f, 303.72f, form.specialNote ?: EMPTY_CELL)
 
-    // 교과성적 표. 행은 국어~영어, 열은 3학년 2학기·3학년 1학기·직전학기·직전전학기다. 검정고시 점수 표는 행이 같고
-    // 점수 열 하나다. 반영할 성적이 없는 열과 미이수 과목은 [EMPTY_CELL] 을 찍는다.
-    val rows = floatArrayOf(340.68f, 359.16f, 377.64f, 396.12f, 414.60f, 433.08f, 451.56f, 470.04f)
+    // 학교는 7과목, 검정고시는 역사를 제외한 6과목을 출력한다. 검정고시 미입력은 빈칸으로 둔다.
+    val rows = if (ged) floatArrayOf(340.68f, 362.24f, 383.80f, 405.36f, 426.92f, 448.48f, 470.04f)
+        else floatArrayOf(340.68f, 359.16f, 377.64f, 396.12f, 414.60f, 433.08f, 451.56f, 470.04f)
     val (columns, grades) = if (ged) {
         floatArrayOf(160.68f, 399.24f) to listOf(form.gedScores)
     } else {
         floatArrayOf(109.32f, 181.80f, 254.28f, 326.76f, 399.24f) to form.semesterGrades
     }
     repeat(columns.size - 1) { column ->
-        val subjects = grades.getOrNull(column)?.inFormOrder()
+        val subjects = grades.getOrNull(column)?.inFormOrder()?.let { values ->
+            if (ged) values.filterIndexed { index, _ -> index != 2 } else values
+        }
         repeat(rows.size - 1) { row ->
-            val grade = subjects?.get(row)?.takeIf { it.isNotBlank() } ?: EMPTY_CELL
+            val grade = subjects?.get(row)?.takeIf { it.isNotBlank() } ?: if (ged) "" else EMPTY_CELL
             text(columns[column], rows[row], columns[column + 1], rows[row + 1], grade)
         }
     }

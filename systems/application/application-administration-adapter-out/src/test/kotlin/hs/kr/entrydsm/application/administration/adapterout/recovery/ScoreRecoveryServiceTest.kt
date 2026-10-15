@@ -110,7 +110,7 @@ class ScoreRecoveryServiceTest {
         val sha = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact)).joinToString("") { "%02x".format(it) }
         return ScoreRecoveryEvidence(saved.id!!, saved.accountId, saved.academicRecord!!.id!!, 3,
             GraduationType.GED, AdmissionType.REGULAR, EvidenceSource.OFFICIAL_DOCUMENT, "test-record", "test-operator",
-            artifact.toString(), sha, AcademicRecord(gedScores = GedScores(80, 81, 82, 83, 84, 85, 86)))
+            artifact.toString(), sha, AcademicRecord(gedScores = GedScores(80, 81, 82, 83, 84, 85)))
     }
 
     class FailingOutbox(private val delegate: ApplicantStatusOutboxAdapter) : ApplicantStatusEventOutbox {

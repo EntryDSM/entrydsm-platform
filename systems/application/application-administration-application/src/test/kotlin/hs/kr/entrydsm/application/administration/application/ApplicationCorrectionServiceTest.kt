@@ -47,6 +47,20 @@ class ApplicationCorrectionServiceTest {
         }
     }
 
+    @Test fun `검정고시 정정에서 기본 다섯 과목 누락은 저장 전에 거부한다`() {
+        val complete = hs.kr.entrydsm.admin.domain.command.GedScoresCorrection(100, 100, 100, 100, 100)
+        val missing = listOf(complete.copy(korean = null), complete.copy(math = null), complete.copy(english = null),
+            complete.copy(science = null), complete.copy(society = null))
+        missing.forEach { scores ->
+            val applicant = Applicant(id = 5, accountId = 10, status = ApplicantStatus.SUBMITTED,
+                graduationType = hs.kr.entrydsm.application.domain.enum.GraduationType.GED)
+            val command = CorrectApplicationCommand(5, "성적 정정", ApplicationFormChanges(academicRecord =
+                hs.kr.entrydsm.admin.domain.command.AcademicRecordCorrection(0, 0, 0, 0, 0, false, false, gedScores = scores)))
+            val failure = assertThrows(AdminDomainException::class.java) { service(applicant).correct(command, "admin") }
+            assertEquals(hs.kr.entrydsm.admin.domain.enum.ErrorCode.INVALID_APPLICATION_CORRECTION, failure.errorCode)
+        }
+    }
+
     private fun service(applicant: Applicant, hasResult: Boolean = false): ApplicationCorrectionService {
         val repository = proxy(ApplicantRepository::class.java) { method ->
             assertEquals("findForUpdate", method); applicant

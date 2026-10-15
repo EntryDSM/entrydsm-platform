@@ -106,18 +106,16 @@ data class GedScores(
     val englishScore: Int,
     val scienceScore: Int,
     val societyScore: Int,
-    val technologyScore: Int,
-    val historyScore: Int,
+    val technologyScore: Int? = null,
 ) {
     init {
-        listOf(
+        listOfNotNull(
             koreanScore,
             mathScore,
             englishScore,
             scienceScore,
             societyScore,
             technologyScore,
-            historyScore,
         ).forEach { score ->
             require(score in 0..100) { "score must be between 0 and 100" }
         }

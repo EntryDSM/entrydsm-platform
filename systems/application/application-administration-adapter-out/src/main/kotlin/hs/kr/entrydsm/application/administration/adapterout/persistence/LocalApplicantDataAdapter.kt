@@ -103,10 +103,9 @@ class LocalApplicantDataAdapter(
                 GedScores(
                     korean = it.korean,
                     society = it.society,
-                    history = it.history,
                     math = it.math,
                     science = it.science,
-                    technology = it.technology,
+                    technology = it.technology.takeIf { _ -> it.hasTechnology() },
                     english = it.english,
                 )
             },
@@ -355,7 +354,7 @@ class LocalApplicantDataAdapter(
             gedScores = gedScores.takeIf {
                 graduationType == GrpcGraduationType.GRADUATION_TYPE_GED && hasGedScores()
             }?.let {
-                GedScores(it.korean, it.society, it.history, it.math, it.science, it.technology, it.english)
+                GedScores(it.korean, it.society, it.math, it.science, it.technology.takeIf { _ -> it.hasTechnology() }, it.english)
             },
         ).let { row ->
             // 점검표와 전형자료의 학기 점수를 같은 배점으로 환산한다.

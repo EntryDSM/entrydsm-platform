@@ -31,7 +31,7 @@ import org.junit.Test
 class EvaluationCommandServiceTest {
     @Test
     fun everyEvaluationChangeClearsStoredScoreWithoutLosingUnchangedGrades() {
-        val scores = GedScores(100, 100, 100, 100, 100, 100, 100)
+        val scores = GedScores(100, 100, 100, 100, 100, 100)
         val commands = listOf<Pair<GraduationType, (EvaluationCommandService) -> Unit>>(
             GraduationType.GED to { it.saveGedScores(10L, scores) },
             GraduationType.GED to { it.saveAcademicRecord(10L, 0, 0, 0, 0, 15) },
@@ -60,7 +60,7 @@ class EvaluationCommandServiceTest {
             val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
             val commands = listOf<() -> Unit>(
                 { service.saveSubjectGrades(SaveSubjectGradesCommand(10L, SchoolSemester.THIRD_GRADE_FIRST_SEMESTER, all(SubjectGrade.A))) },
-                { service.saveGedScores(SaveGedScoresCommand(10L, GedScores(100, 100, 100, 100, 100, 100, 100))) },
+                { service.saveGedScores(SaveGedScoresCommand(10L, GedScores(100, 100, 100, 100, 100, 100))) },
                 { service.saveAcademicRecord(SaveAcademicRecordCommand(10L, 0, 0, 0, 0, 15)) },
                 { service.saveCertificates(SaveCertificatesCommand(10L, true, true)) },
                 { service.calculateResult(CalculateEvaluationCommand(10L)) },
@@ -80,7 +80,7 @@ class EvaluationCommandServiceTest {
     fun draftGedApplicantCanSaveScoresAndCertificates() {
         val repository = FakeApplicantRepository(Applicant(id = 1L, accountId = 10L, graduationType = GraduationType.GED))
         val service = EvaluationCommandService(repository, ScoreCalculator(), OPEN)
-        val scores = GedScores(100, 100, 100, 100, 100, 100, 100)
+        val scores = GedScores(100, 100, 100, 100, 100, 100)
 
         service.saveGedScores(SaveGedScoresCommand(10L, scores))
         service.saveCertificates(SaveCertificatesCommand(10L, true, true))
