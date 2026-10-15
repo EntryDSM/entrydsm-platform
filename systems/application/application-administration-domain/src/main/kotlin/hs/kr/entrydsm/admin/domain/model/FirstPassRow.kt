@@ -42,7 +42,19 @@ data class FirstPassRow(
     val specialAdmissionTypeCode: String? = null,
     val gedAverage: Double? = null,
     val gedScores: GedScores? = null,
-)
+    val subjectBaseScore: Double? = null,
+) {
+    // 두 XLSX에서 동일한 학기별 배점을 사용한다.
+    val thirdGradeSecondSemesterScore: Double?
+        get() = if (graduationStatus == "졸업") thirdGradeSecondSemester.convertedScore(20.0) else null
+    val thirdGradeFirstSemesterScore: Double?
+        get() = if (graduationStatus == "검정고시") null
+            else thirdGradeFirstSemester.convertedScore(if (graduationStatus == "졸업예정") 40.0 else 20.0)
+    val previousSemesterScore: Double?
+        get() = if (graduationStatus == "검정고시") null else previousSemester.convertedScore(20.0)
+    val secondPreviousSemesterScore: Double?
+        get() = if (graduationStatus == "검정고시") null else secondPreviousSemester.convertedScore(20.0)
+}
 
 data class SemesterGrades(
     val korean: String? = null,
@@ -53,6 +65,13 @@ data class SemesterGrades(
     val technology: String? = null,
     val english: String? = null,
 ) {
+    /** X를 제외한 평균 평점을 학기 배점으로 환산한다. */
+    fun convertedScore(maxScore: Double): Double? =
+        listOf(korean, society, history, math, science, technology, english)
+            .mapNotNull { GRADE_POINTS[it] }
+            .takeIf { it.isNotEmpty() }
+            ?.let { it.average() / 5.0 * maxScore }
+
     val total: Double?
         get() = listOf(korean, society, history, math, science, technology, english)
             .mapNotNull { GRADE_POINTS[it] }

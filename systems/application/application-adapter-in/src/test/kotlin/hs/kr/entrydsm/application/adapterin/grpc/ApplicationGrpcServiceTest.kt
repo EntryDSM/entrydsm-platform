@@ -279,9 +279,9 @@ class ApplicationGrpcServiceTest {
         assertEquals("대덕중학교", found.middleSchool.name)
         assertEquals("김선생", found.middleSchool.teacherName)
         assertEquals("대전광역시 대덕구 중리로 1", found.middleSchool.address)
-        // 성취도 미이수(X)는 요강에 없는 값이라 빈 문자열로 나가 칸이 빈다.
+        // 성취도 미이수(X)는 출력에서도 X로 유지한다.
         assertEquals("A", found.thirdGradeFirstSemester.korean)
-        assertEquals("", found.thirdGradeFirstSemester.math)
+        assertEquals("X", found.thirdGradeFirstSemester.math)
         assertEquals(30, found.academicRecord.volunteerTime)
         assertTrue(found.academicRecord.dsmAlgorithmAwarded)
         assertFalse(found.academicRecord.programmingCertified)

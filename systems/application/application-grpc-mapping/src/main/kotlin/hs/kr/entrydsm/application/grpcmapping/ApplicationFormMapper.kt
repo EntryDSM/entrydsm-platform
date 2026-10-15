@@ -7,7 +7,6 @@ import hs.kr.entrydsm.application.domain.enum.Gender
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SpecialAdmissionType
-import hs.kr.entrydsm.application.domain.enum.SubjectGrade
 import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
 import hs.kr.entrydsm.application.grpc.AdmissionType as GrpcAdmissionType
@@ -92,6 +91,7 @@ fun ApplicationFormResult.toGrpcForm(): ApplicationFormResponse =
             }
             score?.let {
                 builder.setSubjectScore(it.subjectScore)
+                it.subjectBaseScore?.let(builder::setSubjectBaseScore)
                 builder.setAttendanceScore(it.attendanceScore)
                 builder.setVolunteerScore(it.volunteerScore)
                 builder.setAdditionalScore(it.additionalScore)
@@ -127,19 +127,17 @@ private fun SpecialAdmissionType.code(): String = when (this) {
     SpecialAdmissionType.SPECIAL_ADMISSION -> "2"
 }
 
-/** 성취도 A~E. 미이수(X)는 요강에 없는 값이라 빈 문자열로 준다. */
+/** 미반영 과목도 X로 전달하여 출력에 보존한다. */
 private fun SubjectGrades.toGrpc(): GrpcSemesterGrades =
     GrpcSemesterGrades.newBuilder()
-        .setKorean(koreanGrade.label())
-        .setSociety(societyGrade.label())
-        .setHistory(historyGrade.label())
-        .setMath(mathGrade.label())
-        .setScience(scienceGrade.label())
-        .setTechnology(technologyGrade.label())
-        .setEnglish(englishGrade.label())
+        .setKorean(koreanGrade.name)
+        .setSociety(societyGrade.name)
+        .setHistory(historyGrade.name)
+        .setMath(mathGrade.name)
+        .setScience(scienceGrade.name)
+        .setTechnology(technologyGrade.name)
+        .setEnglish(englishGrade.name)
         .build()
-
-private fun SubjectGrade.label(): String = if (this == SubjectGrade.X) "" else name
 
 private fun GedScores.toGrpc(): GrpcGedScores =
     GrpcGedScores.newBuilder()

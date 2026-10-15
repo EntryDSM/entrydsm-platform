@@ -172,23 +172,29 @@ class ApplicationCommandService(
         applicantRepository.findByAccountId(accountId)?.toSnapshot()
 
     override fun findApplicant(applicantId: Long): ApplicantResult? =
-        applicantRepository.findById(applicantId)?.recalculateMissingScore()?.toApplicantResult()
+        applicantRepository.findById(applicantId)?.recalculateScore()?.toApplicantResult()
 
-    override fun listApplicants(): List<ApplicantResult> =
-        applicantRepository.findSummariesByStatusIn(APPLIED_STATUSES).map { summary ->
-            if (summary.totalScore != null) summary else summary.copy(
-                totalScore = applicantRepository.findById(summary.applicantId)?.recalculateMissingScore()?.totalScore,
-            )
+    override fun listApplicants(): List<ApplicantResult> {
+        val summaries = applicantRepository.findSummariesByStatusIn(APPLIED_STATUSES)
+        val applicants = applicantRepository.findAllByAccountIdIn(summaries.map { it.accountId }.distinct())
+            .associateBy { it.id }
+        return summaries.map { summary ->
+            // 목록도 원서 출력과 같은 현재 성적을 기준으로 총점을 반환한다.
+            applicants[summary.applicantId]?.recalculateScore()?.let { applicant ->
+                summary.copy(totalScore = applicant.totalScore)
+            } ?: summary
         }
+    }
 
     override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
-        applicantRepository.findByAccountId(accountId)?.recalculateMissingScore()?.toApplicationFormResult()
+        applicantRepository.findByAccountId(accountId)?.recalculateScore()?.toApplicationFormResult()
 
     override fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> =
-        applicantRepository.findAllByAccountIdIn(accountIds.distinct()).map { it.recalculateMissingScore().toApplicationFormResult() }
+        applicantRepository.findAllByAccountIdIn(accountIds.distinct()).map { it.recalculateScore().toApplicationFormResult() }
 
-    private fun Applicant.recalculateMissingScore(): Applicant {
-        if (totalScore != null || admissionType == null || graduationType == null || academicRecord == null) return this
+    /** 현재 성적으로 총점을 맞추고, 작성 중 성적 누락은 기존 정책대로 허용한다. */
+    private fun Applicant.recalculateScore(): Applicant {
+        if (admissionType == null || graduationType == null || academicRecord == null) return this
         val record = requireNotNull(academicRecord)
         if (graduationType != GraduationType.GED && record.subjectGrades.values.none { it.hasReflectedSubject() }) return this
         val calculated = try {
@@ -196,6 +202,9 @@ class ApplicationCommandService(
         } catch (_: IllegalArgumentException) {
             return this
         }
+        if (totalScore == calculated) return this
+        // 이미 저장된 점수는 조회 응답에서만 보정하여 버전 경합을 피한다.
+        if (totalScore != null) return copy(totalScore = calculated)
         totalScore = calculated
         totalScoreUpdatedAt = nowUtc()
         return applicantRepository.save(this)
@@ -258,7 +267,8 @@ class ApplicationCommandService(
             academicRecord = academicRecord,
             score = totalScore?.takeIf { admissionType != null }
                 ?.let {
-                    try { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) }
+                    // 세부 점수와 총점은 같은 계산 결과를 사용한다.
+                    try { scoreCalculator.calculateBreakdown(this) }
                     catch (exception: IllegalArgumentException) {
                         throw hs.kr.entrydsm.application.application.exception.EvaluationValidationException(
                             "원서 성적 상세 계산에 필요한 데이터를 확인해 주세요.", exception,
