@@ -59,5 +59,5 @@ data class SubjectGradesCorrection(
 
 data class GedScoresCorrection(
     val korean: Int?, val math: Int?, val english: Int?,
-    val science: Int?, val society: Int?, val technology: Int?, val history: Int?,
+    val science: Int?, val society: Int?, val technology: Int? = null,
 )

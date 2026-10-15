@@ -148,7 +148,7 @@ class ApplicationCorrectionService(
                     SubjectGrades(SubjectGrade.valueOf(g.korean), SubjectGrade.valueOf(g.math), SubjectGrade.valueOf(g.english),
                         SubjectGrade.valueOf(g.science), SubjectGrade.valueOf(g.society), SubjectGrade.valueOf(g.technology), SubjectGrade.valueOf(g.history))
                 }.toMutableMap(), record.gedScores?.let { g -> GedScores(requireNotNull(g.korean), requireNotNull(g.math), requireNotNull(g.english),
-                    requireNotNull(g.science), requireNotNull(g.society), requireNotNull(g.technology), requireNotNull(g.history)) })
+                    requireNotNull(g.science), requireNotNull(g.society), g.technology) })
             a.academicRecord!!.subjectGrades.forEach { (semester, grades) ->
                 hs.kr.entrydsm.application.application.service.validateSchoolGrades(semester, grades)
             }

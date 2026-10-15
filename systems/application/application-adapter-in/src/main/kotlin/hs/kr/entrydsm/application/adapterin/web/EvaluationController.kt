@@ -57,8 +57,7 @@ class EvaluationController(
         APPLICATION_ENGLISH_SCORE_OUT_OF_RANGE.requireValid(request.englishScore in 0..100)
         APPLICATION_SCIENCE_SCORE_OUT_OF_RANGE.requireValid(request.scienceScore in 0..100)
         APPLICATION_SOCIETY_SCORE_OUT_OF_RANGE.requireValid(request.societyScore in 0..100)
-        APPLICATION_TECHNOLOGY_SCORE_OUT_OF_RANGE.requireValid(request.technologyScore in 0..100)
-        APPLICATION_HISTORY_SCORE_OUT_OF_RANGE.requireValid(request.historyScore in 0..100)
+        APPLICATION_TECHNOLOGY_SCORE_OUT_OF_RANGE.requireValid(request.technologyScore == null || request.technologyScore in 0..100)
         evaluationPort.saveGedScores(
             SaveGedScoresCommand(
                 accountId = accountId,
@@ -69,7 +68,6 @@ class EvaluationController(
                     scienceScore = request.scienceScore,
                     societyScore = request.societyScore,
                     technologyScore = request.technologyScore,
-                    historyScore = request.historyScore,
                 ),
             ),
         )
