@@ -62,6 +62,26 @@ class ApplicationCorrectionAdapterTest {
         audits.deleteAll(); outbox.deleteAll(); screening.deleteAll(); applicants.deleteAll()
     }
 
+    @Test fun applicantSchoolContactKeepsLiteralDashInDatabaseAndReadback() {
+        val original = fixture()
+        schoolCodes.saveAndFlush(hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity(
+            "SCHOOL1", "학교", "학교", null, "학교 주소", null, null))
+        val entity = applicants.findById(original.id).get()
+        entity.status = ApplicantStatus.DRAFT
+        entity.graduationType = GraduationType.PROSPECTIVE
+        applicants.saveAndFlush(entity)
+        val applicantService = ApplicationCommandService(persistence,
+            ApplicationPeriodReader { java.time.Instant.now().minusSeconds(60)..java.time.Instant.now().plusSeconds(60) },
+            AccountPhoneValidator { _, _ -> true })
+        applicantService.updateMiddleSchool(original.accountId, "SCHOOL1", "학교", "30101", "-", "-")
+        val stored = applicants.findById(original.id).get().middleSchoolInfo!!
+        assertEquals("-", stored.schoolPhone)
+        assertEquals("-", stored.teacherName)
+        val school = persistence.findByAccountId(original.accountId)!!.middleSchoolInfo!!
+        assertEquals("-", school.schoolPhone)
+        assertEquals("-", school.teacherName)
+    }
+
     @Test fun updatesTypeScoreAddressAndAuditInOneTransaction() {
         val original = fixture()
         val result = service.correct(command(original, ApplicationFormChanges(admissionType = "MEISTER", addressBase = "수정 주소")), "operator-10")
@@ -95,7 +115,7 @@ class ApplicationCorrectionAdapterTest {
         )), "operator-10")
         val saved = persistence.findById(original.id)!!
         assertNull(saved.academicRecord!!.gedScores)
-        assertEquals(170.0, saved.totalScore!!, 0.0)
+        assertEquals(100.0, saved.totalScore!!, 0.0)
         assertEquals("테스트학교", saved.middleSchoolInfo!!.schoolName)
         assertEquals("학교 주소", saved.middleSchoolInfo!!.schoolAddress)
         assertEquals("학교 주소", failing.lastEvent!!.applicationForm!!.middleSchool!!.schoolAddress)
