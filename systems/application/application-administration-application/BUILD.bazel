@@ -66,3 +66,12 @@ kt_jvm_test(
     test_class = "hs.kr.entrydsm.application.administration.application.FirstScreeningModuleTest",
     deps = MODULE_DEPS + TEST_DEPS + [":main"],
 )
+
+kt_jvm_test(
+    name = "correction_service_test",
+    srcs = glob(["src/test/kotlin/**/*.kt"]),
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.application.administration.application.ApplicationCorrectionServiceTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
