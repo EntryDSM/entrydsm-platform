@@ -260,6 +260,30 @@ class ApplicationFormPdfTest {
     }
 
     @Test
+    fun `다음 장으로 넘어간 학업계획서 칸은 원본 높이로 긋고 긴 글만큼만 늘린다`() {
+        val sentence = "저는 어려서부터 컴퓨터로 무언가 만드는 일을 좋아했고 중학교에서는 정보 동아리 부장을 맡았습니다. "
+        val essay = sentence.repeat(30).take(1596).chunked(320).joinToString("\n")
+        // 1,600자 자기소개서 아래에는 학업계획서가 들어가지 않아 4쪽으로 넘어간다. 300자는 원본 칸보다 짧고 1,600자는 길다.
+        val short = adapter.render(form().copy(introduction = essay, studyPlan = essay.take(300)), photo = null)
+        val long = adapter.render(form().copy(introduction = essay, studyPlan = essay), photo = null)
+        // 4쪽 본문 칸 폭 안쪽을 가로로 다 지나는 선이 [y] 근처에 있는지 본다.
+        fun ruled(pdf: ByteArray, y: Float): Boolean {
+            val image = Loader.loadPDF(pdf).use { PDFRenderer(it).renderImageWithDPI(3, 72f * SCALE) }
+            return ((y - 1).px()..(y + 1).px()).any { row ->
+                (100f.px()..500f.px()).all { x -> Color(image.getRGB(x, row)).red < 160 }
+            }
+        }
+
+        assertA4Pages(short, FORM_COUNT + 1)
+        assertTrue(pageText(short, 4).contains("구체적인"))
+        // 안내 칸 아래 114.96pt 에서 원본 칸 높이 213.72pt 만큼 긋는다.
+        assertTrue(ruled(short, 114.96f + 213.72f))
+        // 짧든 길든 서식 아래 여백(749.88pt)까지 늘리지 않는다.
+        assertFalse(ruled(short, 749.88f))
+        assertFalse(ruled(long, 749.88f))
+    }
+
+    @Test
     fun `서식 3 원본 글자 묶음은 Tm 하나로만 자리를 잡아 띠로 자를 수 있다`() {
         // 늘어난 칸에 맞춰 서식 3 원본을 띠로 자를 때 글자 묶음(BT~ET)을 그 Tm 한 곳으로 보고 넣거나 뺀다.
         // 묶음 안에서 줄을 옮기는 서식으로 갈면 안내 문구가 빠지거나 숨은 글자가 남으니 여기서 먼저 막는다.
