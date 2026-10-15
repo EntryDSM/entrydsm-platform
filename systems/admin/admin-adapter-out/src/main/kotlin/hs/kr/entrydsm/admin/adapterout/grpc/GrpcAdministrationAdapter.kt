@@ -78,6 +78,9 @@ class GrpcAdministrationAdapter(private val grpc: ApplicationGrpcChannel) :
     override fun evaluateFinal(applicantId: Long): FinalScreeningResult =
         call(ApplicantIdQuery(applicantId), "evaluateFinalScreening", false) { evaluateFinalScreening(it) }
 
+    override fun failFinal(applicantId: Long): FinalScreeningResult =
+        call(ApplicantIdQuery(applicantId), "failFinalScreening", false) { failFinalScreening(it) }
+
     override fun collect(metrics: Set<StatisticsMetric>): ApplicantStatistics =
         call(StatisticsQuery(metrics), "collectStatistics", true) { collectStatistics(it) }
 

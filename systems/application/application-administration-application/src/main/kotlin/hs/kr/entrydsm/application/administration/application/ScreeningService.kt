@@ -121,31 +121,52 @@ class ScreeningService(
      * 1차 합격자 한 명을 최종 합격자로 등록합니다.
      *
      * 2차(면접) 결과는 시스템에 없어 관리자가 합격자를 고른다. 서버는 순위를 다시 매기지 않고
-     * `FIRST_PASS` -> `FINAL_PASS` 로 바꾸기만 한다. 이미 등록한 지원자는 다시 불러도 그대로 둔다.
-     * 등록을 되돌리려면 지원자 상태 강제 변경을 쓴다.
+     * 2차 대상자(`FIRST_PASS`, 불합격으로 남긴 `FINAL_FAIL`)를 `FINAL_PASS` 로 바꾸기만 한다.
+     * 이미 등록한 지원자는 다시 불러도 그대로 둔다. 등록을 되돌리려면 [failFinal] 을 쓴다.
      */
     @Transactional
-    override fun evaluateFinal(applicantId: Long): FinalScreeningResult {
+    override fun evaluateFinal(applicantId: Long): FinalScreeningResult =
+        changeFinal(applicantId, ApplicantStatus.FINAL_PASS)
+
+    /**
+     * 최종 합격 발표 전에 2차 대상자 한 명을 최종 불합격으로 남깁니다.
+     *
+     * 최종 합격으로 등록한 지원자도 불합격으로 되돌린다. 이미 불합격이면 다시 불러도 그대로 둔다.
+     * 발표 시각부터는 알린 합격을 뒤집지 않도록 막는다.
+     */
+    @Transactional
+    override fun failFinal(applicantId: Long): FinalScreeningResult =
+        changeFinal(applicantId, ApplicantStatus.FINAL_FAIL)
+
+    private fun changeFinal(applicantId: Long, target: ApplicantStatus): FinalScreeningResult {
         val schedule = schedules?.findByTitleForUpdate("1차 합격 발표")
             ?: throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         val nowKst = java.time.LocalDateTime.ofInstant(clock.instant(), java.time.ZoneId.of("Asia/Seoul"))
         if (schedule.firstScreeningProcessedAt == null || nowKst.isBefore(schedule.startAt)) {
             throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
+        if (target == ApplicantStatus.FINAL_FAIL) {
+            // 1차 발표 행 다음에 잠가, 최종 발표 처리와 직렬화하면서 등록과 잠금 순서를 맞춘다.
+            val announcement = schedules?.findByTitleForUpdate("최종 합격 발표")
+                ?: throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+            if (!nowKst.isBefore(announcement.startAt)) {
+                throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+            }
+        }
         val applicant = applicantRepository.findById(applicantId)
             ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
         val now = Instant.now(clock)
 
-        if (applicant.status != ApplicantStatus.FINAL_PASS) {
-            if (!applicant.status.canTransitionTo(ApplicantStatus.FINAL_PASS)) {
+        if (applicant.status != target) {
+            if (applicant.status !in setOf(ApplicantStatus.FIRST_PASS, ApplicantStatus.FINAL_PASS, ApplicantStatus.FINAL_FAIL)) {
                 throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
             }
-            applicantRepository.save(applicant.copy(status = ApplicantStatus.FINAL_PASS, updatedAt = now))
+            applicantRepository.save(applicant.copy(status = target, updatedAt = now))
         }
 
         return FinalScreeningResult(
             applicantId = applicantId,
-            status = ApplicantStatus.FINAL_PASS,
+            status = target,
             processedAt = now,
         )
     }

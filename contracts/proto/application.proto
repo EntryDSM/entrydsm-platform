@@ -320,6 +320,7 @@ service AdministrationService {
   rpc SelectFirstApplicant(AdministrationRequest) returns (AdministrationResponse);
   rpc CancelFirstApplicant(AdministrationRequest) returns (AdministrationResponse);
   rpc EvaluateFinalScreening(AdministrationRequest) returns (AdministrationResponse);
+  rpc FailFinalScreening(AdministrationRequest) returns (AdministrationResponse);
   rpc CollectStatistics(AdministrationRequest) returns (AdministrationResponse);
   rpc CreateExport(AdministrationRequest) returns (AdministrationResponse);
   rpc ReadExport(AdministrationRequest) returns (AdministrationResponse);

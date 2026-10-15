@@ -91,6 +91,9 @@ class AdministrationGrpcService(
     override fun evaluateFinalScreening(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { final.evaluateFinal(request.applicantId()) }
 
+    override fun failFinalScreening(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { final.failFinal(request.applicantId()) }
+
     override fun collectStatistics(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { statistics.collect(request.read<StatisticsQuery>().metrics) }
 
