@@ -44,3 +44,4 @@ temp/
 
 # Local Files
 *.local.*
+/tools/local/
