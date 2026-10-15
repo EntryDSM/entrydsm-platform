@@ -89,7 +89,12 @@ class PoiXlsxAdapter : XlsxRenderPort {
                 )
                 repeat(7) { subjectIndex ->
                     semesters.forEachIndexed { semesterIndex, grades ->
-                        cell(11 + subjectIndex, 2 + semesterIndex, grades.values()[subjectIndex])
+                        val value = if (applicant.graduationStatus == "검정고시") {
+                            if (semesterIndex == 0) applicant.gedScores?.let {
+                                listOf(it.korean, it.society, null, it.math, it.science, it.technology, it.english)[subjectIndex]
+                            } else null
+                        } else grades.values()[subjectIndex]
+                        cell(11 + subjectIndex, 2 + semesterIndex, value)
                     }
                 }
                 cell(11, 7, applicant.awarded.mark())
