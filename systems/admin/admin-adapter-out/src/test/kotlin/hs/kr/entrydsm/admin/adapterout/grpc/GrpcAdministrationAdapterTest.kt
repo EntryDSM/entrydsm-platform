@@ -15,6 +15,13 @@ class GrpcAdministrationAdapterTest {
         )
         val mapper = tools.jackson.databind.json.JsonMapper.builder()
             .addModule(tools.jackson.module.kotlin.KotlinModule.Builder().build()).build()
+        var detail = hs.kr.entrydsm.admin.domain.model.ApplicantDetail(
+            applicant = hs.kr.entrydsm.admin.domain.model.Applicant(id = 6L),
+            photoFileId = null, introduction = null, studyPlan = null,
+            score = hs.kr.entrydsm.admin.domain.model.ApplicantScore(119.0, 15.0, 15.0, 0.0, 149.0),
+            semesterScores = mapOf("THIRD_GRADE_FIRST_SEMESTER" to 38.4,
+                "SECOND_GRADE_SECOND_SEMESTER" to 15.2, "SECOND_GRADE_FIRST_SEMESTER" to 14.4),
+        )
         val upstream = object : hs.kr.entrydsm.application.grpc.AdministrationServiceGrpc.AdministrationServiceImplBase() {
             override fun correctApplication(request: hs.kr.entrydsm.application.grpc.AdministrationRequest,
                 observer: StreamObserver<hs.kr.entrydsm.application.grpc.AdministrationResponse>) {
@@ -35,6 +42,12 @@ class GrpcAdministrationAdapterTest {
             }
             override fun readApplicant(request: hs.kr.entrydsm.application.grpc.AdministrationRequest,
                 observer: StreamObserver<hs.kr.entrydsm.application.grpc.AdministrationResponse>) {
+                if (mapper.readTree(request.commandJson).get("applicantId").longValue() == 6L) {
+                    observer.onNext(hs.kr.entrydsm.application.grpc.AdministrationResponse.newBuilder()
+                        .setDataJson(mapper.writeValueAsString(detail)).build())
+                    observer.onCompleted()
+                    return
+                }
                 observer.onNext(hs.kr.entrydsm.application.grpc.AdministrationResponse.newBuilder()
                     .setErrorCode("APPLICATION_SCORE_INVALID").setFailedCount(1).setTotalCount(85)
                     .addTargetIds(5).build())
@@ -59,6 +72,10 @@ class GrpcAdministrationAdapterTest {
             org.springframework.web.context.request.RequestContextHolder.setRequestAttributes(
                 org.springframework.web.context.request.ServletRequestAttributes(request))
             assertEquals(quota, adapter.readQuota())
+            assertEquals(detail, adapter.findDetail(6))
+            detail = detail.copy(semesterScores = emptyMap(),
+                gedScores = hs.kr.entrydsm.admin.domain.model.GedScores(100, 90, 80, 70, null, 60))
+            assertEquals(detail, adapter.findDetail(6))
             assertEquals(4L, adapter.correct(hs.kr.entrydsm.admin.domain.command.CorrectApplicationCommand(
                 5, "입력 오류 정정", hs.kr.entrydsm.admin.domain.command.ApplicationFormChanges(introduction = "정정 내용")),
                 "forged-editor").version)

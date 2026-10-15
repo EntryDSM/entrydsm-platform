@@ -82,6 +82,38 @@ class ApplicationCorrectionAdapterTest {
         assertFalse(audit.changedFields.contains("수정 주소"))
     }
 
+    @Test fun detailUsesCommonSemesterBreakdownAndPreservesGedAndInvalidScoreContracts() {
+        val original = fixture()
+        val ged = administration.findDetailById(original.id)!!
+        assertEquals(emptyMap<String, Double>(), ged.semesterScores)
+        assertEquals(100, ged.gedScores!!.korean)
+        assertEquals(100, ged.gedScores!!.technology)
+        assertEquals(170.0, ged.score!!.totalScore, 0.0)
+        fun grades(value: String) = value.map { SubjectGrade.valueOf(it.toString()) }.let {
+            SubjectGrades(it[0], it[1], it[2], it[3], it[4], it[5], it[6])
+        }
+        val school = original.copy(graduationType = GraduationType.PROSPECTIVE, totalScore = 149.0,
+            academicRecord = AcademicRecord(volunteerTime = 15, subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to grades("ABAAAXX"),
+                SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to grades("ABBEAXX"),
+                SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to grades("ACCDAXX"),
+            )))
+        persistence.save(school)
+        val detail = administration.findDetailById(original.id)!!
+        assertEquals(setOf("THIRD_GRADE_FIRST_SEMESTER", "SECOND_GRADE_SECOND_SEMESTER", "SECOND_GRADE_FIRST_SEMESTER"), detail.semesterScores.keys)
+        assertEquals(38.4, detail.semesterScores.getValue("THIRD_GRADE_FIRST_SEMESTER"), 0.0000001)
+        assertEquals(15.2, detail.semesterScores.getValue("SECOND_GRADE_SECOND_SEMESTER"), 0.0000001)
+        assertEquals(14.4, detail.semesterScores.getValue("SECOND_GRADE_FIRST_SEMESTER"), 0.0000001)
+        assertEquals(68.0, detail.semesterScores.values.sum(), 0.0000001)
+        assertEquals(119.0, detail.score!!.subjectScore, 0.0)
+        assertEquals(149.0, detail.score!!.totalScore, 0.0)
+        assertNull(detail.gedScores)
+        assertEquals(149.0, administration.findById(original.id)!!.totalScore!!, 0.0)
+        assertNull(administration.findDetailById(Long.MAX_VALUE))
+        persistence.save(school.copy(academicRecord = AcademicRecord()))
+        assertError(ErrorCode.APPLICATION_SCORE_INVALID) { administration.findDetailById(original.id) }
+    }
+
     @Test fun convertsGedToSchoolWithRequiredGradesAndKeepsRecordIdentity() {
         val original = fixture()
         schoolCodes.saveAndFlush(hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity(
@@ -91,7 +123,9 @@ class ApplicationCorrectionAdapterTest {
             graduationType = "PROSPECTIVE", graduationDate = "2027-02",
             school = SchoolCorrection("SCHOOL1", "테스트학교", "30101", "042-123-4567", "테스트교사"),
             academicRecord = AcademicRecordCorrection(0, 0, 0, 0, 15, false, false,
-                mapOf("THIRD_GRADE_FIRST_SEMESTER" to SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A"))),
+                mapOf("THIRD_GRADE_FIRST_SEMESTER" to SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A"),
+                    "SECOND_GRADE_SECOND_SEMESTER" to SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A"),
+                    "SECOND_GRADE_FIRST_SEMESTER" to SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A"))),
         )), "operator-10")
         val saved = persistence.findById(original.id)!!
         assertNull(saved.academicRecord!!.gedScores)

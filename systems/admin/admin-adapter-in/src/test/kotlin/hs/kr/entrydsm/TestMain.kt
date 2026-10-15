@@ -5,6 +5,7 @@ import hs.kr.entrydsm.admin.adapterin.web.ApplicantController
 import hs.kr.entrydsm.admin.adapterin.web.exception.GlobalExceptionHandler
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.common.toDetailResponse
+import hs.kr.entrydsm.admin.adapterin.web.dto.common.toSummaryResponse
 import hs.kr.entrydsm.admin.adapterin.web.dto.request.CreateExportRequest
 import hs.kr.entrydsm.admin.domain.enum.AdmissionType
 import hs.kr.entrydsm.admin.domain.enum.Gender
@@ -43,6 +44,54 @@ import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.servlet.resource.NoResourceFoundException
 
 class AdminAdapterInModuleTest {
+    @Test
+    fun applicantDetailHttpExposesSemesterScoresWithoutChangingGedScoresOrTotals() {
+        val mapper = tools.jackson.databind.json.JsonMapper.builder().build()
+        var detail = ApplicantDetail(
+            applicant = Applicant(id = 5L, graduationStatus = GraduationStatus.EXPECTED),
+            photoFileId = null, introduction = null, studyPlan = null,
+            score = ApplicantScore(119.0, 15.0, 15.0, 0.0, 149.0),
+            semesterScores = mapOf("THIRD_GRADE_FIRST_SEMESTER" to 38.4,
+                "SECOND_GRADE_SECOND_SEMESTER" to 15.2, "SECOND_GRADE_FIRST_SEMESTER" to 14.4),
+        )
+        var calls = 0
+        val reader = ReadApplicantUseCase::class.java.cast(Proxy.newProxyInstance(javaClass.classLoader,
+            arrayOf(ReadApplicantUseCase::class.java)) { _, method, args ->
+            assertEquals("findDetail", method.name)
+            assertEquals(5L, args[0])
+            calls++
+            detail
+        })
+        val mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(ApplicantController(
+            reader, unused(UpdateApplicantUseCase::class.java), unused(IssueExamineeNumberUseCase::class.java),
+            unused(DeleteApplicantUseCase::class.java),
+        )).setControllerAdvice(GlobalExceptionHandler())
+            .addInterceptors(hs.kr.entrydsm.admin.adapterin.web.AdminAuthorizationInterceptor()).build()
+        val path = "/api/v11/admin/applicants/5"
+        assertEquals(401, mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(path)).andReturn().response.status)
+        assertEquals(403, mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(path)
+            .header("X-User-Id", "10").header("X-User-Role", "USER")).andReturn().response.status)
+        assertEquals(0, calls)
+        fun responseData(): tools.jackson.databind.JsonNode {
+            val response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(path)
+                .header("X-User-Id", "10").header("X-User-Role", "ADMIN")).andReturn().response
+            assertEquals(200, response.status)
+            return mapper.readTree(response.contentAsString).get("data")
+        }
+        val school = responseData()
+        assertEquals(mapper.readTree(mapper.writeValueAsString(detail.semesterScores)), school.get("semesterScores"))
+        assertEquals(119.0, school.get("score").get("subjectScore").doubleValue(), 0.0)
+        assertEquals(149.0, school.get("score").get("totalScore").doubleValue(), 0.0)
+        detail = detail.copy(applicant = detail.applicant.copy(graduationStatus = GraduationStatus.GED),
+            semesterScores = emptyMap(), gedScores = hs.kr.entrydsm.admin.domain.model.GedScores(100, 90, 80, 70, null, 60))
+        val ged = responseData()
+        assertTrue(ged.get("semesterScores").isObject)
+        assertEquals(0, ged.get("semesterScores").size())
+        assertTrue(!ged.has("gedScores"))
+        assertEquals(149.0, ged.get("score").get("totalScore").doubleValue(), 0.0)
+        assertTrue(!mapper.readTree(mapper.writeValueAsString(detail.applicant.toSummaryResponse())).has("semesterScores"))
+    }
+
     @Test
     fun moduleLoads() {
         assertTrue(true)
