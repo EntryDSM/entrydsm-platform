@@ -84,6 +84,22 @@ class SchedulePersistenceAdapterTest {
         assertFalse(policy(instant.plusSeconds(1)).isPublished())
     }
 
+    @Test fun `최종 공개는 발표 처리 뒤 관리자가 일정을 미뤄도 유지된다`() {
+        val final = LocalDateTime.of(2026, 11, 4, 10, 0)
+        val policy = FinalScreeningPublicationAdapter(repository)
+        repository.saveAndFlush(ScheduleJpaEntity(title = "최종 합격 발표", startAt = final, endAt = final))
+        assertFalse(adapter.claimFinalScreening("최종 합격 발표", final.minusNanos(1)))
+        assertFalse(policy.isPublished())
+        assertTrue(adapter.claimFinalScreening("최종 합격 발표", final))
+        assertTrue(policy.isPublished())
+
+        val announced = adapter.findByTitle("최종 합격 발표")!!
+        adapter.save(announced.copy(startAt = final.plusDays(7), endAt = final.plusDays(7)))
+        assertEquals(final, adapter.findByTitle("최종 합격 발표")!!.finalScreeningProcessedAt)
+        assertTrue(policy.isPublished())
+        assertFalse(adapter.claimFinalScreening("최종 합격 발표", final.plusDays(8)))
+    }
+
     @Test fun `선점 이전에 읽은 일정을 수정 저장해도 완료 표시가 지워지지 않는다`() {
         val stale = adapter.findByTitle("1차 합격 발표")!!
         assertNull(stale.firstScreeningProcessedAt)
