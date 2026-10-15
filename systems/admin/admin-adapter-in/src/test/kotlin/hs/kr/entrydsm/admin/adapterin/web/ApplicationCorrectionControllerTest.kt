@@ -70,9 +70,9 @@ class ApplicationCorrectionControllerTest {
             "zipCode", "addressBase", "addressDetail", "introduction", "studyPlan", "school", "academicRecord")
         val schoolFields = """{"admissionType":"GENERAL","region":"NATIONWIDE","graduationType":"PROSPECTIVE","graduationDate":"2027-02","photoFileId":"photo","name":"홍길동","phoneNumber":null,"gender":"MALE","birthdate":"2010-03-02","specialAdmissionType":"NONE","guardianName":"보호자","guardianPhoneNumber":"010-9876-5432","guardianGender":"FEMALE","guardianRelation":"모","zipCode":"34503","addressBase":"대전","addressDetail":"101호","introduction":"자기소개","studyPlan":"학업계획","school":{"schoolCode":"D100","schoolName":"중학교","studentNumber":"30101","schoolPhone":"042-123-4567","teacherName":"담임"},"academicRecord":{"absentCount":1,"lateCount":2,"earlyLeaveCount":3,"classAbsenceCount":4,"volunteerTime":15,"dsmAlgorithmAwarded":true,"programmingCertified":false,"subjectGrades":{"THIRD_GRADE_FIRST_SEMESTER":{"korean":"A","math":"B","english":"C","science":"D","society":"E","technology":"X","history":"A"}},"gedScores":null}}"""
         val schoolNode = mapper.readTree(schoolFields)
-        val gedNode = schoolNode.deepCopy<tools.jackson.databind.node.ObjectNode>().apply {
+        val gedNode = (schoolNode as tools.jackson.databind.node.ObjectNode).deepCopy().apply {
             put("graduationType", "GED"); putNull("graduationDate"); putNull("school")
-            set<tools.jackson.databind.JsonNode>("academicRecord", mapper.readTree("""{"absentCount":0,"lateCount":0,"earlyLeaveCount":0,"classAbsenceCount":0,"volunteerTime":0,"dsmAlgorithmAwarded":false,"programmingCertified":false,"subjectGrades":{},"gedScores":{"korean":100,"math":90,"english":80,"science":70,"society":60,"technology":0,"history":40}}"""))
+            set("academicRecord", mapper.readTree("""{"absentCount":0,"lateCount":0,"earlyLeaveCount":0,"classAbsenceCount":0,"volunteerTime":0,"dsmAlgorithmAwarded":false,"programmingCertified":false,"subjectGrades":{},"gedScores":{"korean":100,"math":90,"english":80,"science":70,"society":60,"technology":0,"history":40}}"""))
         }
         var payload = ""
         val requests = mutableListOf<Long>()
