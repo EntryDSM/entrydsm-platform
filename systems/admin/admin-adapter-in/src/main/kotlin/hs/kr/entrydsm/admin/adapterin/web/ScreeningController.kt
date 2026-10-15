@@ -120,6 +120,15 @@ class ScreeningController(
             ApiResponse(data = evaluateFinalScreeningUseCase.evaluateFinal(applicantId).toResponse()),
         )
 
+    /** 1차 합격자를 최종 불합격으로 남긴다. 최종 합격으로 잘못 등록한 지원자도 되돌린다. */
+    @DeleteMapping(AdminEndpointPaths.FINAL_SCREENING_RESULT)
+    fun failFinal(
+        @PathVariable applicantId: Long,
+    ): ResponseEntity<ApiResponse<FinalScreeningResultResponse>> =
+        ResponseEntity.ok(
+            ApiResponse(data = evaluateFinalScreeningUseCase.failFinal(applicantId).toResponse()),
+        )
+
     @GetMapping(AdminEndpointPaths.STATISTICS)
     fun statistics(
         @RequestParam metrics: Set<StatisticsMetric>,
