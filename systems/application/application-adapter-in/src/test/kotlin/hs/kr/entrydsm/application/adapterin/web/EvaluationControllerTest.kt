@@ -23,7 +23,7 @@ class EvaluationControllerTest {
     @Test
     fun gedScoresIdentifyEachSubjectAndAcceptBoundaryValues() {
         val controller = EvaluationController(FakeEvaluationPort())
-        val scores = hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(0, 0, 0, 0, 0, 0, 0)
+        val scores = hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(0, 0, 0, 0, 0, 0)
         val cases = listOf(
             "KOREAN" to scores.copy(koreanScore = -1),
             "MATH" to scores.copy(mathScore = 101),
@@ -31,7 +31,7 @@ class EvaluationControllerTest {
             "SCIENCE" to scores.copy(scienceScore = 101),
             "SOCIETY" to scores.copy(societyScore = -1),
             "TECHNOLOGY" to scores.copy(technologyScore = 101),
-            "HISTORY" to scores.copy(historyScore = -1),
+            "TECHNOLOGY" to scores.copy(technologyScore = -1),
         )
         for ((subject, request) in cases) {
             val error = org.junit.Assert.assertThrows(hs.kr.entrydsm.application.application.exception.ApplicationValidationException::class.java) {
@@ -40,7 +40,51 @@ class EvaluationControllerTest {
             assertEquals("APPLICATION_${subject}_SCORE_OUT_OF_RANGE", error.errorCode.name)
         }
         controller.saveGedScores(10L, scores)
-        controller.saveGedScores(10L, hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(100, 100, 100, 100, 100, 100, 100))
+        controller.saveGedScores(10L, hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(100, 100, 100, 100, 100, 100))
+    }
+
+    @Test
+    fun gedTechnologyOmittedNullAndZeroHaveDistinctInputContracts() {
+        val port = FakeEvaluationPort()
+        val controller = EvaluationController(port)
+        val base = hs.kr.entrydsm.application.adapterin.web.dto.request.SaveGedScoresRequest(100, 100, 100, 100, 100)
+        controller.saveGedScores(10L, base)
+        org.junit.Assert.assertNull(port.savedGed?.technologyScore)
+        controller.saveGedScores(10L, base.copy(technologyScore = null))
+        org.junit.Assert.assertNull(port.savedGed?.technologyScore)
+        controller.saveGedScores(10L, base.copy(technologyScore = 0))
+        assertEquals(0, port.savedGed?.technologyScore)
+        val mvc = MockMvcBuilders.standaloneSetup(controller)
+            .setControllerAdvice(GlobalExceptionHandler()).build()
+        val body = """{"koreanScore":100,"mathScore":100,"englishScore":100,"scienceScore":100,"societyScore":100}"""
+        listOf(body, body.dropLast(1) + ",\"technologyScore\":null}", body.dropLast(1) + ",\"technologyScore\":0}").forEachIndexed { index, json ->
+            val response = mvc.perform(post("/api/evaluation/v11/evaluations/ged-scores")
+                .header("X-USER-ID", 10L).contentType(MediaType.APPLICATION_JSON).content(json)).andReturn().response
+            assertEquals(json, 200, response.status)
+            assertEquals(if (index == 2) 0 else null, port.savedGed?.technologyScore)
+        }
+        listOf(body.dropLast(1) + ",\"technologyScore\":\"\"}", body.replace("\"koreanScore\":100,", "")).forEach { json ->
+            val response = mvc.perform(post("/api/evaluation/v11/evaluations/ged-scores")
+                .header("X-USER-ID", 10L).contentType(MediaType.APPLICATION_JSON).content(json)).andReturn().response
+            assertEquals(json, 400, response.status)
+        }
+    }
+
+    @Test
+    fun gedFiveRequiredSubjectsRejectOmissionAndNullInRealHttpConverter() {
+        val mvc = MockMvcBuilders.standaloneSetup(EvaluationController(FakeEvaluationPort()))
+            .setControllerAdvice(GlobalExceptionHandler()).build()
+        val fields = listOf("koreanScore", "mathScore", "englishScore", "scienceScore", "societyScore")
+        fields.forEach { missing ->
+            listOf(false, true).forEach { explicitNull ->
+                val json = fields.filter { explicitNull || it != missing }.joinToString(",", "{", "}") {
+                    "\"$it\":" + if (it == missing) "null" else "100"
+                }
+                val response = mvc.perform(post("/api/evaluation/v11/evaluations/ged-scores")
+                    .header("X-USER-ID", 10L).contentType(MediaType.APPLICATION_JSON).content(json)).andReturn().response
+                assertEquals(json, 400, response.status)
+            }
+        }
     }
 
     @Test
@@ -150,7 +194,8 @@ class EvaluationControllerTest {
             saveSubjectGradesCommand = command
         }
 
-        override fun saveGedScores(command: SaveGedScoresCommand) = Unit
+        var savedGed: hs.kr.entrydsm.application.domain.model.GedScores? = null
+        override fun saveGedScores(command: SaveGedScoresCommand) { savedGed = command.gedScores }
 
         override fun saveAcademicRecord(command: SaveAcademicRecordCommand): AcademicRecordResult =
             AcademicRecordResult(

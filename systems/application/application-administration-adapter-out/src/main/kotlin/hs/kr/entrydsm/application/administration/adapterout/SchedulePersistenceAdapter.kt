@@ -18,9 +18,15 @@ class SchedulePersistenceAdapter(
 
     override fun findByTitle(title: String): Schedule? = repository.findByTitle(title)?.toDomain()
 
+    override fun findByTitleForUpdate(title: String): Schedule? = repository.findByTitleForUpdate(title)?.toDomain()
+
     override fun save(schedule: Schedule): Schedule = repository.save(ScheduleJpaEntity.from(schedule)).toDomain()
 
     @Transactional
     override fun claimFirstScreening(title: String, now: LocalDateTime): Boolean =
         repository.claimFirstScreening(title, now) == 1
+
+    @Transactional
+    override fun claimFinalScreening(title: String, now: LocalDateTime): Boolean =
+        repository.claimFinalScreening(title, now) == 1
 }

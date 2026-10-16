@@ -8,11 +8,81 @@ import hs.kr.entrydsm.application.domain.model.AcademicRecord
 import hs.kr.entrydsm.application.domain.model.Applicant
 import hs.kr.entrydsm.application.domain.model.GedScores
 import hs.kr.entrydsm.application.domain.model.SubjectGrades
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ScoreCalculatorTest {
     private val calculator = ScoreCalculator()
+
+    @Test
+    fun semesterScoresUseActualKeysAndUnscaledIssueExampleValues() {
+        val record = AcademicRecord(volunteerTime = 15, subjectGrades = linkedMapOf(
+            SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to grades("ACCDAXX"),
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to grades("ABAAAXX"),
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to grades("ABBEAXX"),
+            SchoolSemester.FIRST_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+        ))
+        val breakdown = breakdown(GraduationType.PROSPECTIVE, record)
+        val expected = mapOf(
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to 38.4,
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to 15.2,
+            SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to 14.4,
+        )
+        assertEquals(expected.keys, breakdown.semesterScores.keys)
+        expected.forEach { (semester, score) -> assertEquals(score, breakdown.semesterScores.getValue(semester), 0.0000001) }
+        assertEquals(68.0, breakdown.subjectBaseScore!!, 0.0000001)
+        assertEquals(68.0, breakdown.semesterScores.values.sum(), 0.0000001)
+        assertEquals(119.0, breakdown.subjectScore, 0.0)
+        assertEquals(149.0, breakdown.totalScore, 0.0)
+    }
+
+    @Test
+    fun semesterScoresSkipFreeAndMissingSemestersWithoutExpandingWeights() {
+        val record = AcademicRecord(subjectGrades = linkedMapOf(
+            SchoolSemester.FIRST_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.X),
+            SchoolSemester.FIRST_GRADE_SECOND_SEMESTER to all(SubjectGrade.B),
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+        ))
+        assertEquals(mapOf(
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to 40.0,
+            SchoolSemester.FIRST_GRADE_SECOND_SEMESTER to 16.0,
+            SchoolSemester.FIRST_GRADE_FIRST_SEMESTER to 20.0,
+        ), breakdown(GraduationType.PROSPECTIVE, record).semesterScores)
+        assertEquals(mapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to 40.0),
+            breakdown(GraduationType.PROSPECTIVE, AcademicRecord(subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+            ))).semesterScores)
+        assertEquals(100.0, breakdown(GraduationType.PROSPECTIVE, AcademicRecord(volunteerTime = 15,
+            subjectGrades = linkedMapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A)),
+        )).totalScore, 0.0)
+    }
+
+    @Test
+    fun graduatedSemesterScoresSelectFourRecentActualSemestersAtTwentyEach() {
+        val record = AcademicRecord(subjectGrades = SchoolSemester.entries.associateWith { all(SubjectGrade.A) }.toMutableMap())
+        assertEquals(mapOf(
+            SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to 20.0,
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to 20.0,
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to 20.0,
+            SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to 20.0,
+        ), breakdown(GraduationType.GRADUATED, record).semesterScores)
+        assertEquals(mapOf(SchoolSemester.FIRST_GRADE_SECOND_SEMESTER to 20.0),
+            breakdown(GraduationType.GRADUATED, AcademicRecord(subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to all(SubjectGrade.X),
+                SchoolSemester.FIRST_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+            ))).semesterScores)
+    }
+
+    private fun breakdown(type: GraduationType, record: AcademicRecord) = calculator.calculateBreakdown(
+        Applicant(id = 1L, accountId = 1L, admissionType = AdmissionType.REGULAR,
+            graduationType = type, academicRecord = record),
+    )
+
+    private fun grades(value: String): SubjectGrades = value.map { SubjectGrade.valueOf(it.toString()) }.let {
+        SubjectGrades(it[0], it[1], it[2], it[3], it[4], it[5], it[6])
+    }
 
     @Test
     fun calculatesProspectiveApplicantScores() {
@@ -52,11 +122,12 @@ class ScoreCalculatorTest {
             ),
         )
 
-        assertEquals(140.0, breakdown.subjectScore, 0.0)
+        assertEquals(40.0, breakdown.subjectBaseScore ?: -1.0, 0.0)
+        assertEquals(70.0, breakdown.subjectScore, 0.0)
         assertEquals(14.0, breakdown.attendanceScore, 0.0)
         assertEquals(10.0, breakdown.volunteerScore, 0.0)
         assertEquals(3.0, breakdown.additionalScore, 0.0)
-        assertEquals(167.0, breakdown.totalScore, 0.0)
+        assertEquals(97.0, breakdown.totalScore, 0.0)
     }
 
     @Test
@@ -74,7 +145,7 @@ class ScoreCalculatorTest {
                 scienceScore = 100,
                 societyScore = 100,
                 technologyScore = 100,
-                historyScore = 100,
+
             ),
         )
 
@@ -92,6 +163,8 @@ class ScoreCalculatorTest {
                 id = 1L, accountId = 1L, admissionType = admissionType,
                 graduationType = GraduationType.GED, academicRecord = record,
             ))
+            assertNull(breakdown.subjectBaseScore)
+            assertEquals(emptyMap<SchoolSemester, Double>(), breakdown.semesterScores)
             assertEquals(subjectScore, breakdown.subjectScore, 0.0)
             assertEquals(0.0, breakdown.attendanceScore, 0.0)
             assertEquals(0.0, breakdown.volunteerScore, 0.0)
@@ -112,7 +185,7 @@ class ScoreCalculatorTest {
                 scienceScore = 86,
                 societyScore = 100,
                 technologyScore = 96,
-                historyScore = 0,
+
             ),
         )
 
@@ -122,15 +195,15 @@ class ScoreCalculatorTest {
     }
 
     @Test
-    fun fillsMissingProspectiveSemestersWithAvailableScore() {
+    fun doesNotExpandMissingProspectiveSemesterWeights() {
         val record = AcademicRecord(
             subjectGrades = linkedMapOf(
                 SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
             ),
         )
 
-        assertEquals(155.0, calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, record), 0.0)
-        assertEquals(95.0, calculate(AdmissionType.SOCIAL, GraduationType.PROSPECTIVE, record), 0.0)
+        assertEquals(85.0, calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, record), 0.0)
+        assertEquals(55.0, calculate(AdmissionType.SOCIAL, GraduationType.PROSPECTIVE, record), 0.0)
     }
 
     @Test(expected = IllegalArgumentException::class)
@@ -155,7 +228,7 @@ class ScoreCalculatorTest {
     }
 
     @Test
-    fun fillsMissingGraduatedSemesterWithAverageOfReflectedScores() {
+    fun doesNotExpandMissingGraduatedSemesterWeights() {
         val record = AcademicRecord(
             subjectGrades = linkedMapOf(
                 SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
@@ -164,8 +237,8 @@ class ScoreCalculatorTest {
             ),
         )
 
-        assertEquals(155.0, calculate(AdmissionType.REGULAR, GraduationType.GRADUATED, record), 0.0)
-        assertEquals(95.0, calculate(AdmissionType.SOCIAL, GraduationType.GRADUATED, record), 0.0)
+        assertEquals(120.0, calculate(AdmissionType.REGULAR, GraduationType.GRADUATED, record), 0.0)
+        assertEquals(75.0, calculate(AdmissionType.SOCIAL, GraduationType.GRADUATED, record), 0.0)
     }
 
     @Test
@@ -238,6 +311,55 @@ class ScoreCalculatorTest {
                 admissionType = AdmissionType.REGULAR, academicRecord = AcademicRecord()))
         }
         assertEquals("졸업 구분이 누락되었습니다", failure.message)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsProspectiveThirdSemesterWithOnlyX() {
+        calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, AcademicRecord(
+            subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.X),
+                SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+            ),
+        ))
+    }
+
+    @Test
+    fun skipsAllXPreviousSemesterAndReflectsOlderSemester() {
+        val record = AcademicRecord(volunteerTime = 15, subjectGrades = linkedMapOf(
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.X),
+            SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to all(SubjectGrade.B),
+            SchoolSemester.FIRST_GRADE_SECOND_SEMESTER to all(SubjectGrade.C),
+        ))
+        assertEquals(149.0, calculate(AdmissionType.REGULAR, GraduationType.PROSPECTIVE, record), 0.0)
+        assertEquals(98.0, calculate(AdmissionType.SOCIAL, GraduationType.PROSPECTIVE, record), 0.0)
+    }
+
+    @Test
+    fun graduatedSchoolBreakdownCarriesExactEightyPointBase() {
+        val breakdown = calculator.calculateBreakdown(Applicant(id = 1L, accountId = 1L,
+            admissionType = AdmissionType.REGULAR, graduationType = GraduationType.GRADUATED,
+            academicRecord = AcademicRecord(subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+                SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+                SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.A),
+                SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+            )),
+        ))
+        assertEquals(80.0, breakdown.subjectBaseScore ?: -1.0, 0.0)
+        assertEquals(140.0, breakdown.subjectScore, 0.0)
+    }
+
+    @Test
+    fun optionalGedTechnologyIsExcludedButActualZeroIsIncluded() {
+        val five = GedScores(100, 100, 100, 100, 100)
+        val record = AcademicRecord(gedScores = five)
+        assertNull(five.technologyScore)
+        assertEquals(170.0, calculate(AdmissionType.REGULAR, GraduationType.GED, record), 0.0)
+        assertEquals(110.0, calculate(AdmissionType.SOCIAL, GraduationType.GED, record), 0.0)
+        val actualZero = record.copy(gedScores = five.copy(technologyScore = 0))
+        assertEquals(147.333, calculate(AdmissionType.REGULAR, GraduationType.GED, actualZero), 0.0)
+        assertEquals(95.333, calculate(AdmissionType.SOCIAL, GraduationType.GED, actualZero), 0.0)
     }
 
     private fun calculate(

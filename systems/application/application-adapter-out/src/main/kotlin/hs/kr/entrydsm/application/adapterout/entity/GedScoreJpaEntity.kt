@@ -37,11 +37,9 @@ open class GedScoreJpaEntity(
     @Column(name = "society_score", nullable = false)
     var societyScore: Int = 0,
 
-    @Column(name = "technology_score", nullable = false)
-    var technologyScore: Int = 0,
+    @Column(name = "technology_score")
+    var technologyScore: Int? = null,
 
-    @Column(name = "history_score", nullable = false)
-    var historyScore: Int = 0,
 ) {
     fun updateFrom(domain: GedScores) {
         koreanScore = domain.koreanScore
@@ -50,7 +48,6 @@ open class GedScoreJpaEntity(
         scienceScore = domain.scienceScore
         societyScore = domain.societyScore
         technologyScore = domain.technologyScore
-        historyScore = domain.historyScore
     }
 
     fun toDomain(): GedScores =
@@ -61,6 +58,5 @@ open class GedScoreJpaEntity(
             scienceScore = scienceScore,
             societyScore = societyScore,
             technologyScore = technologyScore,
-            historyScore = historyScore,
         )
 }

@@ -79,7 +79,7 @@ class PoiXlsxAdapter : XlsxRenderPort {
                     applicant.volunteerScore,
                 ).forEachIndexed { column, value -> cell(8, column + 1, value) }
 
-                cell(10, 7, applicant.gradeTotal())
+                cell(10, 7, applicant.subjectBaseScore)
 
                 val semesters = listOf(
                     applicant.thirdGradeSecondSemester,
@@ -89,7 +89,12 @@ class PoiXlsxAdapter : XlsxRenderPort {
                 )
                 repeat(7) { subjectIndex ->
                     semesters.forEachIndexed { semesterIndex, grades ->
-                        cell(11 + subjectIndex, 2 + semesterIndex, grades.values()[subjectIndex])
+                        val value = if (applicant.graduationStatus == "검정고시") {
+                            if (semesterIndex == 0) applicant.gedScores?.let {
+                                listOf(it.korean, it.society, null, it.math, it.science, it.technology, it.english)[subjectIndex]
+                            } else null
+                        } else grades.values()[subjectIndex]
+                        cell(11 + subjectIndex, 2 + semesterIndex, value)
                     }
                 }
                 cell(11, 7, applicant.awarded.mark())
@@ -97,10 +102,10 @@ class PoiXlsxAdapter : XlsxRenderPort {
                 cell(13, 7, applicant.additionalScore)
 
                 listOf(
-                    applicant.thirdGradeSecondSemester.scoreTotal(),
-                    applicant.thirdGradeFirstSemester.scoreTotal(),
-                    applicant.previousSemester.scoreTotal(),
-                    applicant.secondPreviousSemester.scoreTotal(),
+                    applicant.thirdGradeSecondSemesterScore,
+                    applicant.thirdGradeFirstSemesterScore,
+                    applicant.previousSemesterScore,
+                    applicant.secondPreviousSemesterScore,
                 ).forEachIndexed { column, value -> cell(18, column + 2, value) }
                 cell(18, 7, applicant.subjectScore)
                 cell(19, 7, applicant.totalScore)
@@ -145,20 +150,7 @@ class PoiXlsxAdapter : XlsxRenderPort {
         null -> null
     }
 
-    private fun FirstPassRow.gradeTotal(): Double? =
-        listOfNotNull(
-            thirdGradeSecondSemester.scoreTotal(),
-            thirdGradeFirstSemester.scoreTotal(),
-            previousSemester.scoreTotal(),
-            secondPreviousSemester.scoreTotal(),
-        )
-            .takeIf { it.isNotEmpty() }
-            ?.sum()
-
     private fun SemesterGrades.values() =
         listOf(korean, society, history, math, science, technology, english)
-
-    private fun SemesterGrades.scoreTotal(): Double? =
-        total ?: 0.0.takeIf { values().any { value -> value != null } }
 
 }

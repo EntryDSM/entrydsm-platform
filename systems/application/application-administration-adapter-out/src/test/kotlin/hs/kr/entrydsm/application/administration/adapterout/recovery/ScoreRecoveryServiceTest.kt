@@ -110,7 +110,7 @@ class ScoreRecoveryServiceTest {
         val sha = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(artifact)).joinToString("") { "%02x".format(it) }
         return ScoreRecoveryEvidence(saved.id!!, saved.accountId, saved.academicRecord!!.id!!, 3,
             GraduationType.GED, AdmissionType.REGULAR, EvidenceSource.OFFICIAL_DOCUMENT, "test-record", "test-operator",
-            artifact.toString(), sha, AcademicRecord(gedScores = GedScores(80, 81, 82, 83, 84, 85, 86)))
+            artifact.toString(), sha, AcademicRecord(gedScores = GedScores(80, 81, 82, 83, 84, 85)))
     }
 
     class FailingOutbox(private val delegate: ApplicantStatusOutboxAdapter) : ApplicantStatusEventOutbox {
@@ -123,9 +123,11 @@ class ScoreRecoveryServiceTest {
     @EnableJpaRepositories(basePackageClasses = [ApplicantJpaRepository::class])
     @Import(ApplicantPersistenceAdapter::class, ScoreRecoveryService::class)
     class Config {
+        // 최종 발표가 끝난 최종 합격자의 성적 복구를 본다.
+        @Bean fun finalPublication() = hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy { true }
         @Bean fun outbox(repository: ApplicantStatusOutboxJpaRepository) = FailingOutbox(ApplicantStatusOutboxAdapter(repository,
             SnapshotCipher("test", mapOf("test" to "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="))))
         @Bean fun application(repository: ApplicantRepository, outbox: ApplicantStatusEventOutbox): ApplicationPort =
-            ApplicationCommandService(repository, ApplicationPeriodReader { null }, AccountPhoneValidator { _, _ -> false }, outbox)
+            ApplicationCommandService(repository, ApplicationPeriodReader { null }, AccountPhoneValidator { _, _ -> false }, applicantStatusEventOutbox = outbox)
     }
 }

@@ -28,10 +28,20 @@ interface UpdateAdmissionQuotaUseCase {
 
 interface EvaluateFirstScreeningUseCase {
     fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult
+
+    /** 발표 전 개인의 합격 예정 상태만 변경한다. */
+    fun selectFirst(applicantId: Long) { error("지원하지 않는 개인 선발") }
+    fun cancelFirst(applicantId: Long) { error("지원하지 않는 개인 취소") }
+
+    /** 스케줄러가 부족분 보충 후 확정 결과를 공개한다. */
+    fun publishFirst(): ScreeningResult = error("지원하지 않는 발표")
 }
 
 interface EvaluateFinalScreeningUseCase {
     fun evaluateFinal(applicantId: Long): FinalScreeningResult
+
+    /** 최종 합격 발표 전에 1차 합격자나 최종 합격자 한 명을 최종 불합격으로 바꾼다. */
+    fun failFinal(applicantId: Long): FinalScreeningResult
 }
 
 interface ReadStatisticsUseCase {

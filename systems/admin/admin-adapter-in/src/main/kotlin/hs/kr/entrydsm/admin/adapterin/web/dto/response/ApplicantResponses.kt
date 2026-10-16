@@ -52,6 +52,7 @@ data class ApplicantDetailResponse(
     val photoFileId: String?,
     val introduction: String?,
     val studyPlan: String?,
+    val semesterScores: Map<String, Double> = emptyMap(),
 )
 
 data class ScoreResponse(

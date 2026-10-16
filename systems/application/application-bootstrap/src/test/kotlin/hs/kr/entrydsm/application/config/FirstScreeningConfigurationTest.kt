@@ -14,6 +14,7 @@ import hs.kr.entrydsm.application.administration.domain.schedule.port.out.Schedu
 import java.lang.reflect.Proxy
 import java.time.LocalDateTime
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 import org.springframework.boot.env.YamlPropertySourceLoader
 import org.springframework.context.annotation.AnnotationConfigApplicationContext
@@ -21,6 +22,25 @@ import org.springframework.core.env.MapPropertySource
 import org.springframework.core.io.ClassPathResource
 
 class FirstScreeningConfigurationTest {
+    @Test
+    fun `관리자 비활성화로 Clock 빈이 없어도 공개 정책을 생성한다`() {
+        val repository = hs.kr.entrydsm.application.administration.adapterout.repository.ScheduleJpaRepository::class.java.cast(
+            Proxy.newProxyInstance(javaClass.classLoader,
+                arrayOf(hs.kr.entrydsm.application.administration.adapterout.repository.ScheduleJpaRepository::class.java)) { _, method, _ ->
+                assertEquals("findByTitle", method.name); null
+            })
+        AnnotationConfigApplicationContext().use { context ->
+            context.environment.propertySources.addFirst(MapPropertySource("screening-disabled",
+                mapOf("application.administration.enabled" to "false")))
+            context.beanFactory.registerSingleton("scheduleJpaRepository", repository)
+            context.register(AdministrationConfig::class.java,
+                hs.kr.entrydsm.application.administration.adapterout.FirstScreeningPublicationAdapter::class.java)
+            context.refresh()
+            assertFalse(context.containsBean("administrationClock"))
+            assertFalse(context.getBean(hs.kr.entrydsm.application.administration.adapterout.FirstScreeningPublicationAdapter::class.java).isPublished())
+        }
+    }
+
     @Test
     fun `환경변수 미설정은 기본 2배수를 수동 자동 통계에 주입한다`() {
         verify(multiplier = null, passCount = 104, generalQuota = 64, socialQuota = 4, meisterQuota = 20, competition = 1.25)
@@ -32,18 +52,21 @@ class FirstScreeningConfigurationTest {
     }
 
     private fun verify(multiplier: String?, passCount: Int, generalQuota: Int, socialQuota: Int, meisterQuota: Int, competition: Double) {
-        val applicants = (1L..130L).map { Applicant(id = it, admissionType = AdmissionType.GENERAL, totalScore = 1000.0 - it) }
+        val applicants = (1L..130L).map { Applicant(id = it, admissionType = AdmissionType.GENERAL, totalScore = 1000.0 - it,
+            submittedAt = java.time.Instant.EPOCH) }
         val saved = mutableListOf<Applicant>()
         val repository = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(ApplicantRepository::class.java)) { _, method, args ->
             when (method.name) {
                 "findAll" -> applicants
                 "saveAll" -> (args[0] as List<Applicant>).also(saved::addAll)
+                "publishFirstResults" -> Unit
                 else -> error("unexpected call: ${method.name}")
             }
         } as ApplicantRepository
         val schedules = object : ScheduleRepository {
             override fun claimFirstScreening(title: String, now: LocalDateTime) = true
-            override fun findByTitle(title: String): Schedule? = error("unexpected query")
+            override fun findByTitle(title: String): Schedule? = Schedule(title = title,
+                startAt = LocalDateTime.of(2100, 1, 1, 0, 0), endAt = LocalDateTime.of(2100, 1, 2, 0, 0))
             override fun findByStartAtBetween(startAt: LocalDateTime, endAt: LocalDateTime): List<Schedule> = error("unexpected query")
             override fun save(schedule: Schedule): Schedule = error("unexpected save")
         }

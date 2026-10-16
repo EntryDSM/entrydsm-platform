@@ -26,9 +26,11 @@ import hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox
 import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
+import hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy
 import hs.kr.entrydsm.application.domain.enum.AdmissionType
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.enum.Gender
+import hs.kr.entrydsm.application.domain.enum.PassResultStatus
 import hs.kr.entrydsm.application.domain.enum.GraduationType
 import hs.kr.entrydsm.application.domain.enum.Region
 import hs.kr.entrydsm.application.domain.enum.SchoolSemester
@@ -49,6 +51,7 @@ class ApplicationCommandService(
     private val applicantRepository: ApplicantRepository,
     private val applicationPeriod: ApplicationPeriodReader,
     private val accountPhoneValidator: AccountPhoneValidator,
+    private val firstScreeningPublicationPolicy: FirstScreeningPublicationPolicy = FirstScreeningPublicationPolicy { false },
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
     private val scoreCalculator = ScoreCalculator()
@@ -169,23 +172,29 @@ class ApplicationCommandService(
         applicantRepository.findByAccountId(accountId)?.toSnapshot()
 
     override fun findApplicant(applicantId: Long): ApplicantResult? =
-        applicantRepository.findById(applicantId)?.recalculateMissingScore()?.toApplicantResult()
+        applicantRepository.findById(applicantId)?.recalculateScore()?.toApplicantResult()
 
-    override fun listApplicants(): List<ApplicantResult> =
-        applicantRepository.findSummariesByStatusIn(APPLIED_STATUSES).map { summary ->
-            if (summary.totalScore != null) summary else summary.copy(
-                totalScore = applicantRepository.findById(summary.applicantId)?.recalculateMissingScore()?.totalScore,
-            )
+    override fun listApplicants(): List<ApplicantResult> {
+        val summaries = applicantRepository.findSummariesByStatusIn(APPLIED_STATUSES)
+        val applicants = applicantRepository.findAllByAccountIdIn(summaries.map { it.accountId }.distinct())
+            .associateBy { it.id }
+        return summaries.map { summary ->
+            // 목록도 원서 출력과 같은 현재 성적을 기준으로 총점을 반환한다.
+            applicants[summary.applicantId]?.recalculateScore()?.let { applicant ->
+                summary.copy(totalScore = applicant.totalScore)
+            } ?: summary
         }
+    }
 
     override fun findApplicationForm(accountId: Long): ApplicationFormResult? =
-        applicantRepository.findByAccountId(accountId)?.recalculateMissingScore()?.toApplicationFormResult()
+        applicantRepository.findByAccountId(accountId)?.recalculateScore()?.toApplicationFormResult()
 
     override fun findApplicationForms(accountIds: List<Long>): List<ApplicationFormResult> =
-        applicantRepository.findAllByAccountIdIn(accountIds.distinct()).map { it.recalculateMissingScore().toApplicationFormResult() }
+        applicantRepository.findAllByAccountIdIn(accountIds.distinct()).map { it.recalculateScore().toApplicationFormResult() }
 
-    private fun Applicant.recalculateMissingScore(): Applicant {
-        if (totalScore != null || admissionType == null || graduationType == null || academicRecord == null) return this
+    /** 현재 성적으로 총점을 맞추고, 작성 중 성적 누락은 기존 정책대로 허용한다. */
+    private fun Applicant.recalculateScore(): Applicant {
+        if (admissionType == null || graduationType == null || academicRecord == null) return this
         val record = requireNotNull(academicRecord)
         if (graduationType != GraduationType.GED && record.subjectGrades.values.none { it.hasReflectedSubject() }) return this
         val calculated = try {
@@ -193,6 +202,9 @@ class ApplicationCommandService(
         } catch (_: IllegalArgumentException) {
             return this
         }
+        if (totalScore == calculated) return this
+        // 이미 저장된 점수는 조회 응답에서만 보정하여 버전 경합을 피한다.
+        if (totalScore != null) return copy(totalScore = calculated)
         totalScore = calculated
         totalScoreUpdatedAt = nowUtc()
         return applicantRepository.save(this)
@@ -218,7 +230,9 @@ class ApplicationCommandService(
     )
 
     private fun Applicant.toApplicationFormResult(): ApplicationFormResult {
-        val grades = academicRecord?.subjectGrades.orEmpty()
+        // 검정고시 전환 전에 남아 있던 학교 성적은 조회·출력에 전달하지 않는다.
+        val grades = if (graduationType == GraduationType.GED) emptyMap()
+            else academicRecord?.subjectGrades.orEmpty()
         /*
          * 서식 1 의 "직전학기"·"직전전학기" 는 절대 학기가 아니라 자유학기를 건너뛴 상대 순서다.
          * ScoreCalculator 가 반영 학기를 고르는 순서(2-2 → 2-1 → 1-2 → 1-1)와 같아야
@@ -255,7 +269,8 @@ class ApplicationCommandService(
             academicRecord = academicRecord,
             score = totalScore?.takeIf { admissionType != null }
                 ?.let {
-                    try { scoreCalculator.calculateBreakdown(this).copy(totalScore = it) }
+                    // 세부 점수와 총점은 같은 계산 결과를 사용한다.
+                    try { scoreCalculator.calculateBreakdown(this) }
                     catch (exception: IllegalArgumentException) {
                         throw hs.kr.entrydsm.application.application.exception.EvaluationValidationException(
                             "원서 성적 상세 계산에 필요한 데이터를 확인해 주세요.", exception,
@@ -272,10 +287,9 @@ class ApplicationCommandService(
                 ?.ifEmpty { "0" },
             studentNumber = middleSchoolInfo?.studentNumber,
             gedAverage = academicRecord?.gedScores?.let {
-                listOf(
+                listOfNotNull(
                     it.koreanScore,
                     it.societyScore,
-                    it.historyScore,
                     it.mathScore,
                     it.scienceScore,
                     it.technologyScore,
@@ -316,7 +330,7 @@ class ApplicationCommandService(
                 occurredAt = nowUtc(),
                 version = applicant.statusVersion + 1,
                 submittedAt = null,
-                passStatus = applicant.passStatus,
+                passStatus = applicant.toSnapshot().passStatus,
                 announcedAt = null,
                 deleted = true,
             ),
@@ -351,20 +365,23 @@ class ApplicationCommandService(
         saveTouched(applicant)
     }
 
-    private fun publishStatus(applicant: Applicant) = applicantStatusEventOutbox.add(
-        ApplicantStatusChanged(
-            accountId = applicant.accountId,
-            applicantId = applicant.id,
-            status = applicant.status,
-            occurredAt = applicant.updatedAt,
-            version = applicant.statusVersion,
-            submittedAt = applicant.submittedAt,
-            passStatus = applicant.passStatus,
-            announcedAt = applicant.announcedAt,
-            passResultType = applicant.passResultType,
-            applicationForm = applicant.takeIf { it.status in APPLIED_STATUSES }?.toApplicationFormResult(),
-        ),
-    )
+    private fun publishStatus(applicant: Applicant) {
+        val snapshot = applicant.toSnapshot()
+        applicantStatusEventOutbox.add(
+            ApplicantStatusChanged(
+                accountId = applicant.accountId,
+                applicantId = applicant.id,
+                status = applicant.status,
+                occurredAt = applicant.updatedAt,
+                version = applicant.statusVersion,
+                submittedAt = applicant.submittedAt,
+                passStatus = snapshot.passStatus,
+                announcedAt = snapshot.announcedAt,
+                passResultType = snapshot.passResultType,
+                applicationForm = applicant.takeIf { it.status in APPLIED_STATUSES }?.toApplicationFormResult(),
+            ),
+        )
+    }
 
     fun updatePersonal(
         accountId: Long?,
@@ -470,15 +487,18 @@ class ApplicationCommandService(
         return applicantRepository.save(applicant)
     }
 
-    private fun Applicant.toSnapshot(): ApplicationSnapshotResult = ApplicationSnapshotResult(
-        accountId = accountId,
-        applicantStatus = status,
-        submittedAt = submittedAt,
-        updatedAt = updatedAt,
-        passStatus = passStatus,
-        announcedAt = announcedAt,
-        passResultType = passResultType,
-    )
+    private fun Applicant.toSnapshot(): ApplicationSnapshotResult {
+        val published = firstScreeningPublicationPolicy.isPublished()
+        return ApplicationSnapshotResult(
+            accountId = accountId,
+            applicantStatus = status,
+            submittedAt = submittedAt,
+            updatedAt = updatedAt,
+            passStatus = if (published) passStatus else PassResultStatus.PENDING,
+            announcedAt = if (published) announcedAt else null,
+            passResultType = if (published) passResultType else null,
+        )
+    }
 
     companion object {
         private const val NEW_APPLICANT_ID = 0L

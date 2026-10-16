@@ -26,6 +26,37 @@ class DocumentPassCalculator(private val multiplier: Double = 2.0) {
             scaledQuota(quota + if (type == AdmissionType.REGULAR) SECOND_PASS_QUOTA else 0)
         }
 
+    /** 기존 정원 상수에 동일한 배수를 적용한다. */
+    fun totalFirstPassQuota(): Int = scaledQuota(DOCUMENT_PASS_QUOTAS.values.sum() + SECOND_PASS_QUOTA)
+
+    /** 기존 합격자를 보존하고 전형별 잔여 정원과 후순위만 보충한다. */
+    fun supplement(applicants: List<Applicant>, existingPassIds: Set<Long>): Map<Long, PassResultStatus> {
+        val passedIds = existingPassIds.toMutableSet()
+        val ranked = applicants.filter { it.admissionType != null && it.totalScore != null }
+            .sortedWith(compareByDescending<Applicant> { it.totalScore }.thenBy { it.id })
+        // 기존 합격자를 제외하고 잔여 정원만 선발한다.
+        fun select(eligibleApplicants: List<Applicant>, quota: Int) {
+            eligibleApplicants.filter { it.id !in passedIds }
+                .take(minOf(quota.coerceAtLeast(0), (totalFirstPassQuota() - passedIds.size).coerceAtLeast(0)))
+                .mapTo(passedIds) { it.id }
+        }
+        DOCUMENT_PASS_QUOTAS.forEach { (type, quota) ->
+            val eligibleApplicants = ranked.filter { it.admissionType == type }
+            val selected = applicants.filter { it.admissionType == type && it.id in passedIds }
+            if (type == AdmissionType.REGULAR) {
+                val daejeon = eligibleApplicants.filter { it.region == Region.DAEJEON }
+                select(daejeon, minOf(scaledQuota(DAEJEON_PRIORITY_QUOTA) - selected.count { it.region == Region.DAEJEON },
+                    scaledQuota(quota) - selected.size))
+            }
+            select(eligibleApplicants, scaledQuota(quota) - applicants.count { it.admissionType == type && it.id in passedIds })
+        }
+        val existingOverflow = DOCUMENT_PASS_QUOTAS.entries.sumOf { (type, quota) ->
+            (applicants.count { it.id in existingPassIds && it.admissionType == type } - scaledQuota(quota)).coerceAtLeast(0)
+        }
+        select(ranked, scaledQuota(SECOND_PASS_QUOTA) - existingOverflow)
+        return applicants.associate { it.id to if (it.id in passedIds) PassResultStatus.PASS else PassResultStatus.FAIL }
+    }
+
     /** 기준 정원에 설정 배수를 적용해 올림한다. 지역은 원서의 region을 기준으로 한다. */
     fun calculate(applicants: List<Applicant>): Map<Long, PassResultStatus> {
         if (applicants.size <= scaledQuota(DOCUMENT_PASS_QUOTAS.values.sum() + SECOND_PASS_QUOTA)) {
@@ -36,13 +67,13 @@ class DocumentPassCalculator(private val multiplier: Double = 2.0) {
             .sortedWith(compareByDescending<Applicant> { it.totalScore }.thenBy { it.id })
         val passedIds = hashSetOf<Long>()
         DOCUMENT_PASS_QUOTAS.forEach { (type, quota) ->
-            val candidates = ranked.filter { it.admissionType == type }
+            val eligibleApplicants = ranked.filter { it.admissionType == type }
             if (type == AdmissionType.REGULAR) {
-                candidates.filter { it.region == Region.DAEJEON }.take(scaledQuota(DAEJEON_PRIORITY_QUOTA))
+                eligibleApplicants.filter { it.region == Region.DAEJEON }.take(scaledQuota(DAEJEON_PRIORITY_QUOTA))
                     .mapTo(passedIds) { it.id }
             }
-            val selectedCount = candidates.count { it.id in passedIds }
-            candidates.filter { it.id !in passedIds }.take(scaledQuota(quota) - selectedCount)
+            val selectedCount = eligibleApplicants.count { it.id in passedIds }
+            eligibleApplicants.filter { it.id !in passedIds }.take(scaledQuota(quota) - selectedCount)
                 .mapTo(passedIds) { it.id }
         }
         // 전형별 미달 인원을 이월하지 않고 후순위 정원만 추가 선발한다.

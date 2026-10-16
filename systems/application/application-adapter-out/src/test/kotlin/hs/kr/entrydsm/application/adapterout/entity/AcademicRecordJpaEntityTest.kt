@@ -85,6 +85,39 @@ class AcademicRecordJpaEntityTest {
         assertNull(entity.gedScores)
     }
 
+    @Test
+    fun gedPersistenceKeepsNullAndActualZeroDistinct() {
+        val entity = AcademicRecordJpaEntity()
+        entity.updateFrom(AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100)))
+        assertNull(entity.gedScores?.technologyScore)
+        assertNull(entity.toDomain().gedScores?.technologyScore)
+        entity.updateFrom(AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 0)))
+        assertEquals(0, entity.gedScores?.technologyScore)
+        assertEquals(0, entity.toDomain().gedScores?.technologyScore)
+    }
+
+    @Test
+    fun gedMigrationPreservesActualZeroAllowsNullAndDropsHistory() {
+        val sql = requireNotNull(javaClass.getResourceAsStream("/db/migration/V019__make_ged_technology_optional_and_remove_history.sql")).bufferedReader().use { it.readText() }
+        java.sql.DriverManager.getConnection("jdbc:h2:mem:ged432;MODE=MySQL;DB_CLOSE_DELAY=-1").use { connection ->
+            connection.createStatement().use { statement ->
+                statement.execute("CREATE TABLE ged_scores (id BIGINT PRIMARY KEY, technology_score INT NOT NULL DEFAULT 0, history_score INT NOT NULL)")
+                statement.execute("INSERT INTO ged_scores VALUES (1, 0, 95)")
+                sql.split(';').map(String::trim).filter(String::isNotEmpty).forEach { statement.execute(it) }
+                statement.executeQuery("SELECT technology_score FROM ged_scores WHERE id=1").use { result ->
+                    result.next(); assertEquals(0, result.getInt(1)); org.junit.Assert.assertFalse(result.wasNull())
+                }
+                statement.execute("INSERT INTO ged_scores(id,technology_score) VALUES(2,NULL)")
+                statement.executeQuery("SELECT technology_score FROM ged_scores WHERE id=2").use { result ->
+                    result.next(); assertNull(result.getObject(1))
+                }
+                connection.metaData.getColumns(null, null, "GED_SCORES", "HISTORY_SCORE").use { columns ->
+                    org.junit.Assert.assertFalse(columns.next())
+                }
+            }
+        }
+    }
+
     private fun subjectGrades(grade: SubjectGrade): SubjectGrades =
         SubjectGrades(
             koreanGrade = grade,
@@ -104,6 +137,6 @@ class AcademicRecordJpaEntityTest {
             scienceScore = score,
             societyScore = score,
             technologyScore = score,
-            historyScore = score,
+
         )
 }

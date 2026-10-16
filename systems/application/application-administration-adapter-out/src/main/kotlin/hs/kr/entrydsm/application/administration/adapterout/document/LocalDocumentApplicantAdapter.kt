@@ -100,10 +100,10 @@ class LocalDocumentApplicantAdapter(private val applications: ApplicationPort) :
             ApplicationForm.SemesterGrades(
                 korean = it.korean.toString(),
                 society = it.society.toString(),
-                history = it.history.toString(),
+                history = "",
                 math = it.math.toString(),
                 science = it.science.toString(),
-                technology = it.technology.toString(),
+                technology = it.technology.takeIf { _ -> it.hasTechnology() }?.toString().orEmpty(),
                 english = it.english.toString(),
             )
         },

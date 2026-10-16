@@ -33,6 +33,25 @@ import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedE
 
 class ApplicationControllerTest {
     @Test
+    fun middleSchoolPassesLiteralDashForBothContactFields() {
+        var command: UpdateMiddleSchoolCommand? = null
+        val port = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader, arrayOf(ApplicationPort::class.java)) { _, method, args ->
+            assertEquals("updateMiddleSchool", method.name)
+            command = args[0] as UpdateMiddleSchoolCommand
+            Unit
+        } as ApplicationPort
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(port))
+            .setMessageConverters(org.springframework.http.converter.json.JacksonJsonHttpMessageConverter(tools.jackson.module.kotlin.jacksonMapperBuilder().build()))
+            .setControllerAdvice(GlobalExceptionHandler()).build()
+        val response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/application/v11/applicants/middle-school")
+            .header("X-USER-ID", "10").contentType("application/json")
+            .content("""{"schoolCode":"code","schoolName":"학교","studentNumber":"30101","schoolPhone":"-","teacherName":"-"}""")).andReturn().response
+        assertEquals(200, response.status)
+        assertEquals("-", command!!.schoolPhone)
+        assertEquals("-", command!!.teacherName)
+    }
+
+    @Test
     fun fieldErrorsReturnSpecificCodesWithoutInputDetails() {
         val mapper = tools.jackson.module.kotlin.jacksonMapperBuilder().build()
         val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(FakeApplicationPort()))

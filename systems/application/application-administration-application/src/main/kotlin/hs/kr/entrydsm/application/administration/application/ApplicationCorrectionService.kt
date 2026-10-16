@@ -36,6 +36,67 @@ class ApplicationCorrectionService(
 ) : CorrectApplicationUseCase {
     private val editor = ApplicationFormEditor(phoneValidator)
 
+    /** 예비 결과도 수정 제한에 포함하며 PATCH와 같은 조건을 적용한다. */
+    override fun editableFields(applicantId: Long): EditableApplicationFields {
+        require(applicantId > 0)
+        val state = states.lock(applicantId)
+        val original = applicants.findForUpdate(applicantId)
+            ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
+        val editable = canCorrect(original, state)
+        return EditableApplicationFields(original.toFormFields(),
+            if (editable) null else "제출 또는 접수된 원서이며 전형 결과가 없어야 수정할 수 있습니다.")
+    }
+
+    /** PATCH와 같은 필드 이름으로 원서의 현재 값을 제공하며 내부 상태는 노출하지 않는다. */
+    private fun Applicant.toFormFields(): ApplicationFormChanges = ApplicationFormChanges(
+        admissionType = admissionType?.let { if (it == AdmissionType.REGULAR) "GENERAL" else it.name },
+        region = region?.let { if (it == Region.NATIONAL) "NATIONWIDE" else it.name },
+        graduationType = graduationType?.name,
+        graduationDate = graduationDate?.toString(),
+        photoFileId = photoFileId,
+        name = name,
+        phoneNumber = phoneNumber,
+        gender = gender?.name,
+        birthdate = birthdate?.toString(),
+        specialAdmissionType = specialAdmissionType.name,
+        guardianName = guardianName,
+        guardianPhoneNumber = guardianPhoneNumber,
+        guardianGender = guardianGender?.name,
+        guardianRelation = guardianRelation,
+        zipCode = zipCode,
+        addressBase = addressBase,
+        addressDetail = addressDetail,
+        introduction = introduction,
+        studyPlan = studyPlan,
+        school = middleSchoolInfo?.let {
+            SchoolCorrection(it.schoolCode, it.schoolName, it.studentNumber, it.schoolPhone, it.teacherName)
+        },
+        academicRecord = academicRecord?.let { record ->
+            AcademicRecordCorrection(
+                absentCount = record.absentCount,
+                lateCount = record.lateCount,
+                earlyLeaveCount = record.earlyLeaveCount,
+                classAbsenceCount = record.classAbsenceCount,
+                volunteerTime = record.volunteerTime,
+                dsmAlgorithmAwarded = record.isDsmAlgorithmAwarded,
+                programmingCertified = record.isProgrammingCertified,
+                subjectGrades = record.subjectGrades.mapKeys { it.key.name }.mapValues { (_, grades) ->
+                    SubjectGradesCorrection(grades.koreanGrade.name, grades.mathGrade.name, grades.englishGrade.name,
+                        grades.scienceGrade.name, grades.societyGrade.name, grades.technologyGrade.name, grades.historyGrade.name)
+                },
+                gedScores = record.gedScores?.let {
+                    GedScoresCorrection(it.koreanScore, it.mathScore, it.englishScore, it.scienceScore,
+                        it.societyScore, it.technologyScore)
+                },
+            )
+        },
+    )
+
+    /** 조회 직후 상태가 달라질 수 있으므로 정정에서도 다시 검사한다. */
+    private fun canCorrect(original: Applicant, state: ApplicationCorrectionState): Boolean =
+        original.status in setOf(ApplicantStatus.SUBMITTED, ApplicantStatus.ARRIVAL) &&
+            original.passResultType == null && !state.hasResult
+
     override fun correct(command: CorrectApplicationCommand, editorId: String): ApplicationCorrectionResult {
         if (editorId.isBlank()) throw AdminDomainException(ErrorCode.AUTH_UNAUTHORIZED)
         require(command.applicantId > 0)
@@ -43,8 +104,7 @@ class ApplicationCorrectionService(
         val state = states.lock(command.applicantId)
         val original = applicants.findForUpdate(command.applicantId)
             ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)
-        if (original.status !in setOf(ApplicantStatus.SUBMITTED, ApplicantStatus.ARRIVAL) ||
-            original.passResultType != null || state.hasResult) {
+        if (!canCorrect(original, state)) {
             throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
         // 원본과 분리한 성적 기록에서 검증해 실패한 요청이 원본 객체를 바꾸지 않도록 한다.
@@ -133,7 +193,7 @@ class ApplicationCorrectionService(
                     SubjectGrades(SubjectGrade.valueOf(g.korean), SubjectGrade.valueOf(g.math), SubjectGrade.valueOf(g.english),
                         SubjectGrade.valueOf(g.science), SubjectGrade.valueOf(g.society), SubjectGrade.valueOf(g.technology), SubjectGrade.valueOf(g.history))
                 }.toMutableMap(), record.gedScores?.let { g -> GedScores(requireNotNull(g.korean), requireNotNull(g.math), requireNotNull(g.english),
-                    requireNotNull(g.science), requireNotNull(g.society), requireNotNull(g.technology), requireNotNull(g.history)) })
+                    requireNotNull(g.science), requireNotNull(g.society), g.technology) })
             a.academicRecord!!.subjectGrades.forEach { (semester, grades) ->
                 hs.kr.entrydsm.application.application.service.validateSchoolGrades(semester, grades)
             }
@@ -143,8 +203,7 @@ class ApplicationCorrectionService(
         if (a.graduationType != GraduationType.GED && c.graduationType != null) require(a.middleSchoolInfo != null)
     }
 
-    private fun changedFields(before: Applicant, after: Applicant): Set<String> {
-        fun values(a: Applicant): Map<String, Any?> = linkedMapOf(
+    private fun values(a: Applicant): Map<String, Any?> = linkedMapOf(
             "admissionType" to a.admissionType, "region" to a.region, "graduationType" to a.graduationType,
             "graduationDate" to a.graduationDate, "photoFileId" to a.photoFileId, "name" to a.name,
             "phoneNumber" to a.phoneNumber, "gender" to a.gender, "birthdate" to a.birthdate,
@@ -154,6 +213,7 @@ class ApplicationCorrectionService(
             "addressDetail" to a.addressDetail, "introduction" to a.introduction, "studyPlan" to a.studyPlan,
             "school" to a.middleSchoolInfo?.copy(schoolAddress = null), "academicRecord" to a.academicRecord,
         )
+    private fun changedFields(before: Applicant, after: Applicant): Set<String> {
         val old = values(before)
         return values(after).filter { (key, value) -> old[key] != value }.keys
     }

@@ -30,6 +30,12 @@ interface ApplicantRepository {
 
     fun saveAll(applicants: List<Applicant>): List<Applicant>
 
+    /** 이미 저장된 예비 결과도 발표 시 지원자에게 동기화한다. */
+    fun publishFirstResults(processedAt: Instant) = Unit
+
+    /** 최종 발표 전에 등록한 2차 결과를 발표 시 지원자에게 동기화한다. */
+    fun publishFinalResults(processedAt: Instant) = Unit
+
     fun deleteById(applicantId: Long) = Unit
 
     fun findFirstPassRows(): List<FirstPassRow> = emptyList()

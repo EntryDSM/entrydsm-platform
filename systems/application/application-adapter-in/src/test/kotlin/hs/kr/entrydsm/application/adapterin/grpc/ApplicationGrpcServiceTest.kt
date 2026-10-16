@@ -248,7 +248,7 @@ class ApplicationGrpcServiceTest {
             gedScores = GedScores(
                 koreanScore = 95,
                 societyScore = 90,
-                historyScore = 85,
+
                 mathScore = 80,
                 scienceScore = 75,
                 technologyScore = 70,
@@ -279,9 +279,9 @@ class ApplicationGrpcServiceTest {
         assertEquals("대덕중학교", found.middleSchool.name)
         assertEquals("김선생", found.middleSchool.teacherName)
         assertEquals("대전광역시 대덕구 중리로 1", found.middleSchool.address)
-        // 성취도 미이수(X)는 요강에 없는 값이라 빈 문자열로 나가 칸이 빈다.
+        // 성취도 미이수(X)는 출력에서도 X로 유지한다.
         assertEquals("A", found.thirdGradeFirstSemester.korean)
-        assertEquals("", found.thirdGradeFirstSemester.math)
+        assertEquals("X", found.thirdGradeFirstSemester.math)
         assertEquals(30, found.academicRecord.volunteerTime)
         assertTrue(found.academicRecord.dsmAlgorithmAwarded)
         assertFalse(found.academicRecord.programmingCertified)
@@ -300,8 +300,8 @@ class ApplicationGrpcServiceTest {
         assertEquals(95.5, found.gedAverage, 0.0)
         // 과목 순서가 도메인과 proto 에서 달라 과목마다 다른 점수로 본다.
         assertEquals(
-            listOf(95, 90, 85, 80, 75, 70, 65),
-            with(found.gedScores) { listOf(korean, society, history, math, science, technology, english) },
+            listOf(95, 90, 80, 75, 70, 65),
+            with(found.gedScores) { listOf(korean, society, math, science, technology, english) },
         )
         assertEquals("1", found.admissionTypeCode)
         assertEquals("1", found.regionCode)
@@ -309,6 +309,17 @@ class ApplicationGrpcServiceTest {
 
         assertEquals(Status.Code.NOT_FOUND, missing.status.code)
         assertEquals(Status.Code.INVALID_ARGUMENT, invalid.status.code)
+
+        listOf(null, 0).forEach { technology ->
+            port.form = port.form!!.copy(gedScores = port.form!!.gedScores!!.copy(technologyScore = technology))
+            val optional = stub.getApplicationForm(GetApplicationFormRequest.newBuilder().setAccountId(USER_ID).build()).gedScores
+            assertEquals(technology != null, optional.hasTechnology())
+            if (technology != null) assertEquals(0, optional.technology)
+        }
+        val descriptor = hs.kr.entrydsm.application.grpc.GedScores.getDescriptor()
+        assertEquals(null, descriptor.findFieldByName("history"))
+        assertTrue(descriptor.toProto().reservedNameList.contains("history"))
+        assertTrue(descriptor.toProto().reservedRangeList.any { it.start == 3 && it.end == 4 })
 
         // 기관코드 표에 주소가 없는 학교는 주소를 담지 않아 출신지역 칸이 빈다.
         port.form = port.form?.copy(

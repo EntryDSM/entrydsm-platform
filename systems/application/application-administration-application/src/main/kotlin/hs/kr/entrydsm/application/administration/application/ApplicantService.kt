@@ -35,6 +35,9 @@ class ApplicantService(
     private val applicantDeletionPort: ApplicantDeletionPort = ApplicantDeletionPort {},
     private val distancePort: DistancePort,
     private val clock: Clock,
+    private val screening: hs.kr.entrydsm.admin.domain.port.`in`.EvaluateFirstScreeningUseCase? = null,
+    private val publication: hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy? = null,
+    private val schedules: hs.kr.entrydsm.application.administration.domain.schedule.port.out.ScheduleRepository? = null,
 ) : ReadApplicantUseCase,
     UpdateApplicantUseCase,
     IssueExamineeNumberUseCase,
@@ -72,6 +75,12 @@ class ApplicantService(
 
     @Transactional
     override fun updateStatus(command: UpdateApplicantStatusCommand) {
+        // 지원자 조회 전에 잠가 이전 정원 스냅샷으로 동시에 선발하지 않도록 한다.
+        if (command.status in setOf(hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FIRST_PASS,
+                hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FIRST_FAIL)) {
+            schedules?.findByTitleForUpdate("1차 합격 발표")
+                ?: throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        }
         val applicant = requireApplicant(command.applicantId)
 
         if (command.force) {
@@ -87,6 +96,21 @@ class ApplicantService(
                 command.reason,
             )
         } else if (!applicant.status.canTransitionTo(command.status)) {
+            throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+        }
+
+        // 기존 강제 상태 변경도 예비 선발의 정원·발표 잠금을 우회하지 못하게 한다.
+        if (command.status in setOf(hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FIRST_PASS,
+                hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FIRST_FAIL)) {
+            val first = screening ?: throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
+            if (command.status == hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FIRST_PASS) first.selectFirst(command.applicantId)
+            else first.cancelFirst(command.applicantId)
+            return
+        }
+        if ((command.status == hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.PENDING &&
+                applicant.status != hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.PENDING) ||
+            (command.status in setOf(hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FINAL_PASS,
+                hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FINAL_FAIL) && publication?.isPublished() != true)) {
             throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
 

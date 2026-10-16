@@ -62,6 +62,26 @@ class ApplicationCorrectionAdapterTest {
         audits.deleteAll(); outbox.deleteAll(); screening.deleteAll(); applicants.deleteAll()
     }
 
+    @Test fun applicantSchoolContactKeepsLiteralDashInDatabaseAndReadback() {
+        val original = fixture()
+        schoolCodes.saveAndFlush(hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity(
+            "SCHOOL1", "학교", "학교", null, "학교 주소", null, null))
+        val entity = applicants.findById(original.id).get()
+        entity.status = ApplicantStatus.DRAFT
+        entity.graduationType = GraduationType.PROSPECTIVE
+        applicants.saveAndFlush(entity)
+        val applicantService = ApplicationCommandService(persistence,
+            ApplicationPeriodReader { java.time.Instant.now().minusSeconds(60)..java.time.Instant.now().plusSeconds(60) },
+            AccountPhoneValidator { _, _ -> true })
+        applicantService.updateMiddleSchool(original.accountId, "SCHOOL1", "학교", "30101", "-", "-")
+        val stored = applicants.findById(original.id).get().middleSchoolInfo!!
+        assertEquals("-", stored.schoolPhone)
+        assertEquals("-", stored.teacherName)
+        val school = persistence.findByAccountId(original.accountId)!!.middleSchoolInfo!!
+        assertEquals("-", school.schoolPhone)
+        assertEquals("-", school.teacherName)
+    }
+
     @Test fun updatesTypeScoreAddressAndAuditInOneTransaction() {
         val original = fixture()
         val result = service.correct(command(original, ApplicationFormChanges(admissionType = "MEISTER", addressBase = "수정 주소")), "operator-10")
@@ -82,6 +102,38 @@ class ApplicationCorrectionAdapterTest {
         assertFalse(audit.changedFields.contains("수정 주소"))
     }
 
+    @Test fun detailUsesCommonSemesterBreakdownAndPreservesGedAndInvalidScoreContracts() {
+        val original = fixture()
+        val ged = administration.findDetailById(original.id)!!
+        assertEquals(emptyMap<String, Double>(), ged.semesterScores)
+        assertEquals(100, ged.gedScores!!.korean)
+        assertEquals(100, ged.gedScores!!.technology)
+        assertEquals(170.0, ged.score!!.totalScore, 0.0)
+        fun grades(value: String) = value.map { SubjectGrade.valueOf(it.toString()) }.let {
+            SubjectGrades(it[0], it[1], it[2], it[3], it[4], it[5], it[6])
+        }
+        val school = original.copy(graduationType = GraduationType.PROSPECTIVE, totalScore = 149.0,
+            academicRecord = AcademicRecord(volunteerTime = 15, subjectGrades = linkedMapOf(
+                SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to grades("ABAAAXX"),
+                SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to grades("ABBEAXX"),
+                SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to grades("ACCDAXX"),
+            )))
+        persistence.save(school)
+        val detail = administration.findDetailById(original.id)!!
+        assertEquals(setOf("THIRD_GRADE_FIRST_SEMESTER", "SECOND_GRADE_SECOND_SEMESTER", "SECOND_GRADE_FIRST_SEMESTER"), detail.semesterScores.keys)
+        assertEquals(38.4, detail.semesterScores.getValue("THIRD_GRADE_FIRST_SEMESTER"), 0.0000001)
+        assertEquals(15.2, detail.semesterScores.getValue("SECOND_GRADE_SECOND_SEMESTER"), 0.0000001)
+        assertEquals(14.4, detail.semesterScores.getValue("SECOND_GRADE_FIRST_SEMESTER"), 0.0000001)
+        assertEquals(68.0, detail.semesterScores.values.sum(), 0.0000001)
+        assertEquals(119.0, detail.score!!.subjectScore, 0.0)
+        assertEquals(149.0, detail.score!!.totalScore, 0.0)
+        assertNull(detail.gedScores)
+        assertEquals(149.0, administration.findById(original.id)!!.totalScore!!, 0.0)
+        assertNull(administration.findDetailById(Long.MAX_VALUE))
+        persistence.save(school.copy(academicRecord = AcademicRecord()))
+        assertError(ErrorCode.APPLICATION_SCORE_INVALID) { administration.findDetailById(original.id) }
+    }
+
     @Test fun convertsGedToSchoolWithRequiredGradesAndKeepsRecordIdentity() {
         val original = fixture()
         schoolCodes.saveAndFlush(hs.kr.entrydsm.application.adapterout.entity.InstitutionCodeJpaEntity(
@@ -91,11 +143,13 @@ class ApplicationCorrectionAdapterTest {
             graduationType = "PROSPECTIVE", graduationDate = "2027-02",
             school = SchoolCorrection("SCHOOL1", "테스트학교", "30101", "042-123-4567", "테스트교사"),
             academicRecord = AcademicRecordCorrection(0, 0, 0, 0, 15, false, false,
-                mapOf("THIRD_GRADE_FIRST_SEMESTER" to SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A"))),
+                mapOf("THIRD_GRADE_FIRST_SEMESTER" to SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A"),
+                    "SECOND_GRADE_SECOND_SEMESTER" to SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A"),
+                    "SECOND_GRADE_FIRST_SEMESTER" to SubjectGradesCorrection("A", "A", "A", "A", "A", "A", "A"))),
         )), "operator-10")
         val saved = persistence.findById(original.id)!!
         assertNull(saved.academicRecord!!.gedScores)
-        assertEquals(170.0, saved.totalScore!!, 0.0)
+        assertEquals(100.0, saved.totalScore!!, 0.0)
         assertEquals("테스트학교", saved.middleSchoolInfo!!.schoolName)
         assertEquals("학교 주소", saved.middleSchoolInfo!!.schoolAddress)
         assertEquals("학교 주소", failing.lastEvent!!.applicationForm!!.middleSchool!!.schoolAddress)
@@ -259,7 +313,7 @@ class ApplicationCorrectionAdapterTest {
 
     private fun fixture(): Applicant = applicants.saveAndFlush(ApplicantJpaEntity.from(Applicant(
         id = 0, accountId = 10, admissionType = AdmissionType.REGULAR, region = Region.DAEJEON,
-        graduationType = GraduationType.GED, academicRecord = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 100, 100)),
+        graduationType = GraduationType.GED, academicRecord = AcademicRecord(gedScores = GedScores(100, 100, 100, 100, 100, 100)),
         photoFileId = "photo_test", name = "테스트지원자", phoneNumber = "010-1234-5678", gender = Gender.MALE,
         birthdate = LocalDate.of(2010, 1, 1), guardianName = "테스트보호자", guardianPhoneNumber = "010-9876-5432",
         guardianGender = Gender.FEMALE, guardianRelation = "모", zipCode = "12345", addressBase = "기존 주소", addressDetail = "상세 주소",
@@ -292,6 +346,6 @@ class ApplicationCorrectionAdapterTest {
                 SnapshotCipher("test", mapOf("test" to "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="))))
         @Bean fun phoneValidator() = AccountPhoneValidator { _, _ -> true }
         @Bean fun application(repository: ApplicantRepository, writes: FailingWrites): ApplicationPort =
-            ApplicationCommandService(repository, ApplicationPeriodReader { null }, phoneValidator(), writes)
+            ApplicationCommandService(repository, ApplicationPeriodReader { null }, phoneValidator(), applicantStatusEventOutbox = writes)
     }
 }

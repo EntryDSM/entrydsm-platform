@@ -32,6 +32,10 @@ class AdministrationGrpcService(
 ) : AdministrationServiceGrpc.AdministrationServiceImplBase() {
     private val mapper = JsonMapper.builder().addModule(KotlinModule.Builder().build()).build()
     private val correctionMapper = JsonMapper.builder().addModule(KotlinModule.Builder().build())
+        // 관리자 수정에서도 빈 문자열을 선택 점수의 null로 바꾸지 않는다.
+        .withCoercionConfig(tools.jackson.databind.type.LogicalType.Integer) {
+            it.setCoercion(tools.jackson.databind.cfg.CoercionInputShape.EmptyString, tools.jackson.databind.cfg.CoercionAction.Fail)
+        }
         .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
         .enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES).build()
 
@@ -51,6 +55,17 @@ class AdministrationGrpcService(
         respond(request, observer) {
             corrections.correct(correctionMapper.readValue(request.commandJson, CorrectApplicationCommand::class.java), request.userId)
         }
+
+    override fun readEditableApplicationFields(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { corrections.editableFields(request.applicantId()) }
+
+    /** 지원자 한 명을 1차 합격자로 지정한다. */
+    override fun selectFirstApplicant(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { first.selectFirst(request.applicantId()) }
+
+    /** 지원자 한 명의 1차 합격 지정을 취소한다. */
+    override fun cancelFirstApplicant(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { first.cancelFirst(request.applicantId()) }
 
     override fun issueExamineeNumbers(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { numbers.issueAll() }
@@ -75,6 +90,9 @@ class AdministrationGrpcService(
 
     override fun evaluateFinalScreening(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { final.evaluateFinal(request.applicantId()) }
+
+    override fun failFinalScreening(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
+        respond(request, observer) { final.failFinal(request.applicantId()) }
 
     override fun collectStatistics(request: AdministrationRequest, observer: StreamObserver<AdministrationResponse>) =
         respond(request, observer) { statistics.collect(request.read<StatisticsQuery>().metrics) }

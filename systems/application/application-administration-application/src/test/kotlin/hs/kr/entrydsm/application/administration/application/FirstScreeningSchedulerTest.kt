@@ -17,7 +17,7 @@ class FirstScreeningSchedulerTest {
     private val announcementInstant = Instant.parse("2026-10-30T01:00:00Z")
 
     @Test
-    fun `서울 발표시각 직전에는 산출하지 않고 정확한 시각에 저장 산출을 요청한다`() {
+    fun `서울 발표시각 직전에는 처리하지 않고 정확한 시각에 발표를 요청한다`() {
         val schedules = Schedules()
         val screening = Screening()
         scheduler(schedules, screening, announcementInstant.minusNanos(1)).evaluateDue()
@@ -61,6 +61,7 @@ class FirstScreeningSchedulerTest {
     fun `산출 실패는 트랜잭션이 취소할 수 있도록 호출자에게 전파한다`() {
         val screening = object : EvaluateFirstScreeningUseCase {
             override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult = error("저장 실패")
+            override fun publishFirst(): ScreeningResult = error("저장 실패")
         }
         assertThrows(IllegalStateException::class.java) {
             scheduler(Schedules(), screening, announcementInstant).evaluateDue()
@@ -88,9 +89,10 @@ class FirstScreeningSchedulerTest {
 
     private class Screening : EvaluateFirstScreeningUseCase {
         val commands = mutableListOf<EvaluateScreeningCommand>()
-        override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult {
-            commands += command
-            return ScreeningResult(command.dryRun, 0, 0, 0, Instant.EPOCH)
+        override fun evaluateFirst(command: EvaluateScreeningCommand): ScreeningResult = error("발표 스케줄러는 예비 산출을 호출하면 안 된다")
+        override fun publishFirst(): ScreeningResult {
+            commands += EvaluateScreeningCommand(false)
+            return ScreeningResult(false, 0, 0, 0, Instant.EPOCH)
         }
     }
 }
