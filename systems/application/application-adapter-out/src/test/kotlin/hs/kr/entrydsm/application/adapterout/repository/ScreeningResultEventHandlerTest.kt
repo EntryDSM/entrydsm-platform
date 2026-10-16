@@ -89,6 +89,29 @@ class ScreeningResultEventHandlerTest {
     }
 
     @Test
+    fun `2차 결과는 최종 발표 전에는 1차 결과로 보이고 발표 처리 때 한 번에 알린다`() {
+        val entity = ApplicantJpaEntity(id = 5, accountId = 10, status = ApplicantStatus.SUBMITTED)
+        val events = mutableListOf<ApplicantStatusChanged>()
+        var finalPublished = false
+        val handler = handler(entity, events) { finalPublished }
+        handler.applyLocal(5, PassStatus.PASS_STATUS_FIRST_PASSED, Instant.EPOCH)
+        handler.publishFirst(5, Instant.EPOCH)
+        events.clear()
+
+        handler.applyLocal(5, PassStatus.PASS_STATUS_FINAL_PASSED, Instant.EPOCH)
+        assertTrue(events.isEmpty())
+        assertEquals(ResultType.DOCUMENT, entity.toDomain(finalPublished = false).passResultType)
+        assertThrows(IllegalStateException::class.java) { handler.publishFinal(5, Instant.EPOCH) }
+        assertTrue(events.isEmpty())
+
+        finalPublished = true
+        handler.publishFinal(5, Instant.parse("2026-11-04T01:00:00Z"))
+        assertEquals(ResultType.FINAL, events.single().passResultType)
+        assertEquals(PassResultStatus.PASS, events.single().passStatus)
+        assertEquals(java.time.LocalDateTime.of(2026, 11, 4, 1, 0), events.single().announcedAt)
+    }
+
+    @Test
     fun draftAndCanceledApplicationsCannotReceiveLocalResults() {
         for (status in listOf(ApplicantStatus.DRAFT, ApplicantStatus.CANCELED)) {
             val entity = ApplicantJpaEntity(id = 5, accountId = 10, status = status, screeningResultVersion = 1200)
@@ -102,7 +125,8 @@ class ScreeningResultEventHandlerTest {
         }
     }
 
-    private fun handler(entity: ApplicantJpaEntity, events: MutableList<ApplicantStatusChanged>, published: Boolean = true): ScreeningResultEventHandler {
+    private fun handler(entity: ApplicantJpaEntity, events: MutableList<ApplicantStatusChanged>, published: Boolean = true,
+        finalPublished: () -> Boolean = { true }): ScreeningResultEventHandler {
         val repository = proxy(ApplicantJpaRepository::class.java) { method ->
             assertEquals("findForUpdate", method); entity
         }
@@ -117,7 +141,8 @@ class ScreeningResultEventHandlerTest {
                 academicRecord = null, score = null, introduction = null, studyPlan = null)
         }
         return ScreeningResultEventHandler(repository, ApplicantStatusEventOutbox { events += it }, application,
-            hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { published })
+            hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { published },
+            hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy(finalPublished))
     }
 
     private fun <T> proxy(type: Class<T>, action: (String) -> Any?): T =

@@ -145,13 +145,12 @@ class ScreeningService(
         if (schedule.firstScreeningProcessedAt == null || nowKst.isBefore(schedule.startAt)) {
             throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
-        if (target == ApplicantStatus.FINAL_FAIL) {
-            // 1차 발표 행 다음에 잠가, 최종 발표 처리와 직렬화하면서 등록과 잠금 순서를 맞춘다.
-            val announcement = schedules?.findByTitleForUpdate("최종 합격 발표")
-                ?: throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
-            if (!nowKst.isBefore(announcement.startAt)) {
-                throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
-            }
+        // 등록·불합격 모두 1차 발표 행 다음에 최종 발표 행을 잠가, 발표 처리와 직렬화하면서 잠금 순서를 맞춘다.
+        // 발표 직전 변경이 공개 이벤트에서 빠지지 않는다.
+        val announcement = schedules?.findByTitleForUpdate("최종 합격 발표")
+        if (target == ApplicantStatus.FINAL_FAIL &&
+            (announcement == null || !nowKst.isBefore(announcement.startAt))) {
+            throw AdminDomainException(ErrorCode.INVALID_STATUS_TRANSITION)
         }
         val applicant = applicantRepository.findById(applicantId)
             ?: throw AdminDomainException(ErrorCode.APPLICANT_NOT_FOUND)

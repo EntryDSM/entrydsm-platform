@@ -79,7 +79,7 @@ class ApplicantPersistenceAdapterTest {
     fun `최종 결과와 identity 전달 이벤트를 함께 영속화한다`() {
         val applicant = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 504, status = ApplicantStatus.SUBMITTED))
         val cipher = SnapshotCipher("test", mapOf("test" to Base64.getEncoder().encodeToString(ByteArray(32) { 7 })))
-        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusOutboxAdapter(statusOutboxRepository, cipher, hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true }), applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusOutboxAdapter(statusOutboxRepository, cipher, hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true }), applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true }, hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy { true })
         handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(requireNotNull(applicant.id)).setVersion(10)
             .setPassStatus(PassStatus.PASS_STATUS_FINAL_PASSED).setOccurredAtEpochMillis(1000).build())
         entityManager.flush()
@@ -116,7 +116,7 @@ class ApplicantPersistenceAdapterTest {
                     }
                 } as StreamOperations<String, HK, HV>
         }
-        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true }, hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy { true })
         val consumer = ScreeningResultRedisConsumer(redis, handler, "test", "application", "application")
         consumer.poll()
         consumer.poll()
@@ -130,7 +130,7 @@ class ApplicantPersistenceAdapterTest {
         val saved = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 501, status = ApplicantStatus.SUBMITTED))
         val id = requireNotNull(saved.id)
         val events = mutableListOf<ApplicantStatusChanged>()
-        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true }, hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy { true })
         fun consume(version: Long, status: PassStatus) {
             handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(id).setVersion(version)
                 .setPassStatus(status).setOccurredAtEpochMillis(1000).build())
@@ -167,7 +167,7 @@ class ApplicantPersistenceAdapterTest {
     fun `취소되거나 삭제된 지원자에게 지연 결과를 반영하지 않는다`() {
         val saved = applicantJpaRepository.saveAndFlush(ApplicantJpaEntity(accountId = 502, status = ApplicantStatus.CANCELED))
         val events = mutableListOf<ApplicantStatusChanged>()
-        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true })
+        val handler = ScreeningResultEventHandler(applicantJpaRepository, ApplicantStatusEventOutbox { events.add(it) }, applicationPort(), hs.kr.entrydsm.application.application.port.out.FirstScreeningPublicationPolicy { true }, hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy { true })
         for (id in listOf(requireNotNull(saved.id), Long.MAX_VALUE)) {
             handler.consume(ScreeningResultChangedEvent.newBuilder().setApplicantId(id).setVersion(1)
                 .setPassStatus(PassStatus.PASS_STATUS_FINAL_PASSED).build())

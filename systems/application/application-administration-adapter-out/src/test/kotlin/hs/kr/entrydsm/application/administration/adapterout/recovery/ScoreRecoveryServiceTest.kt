@@ -123,6 +123,8 @@ class ScoreRecoveryServiceTest {
     @EnableJpaRepositories(basePackageClasses = [ApplicantJpaRepository::class])
     @Import(ApplicantPersistenceAdapter::class, ScoreRecoveryService::class)
     class Config {
+        // 최종 발표가 끝난 최종 합격자의 성적 복구를 본다.
+        @Bean fun finalPublication() = hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy { true }
         @Bean fun outbox(repository: ApplicantStatusOutboxJpaRepository) = FailingOutbox(ApplicantStatusOutboxAdapter(repository,
             SnapshotCipher("test", mapOf("test" to "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE="))))
         @Bean fun application(repository: ApplicantRepository, outbox: ApplicantStatusEventOutbox): ApplicationPort =

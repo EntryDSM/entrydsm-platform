@@ -4,6 +4,7 @@ import hs.kr.entrydsm.application.adapterout.entity.ApplicantJpaEntity
 import hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicantResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.application.port.out.FinalScreeningPublicationPolicy
 import hs.kr.entrydsm.application.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.application.domain.model.Applicant
 import org.springframework.stereotype.Repository
@@ -14,8 +15,9 @@ import org.springframework.transaction.annotation.Transactional
 class ApplicantPersistenceAdapter(
     private val applicantJpaRepository: ApplicantJpaRepository,
     private val institutionCodes: InstitutionCodeJpaRepository,
+    private val finalPublication: FinalScreeningPublicationPolicy = FinalScreeningPublicationPolicy { false },
 ) : ApplicantRepository {
-    override fun findForUpdate(id: Long): Applicant? = applicantJpaRepository.findForUpdate(id)?.toDomain()
+    override fun findForUpdate(id: Long): Applicant? = applicantJpaRepository.findForUpdate(id)?.toVisibleDomain()
 
     override fun save(applicant: Applicant): Applicant {
         val entity = if (applicant.id > 0) {
@@ -30,16 +32,16 @@ class ApplicantPersistenceAdapter(
         entity.middleSchoolInfo?.let { school ->
             school.institutionCode = institutionCodes.getReferenceById(school.schoolCode)
         }
-        return applicantJpaRepository.saveAndFlush(entity).toDomain()
+        return applicantJpaRepository.saveAndFlush(entity).toVisibleDomain()
     }
 
     @Transactional(readOnly = true)
     override fun findById(id: Long): Applicant? =
-        applicantJpaRepository.findById(id).orElse(null)?.toDomain()
+        applicantJpaRepository.findById(id).orElse(null)?.toVisibleDomain()
 
     @Transactional(readOnly = true)
     override fun findByAccountId(accountId: Long): Applicant? =
-        applicantJpaRepository.findByAccountId(accountId)?.toDomain()
+        applicantJpaRepository.findByAccountId(accountId)?.toVisibleDomain()
 
     override fun deleteById(id: Long) {
         val entity = applicantJpaRepository.findById(id)
@@ -73,4 +75,7 @@ class ApplicantPersistenceAdapter(
                 address = it.address,
             )
         }
+
+    // 최종 발표 전에 저장된 2차 결과가 학생 조회·이벤트·서류 권한으로 새지 않게 한다.
+    private fun ApplicantJpaEntity.toVisibleDomain(): Applicant = toDomain(finalPublished = finalPublication.isPublished())
 }
