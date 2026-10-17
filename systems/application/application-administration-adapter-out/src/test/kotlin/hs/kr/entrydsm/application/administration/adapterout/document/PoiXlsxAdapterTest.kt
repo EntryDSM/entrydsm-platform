@@ -206,6 +206,32 @@ class PoiXlsxAdapterTest {
     }
 
     @Test
+    fun `검정고시 합계와 교과성적에는 환산점수 대신 원점수 평균과 영점을 표시한다`() {
+        val rows = listOf(
+            FirstPassRow("0001", graduationStatus = "검정고시",
+                gedScores = GedScores(80, 84, 88, 92, 96, 100), gedAverage = 90.0,
+                subjectBaseScore = 2.6666666666666665, subjectScore = 90.667, totalScore = 90.667),
+            FirstPassRow("0002", graduationStatus = "검정고시",
+                gedScores = GedScores(0, 0, 0, 0, 0, 0), gedAverage = 0.0,
+                subjectScore = 34.0, totalScore = 34.0),
+        )
+        val xlsx = PoiXlsxAdapter().renderApplicationChecklist(rows)
+        XSSFWorkbook(ByteArrayInputStream(xlsx)).use { workbook ->
+            val sheet = workbook.getSheet("지원자 점검표")
+            listOf(90.0, 0.0).forEachIndexed { index, average ->
+                val base = index * 20
+                listOf(sheet.getRow(base + 18).getCell(2), sheet.getRow(base + 10).getCell(7)).forEach { cell ->
+                    assertEquals(CellType.NUMERIC, cell.cellType)
+                    assertEquals(average, cell.numericCellValue, 0.0)
+                }
+                val converted = listOf(90.667, 34.0)[index]
+                assertEquals(converted, sheet.getRow(base + 18).getCell(7).numericCellValue, 0.0)
+                assertEquals(converted, sheet.getRow(base + 19).getCell(7).numericCellValue, 0.0)
+            }
+        }
+    }
+
+    @Test
     fun `템플릿 인원보다 많으면 첫 양식을 복제한다`() {
         val xlsx = PoiXlsxAdapter().renderApplicationChecklist(List(10) { FirstPassRow("${it + 1}") })
         System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let {

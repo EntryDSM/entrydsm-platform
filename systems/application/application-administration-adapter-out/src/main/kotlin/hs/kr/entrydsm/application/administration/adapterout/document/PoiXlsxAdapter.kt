@@ -79,7 +79,9 @@ class PoiXlsxAdapter : XlsxRenderPort {
                     applicant.volunteerScore,
                 ).forEachIndexed { column, value -> cell(8, column + 1, value) }
 
-                cell(10, 7, applicant.subjectBaseScore)
+                // 검정고시는 교과성적에 원점수 평균을 표시한다.
+                val isGed = applicant.graduationStatus == "검정고시"
+                cell(10, 7, if (isGed) applicant.gedAverage else applicant.subjectBaseScore)
 
                 val semesters = listOf(
                     applicant.thirdGradeSecondSemester,
@@ -102,7 +104,8 @@ class PoiXlsxAdapter : XlsxRenderPort {
                 cell(13, 7, applicant.additionalScore)
 
                 listOf(
-                    applicant.thirdGradeSecondSemesterScore,
+                    // 검정고시 과목이 표시되는 첫 열에는 원점수 평균을 표시한다.
+                    if (isGed) applicant.gedAverage else applicant.thirdGradeSecondSemesterScore,
                     applicant.thirdGradeFirstSemesterScore,
                     applicant.previousSemesterScore,
                     applicant.secondPreviousSemesterScore,
