@@ -68,20 +68,33 @@ class AdmissionTicketExportTest {
         applicants.all += applicant(1, ApplicantStatus.FIRST_PASS, "100002")
         applicants.all += applicant(2, ApplicantStatus.PENDING, "100003")
         applicants.all += applicant(3, ApplicantStatus.FIRST_PASS, "100001")
-        // 강제 변경으로 수험 번호 없이 1차 합격이 된 지원자는 맨 뒤에 미발급으로 찍힌다.
+        // 번호 없는 합격자도 뒤에 접수번호 순으로 포함한다.
+        applicants.all += applicant(8, ApplicantStatus.FIRST_PASS, examineeNumber = null)
         applicants.all += applicant(4, ApplicantStatus.FIRST_PASS, examineeNumber = null)
         val tickets = RecordingAdmissionTicketPort()
 
         processor(tickets).processNow(ticketJob())
 
-        assertEquals(listOf(listOf(3L to "100001", 1L to "100002", 4L to null)), tickets.requested)
+        assertEquals(listOf(listOf(3L to "100001", 1L to "100002", 4L to null, 8L to null)), tickets.requested)
         val upload = storage.uploads.single()
         assertEquals("dsm_Entry/backend/stag/admission-ticket/admission_tickets_exp_1.xlsx", upload.first)
         assertEquals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", upload.second)
-        assertEquals("tickets-3|1|4", upload.third)
+        assertEquals("tickets-3|1|4|8", upload.third)
         val finished = jobs.saved.last()
         assertEquals(ExportStatus.COMPLETED, finished.status)
         assertEquals(upload.first, finished.objectKey)
+    }
+
+    @Test
+    fun `번호가 전부 없는 합격자도 접수번호 순으로 수험표를 내려받는다`() {
+        applicants.all += applicant(8, ApplicantStatus.FIRST_PASS, null)
+        applicants.all += applicant(3, ApplicantStatus.FIRST_PASS, null)
+        applicants.all += applicant(1, ApplicantStatus.FIRST_FAIL, null)
+        val tickets = RecordingAdmissionTicketPort()
+        assertEquals(ExportStatus.PENDING, exportService.create(CreateExportCommand(ExportType.ADMISSION_TICKET)).status)
+        processor(tickets).processNow(ticketJob())
+        assertEquals(listOf(listOf(3L to null, 8L to null)), tickets.requested)
+        assertEquals(ExportStatus.COMPLETED, jobs.saved.last().status)
     }
 
     @Test

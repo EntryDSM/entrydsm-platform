@@ -261,7 +261,7 @@ class FileDocumentServiceTest {
 
         assertArrayEquals("xlsx".toByteArray(), xlsx)
         val rows = sheet.lastTickets.map { it.rows.toMap() }
-        assertEquals(listOf("100002", "미발급"), rows.map { it["수험번호"] })
+        assertEquals(listOf("100002", ""), rows.map { it["수험번호"] })
         assertEquals(listOf("0013", "0012"), rows.map { it["접수 번호"] })
         assertEquals("2027학년도 대덕소프트웨어마이스터고등학교 입학전형 수험표", sheet.lastTickets.first().title)
         assertTrue(storage.uploaded.isEmpty())

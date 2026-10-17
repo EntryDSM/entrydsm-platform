@@ -83,7 +83,8 @@ class FileDocumentService(
             val applicant = ticketStage("applicant_lookup", applicantId) {
                 applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
             }
-            ticket(applicantId, applicant, examineeNumber)
+            // 관리자 일괄 다운로드는 미발급 수험번호 칸을 비워 둔다.
+            ticket(applicantId, applicant, examineeNumber.orEmpty())
         }
         return ticketStage("sheet_render", null) { admissionTicketSheetPort.render(prepared) }
     }

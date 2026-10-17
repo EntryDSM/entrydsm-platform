@@ -290,6 +290,35 @@ class AdminApplicationModuleTest {
     }
 
     @Test
+    fun exportsFirstPassWithBlankUnissuedNumbersAfterIssuedApplicants() {
+        for (issued in listOf(false, true)) {
+            val fixture = exportFixture(applicants = listOf(
+                Applicant(id = 8L, examineeNumber = null, name = "여덟", status = ApplicantStatus.FIRST_PASS),
+                Applicant(id = 3L, examineeNumber = if (issued) "11002" else "", name = "셋", status = ApplicantStatus.FIRST_PASS),
+                Applicant(id = 6L, examineeNumber = " ", name = "여섯", status = ApplicantStatus.FIRST_PASS),
+                Applicant(id = 2L, examineeNumber = if (issued) "11003" else null, name = "둘", status = ApplicantStatus.FIRST_PASS),
+            ))
+            fixture.processor.processNow(fixture.job)
+            assertEquals(listOf("0002", "0003", "0006", "0008"), fixture.rows.map { it[1] })
+            assertEquals(if (issued) listOf("11003", "11002", "", "") else listOf("", "", "", ""),
+                fixture.rows.map { (it[0] as String?).orEmpty().takeUnless(String::isBlank).orEmpty() })
+            assertEquals(ExportStatus.COMPLETED, fixture.saved.last().status)
+            assertEquals(4, fixture.saved.last().processedCount)
+        }
+    }
+
+    @Test
+    fun essayGenerationAndStorageFailuresRemainFailed() {
+        val generation = exportFixture(type = ExportType.ESSAYS, essayWriter = { error("pdf failed") })
+        generation.processor.processNow(generation.job)
+        assertEquals(ExportStatus.FAILED, generation.saved.last().status)
+        val storage = exportFixture(type = ExportType.ESSAYS, failUpload = true,
+            essayWriter = { output -> output.write("pdf".toByteArray()); 1 })
+        storage.processor.processNow(storage.job)
+        assertEquals(ExportStatus.FAILED, storage.saved.last().status)
+    }
+
+    @Test
     fun preservesProcessedCountWhenFirstPassUploadFails() {
         val fixture = exportFixture(applicants = listOf(Applicant(id = 1L)), failUpload = true)
 

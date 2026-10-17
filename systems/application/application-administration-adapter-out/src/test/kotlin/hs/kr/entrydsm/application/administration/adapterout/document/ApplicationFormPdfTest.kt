@@ -35,6 +35,51 @@ import kotlin.math.roundToInt
  */
 class ApplicationFormPdfTest {
 
+    @Test
+    fun `번호 없는 합격자 자기소개서와 학업계획서를 실제 PDF로 모두 내려받는다`() {
+        val form = form().copy(examineeNumber = null)
+        val applicantPort = object : hs.kr.entrydsm.application.administration.domain.document.port.out.ApplicantPort {
+            override fun findById(applicantId: Long) = Applicant(form.userId, form.name, null, null, null, null)
+            override fun findApplicationForm(accountId: Long) = form
+            override fun isFinalPassed(accountId: Long) = false
+        }
+        val service = hs.kr.entrydsm.application.administration.application.FileDocumentService(
+            unused(hs.kr.entrydsm.configuration.domain.document.port.out.StoragePort::class.java),
+            unused(hs.kr.entrydsm.configuration.domain.document.port.out.FileDocumentRepository::class.java),
+            300, applicantPort,
+            unused(hs.kr.entrydsm.application.administration.domain.document.port.out.PdfRenderPort::class.java),
+            adapter,
+            unused(hs.kr.entrydsm.application.administration.domain.document.port.out.AdmissionTicketSheetPort::class.java),
+            2027,
+        )
+        val repository = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader,
+            arrayOf(hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository::class.java)) { _, method, args ->
+            assertEquals("findAll", method.name)
+            assertEquals(setOf(hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FIRST_PASS),
+                (args[0] as hs.kr.entrydsm.admin.domain.model.ApplicantFilter).statuses)
+            listOf(hs.kr.entrydsm.admin.domain.model.Applicant(id = form.applicantId,
+                status = hs.kr.entrydsm.admin.domain.enum.ApplicantStatus.FIRST_PASS))
+        } as hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
+        val output = ByteArrayOutputStream()
+        assertEquals(1, hs.kr.entrydsm.application.administration.application.EssayPdfService(
+            repository, LocalApplicationEssayAdapter(service)).writeTo(output))
+        val bytes = output.toByteArray()
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "unissued-essays.pdf").writeBytes(bytes) }
+        Loader.loadPDF(bytes).use { document ->
+            assertEquals(2, document.numberOfPages)
+            val introduction = pageText(bytes, 1)
+            val plan = pageText(bytes, 2)
+            assertTrue(introduction, introduction.contains("저는 어려서부터"))
+            assertFalse(introduction.contains("입학 후에는"))
+            assertTrue(plan, plan.contains("입학 후에는"))
+            assertFalse(plan.contains("저는 어려서부터"))
+            assertFalse(PDFTextStripper().getText(document).contains("미발급"))
+        }
+    }
+
+    private fun <T> unused(type: Class<T>): T = type.cast(java.lang.reflect.Proxy.newProxyInstance(
+        javaClass.classLoader, arrayOf(type)) { _, method, _ -> error("Unexpected ${method.name}") })
+
     /** 요강의 인터넷접수 후 출력 서식 수 — 입학원서·개인정보 동의·자기소개서·추천서·금연 동의·흡연검사 동의 */
     private val FORM_COUNT = 6
 

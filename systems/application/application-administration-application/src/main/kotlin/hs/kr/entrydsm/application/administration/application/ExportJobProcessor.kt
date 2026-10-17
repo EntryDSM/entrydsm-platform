@@ -139,6 +139,7 @@ class ExportJobProcessor(
             when (job.type) {
                 ExportType.FIRST_PASS -> {
                     val applicants = applicantRepository.findFirstPassApplicants()
+                        .sortedWith(compareBy<Applicant> { it.examineeNumber.isNullOrBlank() }.thenBy { it.id })
                     current = exportJobRepository.save(current.withTotal(applicants.size))
                     writeFirstPassList(current, applicants) {
                         current = exportJobRepository.save(current.processed(applicants.size))
@@ -226,7 +227,8 @@ class ExportJobProcessor(
 
         val tickets = applicants
             // 수험 번호가 없는 1차 합격자(강제 변경)는 뒤로 간다. 같은 자리끼리는 접수 번호 순 그대로다.
-            .sortedWith(compareBy(nullsLast<String>()) { it.examineeNumber })
+            .sortedWith(compareBy<Applicant> { it.examineeNumber.isNullOrBlank() }
+                .thenBy { it.examineeNumber?.takeIf(String::isNotBlank) }.thenBy { it.id })
             .map { it.id to it.examineeNumber }
 
         storagePort.upload(objectKey, XLSX_CONTENT_TYPE, admissionTicketPort.render(tickets))
