@@ -230,6 +230,9 @@ class LocalApplicantDataAdapterTest {
             val sheet = book.getSheet("지원자 점검표")
             listOf(170.0, 147.333).forEachIndexed { index, expected ->
                 val base = index * 20
+                val average = listOf(100.0, 83.33333333333333)[index]
+                assertEquals(average, sheet.getRow(base + 18).getCell(2).numericCellValue, 0.000001)
+                assertEquals(average, sheet.getRow(base + 10).getCell(7).numericCellValue, 0.000001)
                 assertEquals(expected, sheet.getRow(base + 18).getCell(7).numericCellValue, 0.0)
                 assertEquals(expected, sheet.getRow(base + 19).getCell(7).numericCellValue, 0.0)
                 assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(base + 13).getCell(2).cellType)
@@ -240,6 +243,59 @@ class LocalApplicantDataAdapterTest {
         System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let {
             java.io.File(it, "검정고시-전형자료-실계산-예시.xlsx").writeBytes(admission)
             java.io.File(it, "검정고시-점검표-실계산-예시.xlsx").writeBytes(checklist)
+        }
+    }
+
+    @Test
+    fun `졸업예정 졸업 검정고시 세 유형을 실제 원서 조회부터 한 점검표로 출력한다`() {
+        val rows = listOf(
+            hs.kr.entrydsm.application.domain.enum.GraduationType.PROSPECTIVE,
+            hs.kr.entrydsm.application.domain.enum.GraduationType.GRADUATED,
+            hs.kr.entrydsm.application.domain.enum.GraduationType.GED,
+        ).mapIndexed { index, graduation ->
+            val record = hs.kr.entrydsm.application.domain.model.AcademicRecord(
+                volunteerTime = 15,
+                gedScores = if (index == 2) hs.kr.entrydsm.application.domain.model.GedScores(100, 100, 100, 100, 100) else null,
+                subjectGrades = linkedMapOf(
+                    hs.kr.entrydsm.application.domain.enum.SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to subjectGrades("AAAAAAA"),
+                    hs.kr.entrydsm.application.domain.enum.SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to subjectGrades("AAAAAAA"),
+                    hs.kr.entrydsm.application.domain.enum.SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to subjectGrades("AAAAAAA"),
+                ).also { if (index == 1) it[hs.kr.entrydsm.application.domain.enum.SchoolSemester.THIRD_GRADE_SECOND_SEMESTER] = subjectGrades("AAAAAAA") },
+            )
+            val domain = hs.kr.entrydsm.application.domain.model.Applicant(
+                id = 5, accountId = 10, status = ApplicantStatus.SUBMITTED, totalScore = 170.0,
+                admissionType = hs.kr.entrydsm.application.domain.enum.AdmissionType.REGULAR,
+                graduationType = graduation, academicRecord = record,
+            )
+            val repository = proxy(hs.kr.entrydsm.application.application.port.out.ApplicantRepository::class.java) { method ->
+                check(method == "findByAccountId"); domain
+            }
+            val service = hs.kr.entrydsm.application.application.service.ApplicationCommandService(repository,
+                hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader { java.time.Instant.MIN..java.time.Instant.MAX },
+                hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator { _, _ -> true })
+            val actualForm = requireNotNull(service.findApplicationForm(10L))
+            adapter(applicant()) { actualForm }.findApplicationChecklistRows().single().copy(
+                receiptNumber = "000${index + 1}", name = listOf("졸업예정 예시", "졸업 예시", "검정고시 예시")[index],
+            )
+        }
+        val checklist = export(rows, hs.kr.entrydsm.admin.domain.enum.ExportType.APPLICATION_CHECKLIST)
+        org.apache.poi.xssf.usermodel.XSSFWorkbook(java.io.ByteArrayInputStream(checklist)).use { book ->
+            val sheet = book.getSheet("지원자 점검표")
+            assertEquals(59, sheet.lastRowNum)
+            assertEquals(org.apache.poi.ss.usermodel.CellType.BLANK, sheet.getRow(18).getCell(2).cellType)
+            assertEquals(20.0, sheet.getRow(38).getCell(2).numericCellValue, 0.0)
+            assertEquals(100.0, sheet.getRow(58).getCell(2).numericCellValue, 0.0)
+            assertEquals(100.0, sheet.getRow(50).getCell(7).numericCellValue, 0.0)
+            listOf(0, 20).forEach { base ->
+                assertEquals(80.0, sheet.getRow(base + 10).getCell(7).numericCellValue, 0.0)
+                assertEquals(140.0, sheet.getRow(base + 18).getCell(7).numericCellValue, 0.0)
+            }
+            listOf(0, 20, 40).forEach { base ->
+                assertEquals(170.0, sheet.getRow(base + 19).getCell(7).numericCellValue, 0.0)
+            }
+        }
+        System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let {
+            java.io.File(it, "지원자-점검표-졸업예정-졸업-검정고시.xlsx").writeBytes(checklist)
         }
     }
 
