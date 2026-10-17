@@ -29,7 +29,7 @@ interface ApplicantFileUseCase {
      * admin 수험표 일괄 출력. 받은 순서대로 한 시트에 이어 그린 xlsx 를 올리지 않고 돌려준다.
      * 서비스 안쪽 gRPC 로만 부르므로 요청자 권한을 보지 않는다.
      *
-     * @param tickets applicant id 와 admin 이 발급한 수험번호. 수험번호가 null 이면 미발급으로 찍는다
+     * @param tickets applicant id 와 admin 이 발급한 수험번호. 수험번호가 null 이면 칸을 비워 둔다
      */
     fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>): ByteArray
 
