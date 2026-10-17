@@ -75,11 +75,22 @@ class KakaoDistanceAdapterTest {
     @Test
     fun routeFailureRecordsOnlyNumericCode() = withServer(
         failedRequest = 2,
-        body = """{"routes":[{"result_code":104,"result_msg":"$PRIVATE_BODY"}]}""",
+        body = """{"routes":[{"result_code":105,"result_msg":"$PRIVATE_BODY"}]}""",
     ) { base, _ ->
         capture { logs ->
             assertUnavailable { adapter(base).distanceFromSchool(ADDRESS) }
-            assertDiagnostic(logs, "DIRECTIONS", "ROUTE_RESULT", "resultCode=104")
+            assertDiagnostic(logs, "DIRECTIONS", "ROUTE_RESULT", "resultCode=105")
+        }
+    }
+
+    @Test
+    fun sameOriginAndDestinationReturnsZeroWithoutDistanceSummary() = withServer(
+        failedRequest = 2,
+        body = """{"routes":[{"result_code":104,"result_msg":"$PRIVATE_BODY"}]}""",
+    ) { base, _ ->
+        capture { logs ->
+            assertEquals(0L, adapter(base).distanceFromSchool(ADDRESS))
+            assertTrue(logs.list.isEmpty())
         }
     }
 

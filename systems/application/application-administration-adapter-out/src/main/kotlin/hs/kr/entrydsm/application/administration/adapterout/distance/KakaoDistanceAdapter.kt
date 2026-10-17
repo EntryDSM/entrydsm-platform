@@ -62,6 +62,8 @@ class KakaoDistanceAdapter(
     fun parseDistance(body: String): Long {
         val route = objectMapper.readTree(body).path("routes").path(0)
         val resultCode = route.path("result_code").asInt(-1)
+        // 출발지와 도착지가 가까워 경로가 없는 경우 정상 거리 0m로 처리한다.
+        if (resultCode == 104) return 0L
         if (resultCode != 0) {
             unavailable("DIRECTIONS", "ROUTE_RESULT", resultCode = resultCode)
         }
