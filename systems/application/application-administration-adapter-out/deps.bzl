@@ -28,6 +28,8 @@ KOTLIN_DEPS = [
 ]
 
 TEST_DEPS = [
+    "@maven//:ch_qos_logback_logback_classic",
+    "@maven//:ch_qos_logback_logback_core",
     "//systems/application/application-administration-application:main",
     "@maven//:org_springframework_spring_test",
     "@maven//:org_springframework_boot_spring_boot_data_jpa_test",
