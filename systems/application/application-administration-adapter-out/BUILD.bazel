@@ -5,6 +5,15 @@ load(":deps.bzl", "MODULE_DEPS", "TEST_DEPS")
 package(default_visibility = ["//visibility:public"])
 
 kt_jvm_test(
+    name = "kakao_distance_test",
+    srcs = ["src/test/kotlin/hs/kr/entrydsm/application/administration/adapterout/distance/KakaoDistanceAdapterTest.kt"],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.application.administration.adapterout.distance.KakaoDistanceAdapterTest",
+    deps = MODULE_DEPS + TEST_DEPS + [":main"],
+)
+
+kt_jvm_test(
     name = "first_screening_mysql_concurrency_test",
     tags = ["manual"],
     srcs = ["src/test/kotlin/hs/kr/entrydsm/application/administration/adapterout/FirstScreeningConcurrencyTest.kt"],

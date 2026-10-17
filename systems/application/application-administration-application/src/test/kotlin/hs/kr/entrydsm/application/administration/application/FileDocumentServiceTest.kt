@@ -261,13 +261,22 @@ class FileDocumentServiceTest {
 
         assertArrayEquals("xlsx".toByteArray(), xlsx)
         val rows = sheet.lastTickets.map { it.rows.toMap() }
-        assertEquals(listOf("100002", "미발급"), rows.map { it["수험번호"] })
+        assertEquals(listOf("100002", ""), rows.map { it["수험번호"] })
         assertEquals(listOf("0013", "0012"), rows.map { it["접수 번호"] })
         assertEquals("2027학년도 대덕소프트웨어마이스터고등학교 입학전형 수험표", sheet.lastTickets.first().title)
         assertTrue(storage.uploaded.isEmpty())
         assertThrows(ApplicantNotFoundException::class.java) {
             service.renderAdmissionTickets(listOf(APPLICANT_ID to "100001", 404L to "100003"))
         }
+    }
+
+    @Test
+    fun `관리자 수험표의 미발급 번호는 공란이고 유효한 번호는 그대로 유지한다`() {
+        for ((number, expected) in listOf(null to "", "" to "", " " to "", "\t" to "", "100001" to "100001", " 100001 " to " 100001 ")) {
+            service.renderAdmissionTickets(listOf(APPLICANT_ID to number))
+            assertEquals("입력 수험번호: <$number>", expected, sheet.lastTickets.single().rows.toMap()["수험번호"])
+        }
+        assertTrue(storage.uploaded.isEmpty())
     }
 
     @Test

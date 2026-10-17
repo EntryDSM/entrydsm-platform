@@ -5,9 +5,14 @@ import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
 import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs
 import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPort
+import hs.kr.entrydsm.admin.domain.port.out.EssayPdfMergePort
 import hs.kr.entrydsm.application.administration.domain.document.exception.ApplicantNotFoundException
 import hs.kr.entrydsm.application.administration.domain.document.port.`in`.ApplicantFileUseCase
 import hs.kr.entrydsm.application.application.exception.EvaluationValidationException
+import java.io.OutputStream
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.multipdf.PDFMergerUtility
+import org.apache.pdfbox.pdmodel.PDDocument
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.stereotype.Component
 
@@ -28,6 +33,23 @@ class LocalApplicationEssayAdapter(private val documents: ApplicantFileUseCase) 
         documents.renderApplicationEssay(applicantId).let { ApplicationEssayPdfs(it.first, it.second) }
     } catch (error: Exception) {
         throw renderFailure(error, ErrorCode.ESSAY_GENERATION_FAILED, listOf(applicantId))
+    }
+}
+
+@Component
+@ConditionalOnProperty(name = ["application.administration.enabled"], havingValue = "true")
+class PdfBoxEssayMergeAdapter : EssayPdfMergePort {
+    // 원본을 닫아도 글꼴과 리소스가 유지되도록 두 문서 전체를 복사한다.
+    override fun writeTo(documents: List<ApplicationEssayPdfs>, output: OutputStream) {
+        PDDocument().use { merged ->
+            val merger = PDFMergerUtility()
+            documents.forEach { pdfs ->
+                listOfNotNull(pdfs.introduction, pdfs.studyPlan).forEach { pdf ->
+                    Loader.loadPDF(pdf).use { source -> merger.appendDocument(merged, source) }
+                }
+            }
+            merged.save(output)
+        }
     }
 }
 
