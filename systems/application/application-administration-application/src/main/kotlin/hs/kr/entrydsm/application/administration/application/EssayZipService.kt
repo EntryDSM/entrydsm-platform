@@ -17,7 +17,7 @@ class EssayPdfService(
     private val applicationEssayPort: ApplicationEssayPort,
     private val essayPdfMergePort: EssayPdfMergePort,
 ) : DownloadEssaysUseCase {
-    // 실제 1차 합격자의 두 서류를 수험번호 발급 여부와 무관하게 합친다.
+    // 실제 1차 합격자의 통합 서식을 수험번호 발급 여부와 무관하게 합친다.
     override fun writeTo(output: OutputStream): Int {
         val targets = applicantRepository.findAll(ApplicantFilter(statuses = setOf(ApplicantStatus.FIRST_PASS)))
             .sortedWith(compareBy<Applicant> { it.examineeNumber.isNullOrBlank() }.thenBy { it.id })
