@@ -4,7 +4,6 @@ import hs.kr.entrydsm.admin.domain.enum.ApplicantStatus
 import hs.kr.entrydsm.admin.domain.model.Applicant
 import hs.kr.entrydsm.admin.domain.model.ApplicantFilter
 import hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
-import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs
 import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPort
 import hs.kr.entrydsm.admin.domain.port.out.EssayPdfMergePort
 import java.io.ByteArrayOutputStream
@@ -15,7 +14,7 @@ import org.junit.Test
 
 class EssayZipServiceTest {
     @Test
-    fun `합격자의 두 문서와 단독 학업계획서를 순서대로 병합기에 전달한다`() {
+    fun `합격자의 통합 문서를 순서대로 병합기에 전달한다`() {
         val applicants = listOf(
             Applicant(id = 1, examineeNumber = "11001", status = ApplicantStatus.FIRST_PASS),
             Applicant(id = 2, examineeNumber = "11002", status = ApplicantStatus.FIRST_PASS),
@@ -25,17 +24,17 @@ class EssayZipServiceTest {
             Applicant(id = 6, status = ApplicantStatus.PENDING),
         )
         val documents = listOf(
-            ApplicationEssayPdfs(byteArrayOf(1), null),
-            ApplicationEssayPdfs(byteArrayOf(2), byteArrayOf(3)),
-            ApplicationEssayPdfs(null, byteArrayOf(4)),
-            ApplicationEssayPdfs(null, null),
+            byteArrayOf(1),
+            byteArrayOf(2, 3),
+            byteArrayOf(4),
+            null,
         )
         val requested = mutableListOf<Pair<Long, String>>()
         val output = ByteArrayOutputStream()
         var merged = false
         val service = EssayPdfService(repository(applicants), object : ApplicationEssayPort {
             override fun render(applicantId: Long, examineeNumber: String) = error("batch 호출 필요")
-            override fun renderBatch(targets: List<Pair<Long, String>>): List<ApplicationEssayPdfs> {
+            override fun renderBatch(targets: List<Pair<Long, String>>): List<ByteArray?> {
                 requested += targets
                 return documents
             }
@@ -54,7 +53,7 @@ class EssayZipServiceTest {
     fun `대상이 없으면 빈 문서 목록을 병합기에 전달한다`() {
         var merged = false
         val service = EssayPdfService(repository(emptyList()), ApplicationEssayPort { _, _ -> error("호출되면 안 됨") },
-            EssayPdfMergePort { documents, _ -> assertEquals(emptyList<ApplicationEssayPdfs>(), documents); merged = true })
+            EssayPdfMergePort { documents, _ -> assertEquals(emptyList<ByteArray?>(), documents); merged = true })
         assertEquals(0, service.writeTo(ByteArrayOutputStream()))
         assertEquals(true, merged)
     }
@@ -72,7 +71,7 @@ class EssayZipServiceTest {
             )
             val service = EssayPdfService(repository(applicants), ApplicationEssayPort { id, value ->
                 requested += id to value
-                ApplicationEssayPdfs(null, null)
+                null
             }, EssayPdfMergePort { documents, _ -> assertEquals(4, documents.size) })
             assertEquals(4, service.writeTo(ByteArrayOutputStream()))
             assertEquals(if (issued) listOf(4L to " 11002 ", 9L to "11001", 3L to "", 7L to "")
@@ -84,7 +83,7 @@ class EssayZipServiceTest {
     fun `병합 실패는 성공 처리하지 않고 원래 예외를 전달한다`() {
         val failure = IllegalStateException("merge failed")
         val service = EssayPdfService(repository(listOf(Applicant(id = 1, status = ApplicantStatus.FIRST_PASS))),
-            ApplicationEssayPort { _, _ -> ApplicationEssayPdfs(null, null) }, EssayPdfMergePort { _, _ -> throw failure })
+            ApplicationEssayPort { _, _ -> null }, EssayPdfMergePort { _, _ -> throw failure })
         assertSame(failure, assertThrows(IllegalStateException::class.java) { service.writeTo(ByteArrayOutputStream()) })
     }
 

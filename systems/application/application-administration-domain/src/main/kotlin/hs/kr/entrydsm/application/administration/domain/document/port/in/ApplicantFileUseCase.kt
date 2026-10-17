@@ -33,6 +33,7 @@ interface ApplicantFileUseCase {
      */
     fun renderAdmissionTickets(tickets: List<Pair<Long, String?>>): ByteArray
 
-    fun renderApplicationEssay(applicantId: Long): Pair<ByteArray?, ByteArray?> =
+    /** 두 본문을 함께 담은 서식 3을 반환한다. 모두 비어 있으면 출력하지 않는다. */
+    fun renderApplicationEssay(applicantId: Long): ByteArray? =
         throw UnsupportedOperationException()
 }

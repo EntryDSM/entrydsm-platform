@@ -10,7 +10,8 @@ interface ApplicationFormPdfPort {
     /** @param photo 원서 주인이 올린 증명사진 원본. 없거나 읽지 못하는 형식이면 사진 칸을 비운다. */
     fun render(form: ApplicationForm, photo: ByteArray?): ByteArray
 
-    fun renderEssay(form: ApplicationForm, introduction: Boolean): ByteArray =
+    /** 자기소개서와 학업계획서를 원서와 같은 서식 3에 함께 찍는다. */
+    fun renderEssay(form: ApplicationForm): ByteArray =
         throw UnsupportedOperationException()
 
     /** 최종 합격자 등록 서류 원본([template]) 첫 장 입학 동의서에 지원자 정보를 찍는다. 나머지 장은 그대로다. */

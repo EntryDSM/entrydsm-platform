@@ -3,7 +3,6 @@ package hs.kr.entrydsm.application.administration.adapterout.document
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.port.out.AdmissionTicketPort
-import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs
 import hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPort
 import hs.kr.entrydsm.admin.domain.port.out.EssayPdfMergePort
 import hs.kr.entrydsm.application.administration.domain.document.exception.ApplicantNotFoundException
@@ -29,8 +28,9 @@ class LocalAdmissionTicketAdapter(private val documents: ApplicantFileUseCase) :
 @Component
 @ConditionalOnProperty(name = ["application.administration.enabled"], havingValue = "true")
 class LocalApplicationEssayAdapter(private val documents: ApplicantFileUseCase) : ApplicationEssayPort {
-    override fun render(applicantId: Long, examineeNumber: String): ApplicationEssayPdfs = try {
-        documents.renderApplicationEssay(applicantId).let { ApplicationEssayPdfs(it.first, it.second) }
+    // 지원자별 통합 서식의 오류를 기존 관리자 오류 코드로 변환한다.
+    override fun render(applicantId: Long, examineeNumber: String): ByteArray? = try {
+        documents.renderApplicationEssay(applicantId)
     } catch (error: Exception) {
         throw renderFailure(error, ErrorCode.ESSAY_GENERATION_FAILED, listOf(applicantId))
     }
@@ -39,14 +39,12 @@ class LocalApplicationEssayAdapter(private val documents: ApplicantFileUseCase) 
 @Component
 @ConditionalOnProperty(name = ["application.administration.enabled"], havingValue = "true")
 class PdfBoxEssayMergeAdapter : EssayPdfMergePort {
-    // 원본을 닫아도 글꼴과 리소스가 유지되도록 두 문서 전체를 복사한다.
-    override fun writeTo(documents: List<ApplicationEssayPdfs>, output: OutputStream) {
+    // 원본을 닫아도 글꼴과 리소스가 유지되도록 지원자별 문서 전체를 복사한다.
+    override fun writeTo(documents: List<ByteArray?>, output: OutputStream) {
         PDDocument().use { merged ->
             val merger = PDFMergerUtility()
-            documents.forEach { pdfs ->
-                listOfNotNull(pdfs.introduction, pdfs.studyPlan).forEach { pdf ->
-                    Loader.loadPDF(pdf).use { source -> merger.appendDocument(merged, source) }
-                }
+            documents.filterNotNull().forEach { pdf ->
+                Loader.loadPDF(pdf).use { source -> merger.appendDocument(merged, source) }
             }
             merged.save(output)
         }

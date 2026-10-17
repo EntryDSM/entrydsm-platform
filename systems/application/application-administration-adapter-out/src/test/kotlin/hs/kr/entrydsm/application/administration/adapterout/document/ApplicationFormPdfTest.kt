@@ -66,19 +66,16 @@ class ApplicationFormPdfTest {
         val bytes = output.toByteArray()
         System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "unissued-essays.pdf").writeBytes(bytes) }
         Loader.loadPDF(bytes).use { document ->
-            assertEquals(2, document.numberOfPages)
-            val introduction = pageText(bytes, 1)
-            val plan = pageText(bytes, 2)
-            assertTrue(introduction, introduction.contains("저는 어려서부터"))
-            assertFalse(introduction.contains("입학 후에는"))
-            assertTrue(plan, plan.contains("입학 후에는"))
-            assertFalse(plan.contains("저는 어려서부터"))
+            assertEquals(1, document.numberOfPages)
+            val text = pageText(bytes, 1)
+            assertTrue(text, text.contains("저는 어려서부터"))
+            assertTrue(text, text.contains("입학 후에는"))
             assertFalse(PDFTextStripper().getText(document).contains("미발급"))
         }
     }
 
     @Test
-    fun `PDF 병합은 두 문서와 단독 학업계획서를 포함하고 빈 목록도 처리한다`() {
+    fun `PDF 병합은 지원자별 통합 문서를 포함하고 빈 목록도 처리한다`() {
         fun pdf(pages: Int) = PDDocument().use { document ->
             repeat(pages) { document.addPage(PDPage()) }
             ByteArrayOutputStream().also { document.save(it) }.toByteArray()
@@ -86,20 +83,20 @@ class ApplicationFormPdfTest {
         val merger = PdfBoxEssayMergeAdapter()
         val output = ByteArrayOutputStream()
         merger.writeTo(listOf(
-            hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs(pdf(1), pdf(2)),
-            hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs(null, pdf(4)),
-            hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs(null, null),
+            pdf(3),
+            pdf(4),
+            null,
         ), output)
         Loader.loadPDF(output.toByteArray()).use { assertEquals(7, it.numberOfPages) }
         val empty = ByteArrayOutputStream()
         merger.writeTo(emptyList(), empty)
         Loader.loadPDF(empty.toByteArray()).use { assertEquals(0, it.numberOfPages) }
         org.junit.Assert.assertThrows(Exception::class.java) {
-            merger.writeTo(listOf(hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs("broken pdf".toByteArray(), null)),
+            merger.writeTo(listOf("broken pdf".toByteArray()),
                 ByteArrayOutputStream())
         }
         org.junit.Assert.assertThrows(IllegalStateException::class.java) {
-            merger.writeTo(listOf(hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs(pdf(1), null)),
+            merger.writeTo(listOf(pdf(1)),
                 object : java.io.OutputStream() { override fun write(value: Int) { error("storage failed") } })
         }
     }
@@ -326,9 +323,12 @@ class ApplicationFormPdfTest {
         val shortStudyPlan = adapter.render(form().copy(introduction = essay.take(1200)), photo = null)
         assertA4Pages(shortStudyPlan, FORM_COUNT)
         assertTrue(pageText(shortStudyPlan, 3).contains("입학 후에는"))
-        // 자기소개서만 뽑을 때는 빈 학업계획서 칸 때문에 장을 늘리지 않는다. 학업계획서는 원본 칸 자리에서 다음 장으로 잇는다.
-        assertA4Pages(adapter.renderEssay(form().copy(introduction = essay), introduction = true), 1)
-        assertA4Pages(adapter.renderEssay(form().copy(studyPlan = essay), introduction = false), 2)
+        val combined = adapter.renderEssay(form().copy(introduction = essay, studyPlan = essay))
+        assertA4Pages(combined, 2)
+        val combinedBody = stamped(combined, 1).filter { it.yDirAdj > 278.16f } + stamped(combined, 2)
+        assertEquals(2 * essay.count { !it.isWhitespace() }, combinedBody.size)
+        combinedBody.forEach { assertEquals(10f, it.fontSizeInPt, 0.01f) }
+
     }
 
     @Test
@@ -389,29 +389,24 @@ class ApplicationFormPdfTest {
     }
 
     @Test
-    fun `자기소개서와 학업계획서를 서식 3 한 장씩 분리한다`() {
-        val introduction = adapter.renderEssay(form(), introduction = true)
-        val studyPlan = adapter.renderEssay(form(), introduction = false)
-
-        assertA4Pages(introduction, 1)
-        assertTrue(pageText(introduction, 1).contains("저는 어려서부터"))
-        assertTrue(!pageText(introduction, 1).contains("입학 후에는"))
-        assertA4Pages(studyPlan, 1)
-        assertTrue(pageText(studyPlan, 1).contains("입학 후에는"))
-        assertTrue(!pageText(studyPlan, 1).contains("저는 어려서부터"))
+    fun `자기소개서와 학업계획서를 지원자 원서와 같은 서식 3 한 장에 함께 출력한다`() {
+        val combined = adapter.renderEssay(form())
+        assertA4Pages(combined, 1)
+        assertTrue(pageText(combined, 1).contains("저는 어려서부터"))
+        assertTrue(pageText(combined, 1).contains("입학 후에는"))
+        val full = adapter.render(form(), photo = null)
+        assertEquals(stamped(full, 3).map { Triple(it.unicode, it.xDirAdj, it.yDirAdj) },
+            stamped(combined, 1).map { Triple(it.unicode, it.xDirAdj, it.yDirAdj) })
     }
 
     @Test
-    fun `검정고시 원서의 자기소개서와 학업계획서는 검정고시 서식 3 에 찍고 출신 중학교는 찍지 않는다`() {
-        val introduction = adapter.renderEssay(gedForm(), introduction = true)
-        val studyPlan = adapter.renderEssay(gedForm(), introduction = false)
-
-        assertA4Pages(introduction, 1)
-        assertTrue(pageText(introduction, 1).contains("저는 어려서부터"))
-        assertFalse(pageText(introduction, 1).contains("서귀포"))
-        assertA4Pages(studyPlan, 1)
-        assertTrue(pageText(studyPlan, 1).contains("입학 후에는"))
-        assertFalse(pageText(studyPlan, 1).contains("서귀포"))
+    fun `검정고시 통합 문서는 검정고시 서식 3 에 두 본문을 찍고 출신 중학교는 찍지 않는다`() {
+        val combined = adapter.renderEssay(gedForm())
+        assertA4Pages(combined, 1)
+        val text = pageText(combined, 1)
+        assertTrue(text.contains("저는 어려서부터"))
+        assertTrue(text.contains("입학 후에는"))
+        assertFalse(text.contains("서귀포"))
     }
 
     /** 칸 안에 기준선이 있는 원서 글자가 [count] 개이고, 모두 칸 좌우 안에 있다. 칸 아래로 넘친 글자는 수에서 빠진다. */

@@ -2,16 +2,16 @@ package hs.kr.entrydsm.admin.domain.port.out
 
 import java.io.OutputStream
 
-data class ApplicationEssayPdfs(val introduction: ByteArray?, val studyPlan: ByteArray?)
-
 fun interface ApplicationEssayPort {
-    fun render(applicantId: Long, examineeNumber: String): ApplicationEssayPdfs
+    // 두 본문이 모두 비어 있으면 null을 반환한다.
+    fun render(applicantId: Long, examineeNumber: String): ByteArray?
 
-    fun renderBatch(targets: List<Pair<Long, String>>): List<ApplicationEssayPdfs> =
+    // 입력한 지원자 순서대로 통합 서식을 만든다.
+    fun renderBatch(targets: List<Pair<Long, String>>): List<ByteArray?> =
         targets.map { (applicantId, examineeNumber) -> render(applicantId, examineeNumber) }
 }
 
 fun interface EssayPdfMergePort {
-    // 지원자별 자기소개서와 학업계획서를 받은 순서대로 합친다.
-    fun writeTo(documents: List<ApplicationEssayPdfs>, output: OutputStream)
+    // 두 본문을 함께 담은 지원자별 서식 3을 받은 순서대로 합친다.
+    fun writeTo(documents: List<ByteArray?>, output: OutputStream)
 }
