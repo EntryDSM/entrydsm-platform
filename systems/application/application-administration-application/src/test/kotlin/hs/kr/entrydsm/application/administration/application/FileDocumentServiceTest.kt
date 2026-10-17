@@ -271,6 +271,15 @@ class FileDocumentServiceTest {
     }
 
     @Test
+    fun `관리자 수험표의 미발급 번호는 공란이고 유효한 번호는 그대로 유지한다`() {
+        for ((number, expected) in listOf(null to "", "" to "", " " to "", "\t" to "", "100001" to "100001", " 100001 " to " 100001 ")) {
+            service.renderAdmissionTickets(listOf(APPLICANT_ID to number))
+            assertEquals("입력 수험번호: <$number>", expected, sheet.lastTickets.single().rows.toMap()["수험번호"])
+        }
+        assertTrue(storage.uploaded.isEmpty())
+    }
+
+    @Test
     fun `큰 증명사진은 수험표 칸 폭으로 줄여 흰 바탕 JPEG로 넣고 작은 사진은 그대로 넣는다`() {
         val large = service.upload(photo(student(STUDENT_ID)), content())
         // 투명 PNG. 휴대전화 사진처럼 크다.

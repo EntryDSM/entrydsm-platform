@@ -84,7 +84,7 @@ class FileDocumentService(
                 applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
             }
             // 관리자 일괄 다운로드는 미발급 수험번호 칸을 비워 둔다.
-            ticket(applicantId, applicant, examineeNumber.orEmpty())
+            ticket(applicantId, applicant, examineeNumber?.takeIf(String::isNotBlank).orEmpty())
         }
         return ticketStage("sheet_render", null) { admissionTicketSheetPort.render(prepared) }
     }

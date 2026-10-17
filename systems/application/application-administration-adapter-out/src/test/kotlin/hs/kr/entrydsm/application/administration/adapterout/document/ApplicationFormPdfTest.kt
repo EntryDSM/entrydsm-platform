@@ -62,7 +62,7 @@ class ApplicationFormPdfTest {
         } as hs.kr.entrydsm.admin.domain.port.out.ApplicantRepository
         val output = ByteArrayOutputStream()
         assertEquals(1, hs.kr.entrydsm.application.administration.application.EssayPdfService(
-            repository, LocalApplicationEssayAdapter(service)).writeTo(output))
+            repository, LocalApplicationEssayAdapter(service), PdfBoxEssayMergeAdapter()).writeTo(output))
         val bytes = output.toByteArray()
         System.getenv("TEST_UNDECLARED_OUTPUTS_DIR")?.let { File(it, "unissued-essays.pdf").writeBytes(bytes) }
         Loader.loadPDF(bytes).use { document ->
@@ -74,6 +74,33 @@ class ApplicationFormPdfTest {
             assertTrue(plan, plan.contains("입학 후에는"))
             assertFalse(plan.contains("저는 어려서부터"))
             assertFalse(PDFTextStripper().getText(document).contains("미발급"))
+        }
+    }
+
+    @Test
+    fun `PDF 병합은 두 문서와 단독 학업계획서를 포함하고 빈 목록도 처리한다`() {
+        fun pdf(pages: Int) = PDDocument().use { document ->
+            repeat(pages) { document.addPage(PDPage()) }
+            ByteArrayOutputStream().also { document.save(it) }.toByteArray()
+        }
+        val merger = PdfBoxEssayMergeAdapter()
+        val output = ByteArrayOutputStream()
+        merger.writeTo(listOf(
+            hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs(pdf(1), pdf(2)),
+            hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs(null, pdf(4)),
+            hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs(null, null),
+        ), output)
+        Loader.loadPDF(output.toByteArray()).use { assertEquals(7, it.numberOfPages) }
+        val empty = ByteArrayOutputStream()
+        merger.writeTo(emptyList(), empty)
+        Loader.loadPDF(empty.toByteArray()).use { assertEquals(0, it.numberOfPages) }
+        org.junit.Assert.assertThrows(Exception::class.java) {
+            merger.writeTo(listOf(hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs("broken pdf".toByteArray(), null)),
+                ByteArrayOutputStream())
+        }
+        org.junit.Assert.assertThrows(IllegalStateException::class.java) {
+            merger.writeTo(listOf(hs.kr.entrydsm.admin.domain.port.out.ApplicationEssayPdfs(pdf(1), null)),
+                object : java.io.OutputStream() { override fun write(value: Int) { error("storage failed") } })
         }
     }
 

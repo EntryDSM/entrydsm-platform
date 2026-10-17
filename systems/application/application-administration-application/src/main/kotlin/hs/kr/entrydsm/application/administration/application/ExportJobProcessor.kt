@@ -30,7 +30,7 @@ private const val FIRST_PASS_LIST_SHEET = "1차 합격자 명단"
 private const val ADMISSION_FILE_SHEET = "전형 자료"
 
 private val FIRST_PASS_COLUMNS: List<Pair<String, (Applicant) -> Any?>> = listOf(
-    "수험번호" to { it.examineeNumber },
+    "수험번호" to { it.examineeNumber?.takeIf(String::isNotBlank).orEmpty() },
     "접수번호" to { it.receiptNumber },
     "성명" to { it.name },
 )
