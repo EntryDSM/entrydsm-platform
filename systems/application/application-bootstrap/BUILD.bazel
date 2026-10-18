@@ -70,6 +70,7 @@ kt_jvm_test(
         "src/test/kotlin/hs/kr/entrydsm/application/operator/**",
         "src/test/kotlin/hs/kr/entrydsm/application/config/FirstScreeningConfigurationTest.kt",
         "src/test/kotlin/hs/kr/entrydsm/application/config/ScheduleInitializerTest.kt",
+        "src/test/kotlin/hs/kr/entrydsm/application/config/PostalCodeLocationInitializerTest.kt",
     ]) + [
         "src/main/kotlin/hs/kr/entrydsm/application/config/SnapshotCipherConfiguration.kt",
         "src/main/kotlin/hs/kr/entrydsm/application/config/InstitutionCodeInitializer.kt",
@@ -128,3 +129,20 @@ kt_jvm_test(
 )
 
 exports_files(["src/main/resources/db/migration/V019__make_ged_technology_optional_and_remove_history.sql"])
+
+kt_jvm_test(
+    name = "postal_code_location_initializer_test",
+    srcs = [
+        "src/main/kotlin/hs/kr/entrydsm/application/config/PostalCodeLocationInitializer.kt",
+        "src/main/kotlin/hs/kr/entrydsm/application/config/InstitutionCodeInitializer.kt",
+        "src/test/kotlin/hs/kr/entrydsm/application/config/PostalCodeLocationInitializerTest.kt",
+    ],
+    resources = [
+        "src/main/resources/postal-code-locations.csv",
+        "src/main/resources/db/migration/V021__create_postal_code_locations.sql",
+    ],
+    javac_opts = "//:javac_options",
+    kotlinc_opts = "//:kotlinc_options",
+    test_class = "hs.kr.entrydsm.application.config.PostalCodeLocationInitializerTest",
+    deps = MODULE_DEPS + TEST_DEPS + ["//systems/application/application-adapter-out:main"],
+)
