@@ -42,6 +42,27 @@ import javax.imageio.ImageIO
 class FileDocumentServiceTest {
 
     @Test
+    fun `어드민 본문 출력은 두 본문을 함께 전달하고 한쪽만 있어도 출력하며 모두 공백이면 생략한다`() {
+        for ((introduction, studyPlan) in listOf("자기소개" to "학업계획", "자기소개" to null, null to "학업계획")) {
+            val form = applicationForm().copy(introduction = introduction, studyPlan = studyPlan)
+            forms[STUDENT_ID] = form
+            assertArrayEquals("%PDF-".toByteArray(), service.renderApplicationEssay(APPLICANT_ID))
+            assertEquals(form, formPdf.lastForm)
+        }
+        forms[STUDENT_ID] = applicationForm().copy(introduction = " \t", studyPlan = "\n")
+        formPdf.lastForm = null
+        assertNull(service.renderApplicationEssay(APPLICANT_ID))
+        assertNull(formPdf.lastForm)
+    }
+
+    @Test
+    fun `어드민 본문 출력은 지원자나 원서가 없으면 기존 조회 오류를 전달한다`() {
+        assertThrows(ApplicantNotFoundException::class.java) { service.renderApplicationEssay(999L) }
+        forms.clear()
+        assertThrows(ApplicantNotFoundException::class.java) { service.renderApplicationEssay(APPLICANT_ID) }
+    }
+
+    @Test
     fun `수험표 단계 로그는 성공과 실패 위치를 기록하고 사진 키와 예외 메시지를 숨긴다`() {
         val logger = org.slf4j.LoggerFactory.getLogger(FileDocumentService::class.java) as ch.qos.logback.classic.Logger
         val appender = ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>()
@@ -622,6 +643,11 @@ class FileDocumentServiceTest {
         override fun render(form: ApplicationForm, photo: ByteArray?): ByteArray {
             lastForm = form
             lastPhoto = photo
+            return "%PDF-".toByteArray()
+        }
+
+        override fun renderEssay(form: ApplicationForm): ByteArray {
+            lastForm = form
             return "%PDF-".toByteArray()
         }
 

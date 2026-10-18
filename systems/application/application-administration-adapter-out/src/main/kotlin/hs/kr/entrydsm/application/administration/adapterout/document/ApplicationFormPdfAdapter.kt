@@ -126,17 +126,15 @@ class ApplicationFormPdfAdapter : ApplicationFormPdfPort {
             ByteArrayOutputStream().also { document.save(it) }.toByteArray()
         }
 
-    override fun renderEssay(form: ApplicationForm, introduction: Boolean): ByteArray =
+    // 전체 원서와 같은 본문 배치를 사용하고 서식 3만 남긴다.
+    override fun renderEssay(form: ApplicationForm): ByteArray =
         Loader.loadPDF(templateOf(form)).use { document ->
             val page = document.pages[2]
             document.pages.filterNot { it == page }.forEach(document::removePage)
             document.essays(
                 page,
                 PDType0Font.load(document, fontFile.inputStream()),
-                form.copy(
-                    introduction = form.introduction.takeIf { introduction },
-                    studyPlan = form.studyPlan.takeUnless { introduction },
-                ),
+                form,
                 ReceiptNumber.of(form.applicantId),
             )
             ByteArrayOutputStream().also { document.save(it) }.toByteArray()
@@ -297,7 +295,7 @@ private fun PDDocument.essays(page: PDPage, font: PDFont, form: ApplicationForm,
         // 원본 칸 높이만큼 자리가 남으면 여기서 시작해 다음 장에 잇는다.
         // 0.01pt 는 자기소개서 칸이 원본 그대로일 때 부동소수 오차로 학업계획서가 넘어가지 않게 봐준다.
         if (STUDY_PLAN_BOTTOM - y - header + 0.01f < minOf(height(studyPlan), STUDY_PLAN_BOTTOM - STUDY_PLAN_TOP)) {
-            // 빈 학업계획서 칸 하나 때문에 장을 늘리지 않는다. 자기소개서만 뽑을 때(renderEssay)와 작성 중인 원서다.
+            // 빈 학업계획서 칸 하나 때문에 장을 늘리지 않는다.
             if (studyPlan.isEmpty()) return
             nextPage()
         }

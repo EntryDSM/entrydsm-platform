@@ -89,11 +89,12 @@ class FileDocumentService(
         return ticketStage("sheet_render", null) { admissionTicketSheetPort.render(prepared) }
     }
 
-    override fun renderApplicationEssay(applicantId: Long): Pair<ByteArray?, ByteArray?> {
+    // 지원자 원서와 같은 서식에 두 본문을 함께 출력한다.
+    override fun renderApplicationEssay(applicantId: Long): ByteArray? {
         val applicant = applicantPort.findById(applicantId) ?: throw ApplicantNotFoundException(applicantId)
         val form = applicantPort.findApplicationForm(applicant.userId) ?: throw ApplicantNotFoundException(applicantId)
-        return form.introduction?.takeIf(String::isNotBlank)?.let { applicationFormPdfPort.renderEssay(form, true) } to
-            form.studyPlan?.takeIf(String::isNotBlank)?.let { applicationFormPdfPort.renderEssay(form, false) }
+        if (form.introduction.isNullOrBlank() && form.studyPlan.isNullOrBlank()) return null
+        return applicationFormPdfPort.renderEssay(form)
     }
 
     private fun ticket(applicantId: Long, applicant: Applicant, examineeNumber: String?): AdmissionTicket {
