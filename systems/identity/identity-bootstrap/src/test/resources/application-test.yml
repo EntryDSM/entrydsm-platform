@@ -32,9 +32,9 @@ auth:
   password:
     bcrypt-strength: 4
   login:
-    ip-max-attempts: 50
-    max-attempts: 5
-    window-seconds: 900
+    ip-max-attempts: 300
+    max-attempts: 30
+    window-seconds: 300
   password-reset:
     enabled: false
     max-attempts: 5

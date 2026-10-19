@@ -448,6 +448,60 @@ class AuthServiceTest {
         assertEquals(emptyMap<Long, Long>(), refreshTokenVersions)
     }
 
+    @Test
+    fun successfulLoginClearsPairFailuresWithoutRecordingFailure() {
+        val limiter = mock(AuthAttemptLimiter::class.java)
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account())
+        `when`(passwordHasher.matches("password123!", PASSWORD_HASH)).thenReturn(true)
+        service(limiter = limiter).login(LoginCommand("entry", "password123!"))
+        val order = org.mockito.Mockito.inOrder(limiter, queryPort, passwordHasher)
+        order.verify(limiter).checkLogin("entry", "unknown")
+        order.verify(queryPort).findByLoginId("entry")
+        order.verify(passwordHasher).matches("password123!", PASSWORD_HASH)
+        order.verify(limiter).recordLoginSuccess("entry", "unknown")
+        org.mockito.Mockito.verify(limiter, org.mockito.Mockito.never()).recordLoginFailure("entry", "unknown")
+    }
+
+    @Test
+    fun unknownAccountAndWrongPasswordBothRecordInvalidCredentialFailures() {
+        val limiter = mock(AuthAttemptLimiter::class.java)
+        val auth = service(limiter = limiter)
+        `when`(queryPort.findByLoginId("entry")).thenReturn(null).thenReturn(account())
+        repeat(2) {
+            val exception = assertThrows(IdentityDomainException::class.java) {
+                auth.login(LoginCommand("entry", "wrong-password"))
+            }
+            assertEquals(ErrorCode.INVALID_CREDENTIALS, exception.errorCode)
+        }
+        org.mockito.Mockito.verify(limiter, org.mockito.Mockito.times(2)).recordLoginFailure("entry", "unknown")
+        org.mockito.Mockito.verify(limiter, org.mockito.Mockito.never()).recordLoginSuccess("entry", "unknown")
+    }
+
+    @Test
+    fun inactiveAndMalformedLoginDoNotRecordCredentialFailure() {
+        val limiter = mock(AuthAttemptLimiter::class.java)
+        val auth = service(limiter = limiter)
+        assertThrows(IdentityDomainException::class.java) { auth.login(LoginCommand("", "password123!")) }
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account(AccountStatus.INACTIVE))
+        `when`(passwordHasher.matches("password123!", PASSWORD_HASH)).thenReturn(true)
+        assertEquals(ErrorCode.ACCOUNT_INACTIVE, assertThrows(IdentityDomainException::class.java) {
+            auth.login(LoginCommand("entry", "password123!"))
+        }.errorCode)
+        org.mockito.Mockito.verify(limiter, org.mockito.Mockito.never()).recordLoginFailure("entry", "unknown")
+        org.mockito.Mockito.verify(limiter, org.mockito.Mockito.never()).recordLoginSuccess("entry", "unknown")
+    }
+
+    @Test
+    fun concurrentLockDetectedAtSuccessfulPasswordCheckStillRejectsLogin() {
+        val limiter = mock(AuthAttemptLimiter::class.java)
+        `when`(queryPort.findByLoginId("entry")).thenReturn(account())
+        `when`(passwordHasher.matches("password123!", PASSWORD_HASH)).thenReturn(true)
+        doThrow(IdentityDomainException(ErrorCode.AUTH_ATTEMPTS_EXCEEDED)).`when`(limiter).recordLoginSuccess("entry", "unknown")
+        assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
+            service(limiter = limiter).login(LoginCommand("entry", "password123!"))
+        }.errorCode)
+    }
+
     private fun service(
         registration: AccountRegistrationPort = AccountRegistrationPort { _, _ -> account() },
         limiter: AuthAttemptLimiter = mock(AuthAttemptLimiter::class.java),

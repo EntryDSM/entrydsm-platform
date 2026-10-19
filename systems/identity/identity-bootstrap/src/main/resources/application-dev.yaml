@@ -35,9 +35,9 @@ auth:
   password:
     bcrypt-strength: ${BCRYPT_STRENGTH:12}
   login:
-    ip-max-attempts: ${AUTH_LOGIN_IP_MAX_ATTEMPTS:50}
-    max-attempts: ${AUTH_LOGIN_MAX_ATTEMPTS:5}
-    window-seconds: ${AUTH_LOGIN_WINDOW_SECONDS:900}
+    ip-max-attempts: ${AUTH_LOGIN_IP_MAX_ATTEMPTS:300}
+    max-attempts: ${AUTH_LOGIN_MAX_ATTEMPTS:30}
+    window-seconds: ${AUTH_LOGIN_WINDOW_SECONDS:300}
   password-reset:
     enabled: ${AUTH_PASSWORD_RESET_ENABLED:false}
     max-attempts: ${AUTH_PASSWORD_RESET_MAX_ATTEMPTS:5}
