@@ -1,0 +1,155 @@
+name: Deploy Only
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 배포할 서비스
+        required: true
+        type: choice
+        default: all
+        options:
+          - all
+          - gateway
+          - identity
+          - application
+          - notification
+          - configuration
+          - admin
+          - observability
+      image_tag:
+        description: 기존 이미지 태그 (비워두면 develop은 stag, main은 prod)
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    name: 배포 입력 확인
+    runs-on: ubuntu-latest
+    outputs:
+      hosts: ${{ steps.inputs.outputs.hosts }}
+      services: ${{ steps.inputs.outputs.services }}
+      image_tag: ${{ steps.inputs.outputs.image_tag }}
+      stage: ${{ steps.inputs.outputs.stage }}
+    steps:
+      - name: 서비스와 이미지 태그 검증
+        id: inputs
+        env:
+          BRANCH: ${{ github.ref_name }}
+          SERVICE: ${{ inputs.service }}
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
+          STAG_HOSTS: ${{ vars.STAG_DEPLOY_HOSTS }}
+          PROD_HOSTS: ${{ vars.PROD_DEPLOY_HOSTS }}
+        shell: python
+        run: |
+          import json
+          import os
+          import re
+
+          stages = {"develop": "stag", "main": "prod"}
+          branch = os.environ["BRANCH"]
+          if branch not in stages:
+              raise SystemExit("main 또는 develop 브랜치에서 실행하세요.")
+          stage = stages[branch]
+          services = ["gateway", "identity", "application", "notification", "configuration", "admin", "observability"]
+          service = os.environ["SERVICE"]
+          if service != "all" and service not in services:
+              raise SystemExit("지원하지 않는 서비스입니다.")
+          tag = os.environ["INPUT_IMAGE_TAG"] or stage
+          if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
+              raise SystemExit("올바른 Docker 이미지 태그를 입력하세요.")
+          hosts = json.loads(os.environ[stage.upper() + "_HOSTS"] or "[]")
+          if not isinstance(hosts, list) or not hosts or any(not isinstance(host, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.:-]*", host) for host in hosts):
+              raise SystemExit("해당 환경의 DEPLOY_HOSTS를 올바른 호스트 JSON 배열로 설정하세요.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("hosts=" + json.dumps(hosts, separators=(",", ":")) + "\n")
+              output.write("services=" + " ".join(services if service == "all" else [service]) + "\n")
+              output.write("image_tag=" + tag + "\n")
+              output.write("stage=" + stage + "\n")
+
+  deploy:
+    name: Deploy ${{ matrix.host }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        host: ${{ fromJSON(needs.prepare.outputs.hosts) }}
+    env:
+      HOST: ${{ matrix.host }}
+      STAGE: ${{ needs.prepare.outputs.stage }}
+      SERVICES: ${{ needs.prepare.outputs.services }}
+      IMAGE_TAG: ${{ needs.prepare.outputs.image_tag }}
+      DEPLOY_USER: ${{ vars[format('{0}_DEPLOY_USER', needs.prepare.outputs.stage == 'stag' && 'STAG' || 'PROD')] }}
+      DEPLOY_PATH: ${{ vars[format('{0}_DEPLOY_PATH', needs.prepare.outputs.stage == 'stag' && 'STAG' || 'PROD')] }}
+      HEALTHCHECK_URL: ${{ vars[format('{0}_HEALTHCHECK_URL', needs.prepare.outputs.stage == 'stag' && 'STAG' || 'PROD')] }}
+    steps:
+      - name: SSH 키 준비
+        env:
+          SSH_KEY: ${{ secrets[format('{0}_DEPLOY_SSH_KEY', needs.prepare.outputs.stage == 'stag' && 'STAG' || 'PROD')] }}
+          KNOWN_HOSTS: ${{ secrets[format('{0}_DEPLOY_KNOWN_HOSTS', needs.prepare.outputs.stage == 'stag' && 'STAG' || 'PROD')] }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ] || [ -z "$DEPLOY_USER" ] || [ -z "$DEPLOY_PATH" ] || [ -z "$HEALTHCHECK_URL" ]; then
+            echo "배포 환경의 SSH 및 헬스체크 설정이 없습니다."
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: 기존 이미지 배포
+        env:
+          GHCR_USERNAME: ${{ vars.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GHCR_USERNAME" ] || [ -z "$GHCR_TOKEN" ]; then
+            echo "GHCR_USERNAME 또는 GHCR_TOKEN이 없습니다."
+            exit 1
+          fi
+          printf '%s' "$GHCR_TOKEN" | ssh -i ~/.ssh/id_deploy "$DEPLOY_USER@$HOST" "
+            set -e
+            docker login ghcr.io -u '$GHCR_USERNAME' --password-stdin
+            cd '$DEPLOY_PATH'
+            export IMAGE_TAG='$IMAGE_TAG'
+            base=\$(mktemp)
+            override=\$(mktemp)
+            trap 'rm -f \"\$base\" \"\$override\"' EXIT
+            docker compose config > \"\$base\"
+            printf 'services:\n' > \"\$override\"
+            for service in $SERVICES; do
+              printf '  %s:\n    image: ghcr.io/entrydsm/entrydsm-%s:%s\n' \"\$service\" \"\$service\" '$IMAGE_TAG' >> \"\$override\"
+            done
+            docker compose --project-directory '$DEPLOY_PATH' -f \"\$base\" -f \"\$override\" pull $SERVICES
+            docker compose --project-directory '$DEPLOY_PATH' -f \"\$base\" -f \"\$override\" up -d --no-deps $SERVICES
+            if [ '$STAGE' = 'stag' ]; then
+              docker compose restart nginx
+            fi
+          "
+
+      - name: 배포 헬스체크
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 30); do
+            if ssh -i ~/.ssh/id_deploy "$DEPLOY_USER@$HOST" "curl -fsS '$HEALTHCHECK_URL'" | grep -q '"status":"UP"'; then
+              echo "$HOST 정상"
+              exit 0
+            fi
+            echo "$HOST 기동 대기 중... ($i/30)"
+            sleep 5
+          done
+          echo "$HOST 헬스체크 실패"
+          exit 1
