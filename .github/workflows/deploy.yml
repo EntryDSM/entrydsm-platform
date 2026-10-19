@@ -49,21 +49,43 @@ permissions:
   packages: write
 
 jobs:
+  changes:
+    name: 배포 대상 확인
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.services.outputs.services }}
+      service_args: ${{ steps.services.outputs.service_args }}
+      has_services: ${{ steps.services.outputs.has_services }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 변경된 서비스 확인
+        id: services
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          args=(--before "$BEFORE" --after "$AFTER")
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            args+=(--all)
+          fi
+          python3 .github/scripts/deploy_services.py "${args[@]}" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build ${{ matrix.service }}
+    needs: changes
+    if: needs.changes.outputs.has_services == 'true'
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        service:
-          - gateway
-          - identity
-          - application
-          - notification
-          - configuration
-          - admin
-          - observability
+        service: ${{ fromJSON(needs.changes.outputs.services) }}
 
     steps:
       - name: Checkout
@@ -127,9 +149,11 @@ jobs:
     name: Deploy STAG
 
     needs:
+      - changes
       - build
 
     if: |
+      needs.changes.outputs.has_services == 'true' &&
       github.ref_name == 'develop' &&
       vars.STAG_DEPLOY_HOSTS != ''
 
@@ -174,6 +198,7 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
 
           IMAGE_TAG: ${{ github.sha }}
+          SERVICES: ${{ needs.changes.outputs.service_args }}
         run: |
           if [ -z "$GHCR_USERNAME" ] || [ -z "$GHCR_TOKEN" ]; then
             echo "GHCR_USERNAME 또는 GHCR_TOKEN이 없습니다."
@@ -195,9 +220,9 @@ jobs:
           
               export IMAGE_TAG='$IMAGE_TAG'
           
-              docker compose pull
+              docker compose pull $SERVICES
           
-              docker compose up -d
+              docker compose up -d --no-deps $SERVICES
           
               docker compose restart nginx
           
@@ -237,9 +262,11 @@ jobs:
     name: Deploy PROD
 
     needs:
+      - changes
       - build
 
     if: |
+      needs.changes.outputs.has_services == 'true' &&
       github.ref_name == 'main' &&
       vars.PROD_DEPLOY_HOSTS != ''
 
@@ -284,6 +311,7 @@ jobs:
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
 
           IMAGE_TAG: ${{ github.sha }}
+          SERVICES: ${{ needs.changes.outputs.service_args }}
         run: |
           if [ -z "$GHCR_USERNAME" ] || [ -z "$GHCR_TOKEN" ]; then
             echo "GHCR_USERNAME 또는 GHCR_TOKEN이 없습니다."
@@ -305,9 +333,9 @@ jobs:
           
               export IMAGE_TAG='$IMAGE_TAG'
           
-              docker compose pull
+              docker compose pull $SERVICES
           
-              docker compose up -d
+              docker compose up -d --no-deps $SERVICES
           
               docker image prune -f
               "
