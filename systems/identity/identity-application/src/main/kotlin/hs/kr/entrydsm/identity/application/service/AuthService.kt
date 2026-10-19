@@ -89,18 +89,20 @@ class AuthService(
         return savedAccount.toAccountResult()
     }
 
+    // 자격 증명 실패만 누적하고 차단 확인 후 성공 상태를 반영한다.
     override fun login(command: LoginCommand): AuthTokenResult {
         requireValidPassword(command.password)
         if (command.loginId.isBlank()) throw IdentityDomainException(ErrorCode.INVALID_REQUEST_BODY)
         authAttemptLimiter.checkLogin(command.loginId, command.clientIp)
         val account = accountQueryPort.findByLoginId(command.loginId)
-            ?: throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
-        if (!passwordHasher.matches(command.password, account.passwordHash)) {
+        if (account == null || !passwordHasher.matches(command.password, account.passwordHash)) {
+            authAttemptLimiter.recordLoginFailure(command.loginId, command.clientIp)
             throw IdentityDomainException(ErrorCode.INVALID_CREDENTIALS)
         }
         if (account.status != AccountStatus.ACTIVE) {
             throw IdentityDomainException(ErrorCode.ACCOUNT_INACTIVE)
         }
+        authAttemptLimiter.recordLoginSuccess(command.loginId, command.clientIp)
         return issueTokens(account.userId, account.role, account.status, account.tokenVersion)
     }
 

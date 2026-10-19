@@ -38,7 +38,9 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
         val first = RedisAuthAttemptLimiter(template, hasher, namespace, ISSUER, 2, 1, 1, 30)
         val second = RedisAuthAttemptLimiter(template, hasher, namespace, ISSUER, 2, 1, 1, 30)
         first.checkLogin("known", "192.0.2.1")
+        first.recordLoginFailure("known", "192.0.2.1")
         second.checkLogin("known", "192.0.2.1")
+        second.recordLoginFailure("known", "192.0.2.1")
         assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
             first.checkLogin("known", "192.0.2.1")
         }.errorCode)
@@ -53,29 +55,94 @@ class RedisRefreshTokenRotationAdapterIntegrationTest {
     }
 
     @Test
-    fun concurrentLoginAttemptsDoNotExceedTheLimit() {
+    fun concurrentLoginFailuresSetOneLockWithoutContinuingToIncrement() {
+        val namespace = "attempt-${UUID.randomUUID()}"
         val limiter = RedisAuthAttemptLimiter(template, HmacLoginIdHasher("attempt-test-key"),
-            "attempt-${UUID.randomUUID()}", ISSUER, 5, 30, 5, 30)
+            namespace, ISSUER, 5, 30, 5, 30)
         val executor = Executors.newFixedThreadPool(16)
         val start = CountDownLatch(1)
         try {
             val results = (1..16).map {
                 executor.submit<Boolean> {
                     assertTrue(start.await(5, TimeUnit.SECONDS))
-                    try {
-                        limiter.checkLogin("known", "192.0.2.1")
-                        true
-                    } catch (exception: IdentityDomainException) {
-                        assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, exception.errorCode)
-                        false
-                    }
+                    limiter.recordLoginFailure("known", "192.0.2.1")
+                    true
                 }
             }
             start.countDown()
-            assertEquals(5, results.count { it.get(10, TimeUnit.SECONDS) })
+            assertEquals(16, results.count { it.get(10, TimeUnit.SECONDS) })
+            assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
+                limiter.checkLogin("known", "192.0.2.1")
+            }.errorCode)
+            val keys = template.keys("$namespace:*")
+            assertEquals(1, keys.count { it.endsWith(":lock") })
+            assertFalse(keys.any { it.contains(":login-failure-v2:") && it.endsWith(":count") })
         } finally {
             executor.shutdownNow()
         }
+    }
+
+    @Test
+    fun successesDoNotCountAndClearOnlyPairFailures() {
+        val limiter = RedisAuthAttemptLimiter(template, HmacLoginIdHasher("attempt-test-key"),
+            "attempt-${UUID.randomUUID()}", ISSUER, 2, 300, 5, 30, 3)
+        repeat(50) {
+            limiter.checkLogin("known", "192.0.2.1")
+            limiter.recordLoginSuccess("known", "192.0.2.1")
+        }
+        limiter.recordLoginFailure("known", "192.0.2.1")
+        limiter.recordLoginSuccess("known", "192.0.2.1")
+        limiter.recordLoginFailure("known", "192.0.2.1")
+        limiter.checkLogin("known", "192.0.2.1")
+        limiter.recordLoginFailure("other", "192.0.2.1")
+        assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
+            limiter.checkLogin("unrelated", "192.0.2.1")
+        }.errorCode)
+        limiter.checkLogin("known", "192.0.2.2")
+    }
+
+    @Test
+    fun productionThresholdsAllowThirtyPairAndThreeHundredSourceFailures() {
+        val limiter = RedisAuthAttemptLimiter(template, HmacLoginIdHasher("attempt-test-key"),
+            "attempt-${UUID.randomUUID()}", ISSUER, 30, 300, 5, 30, 300)
+        repeat(30) {
+            limiter.checkLogin("known", "192.0.2.1")
+            limiter.recordLoginFailure("known", "192.0.2.1")
+        }
+        assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
+            limiter.checkLogin("known", "192.0.2.1")
+        }.errorCode)
+        repeat(270) { index ->
+            limiter.checkLogin("other-$index", "192.0.2.1")
+            limiter.recordLoginFailure("other-$index", "192.0.2.1")
+        }
+        assertEquals(ErrorCode.AUTH_ATTEMPTS_EXCEEDED, assertThrows(IdentityDomainException::class.java) {
+            limiter.checkLogin("another", "192.0.2.1")
+        }.errorCode)
+    }
+
+    @Test
+    fun failureCounterRefreshesButLockTtlStartsAtThresholdAndNeverRefreshes() {
+        val namespace = "attempt-${UUID.randomUUID()}"
+        val hasher = HmacLoginIdHasher("attempt-test-key")
+        val limiter = RedisAuthAttemptLimiter(template, hasher, namespace, ISSUER, 3, 300, 5, 30)
+        val pairPrefix = "$namespace:$ISSUER:identity:auth-attempt:login-failure-v2:${hasher.hash("192.0.2.1\u0000known")}:"
+        limiter.recordLoginFailure("known", "192.0.2.1")
+        template.expire(pairPrefix + "count", 30, TimeUnit.SECONDS)
+        limiter.recordLoginFailure("other", "192.0.2.1")
+        // 다른 계정 실패는 pair의 유효기간을 갱신하지 않는다.
+        assertTrue(template.getExpire(pairPrefix + "count") <= 30)
+        limiter.recordLoginFailure("known", "192.0.2.1")
+        assertTrue(template.getExpire(pairPrefix + "count") in 298L..300L)
+        limiter.recordLoginFailure("known", "192.0.2.1")
+        assertTrue(template.getExpire(pairPrefix + "lock") in 298L..300L)
+        template.expire(pairPrefix + "lock", 2, TimeUnit.SECONDS)
+        limiter.recordLoginFailure("known", "192.0.2.1")
+        assertThrows(IdentityDomainException::class.java) { limiter.recordLoginSuccess("known", "192.0.2.1") }
+        assertTrue(template.getExpire(pairPrefix + "lock") <= 2)
+        Thread.sleep(2100)
+        limiter.checkLogin("known", "192.0.2.1")
+        limiter.recordLoginSuccess("known", "192.0.2.1")
     }
 
     @Before
