@@ -21,6 +21,8 @@ import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormRe
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
+import hs.kr.entrydsm.application.application.port.`in`.result.DraftApplicationResult
+import hs.kr.entrydsm.application.application.port.`in`.result.toDraftApplicationResult
 import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
 import hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator
 import hs.kr.entrydsm.application.application.port.out.ApplicantStatusChanged
@@ -54,6 +56,14 @@ class ApplicationCommandService(
     private val firstScreeningPublicationPolicy: FirstScreeningPublicationPolicy = FirstScreeningPublicationPolicy { false },
     private val applicantStatusEventOutbox: ApplicantStatusEventOutbox = ApplicantStatusEventOutbox {},
 ) : ApplicationPort {
+    // 기간 제한과 성적 재계산 없이 저장된 작성 중 원서를 읽는다.
+    @Transactional(readOnly = true)
+    override fun findDraftApplication(accountId: Long): DraftApplicationResult {
+        val applicant = applicantRepository.findByAccountId(accountId) ?: throw ApplicantNotFoundException(accountId)
+        APPLICATION_NOT_READABLE.requireValid(applicant.status == ApplicantStatus.DRAFT)
+        return applicant.toDraftApplicationResult()
+    }
+
     private val scoreCalculator = ScoreCalculator()
     private val editor = ApplicationFormEditor(accountPhoneValidator)
 

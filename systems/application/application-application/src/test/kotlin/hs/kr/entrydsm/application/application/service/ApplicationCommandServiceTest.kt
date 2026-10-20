@@ -40,6 +40,79 @@ import org.junit.Test
 
 class ApplicationCommandServiceTest {
     @Test
+    fun `작성 원서 조회는 기간 밖에서도 저장값만 반환하고 성적이나 원본을 변경하지 않는다`() {
+        val applicant = submittableGedApplicant().copy(status = ApplicantStatus.DRAFT, totalScore = null, totalScoreUpdatedAt = null,
+            zipCode = "01234", introduction = "저장 자기소개", studyPlan = "저장 학업계획")
+        val before = applicant.copy()
+        val repository = FakeApplicantRepository(applicant)
+        val service = ApplicationCommandService(repository, ApplicationPeriodReader { error("조회는 기간을 읽으면 안 된다") }, ACCEPT_PHONE,
+            applicantStatusEventOutbox = hs.kr.entrydsm.application.application.port.out.ApplicantStatusEventOutbox { error("조회 이벤트 금지") })
+
+        val result = service.findDraftApplication(10L)
+
+        assertEquals("01234", result.family.address.zipCode)
+        assertEquals(applicant.academicRecord?.gedScores, result.evaluation.gedScores)
+        assertEquals("저장 자기소개", result.introduction)
+        assertEquals("저장 학업계획", result.studyPlan)
+        assertEquals(before, applicant)
+        assertNull(applicant.totalScore)
+        assertNull(applicant.totalScoreUpdatedAt)
+        assertEquals(0, repository.saveCount)
+        assertNull(repository.deletedId)
+        assertEquals(1, repository.singleReadCount)
+    }
+
+    @Test
+    fun `원서가 없거나 다른 계정만 있으면 생성 없이 찾을 수 없음이다`() {
+        for (applicant in listOf(null, Applicant(id = 1, accountId = 20))) {
+            val repository = FakeApplicantRepository(applicant)
+            val service = ApplicationCommandService(repository, CLOSED, ACCEPT_PHONE)
+            assertThrows(hs.kr.entrydsm.application.application.exception.ApplicantNotFoundException::class.java) {
+                service.findDraftApplication(10L)
+            }
+            assertEquals(0, repository.saveCount)
+            assertNull(repository.deletedId)
+        }
+    }
+
+    @Test
+    fun `DRAFT 외 모든 상태는 조회를 거부하고 저장 상태를 보존한다`() {
+        for (status in ApplicantStatus.entries.filter { it != ApplicantStatus.DRAFT }) {
+            val applicant = Applicant(id = 1, accountId = 10, status = status)
+            val before = applicant.copy()
+            val repository = FakeApplicantRepository(applicant)
+            val failure = runCatching { ApplicationCommandService(repository, CLOSED, ACCEPT_PHONE).findDraftApplication(10L) }.exceptionOrNull()
+            assertNotNull("$status 조회를 허용하면 안 된다", failure)
+            assertEquals("작성 중인 원서만 조회할 수 있습니다.", failure?.message)
+            assertEquals(before, applicant)
+            assertEquals(0, repository.saveCount)
+        }
+    }
+
+    @Test
+    fun `학적 레코드의 유무와 저장된 학기 성적을 구별한다`() {
+        val applicant = Applicant(id = 1, accountId = 10)
+        val service = ApplicationCommandService(FakeApplicantRepository(applicant), CLOSED, ACCEPT_PHONE)
+        val empty = service.findDraftApplication(10L)
+        assertNull(empty.middleSchool)
+        assertNull(empty.evaluation.academicRecord)
+        assertNull(empty.evaluation.certificates)
+        assertNull(empty.evaluation.gedScores)
+        assertTrue(empty.evaluation.subjectGrades.isEmpty())
+        applicant.academicRecord = AcademicRecord(subjectGrades = linkedMapOf(
+            SchoolSemester.THIRD_GRADE_SECOND_SEMESTER to all(SubjectGrade.D),
+            SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to all(SubjectGrade.A),
+            SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to all(SubjectGrade.C),
+            SchoolSemester.SECOND_GRADE_SECOND_SEMESTER to all(SubjectGrade.B)))
+        val stored = service.findDraftApplication(10L)
+        assertEquals(listOf("2-1", "2-2", "3-1", "3-2"), stored.evaluation.subjectGrades.map { it.schoolSemester })
+        assertEquals(listOf(SubjectGrade.A, SubjectGrade.B, SubjectGrade.C, SubjectGrade.D), stored.evaluation.subjectGrades.map { it.subjects.koreanGrade })
+        assertEquals(0, stored.evaluation.academicRecord?.volunteerTime)
+        assertEquals(false, stored.evaluation.certificates?.isDsmAlgorithmAwarded)
+        assertEquals(false, stored.evaluation.certificates?.isProgrammingCertified)
+    }
+
+    @Test
     fun `발표 전 내부 합격과 불합격 결과는 지원자 조회에서 대기로 표시한다`() {
         for (status in listOf(hs.kr.entrydsm.application.domain.enum.PassResultStatus.PASS,
             hs.kr.entrydsm.application.domain.enum.PassResultStatus.FAIL)) {
