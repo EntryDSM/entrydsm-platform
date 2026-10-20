@@ -61,6 +61,9 @@ fun interface ApplicantDeletionPort {
 
 fun interface DistancePort {
     fun distanceFromSchool(address: String): Long
+
+    // 기존 단일 주소 구현과의 호환성을 유지한다.
+    fun distanceFromSchool(address: String, zipCode: String?): Long = distanceFromSchool(address)
 }
 
 interface ScorePolicyRepository {
