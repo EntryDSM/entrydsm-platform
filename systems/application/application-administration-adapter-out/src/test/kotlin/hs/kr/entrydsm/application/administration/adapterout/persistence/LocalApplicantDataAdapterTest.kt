@@ -20,6 +20,16 @@ import org.junit.Test
 
 class LocalApplicantDataAdapterTest {
     @Test
+    fun `목록 단건 상세 조회는 원서 우편번호의 선행 0과 null을 보존한다`() {
+        for (zipCode in listOf("01234", null)) {
+            val adapter = adapter(applicant().copy(zipCode = zipCode)) { form() }
+            assertEquals(zipCode, adapter.findAll(ApplicantFilter()).single().zipCode)
+            assertEquals(zipCode, adapter.findById(5)?.zipCode)
+            assertEquals(zipCode, adapter.findDetailById(5)?.applicant?.zipCode)
+        }
+    }
+
+    @Test
     fun absentApplicantReturnsNullWithoutReadingForm() {
         val adapter = adapter(null) { error("없는 지원자의 성적을 조회하면 안 된다") }
         assertNull(adapter.findDetailById(5))

@@ -210,7 +210,9 @@ class ApplicationCommandService(
         return applicantRepository.save(this)
     }
 
+    // 우편번호를 내부 조회 결과로 전달해 주소 검색 실패 시 좌표를 찾는다.
     private fun Applicant.toApplicantResult(): ApplicantResult = ApplicantResult(
+        zipCode = zipCode,
         statusVersion = statusVersion,
         applicantId = id,
         accountId = accountId,

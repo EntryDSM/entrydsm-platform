@@ -39,7 +39,7 @@ interface ApplicantJpaRepository : JpaRepository<ApplicantJpaEntity, Long> {
                a.birthdate as birthdate, a.phoneNumber as phoneNumber,
                a.graduationType as graduationType, a.totalScore as totalScore,
                a.status as status, a.submittedAt as submittedAt, a.gender as gender, a.addressBase as address,
-               a.statusVersion as statusVersion
+               a.statusVersion as statusVersion, a.zipCode as zipCode
           from ApplicantJpaEntity a
           left join a.middleSchoolInfo m
          where a.status in :statuses
@@ -67,4 +67,5 @@ interface ApplicantSummaryRow {
     val submittedAt: LocalDateTime?
     val gender: Gender?
     val address: String?
+    val zipCode: String?
 }

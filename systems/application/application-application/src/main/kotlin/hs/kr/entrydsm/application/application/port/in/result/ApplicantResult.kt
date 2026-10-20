@@ -31,4 +31,5 @@ data class ApplicantResult(
     val gender: Gender? = null,
     val address: String? = null,
     val statusVersion: Long = 0,
+    val zipCode: String? = null,
 )

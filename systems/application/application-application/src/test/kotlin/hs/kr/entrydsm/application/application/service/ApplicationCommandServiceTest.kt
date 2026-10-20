@@ -620,6 +620,23 @@ class ApplicationCommandServiceTest {
     }
 
     @Test
+    fun `단건과 목록 결과에 원서 우편번호를 보존한다`() {
+        for (zipCode in listOf("01234", null)) {
+            val applicant = submittableGedApplicant().copy(zipCode = zipCode)
+            val summary = ApplicantResult(
+                applicantId = 1L, accountId = 10L, name = null, schoolName = null,
+                region = null, admissionType = AdmissionType.REGULAR, photoFileId = null,
+                birthdate = null, phoneNumber = null, graduationType = GraduationType.GED,
+                totalScore = null, status = ApplicantStatus.SUBMITTED, submittedAt = null,
+                zipCode = zipCode,
+            )
+            val service = ApplicationCommandService(FakeApplicantRepository(applicant, listOf(summary)), OPEN, ACCEPT_PHONE)
+            assertEquals(zipCode, service.findApplicant(1L)?.zipCode)
+            assertEquals(zipCode, service.listApplicants().single().zipCode)
+        }
+    }
+
+    @Test
     fun scoreQueriesRecalculateMissingScoresOnlyOnce() {
         val queries: List<(ApplicationCommandService) -> Double?> = listOf(
             { it.findApplicant(1L)?.totalScore },
