@@ -1,6 +1,11 @@
 package hs.kr.entrydsm.application.administration.adapterout.distance
 
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
+import hs.kr.entrydsm.application.administration.adapterout.repository.PostalCodeLocationJpaRepository
+import hs.kr.entrydsm.application.administration.adapterout.entity.PostalCodeLocationJpaEntity
+import java.lang.reflect.Proxy
+import java.math.BigDecimal
+import java.util.Optional
 import org.junit.Assert.*
 import org.junit.Test
 import tools.jackson.databind.ObjectMapper
@@ -14,6 +19,55 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.slf4j.LoggerFactory
 
 class KakaoDistanceAdapterTest {
+    @Test
+    fun `검색 결과가 없으면 원서 우편번호 좌표를 카카오 경로 출발지로 사용한다`() {
+        val queries = mutableListOf<String>()
+        val lookups = mutableListOf<String>()
+        withServer(failedRequest = 0, body = """{"documents":[]}""", queries = queries) { base, requests ->
+            val adapter = adapter(base, postalCodes = postalRepository(lookups))
+            assertEquals(1234L, adapter.distanceFromSchool(ADDRESS, "01234"))
+            assertEquals(listOf("01234"), lookups)
+            assertEquals(3, requests.get())
+            assertTrue(queries.last(), queries.last().contains("origin=128.25,35.75&destination=127.123456,36.654321"))
+        }
+    }
+
+    @Test
+    fun `검색 성공은 우편번호 저장소를 조회하지 않는다`() = withServer { base, _ ->
+        val lookups = mutableListOf<String>()
+        assertEquals(1234L, adapter(base, postalCodes = postalRepository(lookups)).distanceFromSchool(ADDRESS, "01234"))
+        assertTrue(lookups.isEmpty())
+    }
+
+    @Test
+    fun `미등록 또는 누락 우편번호는 기존 오류를 유지한다`() {
+        for (zipCode in listOf("99999", null, "")) {
+            withServer(failedRequest = 0, body = """{"documents":[]}""") { base, requests ->
+                assertUnavailable { adapter(base, postalCodes = postalRepository(mutableListOf())).distanceFromSchool(ADDRESS, zipCode) }
+                assertEquals(1, requests.get())
+            }
+        }
+    }
+
+    @Test
+    fun `카카오 HTTP JSON 좌표 오류는 등록 우편번호가 있어도 대체하지 않는다`() {
+        for ((status, body) in listOf(503 to "장애", 200 to "broken-json", 200 to """{"documents":[{"x":"bad","y":"35.75"}]}""")) {
+            withServer(failedRequest = 0, status = status, body = body) { base, _ ->
+                val lookups = mutableListOf<String>()
+                assertUnavailable { adapter(base, postalCodes = postalRepository(lookups)).distanceFromSchool(ADDRESS, "01234") }
+                assertTrue(lookups.isEmpty())
+            }
+        }
+    }
+
+    private fun postalRepository(lookups: MutableList<String>): PostalCodeLocationJpaRepository =
+        Proxy.newProxyInstance(javaClass.classLoader, arrayOf(PostalCodeLocationJpaRepository::class.java)) { _, method, args ->
+            assertEquals("findById", method.name)
+            val zipCode = args[0] as String
+            lookups += zipCode
+            Optional.ofNullable(if (zipCode == "01234") PostalCodeLocationJpaEntity(zipCode, BigDecimal("35.75"), BigDecimal("128.25")) else null)
+        } as PostalCodeLocationJpaRepository
+
     @Test
     fun kakaoDistanceReadsCoordinatesAndMeterValue() {
         val adapter = KakaoDistanceAdapter(ObjectMapper(), "key", "https://local.test", "https://directions.test", "학교", 1000)
@@ -129,8 +183,8 @@ class KakaoDistanceAdapterTest {
         }
     }
 
-    private fun adapter(base: String, timeoutMs: Long = 3000) =
-        KakaoDistanceAdapter(ObjectMapper(), KEY, "$base/geocode", "$base/directions", SCHOOL, timeoutMs)
+    private fun adapter(base: String, timeoutMs: Long = 3000, postalCodes: PostalCodeLocationJpaRepository? = null) =
+        KakaoDistanceAdapter(ObjectMapper(), KEY, "$base/geocode", "$base/directions", SCHOOL, timeoutMs, postalCodes)
 
     private fun assertUnavailable(action: () -> Unit) {
         val failure = runCatching(action).exceptionOrNull()
@@ -171,12 +225,14 @@ class KakaoDistanceAdapterTest {
         status: Int = 200,
         body: String = "",
         delayMs: Long = 0,
+        queries: MutableList<String> = mutableListOf(),
         action: (String, AtomicInteger) -> Unit,
     ) {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         val requests = AtomicInteger()
         server.createContext("/") { exchange ->
             val index = requests.getAndIncrement()
+            queries += exchange.requestURI.rawQuery.orEmpty()
             try {
                 if (delayMs > 0) Thread.sleep(delayMs)
                 val payload = if (index == failedRequest) body else if (exchange.requestURI.path == "/directions") {

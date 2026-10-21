@@ -401,6 +401,7 @@ class ApplicationGrpcServiceTest {
     }
 
     private class FakeApplicationPort : ApplicationPort {
+        override fun findDraftApplication(accountId: Long): hs.kr.entrydsm.application.application.port.`in`.result.DraftApplicationResult = error("not used")
         var snapshot: ApplicationSnapshotResult? = null
         var examineeNumberUpdate: Pair<Long, String>? = null
 

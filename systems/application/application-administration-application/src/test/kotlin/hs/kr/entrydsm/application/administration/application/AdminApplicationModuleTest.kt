@@ -521,6 +521,43 @@ class AdminApplicationModuleTest {
     }
 
     @Test
+    fun `일괄 발급은 거리 오름차순과 동률 접수순을 유지하고 기존 번호 다음부터 발급한다`() {
+        val existing = Applicant(9L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON,
+            address = "기발급", isArrived = true, examineeNumber = "11007")
+        val repository = FakeApplicantRepository(listOf(
+            Applicant(3L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON, address = "동률3", zipCode = "01234", isArrived = true),
+            existing,
+            Applicant(2L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON, address = "동률2", zipCode = "34111", isArrived = true),
+            Applicant(1L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON, address = "가까움", isArrived = true),
+        ))
+        val requested = mutableListOf<Pair<String, String?>>()
+        val service = ApplicantService(
+            applicantRepository = repository,
+            applicantArrivalPort = ApplicantArrivalPort { _, _ -> },
+            distancePort = object : DistancePort {
+                override fun distanceFromSchool(address: String): Long = error("우편번호가 포함된 호출이어야 한다")
+                override fun distanceFromSchool(address: String, zipCode: String?): Long {
+                    requested += address to zipCode
+                    return when (address) {
+                        "가까움" -> 0L
+                        "동률2", "동률3" -> 1234L
+                        else -> error("기발급 지원자는 거리 조회 대상이 아니다")
+                    }
+                }
+            },
+            clock = Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+        )
+
+        val result = service.issueAll()
+
+        assertEquals(3, result.issuedCount)
+        assertEquals(mapOf(1L to "11008", 2L to "11009", 3L to "11010", 9L to "11007"),
+            repository.saved.associate { it.id to it.examineeNumber })
+        assertEquals(existing, repository.saved.single { it.id == 9L })
+        assertEquals(listOf("동률3" to "01234", "동률2" to "34111", "가까움" to null), requested)
+    }
+
+    @Test
     fun doesNotSaveAnyNumberWhenOneDistanceLookupFailsAndSkipsAlreadyIssuedApplicant() {
         val applicants = listOf(
             Applicant(1L, admissionType = AdmissionType.MEISTER, region = Region.DAEJEON, address = "주소1", isArrived = true),

@@ -65,21 +65,24 @@ class LocalApplicantDataAdapter(
         )
     }
 
+    // 원서 우편번호는 외부 응답 확장 없이 내부 모델에 직접 싣는다.
     override fun findAll(filter: ApplicantFilter): List<Applicant> {
         val screenings = screeningJpaRepository.findAll().associateBy { it.applicantId }
         return source { applicationPort.listApplicants() }
-            .map { it.toGrpcApplicant().toApplicant(screenings[it.applicantId]).copy(applicationVersion = it.statusVersion) }
+            .map { it.toGrpcApplicant().toApplicant(screenings[it.applicantId]).copy(applicationVersion = it.statusVersion, zipCode = it.zipCode) }
             .filter { it.matches(filter) }.sortedBy { it.id }
     }
 
+    // 단건 조회에도 원서의 우편번호를 유지한다.
     override fun findById(applicantId: Long): Applicant? =
         applicantId.takeIf { it > 0 }?.let {
             source(it) { applicationPort.findApplicant(it) }?.let { original ->
                 original.toGrpcApplicant().toApplicant(screeningJpaRepository.findById(it).orElse(null))
-                    .copy(applicationVersion = original.statusVersion)
+                    .copy(applicationVersion = original.statusVersion, zipCode = original.zipCode)
             }
         }
 
+    // 상세 조회에서도 동일한 원서 우편번호를 사용한다.
     override fun findDetailById(applicantId: Long): ApplicantDetail? {
         if (applicantId <= 0) return null
         val applicant = source(applicantId) { applicationPort.findApplicant(applicantId) } ?: return null
@@ -89,7 +92,7 @@ class LocalApplicantDataAdapter(
         return ApplicantDetail(
             semesterScores = sourceForm.score?.semesterScores?.mapKeys { it.key.name } ?: emptyMap(),
             version = form.statusVersion,
-            applicant = response.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null)).copy(applicationVersion = form.statusVersion),
+            applicant = response.toApplicant(screeningJpaRepository.findById(applicantId).orElse(null)).copy(applicationVersion = form.statusVersion, zipCode = applicant.zipCode),
             photoFileId = form.photoFileId.takeIf { form.hasPhotoFileId() },
             introduction = form.introduction.takeIf { form.hasIntroduction() },
             studyPlan = form.studyPlan.takeIf { form.hasStudyPlan() },

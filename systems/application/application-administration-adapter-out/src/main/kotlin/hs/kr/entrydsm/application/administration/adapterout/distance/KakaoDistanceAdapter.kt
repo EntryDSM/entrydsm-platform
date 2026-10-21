@@ -3,6 +3,7 @@ package hs.kr.entrydsm.application.administration.adapterout.distance
 import hs.kr.entrydsm.admin.domain.enum.ErrorCode
 import hs.kr.entrydsm.admin.domain.exception.AdminDomainException
 import hs.kr.entrydsm.admin.domain.port.out.DistancePort
+import hs.kr.entrydsm.application.administration.adapterout.repository.PostalCodeLocationJpaRepository
 import java.io.IOException
 import java.net.URI
 import java.net.URLEncoder
@@ -27,16 +28,20 @@ class KakaoDistanceAdapter(
     @Value("\${admin.maps.directions-url}") private val directionsUrl: String,
     @Value("\${admin.maps.school-address}") private val schoolAddress: String,
     @Value("\${admin.maps.timeout-ms}") private val timeoutMs: Long,
+    private val postalCodeLocations: PostalCodeLocationJpaRepository? = null,
 ) : DistancePort {
     private val logger = LoggerFactory.getLogger(javaClass)
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofMillis(timeoutMs)).build()
     private val schoolCoordinates by lazy { geocode(schoolAddress, "SCHOOL_GEOCODING") }
 
-    // 외부 응답과 예외 메시지 대신 단계와 안전한 원인만 남긴다.
-    override fun distanceFromSchool(address: String): Long {
+    // 우편번호 없는 기존 호출도 같은 경로 계산을 사용한다.
+    override fun distanceFromSchool(address: String): Long = distanceFromSchool(address, null)
+
+    // 검색 결과가 비었을 때만 원서 우편번호의 대표 좌표로 경로를 계산한다.
+    override fun distanceFromSchool(address: String, zipCode: String?): Long {
         var stage = "APPLICANT_GEOCODING"
         return try {
-            val origin = geocode(address, stage)
+            val origin = parseCoordinates(send("$geocodingUrl?query=${encode(address)}", stage), stage, zipCode)
             stage = "SCHOOL_GEOCODING"
             val destination = schoolCoordinates
             stage = "DIRECTIONS"
@@ -77,9 +82,16 @@ class KakaoDistanceAdapter(
     fun parseCoordinates(body: String): Coordinates = parseCoordinates(body, "APPLICANT_GEOCODING")
 
     // 검색 결과 없음과 좌표 형식 오류를 구분한다.
-    private fun parseCoordinates(body: String, stage: String): Coordinates {
+    private fun parseCoordinates(body: String, stage: String, zipCode: String? = null): Coordinates {
         val documents = objectMapper.readTree(body).path("documents")
-        if (documents.isArray && documents.isEmpty) unavailable(stage, "EMPTY_SEARCH")
+        if (documents.isArray && documents.isEmpty) {
+            if (stage == "APPLICANT_GEOCODING" && zipCode != null) {
+                postalCodeLocations?.findById(zipCode)?.orElse(null)?.let {
+                    return Coordinates(it.longitude.toDouble(), it.latitude.toDouble())
+                }
+            }
+            unavailable(stage, "EMPTY_SEARCH")
+        }
         val document = documents.path(0)
         val x = document.path("x").asText().toDoubleOrNull() ?: unavailable(stage, "COORDINATE_FORMAT")
         val y = document.path("y").asText().toDoubleOrNull() ?: unavailable(stage, "COORDINATE_FORMAT")
