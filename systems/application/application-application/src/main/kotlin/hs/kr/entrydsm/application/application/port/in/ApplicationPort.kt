@@ -14,8 +14,11 @@ import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationFormRe
 import hs.kr.entrydsm.application.application.port.`in`.result.ApplicationSnapshotResult
 import hs.kr.entrydsm.application.application.port.`in`.result.CreateApplicantResult
 import hs.kr.entrydsm.application.application.port.`in`.result.LandingResult
+import hs.kr.entrydsm.application.application.port.`in`.result.DraftApplicationResult
 
 interface ApplicationPort {
+    // 인증된 본인 계정의 작성 중 원서만 조회한다.
+    fun findDraftApplication(accountId: Long): DraftApplicationResult
     fun createApplicant(command: CreateApplicantCommand): CreateApplicantResult
     fun updateType(command: UpdateTypeCommand)
     fun updatePersonal(command: UpdatePersonalCommand)

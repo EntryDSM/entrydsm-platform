@@ -119,6 +119,7 @@ class ApplicantService(
         )
     }
 
+    // 원서 우편번호를 거리 계산에 전달하고 기존 발급 정책을 적용한다.
     @Transactional
     override fun issueAll(): ExamineeNumberIssueResult {
         val applicants = applicantRepository.findAll()
@@ -129,7 +130,7 @@ class ApplicantService(
             .filter { it.isArrived && it.examineeNumber == null && it.admissionType != null && it.region != null }
             .mapNotNull { applicant ->
                 applicant.address?.takeIf(String::isNotBlank)
-                    ?.let { applicant.id to distancePort.distanceFromSchool(it) }
+                    ?.let { applicant.id to distancePort.distanceFromSchool(it, applicant.zipCode) }
             }
             .toMap()
         val issuance = ExamineeNumberPolicy.issue(applicants, distances)

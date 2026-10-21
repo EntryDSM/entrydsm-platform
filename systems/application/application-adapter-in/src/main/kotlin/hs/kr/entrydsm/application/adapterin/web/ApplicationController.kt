@@ -11,6 +11,7 @@ import hs.kr.entrydsm.application.adapterin.web.dto.request.UpdateTypeRequest
 import hs.kr.entrydsm.application.adapterin.web.dto.response.CreateApplicantResponse
 import hs.kr.entrydsm.application.adapterin.web.dto.response.LandingResponse
 import hs.kr.entrydsm.application.application.port.`in`.ApplicationPort
+import hs.kr.entrydsm.application.application.port.`in`.result.DraftApplicationResult
 import hs.kr.entrydsm.application.application.port.`in`.command.CreateApplicantCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.SubmitApplicationCommand
 import hs.kr.entrydsm.application.application.port.`in`.command.UpdateFamilyCommand
@@ -41,6 +42,12 @@ import org.springframework.web.bind.annotation.RestController
 class ApplicationController(
     private val applicationPort: ApplicationPort,
 ) {
+    // 신뢰된 사용자 헤더의 본인 계정으로만 작성 중 원서를 조회한다.
+    @GetMapping
+    fun getDraftApplication(
+        @RequestHeader(USER_ID_HEADER) accountId: Long,
+    ): ApiResponse<DraftApplicationResult> = ApiResponse(data = applicationPort.findDraftApplication(accountId))
+
     @GetMapping("/landing")
     fun getLanding(
         @RequestHeader(USER_ID_HEADER) accountId: Long,

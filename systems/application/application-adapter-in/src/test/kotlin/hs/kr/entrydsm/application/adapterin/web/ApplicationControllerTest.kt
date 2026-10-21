@@ -30,8 +30,91 @@ import org.junit.Assert.assertThrows
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import hs.kr.entrydsm.application.application.exception.ApplicationAccessDeniedException
+import hs.kr.entrydsm.application.application.service.ApplicationCommandService
+import hs.kr.entrydsm.application.application.port.out.ApplicantRepository
+import hs.kr.entrydsm.application.application.port.out.ApplicationPeriodReader
+import hs.kr.entrydsm.application.domain.model.*
+import hs.kr.entrydsm.application.domain.enum.*
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.junit.Assert.assertTrue
 
 class ApplicationControllerTest {
+    @Test
+    fun `미입력 작성 원서는 필수 구조와 null 및 저장 기본값을 JSON에 보존한다`() {
+        val fixture = DraftFixture(Applicant(id = 1, accountId = 10))
+        val response = fixture.mvc.perform(get(DRAFT_URL).header("X-USER-ID", "10").header("X-User-Role", "STUDENT")).andReturn().response
+        assertEquals(200, response.status)
+        assertEquals(fixture.mapper.readTree("""{"success":true,"data":{"type":{"admissionType":null,"region":null,"graduationType":null,"graduationDate":null},"personal":{"photoFileId":null,"name":null,"phoneNumber":null,"gender":null,"birthdate":null,"specialAdmissionType":"NONE"},"family":{"guardianName":null,"guardianPhoneNumber":null,"guardianGender":null,"guardianRelation":null,"address":{"zipCode":null,"addressBase":null,"addressDetail":null}},"middleSchool":null,"evaluation":{"subjectGrades":[],"gedScores":null,"academicRecord":null,"certificates":null},"introduction":null,"studyPlan":null},"error":null}"""), fixture.mapper.readTree(response.contentAsString))
+        assertEquals(listOf(10L), fixture.lookups)
+    }
+
+    @Test
+    fun `저장 입력과 성적은 날짜 형식과 학기 순서를 지켜 반환하고 내부 정보는 제외한다`() {
+        val grades = SubjectGrades(SubjectGrade.A, SubjectGrade.B, SubjectGrade.C, SubjectGrade.D, SubjectGrade.E, SubjectGrade.X, SubjectGrade.A)
+        val applicant = Applicant(id = 99, accountId = 10, photoFileId = "photo_1", name = "지원자", phoneNumber = "01012345678",
+            gender = Gender.FEMALE, birthdate = java.time.LocalDate.of(2010, 3, 4), admissionType = AdmissionType.REGULAR,
+            region = Region.DAEJEON, graduationType = GraduationType.PROSPECTIVE, graduationDate = java.time.YearMonth.of(2027, 2),
+            guardianName = "보호자", guardianPhoneNumber = "01087654321", guardianGender = Gender.MALE, guardianRelation = "부",
+            zipCode = "01234", addressBase = "기본 주소", addressDetail = "상세 주소", introduction = "자기소개", studyPlan = "학업계획",
+            middleSchoolInfo = MiddleSchoolInfo("code", "중학교", "30101", "-", "담임", "반환금지 학교주소"),
+            academicRecord = AcademicRecord(absentCount = 1, lateCount = 2, earlyLeaveCount = 3, classAbsenceCount = 4, volunteerTime = 5,
+                isDsmAlgorithmAwarded = true, subjectGrades = linkedMapOf(SchoolSemester.THIRD_GRADE_FIRST_SEMESTER to grades,
+                    SchoolSemester.SECOND_GRADE_FIRST_SEMESTER to grades), gedScores = GedScores(100, 90, 80, 70, 60)),
+            totalScore = 123.45, examineeNumber = "11001", passStatus = PassResultStatus.PASS)
+        val before = applicant.copy()
+        val fixture = DraftFixture(applicant)
+        val response = fixture.mvc.perform(get(DRAFT_URL).header("X-USER-ID", "10").header("X-User-Role", "STUDENT")
+            .param("accountId", "20").param("applicantId", "99")).andReturn().response
+        assertEquals(200, response.status)
+        val expected = """{"success":true,"data":{"type":{"admissionType":"REGULAR","region":"DAEJEON","graduationType":"PROSPECTIVE","graduationDate":"2027-02"},"personal":{"photoFileId":"photo_1","name":"지원자","phoneNumber":"01012345678","gender":"FEMALE","birthdate":"2010-03-04","specialAdmissionType":"NONE"},"family":{"guardianName":"보호자","guardianPhoneNumber":"01087654321","guardianGender":"MALE","guardianRelation":"부","address":{"zipCode":"01234","addressBase":"기본 주소","addressDetail":"상세 주소"}},"middleSchool":{"schoolCode":"code","schoolName":"중학교","studentNumber":"30101","schoolPhone":"-","teacherName":"담임"},"evaluation":{"subjectGrades":[{"schoolSemester":"2-1","subjects":{"koreanGrade":"A","mathGrade":"B","englishGrade":"C","scienceGrade":"D","societyGrade":"E","technologyGrade":"X","historyGrade":"A"}},{"schoolSemester":"3-1","subjects":{"koreanGrade":"A","mathGrade":"B","englishGrade":"C","scienceGrade":"D","societyGrade":"E","technologyGrade":"X","historyGrade":"A"}}],"gedScores":{"koreanScore":100,"mathScore":90,"englishScore":80,"scienceScore":70,"societyScore":60,"technologyScore":null},"academicRecord":{"absentCount":1,"lateCount":2,"earlyLeaveCount":3,"classAbsenceCount":4,"volunteerTime":5},"certificates":{"isDsmAlgorithmAwarded":true,"isProgrammingCertified":false}},"introduction":"자기소개","studyPlan":"학업계획"},"error":null}"""
+        assertEquals(fixture.mapper.readTree(expected), fixture.mapper.readTree(response.contentAsString))
+        assertEquals(before, applicant)
+        assertEquals(listOf(10L), fixture.lookups)
+    }
+
+    @Test
+    fun `원서 없음과 모든 비작성 상태는 정해진 HTTP 오류로 응답한다`() {
+        for (status in listOf(null) + ApplicantStatus.entries.filter { it != ApplicantStatus.DRAFT }) {
+            val fixture = DraftFixture(status?.let { Applicant(id = 1, accountId = 10, status = it) })
+            val response = fixture.mvc.perform(get(DRAFT_URL).header("X-USER-ID", "10").header("X-User-Role", "STUDENT")).andReturn().response
+            assertEquals("$status: ${response.contentAsString}", if (status == null) 404 else 400, response.status)
+            val root = fixture.mapper.readTree(response.contentAsString)
+            assertEquals(false, root.path("success").asBoolean())
+            org.junit.Assert.assertFalse(root.has("data"))
+            assertEquals(if (status == null) "APPLICANT_NOT_FOUND" else "APPLICATION_NOT_READABLE", root.path("error").path("code").asString())
+            if (status != null) assertEquals("작성 중인 원서만 조회할 수 있습니다.", root.path("error").path("message").asString())
+        }
+    }
+
+    @Test
+    fun `조회는 미인증과 학생 외 권한을 차단하고 요청 계정으로 타인 원서를 조회하지 않는다`() {
+        val fixture = DraftFixture(Applicant(id = 1, accountId = 20))
+        assertEquals(401, fixture.mvc.perform(get(DRAFT_URL)).andReturn().response.status)
+        for (role in listOf("ADMIN", "TEACHER", "")) {
+            assertEquals(403, fixture.mvc.perform(get(DRAFT_URL).header("X-USER-ID", "10").header("X-User-Role", role)).andReturn().response.status)
+        }
+        assertTrue(fixture.lookups.isEmpty())
+        assertEquals(404, fixture.mvc.perform(get(DRAFT_URL).header("X-USER-ID", "10").header("X-User-Role", "STUDENT")
+            .param("accountId", "20").param("applicantId", "1")).andReturn().response.status)
+        assertEquals(listOf(10L), fixture.lookups)
+    }
+
+    private class DraftFixture(applicant: Applicant?) {
+        val lookups = mutableListOf<Long>()
+        val mapper = tools.jackson.module.kotlin.jacksonMapperBuilder().build()
+        private val repository = java.lang.reflect.Proxy.newProxyInstance(javaClass.classLoader, arrayOf(ApplicantRepository::class.java)) { _, method, args ->
+            check(method.name == "findByAccountId") { "조회 중 예상하지 않은 저장소 호출: ${method.name}" }
+            val accountId = args[0] as Long
+            lookups += accountId
+            applicant?.takeIf { it.accountId == accountId }
+        } as ApplicantRepository
+        val mvc = MockMvcBuilders.standaloneSetup(ApplicationController(ApplicationCommandService(repository,
+            ApplicationPeriodReader { error("조회 중 기간 확인 금지") }, hs.kr.entrydsm.application.application.port.out.AccountPhoneValidator { _, _ -> error("전화번호 검증 금지") })))
+            .setMessageConverters(org.springframework.http.converter.json.JacksonJsonHttpMessageConverter(mapper))
+            .addInterceptors(ApplicationAuthorizationInterceptor())
+            .setControllerAdvice(GlobalExceptionHandler()).build()
+    }
+
     @Test
     fun middleSchoolPassesLiteralDashForBothContactFields() {
         var command: UpdateMiddleSchoolCommand? = null
@@ -221,6 +304,7 @@ class ApplicationControllerTest {
     }
 
     private class FakeApplicationPort : ApplicationPort {
+        override fun findDraftApplication(accountId: Long): hs.kr.entrydsm.application.application.port.`in`.result.DraftApplicationResult = error("not used")
         var createApplicantCommand: CreateApplicantCommand? = null
 
         override fun listApplicants(): List<ApplicantResult> = emptyList()
@@ -256,6 +340,7 @@ class ApplicationControllerTest {
     }
 
     private companion object {
+        const val DRAFT_URL = "/api/application/v11/applicants"
         val applicationStartAt: LocalDateTime = LocalDateTime.parse("2026-10-19T09:00:00")
         val applicationEndAt: LocalDateTime = LocalDateTime.parse("2026-10-23T17:00:00")
         val resultAnnouncedAt: LocalDateTime = LocalDateTime.parse("2026-10-30T10:00:00")

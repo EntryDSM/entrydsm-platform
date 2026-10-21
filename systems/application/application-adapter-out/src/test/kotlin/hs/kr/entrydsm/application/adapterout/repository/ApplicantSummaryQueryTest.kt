@@ -79,6 +79,7 @@ class ApplicantSummaryQueryTest {
                 submittedAt = SUBMITTED_AT
                 gender = Gender.FEMALE
                 addressBase = "충청남도 천안시"
+                zipCode = "01234"
                 middleSchoolInfo = MiddleSchoolInfo(
                     schoolCode = "7031234",
                     schoolName = "대덕중학교",
@@ -105,6 +106,7 @@ class ApplicantSummaryQueryTest {
         assertEquals(SUBMITTED_AT, summary.submittedAt)
         assertEquals(Gender.FEMALE, summary.gender)
         assertEquals("충청남도 천안시", summary.address)
+        assertEquals("01234", summary.zipCode)
     }
 
     /** 제출 검증이 중학교를 요구하지 않으므로 낸 원서에도 없을 수 있다. 목록이 그 지원자를 빠뜨리면 안 된다. */
@@ -116,6 +118,7 @@ class ApplicantSummaryQueryTest {
 
         assertEquals(101L, summary.accountId)
         assertNull(summary.schoolName)
+        assertNull(summary.zipCode)
         assertNull(summary.totalScore)
         assertNull(applicantJpaRepository.findByAccountId(101L)?.toDomain()?.totalScore)
     }

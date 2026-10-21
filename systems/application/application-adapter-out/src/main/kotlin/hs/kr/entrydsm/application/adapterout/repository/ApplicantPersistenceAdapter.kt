@@ -53,10 +53,12 @@ class ApplicantPersistenceAdapter(
     override fun findAllByAccountIdIn(accountIds: List<Long>): List<Applicant> =
         applicantJpaRepository.findAllByAccountIdIn(accountIds).map { it.toDomain(includePassResults = false) }
 
+    // 일괄 발급의 주소 대체 좌표 조회에 필요한 우편번호도 전달한다.
     @Transactional(readOnly = true)
     override fun findSummariesByStatusIn(statuses: Set<ApplicantStatus>): List<ApplicantResult> =
         applicantJpaRepository.findSummariesByStatusIn(statuses).map {
             ApplicantResult(
+                zipCode = it.zipCode,
                 statusVersion = it.statusVersion,
                 applicantId = it.id,
                 accountId = it.accountId,

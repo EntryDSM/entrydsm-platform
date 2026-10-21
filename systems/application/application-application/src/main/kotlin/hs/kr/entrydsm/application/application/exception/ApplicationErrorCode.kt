@@ -149,7 +149,8 @@ enum class ApplicationErrorCode(
     APPLICATION_MIDDLE_SCHOOL_NOT_ALLOWED("middleSchool", "NOT_ALLOWED", "검정고시 지원자는 출신학교 정보를 입력할 수 없습니다."),
     APPLICATION_SUBJECTS_NOT_ALLOWED("subjects", "NOT_ALLOWED", "검정고시 지원자는 학교 성적을 입력할 수 없습니다."),
     APPLICATION_GED_SCORES_NOT_ALLOWED("gedScores", "NOT_ALLOWED", "검정고시 점수는 검정고시 지원자만 입력할 수 있습니다."),
-    APPLICATION_NOT_EDITABLE("status", "NOT_ALLOWED", "작성 중인 원서만 수정할 수 있습니다.");
+    APPLICATION_NOT_EDITABLE("status", "NOT_ALLOWED", "작성 중인 원서만 수정할 수 있습니다."),
+    APPLICATION_NOT_READABLE("status", "NOT_ALLOWED", "작성 중인 원서만 조회할 수 있습니다.");
 
     fun requireValid(condition: Boolean) {
         if (!condition) throw ApplicationValidationException(this)
